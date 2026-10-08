@@ -16,3 +16,7 @@ Instances/*.sqlite
 *.db
 static/uploads/
 static/uploads/
+docs/Git Token.txt
+*Token*.txt
+*token*.txt
+docs/*Token*
