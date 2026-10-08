@@ -11,3 +11,6 @@ web_log.txt
 ~$*
 .TarzTamin-Test-API Key.txt
 *API Key.txt
+Instances/*.db
+Instances/*.sqlite
+*.db
