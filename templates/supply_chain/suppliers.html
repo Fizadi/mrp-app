@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Supplier Management{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('supply_chain.supply_chain', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('supply_chain.suppliers', 'Suppliers') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('supplier_management.title', 'Supplier Management') }}</h2>
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('supply_chain.category', 'Category') }}</label>
+<input class="form-control" id="filterCategory" placeholder="e.g., Raw Material" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('supply_chain.rating_min', 'Rating Min') }}</label>
+<input class="form-control" id="filterRatingMin" max="100" min="0" step="0.1" type="number"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('supply_chain.rating_max', 'Rating Max') }}</label>
+<input class="form-control" id="filterRatingMax" max="100" min="0" step="0.1" type="number"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('supply_chain.status', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('supply_chain.all', 'All') }}</option>
+<option>{{ get_translation('supply_chain.active', 'Active') }}</option>
+<option>{{ get_translation('supply_chain.inactive', 'Inactive') }}</option>
+</select>
+</div>
+<div class="col-md-3 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('supply_chain.refresh', 'Refresh') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-3"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('supply_chain.total_suppliers', 'Total Suppliers') }}</h6><h3 id="kpiTotal">{{ get_translation('supply_chain.0', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('supply_chain.active_portal_users', 'Active Portal Users') }}</h6><h3 id="kpiPortal">{{ get_translation('supply_chain.0', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('supply_chain.average_rating', 'Average Rating') }}</h6><h3 id="kpiRating">{{ get_translation('supply_chain.0', '0') }}</h3></div></div></div>
+</div>
+<!-- Main Card -->
+<div class="card">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('supply_chain.suppliers_list', 'Suppliers List') }}</span>
+<button class="btn btn-sm btn-success" id="addSupplierBtn">{{ get_translation('supply_chain._add_supplier', '+ Add Supplier') }}</button>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr><th>{{ get_translation('supply_chain.code', 'Code') }}</th><th>{{ get_translation('supply_chain.name', 'Name') }}</th><th>{{ get_translation('supply_chain.category', 'Category') }}</th><th>{{ get_translation('supply_chain.overall_rating', 'Overall Rating') }}</th><th>{{ get_translation('supply_chain.status', 'Status') }}</th><th>{{ get_translation('supply_chain.actions', 'Actions') }}</th></tr>
+</thead>
+<tbody id="suppliersBody">
+<tr><td class="text-center" colspan="6">{{ get_translation('supply_chain.loading', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Add Supplier Modal -->
+<div class="modal fade" id="addSupplierModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('supply_chain.add_supplier', 'Add Supplier') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="supplierForm">
+<div class="row mb-3">
+<div class="col-md-4"><label>{{ get_translation('supply_chain.supplier_code_', 'Supplier Code *') }}</label><input class="form-control" id="supCode" required="" type="text"/></div>
+<div class="col-md-8"><label>{{ get_translation('supply_chain.supplier_name_', 'Supplier Name *') }}</label><input class="form-control" id="supName" required="" type="text"/></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-4"><label>{{ get_translation('supply_chain.category_', 'Category *') }}</label><input class="form-control" id="supType" required="" type="text"/></div>
+<div class="col-md-8"><label>{{ get_translation('supply_chain.email_', 'Email *') }}</label><input class="form-control" id="supEmail" required="" type="email"/></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-4"><label>{{ get_translation('supply_chain.contact_person', 'Contact Person') }}</label><input class="form-control" id="supContact" type="text"/></div>
+<div class="col-md-4"><label>{{ get_translation('supply_chain.phone', 'Phone') }}</label><input class="form-control" id="supPhone" type="text"/></div>
+<div class="col-md-4"><label>{{ get_translation('supply_chain.payment_terms', 'Payment Terms') }}</label><input class="form-control" id="supTerms" type="text"/></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-4"><label>{{ get_translation('supply_chain.lead_time_days', 'Lead Time (days)') }}</label><input class="form-control" id="supLeadTime" type="number"/></div>
+</div>
+<div class="mb-3"><label>{{ get_translation('supply_chain.address', 'Address') }}</label><textarea class="form-control" id="supAddress" rows="2"></textarea></div>
+<div class="row mb-3">
+<div class="col-md-6"><label>{{ get_translation('supply_chain.city', 'City') }}</label><input class="form-control" id="supCity" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('supply_chain.country', 'Country') }}</label><input class="form-control" id="supCountry" type="text"/></div>
+</div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="confirmAddSupplier" type="button">{{ get_translation('supply_chain.save', 'Save') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Modals for Portal User, Share Document, Details (simplified) -->
+<!-- For brevity, include them similarly; you can expand later -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Server-side translated strings for dynamic buttons
+var portalUserText = "{{ get_translation('global.portal_user', 'Portal User') }}";
+var shareDocText   = "{{ get_translation('global.share_doc', 'Share Doc') }}";
+var detailsText    = "{{ get_translation('global.details', 'Details') }}";
+
+$(document).ready(function() {
+    function loadSuppliers() {
+        var params = {};
+        if ($('#filterCategory').val()) params.category = $('#filterCategory').val();
+        if ($('#filterRatingMin').val()) params.rating_min = $('#filterRatingMin').val();
+        if ($('#filterRatingMax').val()) params.rating_max = $('#filterRatingMax').val();
+        if ($('#filterStatus').val()) params.status = $('#filterStatus').val();
+
+        $.get('/api/supply-chain/suppliers/list', params, function(data) {
+            $('#kpiTotal').text(data.kpi.total);
+            $('#kpiPortal').text(data.kpi.activePortal);
+            $('#kpiRating').text(data.kpi.avgRating);
+
+            var tbody = $('#suppliersBody');
+            if (!data.items.length) {
+                tbody.html('<tr><td colspan="6" class="text-center">No suppliers found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(data.items, function(i, s) {
+                // ✅ Support both field names — backend may return `rating` OR `overallRating`
+                var rating = (s.overallRating !== undefined && s.overallRating !== null)
+                    ? s.overallRating
+                    : (s.rating || 0);
+
+                // ✅ Support both status shapes — backend may return `status` (string) OR `isActive` (bool)
+                var isActive = (s.status !== undefined)
+                    ? (s.status === 'Active')
+                    : !!s.isActive;
+
+                // Status badge built from the derived boolean (works either way)
+                var statusBadge = isActive
+                    ? '<span class="badge bg-success">Active</span>'
+                    : '<span class="badge bg-secondary">Inactive</span>';
+
+                // Rating badge class from the derived numeric value
+                var ratingClass = rating >= 80 ? 'success' : (rating >= 60 ? 'warning' : 'danger');
+
+                rows += `<tr>
+                    <td><a href="#" class="supplier-link" data-id="${s.id}">${s.code}</a></td>
+                    <td>${s.name}</td>
+                    <td>${s.category}</td>
+                    <td><span class="badge bg-${ratingClass}">${rating}</span></td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary portal-btn" data-id="${s.id}" data-name="${s.name}">${portalUserText}</button>
+                        <button class="btn btn-sm btn-info share-btn" data-id="${s.id}">${shareDocText}</button>
+                        <button class="btn btn-sm btn-outline-primary detail-btn" data-id="${s.id}">${detailsText}</button>
+                    </td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    // Add Supplier modal logic
+    $('#addSupplierBtn').click(function() {
+        $('#supplierForm')[0].reset();
+        $('#addSupplierModal').modal('show');
+    });
+    $('#confirmAddSupplier').click(function() {
+        var data = {
+            supplierCode: $('#supCode').val(),
+            supplierName: $('#supName').val(),
+            supplierType: $('#supType').val(),
+            email: $('#supEmail').val(),
+            contactPerson: $('#supContact').val(),
+            phone: $('#supPhone').val(),
+            paymentTerms: $('#supTerms').val(),
+            leadTimeDays: $('#supLeadTime').val(),
+            address: $('#supAddress').val(),
+            city: $('#supCity').val(),
+            country: $('#supCountry').val()
+        };
+        if (!data.supplierCode || !data.supplierName || !data.supplierType || !data.email) {
+            alert('Please fill all required fields (Code, Name, Category, Email)');
+            return;
+        }
+        $.ajax({
+            url: '/api/supply-chain/suppliers',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                $('#addSupplierModal').modal('hide');
+                loadSuppliers();
+            },
+            error: function(xhr) { alert(xhr.responseJSON.error); }
+        });
+    });
+
+    // Portal User creation
+    $(document).on('click', '.portal-btn', function() {
+        var supplierId = $(this).data('id');
+        var supplierName = $(this).data('name');
+        var username = prompt('Enter username for portal user:', 'user_' + supplierId);
+        if (username) {
+            var fullName = prompt('Full name:', supplierName + ' Portal User');
+            var email = prompt('Email address:', '');
+            if (email) {
+                $.ajax({
+                    url: `/api/supply-chain/suppliers/${supplierId}/portal-user`,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ username: username, fullName: fullName, email: email, password: 'changeme123' }),
+                    success: function() { alert('Portal user created. Default password: changeme123'); loadSuppliers(); },
+                    error: function(xhr) { alert(xhr.responseJSON.error); }
+                });
+            }
+        }
+    });
+
+    // Share Document
+    $(document).on('click', '.share-btn', function() {
+        var supplierId = $(this).data('id');
+        var fileInput = $('<input type="file">');
+        fileInput.on('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var formData = new FormData();
+            formData.append('file', file);
+            var title = prompt('Document title (optional):', 'Shared document');
+            if (title) formData.append('title', title);
+            $.ajax({
+                url: `/api/supply-chain/suppliers/${supplierId}/share-document`,
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function() { alert('Document uploaded and shared'); },
+                error: function() { alert('Upload failed'); }
+            });
+        });
+        fileInput.click();
+    });
+
+    // View Supplier Details
+    $(document).on('click', '.supplier-link, .detail-btn', function(e) {
+        e.preventDefault();
+        var supplierId = $(this).data('id');
+        alert(`Details for supplier ${supplierId} – implement full detail view as needed`);
+    });
+
+    $('#refreshBtn').click(loadSuppliers);
+    loadSuppliers();
+});
+</script>
+{% endblock %}

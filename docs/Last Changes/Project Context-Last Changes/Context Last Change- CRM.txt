@@ -1,0 +1,262 @@
+PART A — Project Context (v47)
+Replace the entire Project Context document with this. Version bumped v46 → v47. Only additions and corrections; all v46 content retained.
+
+PROJECT CONTEXT (v47) — COMPLETE SYSTEM DOCUMENTATION
+GLOBAL — APPLIES TO ALL MODULES
+
+VERSION HISTORY
+Version	Changes
+v16–v42	(retained — see v46 for full history)
+v43–v45	(retained — see v46)
+v46	SQL Server migration rules; NVARCHAR casting; date-keys; translations; sticky headers
+v47	Dual-calendar system finalized; dual-picker architecture (Flatpickr + MdsPersianDateTimePicker); date display/entry standardization; *_formatted API convention; unified language switch route; landing page enhancements; ack of the "no CDN" mandate.
+1. TECH STACK (v47 — unchanged except calendar)
+Component	Technology
+Backend	Flask, Flask-SQLAlchemy, Flask-Login
+Frontend	Bootstrap 5 (local), jQuery 3.x (local), FontAwesome (self-hosted)
+Database	SQL Server Express (Production) · SQLite (Dev/Test only)
+Migrations	Alembic
+Multilingual	t_Translations (UI) + *Local columns (data)
+Date storage	DateKey INTEGER (YYYYMMDD) — single source of truth
+Calendars	Gregorian · Persian (Hijri Shamsi) · Hijri
+Calendar source	DimDate table — only converter
+Date picker (EN)	Flatpickr (local)
+Date picker (FA)	md.bootstrappersiandatetimepicker (local) — global window.mds.MdsPersianDateTimePicker
+Charts	Chart.js (local)
+Gantt	Frappe Gantt (local)
+CDN policy	ZERO CDN dependency — every asset self-hosted
+1.1 CRITICAL POST-MIGRATION NOTE (retained from v46)
+After SQLite → SQL Server migration, most numeric/boolean columns were declared NVARCHAR (text) instead of DECIMAL/INT/BIT.
+
+Universal rules:
+
+Numeric NVARCHAR in SQL → CAST(col AS DECIMAL(18,4))
+
+Numeric NVARCHAR in Python → safe_float(value)
+
+Boolean NVARCHAR in SQL → WHERE col = '1'
+
+Boolean NVARCHAR in Python → is_active_true(value)
+
+2. STICKY TABLE HEADERS (retained from v46 §2)
+(no change)
+
+3. INDUSTRY SWITCHER (retained from v46 §3)
+(no change)
+
+4. INDUSTRY & PROJECT FILTERING (retained from v46 §4)
+(no change)
+
+5. BLUEPRINT ORGANIZATION (retained from v46 §5)
+(no change)
+
+6. UNIFIED FILE STRUCTURE (retained from v46 §6)
+(no change)
+
+7. TRANSLATION & CALENDAR SYSTEM (v47 — UPDATED)
+7.1 Overview
+The system supports dual-language (EN/FA) and dual-calendar (Gregorian/Persian/Hijri) switching across ALL modules.
+
+Fundamental principle:
+
+DateKey is the only storage format. The calendar is a display concern only. DimDate is the only converter.
+
+7.2 Two-Layer Translation System (unchanged)
+Layer	What It Translates	Storage	Mechanism
+UI	Buttons, headers, menu	t_Translations	get_translation('key')
+Data	Product/project/customer names	FieldName + FieldNameLocal	get_localized()
+Calendar	Date display	DimDate	format_date()
+7.3 Calendar Switching — CORRECTED FLOW (v47)
+The language switch is unified into a SINGLE route.
+
+text
+User clicks "فارسی" / "English" in sidebar
+    │
+    ▼
+window.location.href = '/switch_language/<lang>'
+    │
+    ▼
+Server: switch_language(lang)
+    session['lang']     = lang
+    session['calendar'] = 'persian' if lang == 'fa' else 'gregorian'   ← BOTH set together
+    return redirect(request.referrer or '/')
+    │
+    ▼
+Page reloads with both session values in sync
+    │
+    ▼
+All subsequent requests use the SAME session state
+RULE: There is no separate /api/set-language. There is no separate calendar field in the UI. The calendar is derived from the language. If a future requirement needs "Persian user viewing Gregorian dates", introduce a separate session['calendar_override'] — do not split the switch logic.
+
+Anti-pattern (removed in v47): sidebar calling /api/set-language with a body {language: 'en'} that only sets lang but leaves calendar='persian'. This caused the "English UI showing Persian dates" bug.
+
+7.4 Calendar Configuration
+Language	Default Calendar	Date Format	Example
+English (en)	Gregorian	YYYY-MM-DD	2026-09-12
+Farsi (fa)	Persian (Hijri Shamsi)	YYYY/MM/DD	1405/06/21
+7.5 Local Files Required (NO CDN)
+File	Purpose
+static/js/flatpickr.min.js + flatpickr.min.css	Gregorian picker
+static/js/mds.bs.datetimepicker.js + mds.bs.datetimepicker.style.css	Persian picker
+static/js/date-utils.js	Auto-init wrapper — dispatches to the correct picker
+static/js/chart.umd.min.js	Charts
+static/js/frappe-gantt.min.js + CSS	Gantt
+static/js/jquery-3.6.0.min.js, bootstrap.bundle.min.js	Core
+7.6 Date Display / Entry Conventions (v47 — NEW)
+Storage: every date column is INTEGER named <Something>DateKey (YYYYMMDD, Gregorian-based).
+
+Display in tables (server-side):
+
+html
+<td>{{ display_date(row.ExpectedCloseDateKey) }}</td>
+display_date() reads session['calendar'] and formats via DimDate.
+
+Display in tables (JS-rendered rows):
+
+javascript
+var closeDate = opp.expected_close_date_formatted || '-';
+Never slice date_key client-side. Never convert client-side. The server returns the formatted string.
+
+Entry via picker:
+
+In English mode → Flatpickr (Gregorian grid), value = YYYY-MM-DD
+
+In Persian mode → mds.MdsPersianDateTimePicker (Jalali grid), hidden value = YYYY-MM-DD
+
+Both pickers write Gregorian ISO into the input; date-utils.js converts to DateKey on submit.
+
+API request parameters (filters) always send Gregorian ISO or DateKey — never Jalali strings.
+
+7.7 The *_formatted API Convention (v47 — NEW, MANDATORY)
+Every API that returns a date key MUST also return a *_formatted twin.
+
+Python (in every module's api.py):
+
+python
+from app.core.date_helpers import format_date
+
+# ... inside the row loop:
+'expected_close_date_key': row[5],
+'expected_close_date_formatted': format_date(row[5]) if row[5] else '',
+Naming: <camelCaseOfKey>Formatted — e.g. expected_close_date_key → expected_close_date_formatted; DueDateKey → dueDateFormatted.
+
+Why: server is the single source of truth for calendar display. Client never computes dates.
+
+7.8 date_utils.js Behavior Contract (v47)
+static/js/date-utils.js is the only file responsible for picker initialization. Every page inherits it. Do NOT add per-page picker scripts.
+
+On DOM ready:
+
+Reads window.currentCalendar (injected by base.html from session).
+
+Finds every input[type="date"], .date-picker, .date-picker-hidden.
+
+Destroys any existing picker on the element.
+
+Initializes:
+
+Gregorian → flatpickr(el, { dateFormat: 'Y-m-d' })
+
+Persian → new mds.MdsPersianDateTimePicker(visibleSibling, {...})
+
+Exposes:
+
+window.initDatePickers(root) — full pass
+
+window.reinitDatePickers() — called after a modal opens
+
+window.toDateKey(str) / window.fromDateKey(key) — helpers
+
+Persian picker construction (canonical):
+
+javascript
+new mds.MdsPersianDateTimePicker(visibleEl, {
+    targetTextSelector: '#' + visibleId,
+    targetDateSelector: '#' + el.id,     // hidden input receives Gregorian ISO
+    isGregorian: false,
+    dateFormat: 'yyyy-MM-dd',            // value written to hidden input
+    textFormat: 'yyyy/MM/dd',            // Jalali text user sees
+    enableTimePicker: false
+});
+Known global: the library exposes window.mds.MdsPersianDateTimePicker. It does NOT expose window.MdsPersianDateTimePicker — always access via window.mds.
+
+7.9 Modal Re-init Rule (v47 — MANDATORY)
+Modals hidden on page load are skipped by the initial pass. Every modal that contains a date input needs ONE line:
+
+javascript
+$('#myModalId').on('shown.bs.modal', function () {
+    if (typeof window.reinitDatePickers === 'function') {
+        window.reinitDatePickers();
+    }
+});
+7.10 Migration Recipe — Apply to Any Page
+4 steps. No exceptions.
+
+API — for every *DateKey returned, add *Formatted via format_date().
+
+Template (table) — replace manual date slicing with {{ display_date(row.MyDateKey) }} (Jinja) or item.myDateFormatted (JS).
+
+Template (inputs) — leave <input type="date"> as-is. No extra markup needed.
+
+Modals — add shown.bs.modal re-init (one line per modal).
+
+No other files change. date_utils.js, date_helpers.py, base.html are global and complete.
+
+7.11 Common Pitfalls (v47 — NEW)
+Symptom	Cause	Fix
+English mode shows Persian dates	/switch_language not setting calendar; or sidebar calls /api/set-language instead	Route must set BOTH lang and calendar; sidebar must call /switch_language/<lang>
+Persian mode shows Gregorian picker	window.currentCalendar undefined at init time	Check base.html injects it BEFORE date-utils.js loads
+Picker opens but shows Gregorian grid with Persian labels	Flatpickr (not the mds one) is initializing	Confirm mds.bs.datetimepicker.js loaded and window.mds.MdsPersianDateTimePicker exists
+Modal date input has no picker	Auto-init ran before modal shown	Add shown.bs.modal handler
+Date off by one day	Client-side new Date() timezone drift	Never compute dates client-side
+API returns *_formatted: '' even in Persian mode	format_date reads session['calendar'] = gregorian	Verify session after language switch
+8. LESSONS LEARNED (GLOBAL) — v47 additions only
+8.22 Dual-Calendar Implementation (v47 — NEW)
+Issue	Solution
+mds.persian-datepicker package deleted from npm	Use md.bootstrappersiandatetimepicker@4.x instead
+flatpickr-wrap GitHub repo only ships TypeScript source	Requires Node build step — not suitable for this offline Flask app
+window.MdsPersianDateTimePicker undefined	Correct global is window.mds.MdsPersianDateTimePicker
+Flatpickr core has no Jalali grid	Must use the md.* library for Persian; Flatpickr only for Gregorian
+Bundled flatpickr-fa.js changes labels only, not grid	Do not confuse locale files with calendar support
+base.html script order	jQuery → Bootstrap → Flatpickr → mds picker → date-utils.js — strictly this order
+8.23 Language Switch Route (v47 — NEW)
+Issue	Solution
+Sidebar used /api/set-language (POST)	Replaced with window.location.href = '/switch_language/' + lang
+Session calendar stuck on persian after switching to English	/switch_language sets both lang and calendar in one call
+Two routes fighting (/api/set-language + /switch_language)	Deprecate /api/set-language — single source of truth
+9–19. (Retained unchanged from v46)
+Sections 9 (Module Checklist), 10 (Common Errors), 11 (Page Count Summary), 12 (Scenario Mapping), 13 (Job Order Detail), 14 (New Learnings), 15–18 (Module page listings), 19 (SQL Server Quick Reference) — all content from v46 remains valid.
+
+20. LANDING PAGE (v47 — NEW, supplementary)
+The public landing page at the host root (public_html/index.html) is a separate artifact — a bilingual marketing page, not part of the Flask app. It follows its own conventions:
+
+Two content blocks: <div id="en-content"> / <div id="fa-content">
+
+Client-side language toggle via localStorage.preferredLang
+
+No server round-trip
+
+Same "no CDN" rule applies — all assets referenced are within public_html/static/
+
+Landing page enhancements (v47):
+
+"Powered-by" capability band under hero
+
+4-step "How It Works" flow
+
+12-module badge grid
+
+Reorganized 4-group gallery (Sales → Engineering → Production → Quality)
+
+3-tier packages section ("Contact for Pricing")
+
+FAQ section
+
+Brochure download buttons (target: brochures/taraz-tamin-{en,fa}.pdf)
+
+Privacy / Terms / Contact footer
+
+Reminder (not user-visible): LinkedIn placeholder in footer, activate when ready.
+
+END OF PROJECT CONTEXT (v47) — GLOBAL DOCUMENT
+

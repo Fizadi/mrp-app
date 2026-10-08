@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-clipboard-list me-2"></i>{{ get_translation('auto.d04815f1', 'Audit Management') }}</h2>
+<div>
+<button class="btn btn-primary me-2" id="createAuditBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.b9697b2f', 'Plan Audit') }}</button>
+<button class="btn btn-success me-2" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.d8b105f5', 'Refresh') }}</button>
+<button class="btn btn-info" id="exportCsvBtn"><i class="fas fa-file-csv"></i>{{ get_translation('auto.456907b7', 'Export CSV') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-info h-100">
+<div class="card-body text-center">
+<h5 class="text-info">{{ get_translation('auto.d9481aac', 'Planned') }}</h5>
+<p class="display-6" id="kpiPlanned">{{ get_translation('auto.e95a1014', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.69c16c22', 'In Progress') }}</h5>
+<p class="display-6" id="kpiInProgress">{{ get_translation('auto.3fb70733', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="text-success">{{ get_translation('auto.42bd8c8e', 'Completed') }}</h5>
+<p class="display-6" id="kpiCompleted">{{ get_translation('auto.b09eabd7', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.90f9031d', 'Audit Type') }}</label>
+<select class="form-select" id="filterType">
+<option value="">{{ get_translation('auto.6cdef726', 'All') }}</option>
+<option>{{ get_translation('auto.0457ddc3', 'Internal') }}</option><option>{{ get_translation('auto.3f5868e1', 'External') }}</option><option>{{ get_translation('auto.e7a0dde4', 'Supplier') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.86a6ca09', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.63c7f32c', 'All') }}</option>
+<option>{{ get_translation('auto.e3547bff', 'Planned') }}</option><option>{{ get_translation('auto.94c59a78', 'InProgress') }}</option><option>{{ get_translation('auto.e1551390', 'Completed') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.cb33b6d9', 'Date From') }}</label>
+<input class="form-control" id="dateFrom" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.4092c0bd', 'Date To') }}</label>
+<input class="form-control" id="dateTo" type="date"/>
+</div>
+</div>
+<div class="row mt-3">
+<div class="col-md-12">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.16f4bf5c', 'Apply Filters') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Audits Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-list"></i>{{ get_translation('auto.e87a5aea', 'Audit Schedule') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="auditsTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.90e2c3eb', 'Audit #') }}</th><th>{{ get_translation('auto.03a64261', 'Type') }}</th><th>{{ get_translation('auto.5abe1d43', 'Date') }}</th><th>{{ get_translation('auto.1fc517cd', 'Scope') }}</th><th>{{ get_translation('auto.01352901', 'Status') }}</th><th>{{ get_translation('auto.38590f40', 'Auditor') }}</th><th>{{ get_translation('auto.d86fa7c8', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="auditsTableBody">
+<tr><td class="text-center py-4" colspan="7">{{ get_translation('auto.e4edca55', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Create/Conduct Audit Modal -->
+<div class="modal fade" id="auditModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5 id="modalTitle">{{ get_translation('auto.671c9c3d', 'Plan Audit') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="auditId" type="hidden"/>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.8f37dbdb', 'Audit Type') }}</label>
+<select class="form-select" id="auditType" required="">
+<option>{{ get_translation('auto.8908ab97', 'Internal') }}</option><option>{{ get_translation('auto.eeb3c598', 'External') }}</option><option>{{ get_translation('auto.5717f66b', 'Supplier') }}</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.243d9449', 'Audit Date (YYYYMMDD)') }}</label>
+<input class="form-control" id="auditDateKey" placeholder="20250501" type="number"/>
+</div>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.01b73262', 'Scope / Area') }}</label>
+<textarea class="form-control" id="scope" required="" rows="2"></textarea>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.5234d3e7', 'Auditor') }}</label>
+<select class="form-select" id="auditorId">
+<option value="">{{ get_translation('auto.123e94c8', 'Select Auditor') }}</option>
+                        {% for a in auditors %}
+                        <option value="{{ a.UserID }}">{{ a.FullName }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="mb-3" id="findingsDiv" style="display:none;">
+<label>{{ get_translation('auto.bca0d2c1', 'Findings / Notes') }}</label>
+<textarea class="form-control" id="findings" rows="3"></textarea>
+</div>
+<div class="mb-3" id="statusDiv" style="display:none;">
+<label>{{ get_translation('auto.3619b264', 'Update Status') }}</label>
+<select class="form-select" id="updateStatus">
+<option>{{ get_translation('auto.7df6add7', 'InProgress') }}</option><option>{{ get_translation('auto.94e98d97', 'Completed') }}</option>
+</select>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.6964fbd0', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveAuditBtn">{{ get_translation('auto.d15bbc00', 'Save') }}</button>
+<button class="btn btn-success" id="conductAuditBtn" style="display:none;">{{ get_translation('auto.b70c45d3', 'Conduct / Update') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let auditModal = new bootstrap.Modal(document.getElementById('auditModal'));
+    let currentAuditId = null;
+
+    function loadKPI() {
+        $.get('/api/quality/audit/kpi', function(data) {
+            $('#kpiPlanned').text(data.planned);
+            $('#kpiInProgress').text(data.inProgress);
+            $('#kpiCompleted').text(data.completed);
+        }).fail(console.error);
+    }
+
+    function loadAudits() {
+        let params = {
+            type: $('#filterType').val(),
+            status: $('#filterStatus').val(),
+            date_from: $('#dateFrom').val(),
+            date_to: $('#dateTo').val()
+        };
+        $.get('/api/quality/audit/list', params, function(audits) {
+            let tbody = $('#auditsTableBody').empty();
+            for (let a of audits) {
+                let date = a.AuditDateKey ? `${a.AuditDateKey.toString().slice(0,4)}-${a.AuditDateKey.toString().slice(4,6)}-${a.AuditDateKey.toString().slice(6,8)}` : '';
+                let statusBadge = '';
+                if (a.Status === 'Planned') statusBadge = '<span class="badge bg-secondary">Planned</span>';
+                else if (a.Status === 'InProgress') statusBadge = '<span class="badge bg-warning">In Progress</span>';
+                else statusBadge = '<span class="badge bg-success">Completed</span>';
+                let row = `<tr>
+                    <td>${a.AuditNumber}</td>
+                    <td>${a.AuditType}</td>
+                    <td>${date}</td>
+                    <td>${a.Scope || ''}</td>
+                    <td>${statusBadge}</td>
+                    <td>${a.AuditorName || ''}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info conduct-btn" data-id="${a.AuditID}" data-status="${a.Status}">Conduct</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(console.error);
+    }
+
+    $('#createAuditBtn').click(function() {
+        currentAuditId = null;
+        $('#modalTitle').text('Plan Audit');
+        $('#auditId').val('');
+        $('#auditType').val('Internal');
+        $('#auditDateKey').val('');
+        $('#scope').val('');
+        $('#auditorId').val('');
+        $('#findingsDiv').hide();
+        $('#statusDiv').hide();
+        $('#saveAuditBtn').show();
+        $('#conductAuditBtn').hide();
+        auditModal.show();
+    });
+
+    $('#saveAuditBtn').click(function() {
+        let data = {
+            auditType: $('#auditType').val(),
+            auditDateKey: $('#auditDateKey').val(),
+            scope: $('#scope').val(),
+            auditorId: $('#auditorId').val() || null
+        };
+        $.ajax({
+            url: '/api/quality/audit',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(res) {
+                auditModal.hide();
+                loadAudits();
+                loadKPI();
+                alert(`Audit created: ${res.auditNumber}`);
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+    $(document).on('click', '.conduct-btn', function() {
+        currentAuditId = $(this).data('id');
+        let status = $(this).data('status');
+        $.get(`/api/quality/audit/${currentAuditId}`, function(audit) {
+            $('#modalTitle').text('Conduct Audit');
+            $('#auditId').val(audit.AuditID);
+            $('#auditType').val(audit.AuditType);
+            $('#auditType').prop('disabled', true);
+            $('#auditDateKey').val(audit.AuditDateKey);
+            $('#auditDateKey').prop('disabled', true);
+            $('#scope').val(audit.Scope);
+            $('#scope').prop('disabled', true);
+            $('#auditorId').val(audit.AuditorID);
+            $('#auditorId').prop('disabled', true);
+            $('#findings').val(audit.Findings || '');
+            $('#findingsDiv').show();
+            $('#updateStatus').val(status === 'Planned' ? 'InProgress' : 'Completed');
+            $('#statusDiv').show();
+            $('#saveAuditBtn').hide();
+            $('#conductAuditBtn').show();
+            auditModal.show();
+        });
+    });
+
+    $('#conductAuditBtn').click(function() {
+        let data = {
+            findings: $('#findings').val(),
+            status: $('#updateStatus').val(),
+            reportDocumentId: null
+        };
+        $.ajax({
+            url: `/api/quality/audit/${currentAuditId}/conduct`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                auditModal.hide();
+                loadAudits();
+                loadKPI();
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+    $('#applyFiltersBtn').click(function() { loadAudits(); });
+    $('#refreshBtn').click(function() { loadAudits(); loadKPI(); });
+    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/audit/export'; });
+
+    loadKPI();
+    loadAudits();
+});
+</script>
+{% endblock %}

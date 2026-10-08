@@ -1,0 +1,225 @@
+
+Manufacturing Module- Page Config- 2026-09-16
+**************************************8
+
+PART B — UPDATE PAGE CONFIG — MANUFACTURING MODULE
+Apply these edits to your Manufacturing page config document. I'll show only the changed pages; all other pages (Job Orders, Workstations, Machines, Load Board, Material Planning) remain as-is unless noted.
+
+B.1 — Page 21 (Shop Floor Control) — REPLACE PAGE
+Replace the entire "21. Shop Floor Control" section with:
+
+text
+21. Shop Floor Control
+
+Element                Specification
+---------------------  ----------------------------------------------------
+Page Type              Transactional / Real-time (MTS-ready, v47)
+Purpose                Real-time production execution per workstation 
+                       with Lot/Batch reporting.
+
+Key Features           - Operator workbench
+                       - Lot-based reporting (operator sees lots, 
+                         not job orders)
+                       - Start/stop job per operation
+                       - Input/Output/Scrap quantity per operation
+                       - Scrap reason capture (from t_ScrapReason)
+                       - Downtime logging
+                       - Self-inspection with batch sampling
+                       - Backflush trigger on operation completion
+                       - Barcode / traveler card input
+                       - Machine integration
+
+Top KPI Cards          Active Jobs / Completed Today / 
+                       Downtime Today / Yield% Today
+
+Main Table Columns     Lot ID (link), Job Order (link), Operation,
+                       Workstation, Status, Input Qty, Output Qty,
+                       Scrap Qty, Yield %, Operator, Actions
+
+Action Buttons         Start Lot (modal), Complete Operation (modal),
+                       Report Quantity (modal), Log Downtime (modal),
+                       Self-Inspect (modal), Split Lot (modal)
+
+Modals                 - Start Lot      : select lot, confirm start, 
+                                          assign machine
+                       - Complete Op    : Input Qty, Output Qty,
+                                          Scrap Qty, Scrap Reason,
+                                          Rework Qty, Notes
+                       - Report Qty     : qty good, qty scrap, 
+                                          rework flag
+                       - Downtime       : reason, duration, machine
+                       - Self-Inspect   : sampling result, notes
+                       - Split Lot      : source lot, split qty, 
+                                          new lot destination
+
+Filters                Workstation dropdown, Shift dropdown, 
+                       Operator dropdown, Lot Status dropdown
+
+URL Parameters         workstation_id, shift, operator_id, lot_status
+
+URL Example            /manufacturing/shop-floor?workstation_id=WC-CNC-01&shift=1
+
+UI/UX                  Large touch-friendly buttons. Lot barcode field 
+                       auto-focused. Real-time yield bar. Color-coded 
+                       status badges. Warning banner if scrap > threshold. 
+                       RTL/LTR support.
+
+Navigation             Lot ID → Lot Detail (future). 
+                       Job Order ID → Job Orders (new tab on Ctrl+Click).
+
+DB Tables              t_ProductionOrder, t_ProductionOrderDetail,
+                       t_WorkCenter, t_Machine, t_Users,
+                       t_ShopFloorTransactions, t_ScrapReason,
+                       t_Lot, t_QualityInspectionResult
+
+API Endpoints          GET  /api/manufacturing/shop-floor/jobs
+                       GET  /api/manufacturing/shop-floor/lots
+                       GET  /api/manufacturing/shop-floor/stats
+                       POST /api/manufacturing/shop-floor/start
+                       POST /api/manufacturing/shop-floor/complete-op
+                       POST /api/manufacturing/shop-floor/quantity
+                       POST /api/manufacturing/shop-floor/downtime
+                       POST /api/manufacturing/shop-floor/inspect
+                       POST /api/manufacturing/shop-floor/split-lot
+                       POST /api/manufacturing/shop-floor/merge-lot
+
+Dependencies           Job Orders, Job Order Detail, Workstations,
+                       Machines, Work Center Routing, 
+                       Inspection Workbench, Inventory
+
+Import/Export          Not applicable (real-time).
+
+Multilingual           UI labels via {{ get_translation('key') }}.
+                       Lot names, scrap reasons via *Local columns.
+                       Dates via DimDate.
+B.2 — Page 25 (Maintenance Management) — REPLACE PAGE
+Replace the "25. Maintenance Management" section with:
+
+text
+25. Maintenance Management
+
+Element                Specification
+---------------------  ----------------------------------------------------
+Page Type              Transactional
+Purpose                Equipment maintenance scheduling and tracking 
+                       with DemoIndustryCode support.
+
+Key Features           - Equipment registry (linked to t_Machine)
+                       - Maintenance schedule
+                       - Work orders
+                       - Calibration tracking (link to Quality)
+                       - Preventive maintenance plans
+
+Top KPI Cards          Scheduled / In Progress / Overdue / Completed
+
+Main Table Columns     Equipment (link), Type, Last Maintenance,
+                       Next Due, Status, Assigned To, Actions
+
+Action Buttons         Schedule (modal), Start (inline), Complete (modal)
+
+Modals                 - Schedule Maintenance : Equipment, Type, 
+                                                  Schedule Type, 
+                                                  Interval, Assigned To
+                       - Complete             : Actual Date, Technician,
+                                                  Duration, Cost, Notes
+
+Filters                Equipment dropdown, Status dropdown, Date Range
+
+URL Parameters         equipment_id, status, date_from, date_to
+
+URL Example            /manufacturing/maintenance?equipment_id=5&status=Overdue
+
+UI/UX                  Calendar view option. Status badges. Breadcrumb.
+
+Navigation             Equipment → Calibration Management 
+                       (new tab on Ctrl+Click)
+
+DB Tables              t_EquipmentMaintenance (with DemoIndustryCode),
+                       t_Machine, t_WorkCenter, t_Users
+
+API Endpoints          GET  /api/manufacturing/maintenance
+                       GET  /api/manufacturing/maintenance/stats
+                       GET  /api/manufacturing/maintenance/equipment
+                       POST /api/manufacturing/maintenance
+                       PUT  /api/manufacturing/maintenance/<id>
+                       POST /api/manufacturing/maintenance/<id>/start
+                       POST /api/manufacturing/maintenance/<id>/complete
+                       GET  /api/manufacturing/maintenance/export-csv
+
+Dependencies           Workstations, Machine Management, 
+                       Calibration Management, Users
+
+Import/Export          Import - CSV for equipment list.
+                       Export - maintenance schedule to CSV.
+
+Multilingual           UI labels via {{ get_translation('key') }}.
+                       Dates stored as NVARCHAR (current schema) — 
+                       plan migration to DateKey or ISO string.
+B.3 — Page 22 (Load Board) — MINOR PATCH
+Find: "Key Features" bullet list.
+
+Add one bullet:
+
+text
+- Lot-aware view (shows Lot ID on Gantt bars when batch tracking enabled)
+B.4 — Page 24 (Subcontractor Management) — MINOR PATCH
+Find: "Main Table Columns" row.
+
+Change:
+
+FROM: Supplier (link), Service Type, Lead Time, Quality Rating, On-Time %
+
+TO: Supplier (link), Service Type, Lead Time, Quality Rating, On-Time %, Active Jobs
+
+Add new URL parameter row:
+
+text
+service_type, rating, active_jobs (count of open subcontract POs)
+B.5 — NEW PAGE — Motor MTS Demo Data (not a page, but a reference)
+Add at the very end of the Manufacturing page config:
+
+text
+APPENDIX — MOTOR MTS DEMO DATA (v47)
+
+This appendix lists the demo data that will be inserted into 
+the database to populate the 6th industry (motor). 
+All rows use DemoIndustryCode = 'motor'.
+
+Sections to be inserted:
+
+  1. t_IndustryCompany             : 1 row (Pars Electric Motors Co.)
+  2. t_Product                     : 3 rows (MOTOR-5KW, MOTOR-10KW, 
+                                     MOTOR-CUSTOM-CTO)
+  3. t_ProductCategory             : 4 rows (Motor, Stator, Rotor, 
+                                     Housing)
+  4. t_BOM                         : multi-level (see Section 21.4 
+                                     of Project Context)
+  5. t_WorkCenterRouting           : 6 rows (see Section 21.3)
+  6. t_WorkCenter                  : 6 rows (WC-CASTING, WC-CNC-01, 
+                                     WC-WIND-01, WC-ASSY-01, 
+                                     WC-TEST-01, WC-PACK-01)
+  7. t_Machine                     : 8 rows (2 casting, 2 CNC, 1 wind, 
+                                     1 assy, 1 test, 1 pack)
+  8. t_Suppliers                   : 2 rows (winding subcontractor, 
+                                     bearing supplier)
+  9. t_ServiceType                 : 1 row (WINDING)
+ 10. t_Customer                    : 2 rows (Sarvestan Industrial, 
+                                     Tehran Pumps Co.)
+ 11. t_Project                     : 1 row (Sarvestan Q2 Delivery)
+ 12. t_SalesForecastHeader/Line    : 2 rows (Q2 forecast, Q3 forecast)
+ 13. t_Opportunity / t_Quote / 
+     t_SalesOrder                  : 1 full chain
+ 14. t_ProductionOrder             : 3 rows (500, 200, 100 units)
+ 15. t_ProductionOrderDetail       : 18 rows (6 ops × 3 orders)
+ 16. t_Lot                         : 12 rows (parent + split lots)
+ 17. t_ShopFloorTransactions       : 40 rows (realistic sequence)
+ 18. t_QualityInspectionBatch/Result: 6 rows (3 batches × 2 results)
+ 19. t_NonConformance              : 1 row (5 failed motors at station 50)
+ 20. t_SerialNumbers               : 480 rows (485 good - 5 samples)
+ 21. t_InventoryOnHand             : 5 rows (motor + 4 raw materials)
+ 22. t_Workflow / t_WorkflowDefinitions : 1 instance + 2 templates
+ 23. t_Translations                : ~150 rows (motor.*, global.* 
+                                     deltas, shared with other modules)
+
+Full INSERT scripts will be provided separately (see 
+"Motor MTS Demo Pack").

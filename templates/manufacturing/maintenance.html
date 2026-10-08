@@ -1,0 +1,695 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.maintenance.title', 'Maintenance Management') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.maintenance.breadcrumb', 'Maintenance Management') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.maintenance.title', 'Equipment Maintenance') }}</h2>
+        <div>
+            <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                <i class="fas fa-plus"></i> {{ get_translation('manufacturing.maintenance.schedule', 'Schedule Maintenance') }}
+            </button>
+            <button class="btn btn-secondary me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="fas fa-upload"></i> {{ get_translation('global.import_csv', 'Import CSV') }}
+            </button>
+            <a href="/api/manufacturing/maintenance/export-csv" class="btn btn-info">
+                <i class="fas fa-download"></i> {{ get_translation('global.export_csv', 'Export CSV') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body text-center">
+                    <h6>{{ get_translation('manufacturing.maintenance.kpi.scheduled', 'Scheduled') }}</h6>
+                    <h3 id="kpiScheduled">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body text-center">
+                    <h6>{{ get_translation('manufacturing.maintenance.kpi.in_progress', 'In Progress') }}</h6>
+                    <h3 id="kpiInProgress">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body text-center">
+                    <h6>{{ get_translation('manufacturing.maintenance.kpi.overdue', 'Overdue') }}</h6>
+                    <h3 id="kpiOverdue">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body text-center">
+                    <h6>{{ get_translation('manufacturing.maintenance.kpi.completed', 'Completed') }}</h6>
+                    <h3 id="kpiCompleted">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-2">
+                <label>{{ get_translation('manufacturing.maintenance.filters.equipment', 'Equipment') }}</label>
+                <select class="form-select" id="filterEquipment">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label>{{ get_translation('manufacturing.maintenance.filters.status', 'Status') }}</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="Scheduled">{{ get_translation('manufacturing.maintenance.status.scheduled', 'Scheduled') }}</option>
+                    <option value="InProgress">{{ get_translation('manufacturing.maintenance.status.in_progress', 'In Progress') }}</option>
+                    <option value="Completed">{{ get_translation('manufacturing.maintenance.status.completed', 'Completed') }}</option>
+                    <option value="Overdue">{{ get_translation('manufacturing.maintenance.status.overdue', 'Overdue') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label>{{ get_translation('manufacturing.maintenance.filters.date_from', 'Date From') }}</label>
+                <input type="date" class="form-control" id="filterDateFrom">
+            </div>
+            <div class="col-md-2">
+                <label>{{ get_translation('manufacturing.maintenance.filters.date_to', 'Date To') }}</label>
+                <input type="date" class="form-control" id="filterDateTo">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}</button>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-secondary w-100" id="refreshBtn"><i class="fas fa-sync"></i> {{ get_translation('global.refresh', 'Refresh') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>{{ get_translation('manufacturing.maintenance.table.title', 'Maintenance Schedule') }}</span>
+            <span id="recordCount" class="badge bg-secondary">0</span>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover align-middle table-sticky">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ get_translation('manufacturing.maintenance.table.equipment', 'Equipment') }}</th>
+                        <th>{{ get_translation('manufacturing.maintenance.table.type', 'Type') }}</th>
+                        <th>{{ get_translation('manufacturing.maintenance.table.last_maintenance', 'Last Maintenance') }}</th>
+                        <th>{{ get_translation('manufacturing.maintenance.table.next_due', 'Next Due') }}</th>
+                        <th>{{ get_translation('manufacturing.maintenance.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('manufacturing.maintenance.table.assigned_to', 'Assigned To') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="maintenanceBody">
+                    <tr><td colspan="7" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Maintenance Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.maintenance.schedule_modal.title', 'Schedule Maintenance') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleForm">
+                    <input type="hidden" id="editMaintenanceId">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.equipment', 'Equipment') }} *</label>
+                            <select class="form-select" id="equipmentSelect" required>
+                                <option value="">{{ get_translation('global.select', 'Select equipment...') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.type', 'Maintenance Type') }} *</label>
+                            <select class="form-select" id="maintenanceType" required>
+                                <option value="Preventive">{{ get_translation('manufacturing.maintenance.type.preventive', 'Preventive') }}</option>
+                                <option value="Calibration">{{ get_translation('manufacturing.maintenance.type.calibration', 'Calibration') }}</option>
+                                <option value="Repair">{{ get_translation('manufacturing.maintenance.type.repair', 'Repair') }}</option>
+                                <option value="Inspection">{{ get_translation('manufacturing.maintenance.type.inspection', 'Inspection') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.schedule_type', 'Schedule Type') }}</label>
+                            <select class="form-select" id="scheduleType">
+                                <option value="Once">{{ get_translation('manufacturing.maintenance.schedule.once', 'Once') }}</option>
+                                <option value="Weekly">{{ get_translation('manufacturing.maintenance.schedule.weekly', 'Weekly') }}</option>
+                                <option value="Monthly">{{ get_translation('manufacturing.maintenance.schedule.monthly', 'Monthly') }}</option>
+                                <option value="Quarterly">{{ get_translation('manufacturing.maintenance.schedule.quarterly', 'Quarterly') }}</option>
+                                <option value="Yearly">{{ get_translation('manufacturing.maintenance.schedule.yearly', 'Yearly') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.interval_days', 'Interval (days)') }}</label>
+                            <input type="number" class="form-control" id="intervalDays" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.assigned_to', 'Assigned To') }}</label>
+                            <select class="form-select" id="assignedTo">
+                                <option value="">{{ get_translation('global.select', 'Select technician...') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.last_date', 'Last Maintenance Date') }}</label>
+                            <input type="date" class="form-control" id="lastDate">
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.next_due', 'Next Due Date') }} *</label>
+                            <input type="date" class="form-control" id="nextDue" required>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.work_center', 'Work Center') }}</label>
+                            <select class="form-select" id="workCenterSelect">
+                                <option value="">{{ get_translation('global.select', 'Select work center...') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-2">
+                            <label>{{ get_translation('manufacturing.maintenance.schedule_modal.description', 'Description') }}</label>
+                            <textarea class="form-control" id="maintenanceDescription" rows="2"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmSchedule">{{ get_translation('manufacturing.maintenance.schedule_modal.schedule', 'Schedule') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Work Order Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.maintenance.complete_modal.title', 'Complete Work Order') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="completeId">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.maintenance.complete_modal.actual_date', 'Actual Completion Date') }}</label>
+                    <input type="date" class="form-control" id="actualDate" required>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.maintenance.complete_modal.technician', 'Technician') }}</label>
+                    <select class="form-select" id="completeTechnician">
+                        <option value="">{{ get_translation('global.select', 'Select technician...') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.maintenance.complete_modal.duration', 'Duration (hours)') }}</label>
+                    <input type="number" class="form-control" id="durationHours" step="0.5" min="0">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.maintenance.complete_modal.cost', 'Cost') }}</label>
+                    <input type="number" class="form-control" id="cost" step="0.01" min="0">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.maintenance.complete_modal.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="completeNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmComplete">{{ get_translation('manufacturing.maintenance.complete_modal.complete', 'Complete') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import CSV Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('global.import_csv', 'Import CSV') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" class="form-control" id="csvFile" accept=".csv">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="importBtn">{{ get_translation('global.upload', 'Upload') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error_loading: {{ get_translation('global.error_loading', 'Error loading data')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    edit: {{ get_translation('global.edit', 'Edit')|tojson }},
+    delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    all: {{ get_translation('global.all', 'All')|tojson }},
+    apply: {{ get_translation('global.apply', 'Apply')|tojson }},
+    actions: {{ get_translation('global.actions', 'Actions')|tojson }},
+    select: {{ get_translation('global.select', 'Select...')|tojson }}
+};
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, defaultText);
+    }
+    return defaultText || key;
+}
+
+function getEl(id) { return document.getElementById(id); }
+
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+function getStatusBadge(status) {
+    var colors = {
+        'Scheduled': 'warning',
+        'InProgress': 'primary',
+        'Completed': 'success',
+        'Overdue': 'danger'
+    };
+    var color = colors[status] || 'secondary';
+    var statusMap = {
+        'Scheduled': 'Scheduled',
+        'InProgress': 'In Progress',
+        'Completed': 'Completed',
+        'Overdue': 'Overdue'
+    };
+    return '<span class="badge bg-' + color + '">' + (statusMap[status] || status) + '</span>';
+}
+
+function loadKPIs() {
+    fetch('/api/manufacturing/maintenance/stats')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            getEl('kpiScheduled').textContent = res.scheduled || 0;
+            getEl('kpiInProgress').textContent = res.inProgress || 0;
+            getEl('kpiOverdue').textContent = res.overdue || 0;
+            getEl('kpiCompleted').textContent = res.completed || 0;
+        })
+        .catch(function(err) { console.error('KPI error:', err); });
+}
+
+function loadDropdowns() {
+    // Load equipment for filter
+    fetch('/api/manufacturing/maintenance/equipment')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var select = getEl('filterEquipment');
+            if (!select) return;
+            var opts = '<option value="">{{ get_translation("global.all", "All") }}</option>';
+            if (Array.isArray(data)) {
+                data.forEach(function(e) {
+                    opts += '<option value="' + e.id + '">' + e.name + ' (' + e.code + ')</option>';
+                });
+            }
+            select.innerHTML = opts;
+        })
+        .catch(function(err) { console.error('Equipment error:', err); });
+
+    // Load equipment for schedule modal
+    var equipSelect = getEl('equipmentSelect');
+    if (equipSelect) {
+        fetch('/api/manufacturing/maintenance/equipment')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var opts = '<option value="">{{ get_translation("global.select", "Select equipment...") }}</option>';
+                if (Array.isArray(data)) {
+                    data.forEach(function(e) {
+                        opts += '<option value="' + e.id + '">' + e.name + ' (' + e.code + ')</option>';
+                    });
+                }
+                equipSelect.innerHTML = opts;
+            })
+            .catch(function(err) { console.error('Equipment error:', err); });
+    }
+
+    // Load work centers
+    fetch('/api/manufacturing/workstations')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var select = getEl('workCenterSelect');
+            if (!select) return;
+            var opts = '<option value="">{{ get_translation("global.select", "Select work center...") }}</option>';
+            if (Array.isArray(data)) {
+                data.forEach(function(w) {
+                    if (w.isActive && !w.isArchived) {
+                        opts += '<option value="' + w.id + '">' + w.name + '</option>';
+                    }
+                });
+            }
+            select.innerHTML = opts;
+        })
+        .catch(function(err) { console.error('Work centers error:', err); });
+
+    // Load users for assigned to
+    fetch('/api/users/list')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var selects = ['assignedTo', 'completeTechnician'];
+            selects.forEach(function(id) {
+                var select = getEl(id);
+                if (!select) return;
+                var opts = '<option value="">{{ get_translation("global.select", "Select technician...") }}</option>';
+                if (Array.isArray(data)) {
+                    data.forEach(function(u) {
+                        opts += '<option value="' + u.id + '">' + (u.fullName || u.username || u.id) + '</option>';
+                    });
+                }
+                select.innerHTML = opts;
+            });
+        })
+        .catch(function(err) { console.error('Users error:', err); });
+}
+
+function loadMaintenance() {
+    var tbody = getEl('maintenanceBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    var params = new URLSearchParams();
+    var equipment = getEl('filterEquipment');
+    var status = getEl('filterStatus');
+    var dateFrom = getEl('filterDateFrom');
+    var dateTo = getEl('filterDateTo');
+    
+    if (equipment && equipment.value) params.set('equipment_id', equipment.value);
+    if (status && status.value) params.set('status', status.value);
+    if (dateFrom && dateFrom.value) params.set('date_from', dateFrom.value);
+    if (dateTo && dateTo.value) params.set('date_to', dateTo.value);
+    
+    var url = '/api/manufacturing/maintenance' + (params.toString() ? '?' + params.toString() : '');
+    
+    fetch(url)
+        .then(function(r) {
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            renderMaintenance(data);
+            getEl('recordCount').textContent = data.length || 0;
+        })
+        .catch(function(err) {
+            console.error('Error:', err);
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">' + t('error_loading', 'Error loading data') + '</td></tr>';
+        });
+}
+
+function renderMaintenance(data) {
+    var tbody = getEl('maintenanceBody');
+    if (!tbody) return;
+    
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    data.forEach(function(m) {
+        var statusBadge = getStatusBadge(m.status);
+        var actions = '';
+        
+        if (m.status !== 'Completed') {
+            actions += '<button class="btn btn-sm btn-success complete-maintenance me-1" data-id="' + m.id + '" title="Complete"><i class="fas fa-check"></i></button> ';
+        }
+        if (m.status !== 'Completed' && m.status !== 'InProgress') {
+            actions += '<button class="btn btn-sm btn-primary start-maintenance me-1" data-id="' + m.id + '" title="Start"><i class="fas fa-play"></i></button> ';
+        }
+        actions += '<button class="btn btn-sm btn-outline-secondary view-maintenance" data-id="' + m.id + '" title="View"><i class="fas fa-eye"></i></button>';
+        
+        html += '<tr>' +
+            '<td><a href="#" class="equipment-link" data-id="' + m.equipmentId + '">' + (m.equipmentName || m.equipmentId) + '</a></td>' +
+            '<td>' + (m.type || 'Preventive') + '</td>' +
+            '<td>' + (m.lastMaintenance || '-') + '</td>' +
+            '<td>' + (m.nextDue || '-') + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + (m.assignedToName || m.assignedTo || '-') + '</td>' +
+            '<td>' + actions + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function refreshAll() {
+    loadKPIs();
+    loadMaintenance();
+}
+
+// Schedule maintenance
+function scheduleMaintenance() {
+    var data = {
+        equipmentId: getEl('equipmentSelect').value,
+        maintenanceType: getEl('maintenanceType').value,
+        scheduleType: getEl('scheduleType').value,
+        intervalDays: parseInt(getEl('intervalDays').value) || 0,
+        lastDate: getEl('lastDate').value,
+        nextDue: getEl('nextDue').value,
+        assignedTo: getEl('assignedTo').value,
+        workCenterId: getEl('workCenterSelect').value,
+        description: getEl('maintenanceDescription').value,
+        id: getEl('editMaintenanceId').value
+    };
+    
+    if (!data.equipmentId || !data.nextDue) {
+        showToast('Equipment and Next Due Date are required', 'error');
+        return;
+    }
+    
+    var url = data.id ? '/api/manufacturing/maintenance/' + data.id : '/api/manufacturing/maintenance';
+    var method = data.id ? 'PUT' : 'POST';
+    
+    var btn = getEl('confirmSchedule');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('loading', 'Loading...');
+    
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.error) {
+            showToast(result.error, 'error');
+            return;
+        }
+        showToast(result.message || 'Maintenance scheduled', 'success');
+        var modal = bootstrap.Modal.getInstance(getEl('scheduleModal'));
+        if (modal) modal.hide();
+        refreshAll();
+    })
+    .catch(function(err) {
+        showToast('Error scheduling maintenance', 'error');
+        console.error(err);
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = t('save', 'Save');
+    });
+}
+
+// Complete maintenance
+function completeMaintenance() {
+    var id = getEl('completeId').value;
+    var data = {
+        actualDate: getEl('actualDate').value,
+        technicianId: getEl('completeTechnician').value,
+        durationHours: parseFloat(getEl('durationHours').value) || 0,
+        cost: parseFloat(getEl('cost').value) || 0,
+        notes: getEl('completeNotes').value
+    };
+    
+    if (!data.actualDate) {
+        showToast('Completion date required', 'error');
+        return;
+    }
+    
+    var btn = getEl('confirmComplete');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('loading', 'Loading...');
+    
+    fetch('/api/manufacturing/maintenance/' + id + '/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.error) {
+            showToast(result.error, 'error');
+            return;
+        }
+        showToast('Maintenance completed', 'success');
+        var modal = bootstrap.Modal.getInstance(getEl('completeModal'));
+        if (modal) modal.hide();
+        refreshAll();
+    })
+    .catch(function(err) {
+        showToast('Error completing maintenance', 'error');
+        console.error(err);
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = t('complete', 'Complete');
+    });
+}
+
+// Event handlers
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    
+    if (btn.classList.contains('complete-maintenance')) {
+        var id = btn.getAttribute('data-id');
+        getEl('completeId').value = id;
+        getEl('actualDate').value = '';
+        getEl('durationHours').value = '';
+        getEl('cost').value = '';
+        getEl('completeNotes').value = '';
+        var modal = new bootstrap.Modal(getEl('completeModal'));
+        modal.show();
+        return;
+    }
+    
+    if (btn.classList.contains('start-maintenance')) {
+        var id = btn.getAttribute('data-id');
+        if (confirm('Start maintenance work order ' + id + '?')) {
+            fetch('/api/manufacturing/maintenance/' + id + '/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (result.error) {
+                    showToast(result.error, 'error');
+                    return;
+                }
+                showToast('Maintenance started', 'success');
+                refreshAll();
+            })
+            .catch(function(err) {
+                showToast('Error starting maintenance', 'error');
+                console.error(err);
+            });
+        }
+        return;
+    }
+    
+    if (btn.classList.contains('equipment-link')) {
+        e.preventDefault();
+        var id = btn.getAttribute('data-id');
+        // Navigate to calibration management or equipment detail
+        window.open('/quality/calibration-management?equipment_id=' + id, '_blank');
+        return;
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add button
+    var addBtn = document.querySelector('[data-bs-target="#scheduleModal"]');
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            getEl('editMaintenanceId').value = '';
+            getEl('equipmentSelect').value = '';
+            getEl('maintenanceType').value = 'Preventive';
+            getEl('scheduleType').value = 'Once';
+            getEl('intervalDays').value = '0';
+            getEl('lastDate').value = '';
+            getEl('nextDue').value = '';
+            getEl('assignedTo').value = '';
+            getEl('workCenterSelect').value = '';
+            getEl('maintenanceDescription').value = '';
+        });
+    }
+    
+    // Save button
+    var saveBtn = getEl('confirmSchedule');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', scheduleMaintenance);
+    }
+    
+    // Complete button
+    var completeBtn = getEl('confirmComplete');
+    if (completeBtn) {
+        completeBtn.addEventListener('click', completeMaintenance);
+    }
+    
+    // Apply filters
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', refreshAll);
+    }
+    
+    // Refresh button
+    var refreshBtn = getEl('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', refreshAll);
+    }
+    
+    // Enter key on filters
+    ['filterEquipment', 'filterStatus'].forEach(function(id) {
+        var el = getEl(id);
+        if (el) el.addEventListener('change', refreshAll);
+    });
+    
+    // Initial load
+    loadDropdowns();
+    refreshAll();
+    setInterval(refreshAll, 30000);
+});
+</script>
+{% endblock %}

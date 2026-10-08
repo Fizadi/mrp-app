@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Shipping Management{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.3c5f0791', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.0dcf4bc8', 'Shipping') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.a74f220e', 'Shipping') }}</h2>
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.bab430da', 'Customer') }}</label>
+<input class="form-control" id="filterCustomer" placeholder="Customer name or SO#" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.8cc2325d', 'Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.c193ebe7', 'Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.8e245955', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.6c1b287e', 'All') }}</option>
+<option>{{ get_translation('auto.930c19cc', 'Draft') }}</option>
+<option>{{ get_translation('auto.2e4108af', 'Packed') }}</option>
+<option>{{ get_translation('auto.8d901142', 'Shipped') }}</option>
+<option>{{ get_translation('auto.f8e75943', 'Delivered') }}</option>
+<option>{{ get_translation('auto.70e2cee3', 'Cancelled') }}</option>
+</select>
+</div>
+<div class="col-md-3 d-flex align-items-end">
+<button class="btn btn-primary me-2" id="refreshBtn">{{ get_translation('auto.2820a1a2', 'Refresh') }}</button>
+<a class="btn btn-info" href="#" id="exportBtn">{{ get_translation('auto.a060f46a', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.bbc05e5f', "Today's Shipments") }}</h6><h3 id="kpiToday">{{ get_translation('auto.723d8155', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('auto.cbd98628', 'Pending Shipments') }}</h6><h3 id="kpiPending">{{ get_translation('auto.eb5579dd', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.2b614467', 'By Carrier') }}</h6><div id="kpiCarrier"></div></div></div></div>
+</div>
+<!-- Main Card -->
+<div class="card">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('auto.95b03dc2', 'Shipments') }}</span>
+<button class="btn btn-sm btn-success" id="createShipmentBtn">{{ get_translation('auto.f624572a', '+ Create Shipment') }}</button>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr><th>{{ get_translation('auto.8b265f58', 'Shipment#') }}</th><th>{{ get_translation('auto.59e37c1e', 'Sales Order') }}</th><th>{{ get_translation('auto.081683f1', 'Customer') }}</th><th>{{ get_translation('auto.d4e2f9e7', 'Date (Key)') }}</th><th>{{ get_translation('auto.06c46b2b', 'Status') }}</th><th>{{ get_translation('auto.c5cf2e75', 'Carrier') }}</th><th>{{ get_translation('auto.0e4633a3', 'Tracking#') }}</th><th>{{ get_translation('auto.e8135eb3', 'Actions') }}</th></tr>
+</thead>
+<tbody id="shipmentsBody">
+<tr><td class="text-center" colspan="8">{{ get_translation('auto.7c568d6d', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Create Shipment Modal -->
+<div class="modal fade" id="createModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<h5>{{ get_translation('auto.dc177e24', 'Create Shipment') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<div class="mb-3">
+<label>{{ get_translation('auto.bca17db2', 'Sales Order') }}</label>
+<select class="form-select" id="soSelect">
+<option value="">{{ get_translation('auto.cb7d5c16', 'Loading...') }}</option>
+</select>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.76231756', 'Shipment Date') }}</label>
+<input class="form-control" id="shipDate" type="date"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.8ec0c464', 'Carrier (manual)') }}</label>
+<input class="form-control" id="carrier" placeholder="e.g., DHL, FedEx" type="text"/>
+</div>
+<hr/>
+<h6>{{ get_translation('auto.7d2ec623', 'Lines to Ship') }}</h6>
+<div id="shipLinesContainer"></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="confirmCreateShipment" type="button">{{ get_translation('auto.df7b7ced', 'Create Shipment') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Update Status Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.a651b2f3', 'Update Shipment Status') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="statusShipmentId" type="hidden"/>
+<div class="mb-3"><label>{{ get_translation('auto.929d5bb0', 'New Status') }}</label><select class="form-select" id="newStatus"><option>{{ get_translation('auto.62aec700', 'Packed') }}</option><option>{{ get_translation('auto.1888e944', 'Shipped') }}</option><option>{{ get_translation('auto.7ad4386a', 'Delivered') }}</option><option>{{ get_translation('auto.1181e9e3', 'Cancelled') }}</option></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.5cc38969', 'Tracking Number') }}</label><input class="form-control" id="trackingNumber" type="text"/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="confirmStatusUpdate" type="button">{{ get_translation('auto.dec2e3c8', 'Update') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // ---------- KPI & Shipments Table ----------
+    function loadKPI() {
+        // ✅ Fixed: /api/shipping/kpi → /api/supply-chain/shipping/kpi
+        $.get('/api/supply-chain/shipping/kpi', function(data) {
+            $('#kpiToday').text(data.today);
+            $('#kpiPending').text(data.pending);
+            var carrierHtml = '<ul class="list-unstyled">';
+            $.each(data.by_carrier, function(carrier, count) {
+                carrierHtml += `<li>${carrier}: ${count}</li>`;
+            });
+            carrierHtml += '</ul>';
+            $('#kpiCarrier').html(carrierHtml);
+        });
+    }
+
+    function loadShipments() {
+        var params = {};
+        if ($('#filterCustomer').val()) params.customer = $('#filterCustomer').val();
+        if ($('#filterDateFrom').val()) params.date_from = $('#filterDateFrom').val();
+        if ($('#filterDateTo').val()) params.date_to = $('#filterDateTo').val();
+        if ($('#filterStatus').val()) params.status = $('#filterStatus').val();
+        // ✅ Fixed: /api/shipping/list → /api/supply-chain/shipping/list
+        $.get('/api/supply-chain/shipping/list', params, function(data) {
+            var tbody = $('#shipmentsBody');
+            if (!data.length) {
+                tbody.html('<tr><td colspan="8" class="text-center">No shipments found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(data, function(i, s) {
+                rows += `<tr>
+                    <td><a href="#" class="shipment-link" data-id="${s.id}">${s.number}</a></td>
+                    <td>${s.salesOrderId}</td>
+                    <td>${s.customerName}</td>
+                    <td>${s.dateKey || '-'}</td>
+                    <td>${s.status}</td>
+                    <td>${s.carrier || '-'}</td>
+                    <td>${s.tracking || '-'}</td>
+                    <td><button class="btn btn-sm btn-primary update-status" data-id="${s.id}">Update Status</button></td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    // ---------- Create Shipment Modal ----------
+    function loadSalesOrders() {
+        // ✅ Fixed: /api/shipping/sales-orders-for-picking → /api/supply-chain/shipping/sales-orders-for-picking
+        $.get('/api/supply-chain/shipping/sales-orders-for-picking', function(data) {
+            var orders = {};
+            $.each(data, function(i, line) {
+                var soId = line.salesOrderId;
+                if (!orders[soId]) {
+                    orders[soId] = { customer: line.customerName, lines: [] };
+                }
+                orders[soId].lines.push(line);
+            });
+            var select = $('#soSelect');
+            select.empty();
+            select.append('<option value="">Select Sales Order</option>');
+            $.each(orders, function(soId, detail) {
+                select.append(`<option value="${soId}" data-customer="${detail.customer}">${soId} - ${detail.customer}</option>`);
+            });
+        });
+    }
+
+    // When a sales order is selected, display its open lines
+    $('#soSelect').change(function() {
+        var soId = $(this).val();
+        if (!soId) {
+            $('#shipLinesContainer').empty();
+            return;
+        }
+        // ✅ Fixed: /api/shipping/sales-orders-for-picking → /api/supply-chain/shipping/sales-orders-for-picking
+        $.get('/api/supply-chain/shipping/sales-orders-for-picking', function(data) {
+            var linesForSo = data.filter(l => l.salesOrderId === soId);
+            var container = $('#shipLinesContainer');
+            container.empty();
+            if (linesForSo.length === 0) {
+                container.html('<div class="alert alert-warning">No open lines for this order.</div>');
+                return;
+            }
+            $.each(linesForSo, function(i, line) {
+                var div = $('<div>').addClass('row line-item mb-2 border p-2');
+                div.html(`
+                    <input type="hidden" class="line-id" value="${line.lineId}">
+                    <div class="col-md-4"><strong>${line.productId}</strong><br><small>Ordered: ${line.orderedQty}, Already Shipped: ${line.shippedSoFar}</small></div>
+                    <div class="col-md-3">
+                        <label>Quantity to ship:</label>
+                        <input type="number" class="form-control ship-qty" value="${line.remainingQty}" step="any" min="0" max="${line.remainingQty}">
+                    </div>
+                    <div class="col-md-4">
+                        <label>Serial Numbers (comma separated):</label>
+                        <input type="text" class="form-control serials" placeholder="Optional">
+                    </div>
+                `);
+                container.append(div);
+            });
+        });
+    });
+
+    // Create shipment button inside modal
+    $('#confirmCreateShipment').click(function() {
+        var soId = $('#soSelect').val();
+        var shipmentDate = $('#shipDate').val();
+        var carrier = $('#carrier').val();
+        if (!soId) {
+            alert('Please select a Sales Order');
+            return;
+        }
+        var lines = [];
+        $('.line-item').each(function() {
+            var lineId = $(this).find('.line-id').val();
+            var qty = parseFloat($(this).find('.ship-qty').val());
+            var serials = $(this).find('.serials').val().trim();
+            if (qty > 0) {
+                var prodId = $(this).find('strong').text();
+                lines.push({
+                    lineId: parseInt(lineId),
+                    productId: prodId,
+                    quantityShipped: qty,
+                    serialNumbers: serials || null
+                });
+            }
+        });
+        if (lines.length === 0) {
+            alert('No quantity entered to ship');
+            return;
+        }
+        $.ajax({
+            // ✅ Fixed: /api/shipping/create → /api/supply-chain/shipping/create
+            url: '/api/supply-chain/shipping/create',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                salesOrderId: soId,
+                shipmentDateKey: shipmentDate ? parseInt(shipmentDate.replace(/-/g,'')) : null,
+                carrier: carrier,
+                lines: lines
+            }),
+            success: function(resp) {
+                $('#createModal').modal('hide');
+                loadShipments();
+                loadKPI();
+                alert(`Shipment ${resp.shipmentNumber} created`);
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON ? xhr.responseJSON.error : 'Creation failed');
+            }
+        });
+    });
+
+    // Open modal: load sales orders, set today's date, clear carrier
+    $('#createShipmentBtn').click(function() {
+        loadSalesOrders();
+        $('#shipDate').val(new Date().toISOString().split('T')[0]);
+        $('#carrier').val('');
+        $('#shipLinesContainer').empty();
+        $('#createModal').modal('show');
+    });
+
+    // ---------- Update Status Modal ----------
+    $(document).on('click', '.update-status', function() {
+        var id = $(this).data('id');
+        $('#statusShipmentId').val(id);
+        $('#newStatus').val('Shipped');
+        $('#trackingNumber').val('');
+        $('#statusModal').modal('show');
+    });
+    $('#confirmStatusUpdate').click(function() {
+        var id = $('#statusShipmentId').val();
+        var status = $('#newStatus').val();
+        var tracking = $('#trackingNumber').val();
+        $.ajax({
+            // ✅ Fixed: /api/shipping/update-status/ → /api/supply-chain/shipping/update-status/
+            url: `/api/supply-chain/shipping/update-status/${id}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ status: status, trackingNumber: tracking }),
+            success: function() {
+                $('#statusModal').modal('hide');
+                loadShipments();
+                loadKPI();
+            },
+            error: function(xhr) { alert(xhr.responseJSON.error); }
+        });
+    });
+
+    // ---------- Refresh & Export ----------
+    $('#refreshBtn').click(function() {
+        loadShipments();
+        loadKPI();
+    });
+    $('#exportBtn').click(function(e) {
+        e.preventDefault();
+        var params = $.param({
+            customer: $('#filterCustomer').val(),
+            date_from: $('#filterDateFrom').val(),
+            date_to: $('#filterDateTo').val(),
+            status: $('#filterStatus').val()
+        });
+        // ✅ Fixed: /api/shipping/export → /api/supply-chain/shipping/export
+        window.location.href = '/api/supply-chain/shipping/export?' + params;
+    });
+
+    // Initial load
+    loadKPI();
+    loadShipments();
+});
+</script>
+{% endblock %}

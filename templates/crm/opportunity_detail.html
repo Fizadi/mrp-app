@@ -1,0 +1,1200 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.opportunity.detail.title', 'Opportunity Detail') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start mt-3 mb-3 gap-2">
+        <div>
+            <h2 id="pageTitle" class="mb-1">
+                {{ get_translation('crm.opportunity.detail.title', 'Opportunity Detail') }}:
+                <span id="oppNameSpan">Loading...</span>
+            </h2>
+            <div id="oppSubline" class="text-muted"></div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success" id="logActivityBtn">
+                <i class="fas fa-clock me-1"></i>{{ get_translation('crm.opportunities.btn.log_activity', 'Log Activity') }}
+            </button>
+            <button class="btn btn-secondary" onclick="window.history.back()">
+                <i class="fas fa-arrow-left me-1"></i>{{ get_translation('global.back', 'Back') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-3 g-3" id="summaryCards"></div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#tabSummary">
+                <i class="fas fa-info-circle me-1"></i>{{ get_translation('crm.opportunity.tab.summary', 'Summary') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabActivities">
+                <i class="fas fa-stream me-1"></i>{{ get_translation('crm.opportunity.tab.activities', 'Activities') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabContacts">
+                <i class="fas fa-users me-1"></i>{{ get_translation('crm.opportunity.tab.contacts', 'Contacts') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabDocuments">
+                <i class="fas fa-paperclip me-1"></i>{{ get_translation('crm.opportunity.tab.documents', 'Documents') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabTasks">
+                <i class="fas fa-tasks me-1"></i>{{ get_translation('crm.opportunity.tab.tasks', 'Tasks') }}
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-3 bg-white">
+
+        <!-- Summary Tab -->
+        <div class="tab-pane fade show active" id="tabSummary">
+            <table class="table table-bordered" id="summaryTable">
+                <tr><td colspan="2" class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+            </table>
+
+            <!-- Company Phones -->
+            <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
+                <h6 class="mb-0">
+                    <i class="fas fa-phone me-1"></i>
+                    {{ get_translation('crm.company.phones', 'Company Phones') }}
+                </h6>
+                <button class="btn btn-sm btn-outline-success" id="addPhoneBtn">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('crm.phone.add', 'Add Phone') }}
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="companyPhonesTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ get_translation('crm.phone.number', 'Number') }}</th>
+                            <th>{{ get_translation('crm.phone.type', 'Type') }}</th>
+                            <th>{{ get_translation('crm.phone.label', 'Label') }}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="companyPhonesBody">
+                        <tr><td colspan="4" class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Activities Tab -->
+        <div class="tab-pane fade" id="tabActivities">
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-success" id="addActivityTabBtn">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('crm.opportunity.add_activity', 'Add Activity') }}
+                </button>
+            </div>
+            <div id="activitiesList">
+                <div class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</div>
+            </div>
+        </div>
+
+        <!-- Contacts Tab -->
+        <div class="tab-pane fade" id="tabContacts">
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-success" id="linkContactBtn">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('crm.opportunity.link_contact', 'Link Contact') }}
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover" id="contactsTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width:30px;"></th>
+                            <th>{{ get_translation('crm.contact.name', 'Name') }}</th>
+                            <th>{{ get_translation('crm.contact.title', 'Title') }}</th>
+                            <th>{{ get_translation('crm.contact.mobile', 'Mobile') }}</th>
+                            <th>{{ get_translation('crm.contact.email', 'Email') }}</th>
+                            <th>{{ get_translation('crm.contact.role', 'Role on Deal') }}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="contactsBody">
+                        <tr><td colspan="7" class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Documents Tab -->
+        <div class="tab-pane fade" id="tabDocuments">
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-success" id="addDocumentBtn">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('crm.opportunity.add_document', 'Add Document') }}
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>{{ get_translation('crm.document.name', 'Name') }}</th>
+                            <th>{{ get_translation('crm.document.type', 'Type') }}</th>
+                            <th>{{ get_translation('crm.document.direction', 'Direction') }}</th>
+                            <th>{{ get_translation('crm.document.channel', 'Channel') }}</th>
+                            <th>{{ get_translation('crm.document.date', 'Date') }}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="documentsBody">
+                        <tr><td colspan="6" class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tasks Tab -->
+        <div class="tab-pane fade" id="tabTasks">
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-success" id="addTaskBtn">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('crm.opportunity.add_task', 'Add Task') }}
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width:40px;"></th>
+                            <th>{{ get_translation('crm.task.subject', 'Subject') }}</th>
+                            <th>{{ get_translation('crm.task.due', 'Due') }}</th>
+                            <th>{{ get_translation('crm.task.priority', 'Priority') }}</th>
+                            <th>{{ get_translation('crm.task.status', 'Status') }}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasksBody">
+                        <tr><td colspan="6" class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Task Modal -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('crm.task.add_title', 'Add Task') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.task.subject', 'Subject') }} *</label>
+                    <input class="form-control" id="taskSubject" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.task.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="taskNotes" rows="2"></textarea>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.task.due', 'Due Date') }}</label>
+                        <input class="form-control" id="taskDue" type="date">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.task.priority', 'Priority') }}</label>
+                        <select class="form-select" id="taskPriority">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveTaskBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Link Contact Modal -->
+<div class="modal fade" id="linkContactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('crm.opportunity.link_contact_title', 'Link a Contact') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.contact.search', 'Search Contacts') }}</label>
+                    <input class="form-control" id="contactSearch" placeholder="{{ get_translation('crm.contact.search_hint', 'Type a name...') }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.contact.select', 'Select Contact') }} *</label>
+                    <select class="form-select" id="linkContactSelect">
+                        <option value="">{{ get_translation('global.select', 'Select') }}</option>
+                    </select>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.contact.role', 'Role on Deal') }}</label>
+                        <select class="form-select" id="linkContactRole">
+                            <option value="DecisionMaker">Decision Maker</option>
+                            <option value="Influencer">Influencer</option>
+                            <option value="Champion">Champion</option>
+                            <option value="Blocker">Blocker</option>
+                            <option value="Technical">Technical</option>
+                            <option value="Procurement">Procurement</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.contact.primary', 'Primary Contact?') }}</label>
+                        <select class="form-select" id="linkContactPrimary">
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveLinkBtn">{{ get_translation('global.save', 'Link') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Activity Modal -->
+<div class="modal fade" id="activityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('crm.opportunities.btn.log_activity', 'Log Activity') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.activity.type', 'Type') }}</label>
+                    <select class="form-select" id="activityType">
+                        <option value="Call">Call</option>
+                        <option value="Meeting">Meeting</option>
+                        <option value="Email">Email</option>
+                        <option value="Note">Note</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.activity.subject', 'Subject') }} *</label>
+                    <input class="form-control" id="activitySubject">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.activity.date', 'Activity Date') }}</label>
+                    <input class="form-control" id="activityDate" type="date">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.activity.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="activityNotes" rows="3"></textarea>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.activity.reminder', 'Reminder Date') }}</label>
+                    <input class="form-control" id="activityReminder" type="date">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveActivityBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Document Modal -->
+<div class="modal fade" id="documentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('crm.document.add_title', 'Add Document') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.document.name', 'Document Name') }} *</label>
+                    <input class="form-control" id="docName" placeholder="e.g., Offer_2026-09-24.pdf">
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.document.type', 'Type') }}</label>
+                        <select class="form-select" id="docType">
+                            <option value="Offer">Offer</option>
+                            <option value="Drawing">Drawing</option>
+                            <option value="Spec">Spec</option>
+                            <option value="Contract">Contract</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.document.direction', 'Direction') }}</label>
+                        <select class="form-select" id="docDirection">
+                            <option value="Sent">Sent</option>
+                            <option value="Received">Received</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.document.channel', 'Channel') }}</label>
+                        <select class="form-select" id="docChannel">
+                            <option value="Email">Email</option>
+                            <option value="WhatsApp">WhatsApp</option>
+                            <option value="Telegram">Telegram</option>
+                            <option value="Bale">Bale</option>
+                            <option value="InPerson">In Person</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.document.storage', 'Storage Type') }}</label>
+                        <select class="form-select" id="docStorage">
+                            <option value="URL">URL</option>
+                            <option value="LocalPath">Local Path</option>
+                            <option value="SharedDrive">Shared Drive</option>
+                            <option value="EmailAttachment">Email Attachment</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-2 mt-2">
+                    <label class="form-label">{{ get_translation('crm.document.location', 'Link / Path') }} *</label>
+                    <input class="form-control" id="docLocation" placeholder="https://... or \\server\share\...">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.document.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="docNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveDocumentBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Company Phone Modal -->
+<div class="modal fade" id="phoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('crm.phone.add_title', 'Add Company Phone') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.phone.number', 'Phone Number') }} *</label>
+                        <input class="form-control" id="phoneNumber" placeholder="e.g., 22334567">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.phone.range_end', 'Range End (optional)') }}</label>
+                        <input class="form-control" id="phoneRangeEnd" placeholder="e.g., 22334569">
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.phone.type', 'Type') }}</label>
+                        <select class="form-select" id="phoneType">
+                            <option value="Main">Main</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Support">Support</option>
+                            <option value="Fax">Fax</option>
+                            <option value="CompanyMobile">Company Mobile</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.phone.extension', 'Extension (optional)') }}</label>
+                        <input class="form-control" id="phoneExt" placeholder="e.g., 114">
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <label class="form-label">{{ get_translation('crm.phone.label', 'Label') }}</label>
+                    <input class="form-control" id="phoneLabel" placeholder="e.g., Switchboard">
+                </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="phonePrimary">
+                    <label class="form-check-label">{{ get_translation('crm.phone.primary', 'Primary phone') }}</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="savePhoneBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Contact Channel Modal -->
+<div class="modal fade" id="channelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('crm.channel.add_title', 'Add Channel') }} — <span id="channelContactName"></span></h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="channelContactId">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.channel.type', 'Type') }}</label>
+                        <select class="form-select" id="channelType">
+                            <option value="Mobile">Mobile</option>
+                            <option value="DirectPhone">Direct Phone</option>
+                            <option value="Email">Email</option>
+                            <option value="WhatsApp">WhatsApp</option>
+                            <option value="Telegram">Telegram</option>
+                            <option value="Bale">Bale</option>
+                            <option value="LinkedIn">LinkedIn</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.channel.value', 'Value') }} *</label>
+                        <input class="form-control" id="channelValue" placeholder="e.g., 0937...">
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.channel.extension', 'Extension (optional)') }}</label>
+                        <input class="form-control" id="channelExt">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.channel.label', 'Label') }}</label>
+                        <input class="form-control" id="channelLabel">
+                    </div>
+                </div>
+                <div class="mt-2 d-flex gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="channelPrimary">
+                        <label class="form-check-label">{{ get_translation('crm.channel.primary', 'Primary') }}</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="channelPreferred">
+                        <label class="form-check-label">{{ get_translation('crm.channel.preferred', 'Preferred') }}</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveChannelBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ========================================================================
+    // Defensive picker-reinit aliasing (mirrors Option A in Playbook §5.8)
+    // Ensures both names always exist regardless of date-utils.js state.
+    // ========================================================================
+    function noopReinit() {
+        if (typeof window.__realReinitDateTimePickers === 'function') {
+            window.__realReinitDateTimePickers();
+        }
+    }
+    window.reinitDateTimePickers = window.reinitDateTimePickers || noopReinit;
+    window.reinitDatePickers     = window.reinitDatePickers     || window.reinitDateTimePickers;
+    window.reinitDateTimePickers = window.reinitDateTimePickers || window.reinitDatePickers;
+
+    var pathParts = window.location.pathname.split('/').filter(Boolean);
+    var opportunityId = parseInt(pathParts[pathParts.length - 1]);
+    var currentOpp = null;
+    console.log('🎯 opportunity_detail: id =', opportunityId);
+
+    if (!opportunityId || isNaN(opportunityId)) {
+        console.error('❌ cannot parse opportunityId');
+        return;
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>]/g, function (m) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m];
+        });
+    }
+    function fmtKey(k) {
+        if (!k) return '';
+        var s = String(k);
+        return s.length === 8 ? s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8) : s;
+    }
+    function api(url) {
+        return fetch(url, { credentials: 'same-origin' })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' → ' + url);
+                return r.json();
+            });
+    }
+
+    function loadOpportunity() {
+        api('/api/crm/opportunities/' + opportunityId).then(function (opp) {
+            currentOpp = opp;
+
+            var nameEl = document.getElementById('oppNameSpan');
+            if (nameEl) nameEl.textContent = opp.name || '';
+            var subEl = document.getElementById('oppSubline');
+            if (subEl) subEl.textContent = (opp.customer_name || '') + ' · Created ' + (fmtKey(opp.created_date_key) || '—');
+
+            var cards = [
+                { label: 'Value',       value: '$' + (opp.value || 0).toLocaleString(), color: 'primary' },
+                { label: 'Probability', value: (opp.probability || 0) + '%',             color: 'info' },
+                { label: 'Stage',       value: opp.stage || '',                          color: 'warning' },
+                { label: 'Status',      value: opp.status || '',                         color: 'success' }
+            ];
+            var cardsEl = document.getElementById('summaryCards');
+            if (cardsEl) {
+                cardsEl.innerHTML = cards.map(function (c) {
+                    return '<div class="col-6 col-md-3"><div class="card border-' + c.color + ' h-100">' +
+                        '<div class="card-body text-center"><h6 class="text-' + c.color + '">' + esc(c.label) +
+                        '</h6><p class="h4 mb-0">' + esc(c.value) + '</p></div></div></div>';
+                }).join('');
+            }
+
+            var rows = [
+                ['Name', opp.name],
+                ['Customer', opp.customer_name || '—'],
+                ['Value', '$' + (opp.value || 0).toLocaleString()],
+                ['Probability', (opp.probability || 0) + '%'],
+                ['Stage', opp.stage || '—'],
+                ['Status', opp.status || '—'],
+                ['Expected Close', opp.expected_close_date_formatted || '—'],
+                ['Contact Person', opp.contact_person || '—'],
+                ['Contact Email', opp.contact_email || '—'],
+                ['Contact Phone', opp.contact_phone || '—'],
+                ['Win/Loss Reason', opp.win_loss_reason || '—'],
+                ['Notes', opp.notes || '—']
+            ];
+            var tbl = document.getElementById('summaryTable');
+            if (tbl) {
+                tbl.innerHTML = rows.map(function (r) {
+                    return '<tr><th style="width:220px;">' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>';
+                }).join('');
+            }
+
+            // Now that currentOpp is populated, load the phones
+            loadCompanyPhones();
+        }).catch(function (err) {
+            console.error('opp load failed:', err);
+            var tbl = document.getElementById('summaryTable');
+            if (tbl) tbl.innerHTML = '<tr><td class="text-danger">Error: ' + esc(err.message) + '</td></tr>';
+        });
+    }
+
+    function loadActivities() {
+        api('/api/crm/opportunities/' + opportunityId + '/activities').then(function (list) {
+            var el = document.getElementById('activitiesList');
+            if (!el) return;
+            if (!list || !list.length) {
+                el.innerHTML = '<div class="text-center text-muted py-3">No activities yet</div>';
+                return;
+            }
+            el.innerHTML = list.map(function (a) {
+                var icon = ({Call:'fa-phone', Meeting:'fa-users', Email:'fa-envelope', Note:'fa-sticky-note'})[a.activity_type] || 'fa-clock';
+                var reminder = a.reminder_date_formatted
+                    ? '<span class="badge bg-info ms-2"><i class="fas fa-bell me-1"></i>' + esc(a.reminder_date_formatted) + '</span>'
+                    : '';
+                return '<div class="border-start ps-3 mb-3">' +
+                    '<i class="fas ' + icon + ' me-2 text-primary"></i>' +
+                    '<strong>' + esc(a.activity_type) + '</strong> ' + esc(a.subject) +
+                    '<small class="text-muted ms-2">' + esc(a.activity_date_formatted || '') + '</small>' + reminder +
+                    (a.notes ? '<div class="text-muted small mt-1">' + esc(a.notes) + '</div>' : '') +
+                    '</div>';
+            }).join('');
+        }).catch(function (err) {
+            console.error('activities load failed:', err);
+            var el = document.getElementById('activitiesList');
+            if (el) el.innerHTML = '<div class="text-danger">Error: ' + esc(err.message) + '</div>';
+        });
+    }
+
+    // ---------- Load Contacts (expandable) ----------
+    var CHANNEL_ICONS = {
+        Mobile:        'fa-mobile-alt',
+        DirectPhone:   'fa-phone',
+        Email:         'fa-envelope',
+        WhatsApp:      'fa-whatsapp',
+        Telegram:      'fa-telegram',
+        Bale:          'fa-comment-dots',
+        LinkedIn:      'fa-linkedin',
+        Other:         'fa-circle'
+    };
+
+    function channelOpenUrl(type, value) {
+        // Return a URL that opens the app for messaging channels
+        var v = String(value || '').replace(/[^0-9+@a-zA-Z\.\-_]/g, '');
+        if (type === 'WhatsApp') {
+            var num = v.replace(/[^0-9]/g, '');
+            if (num.startsWith('0')) num = '98' + num.substring(1); // Iran default
+            return 'https://wa.me/' + num;
+        }
+        if (type === 'Telegram') {
+            var handle = v.startsWith('@') ? v.substring(1) : v;
+            return 'https://t.me/' + handle;
+        }
+        if (type === 'Email') return 'mailto:' + value;
+        if (type === 'DirectPhone' || type === 'Mobile') return 'tel:' + value;
+        return null;
+    }
+
+    function loadContacts() {
+        console.log('📥 loading contacts');
+        api('/api/crm/opportunities/' + opportunityId + '/contacts')
+            .then(function (list) {
+                console.log('✅ contacts loaded:', list.length);
+                var el = document.getElementById('contactsBody');
+                if (!el) return;
+                if (!list || !list.length) {
+                    el.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No contacts linked yet</td></tr>';
+                    return;
+                }
+                var html = '';
+                list.forEach(function (c) {
+                    var primary = (c.is_primary === '1' || c.is_primary === 1)
+                        ? ' <span class="badge bg-success">Primary</span>' : '';
+
+                    html += '<tr class="contact-row" data-contact-id="' + esc(c.contact_id) + '">' +
+                        '<td><i class="fas fa-chevron-right contact-caret" style="transition:.15s;"></i></td>' +
+                        '<td>' + esc(c.full_name) + primary + '</td>' +
+                        '<td>' + esc(c.job_title || '') + '</td>' +
+                        '<td>' + esc(c.mobile || '') + '</td>' +
+                        '<td>' + esc(c.email || '') + '</td>' +
+                        '<td><span class="badge bg-secondary">' + esc(c.role || '') + '</span></td>' +
+                        '<td>' +
+                            '<button class="btn btn-sm btn-outline-success add-channel-btn me-1" data-contact-id="' + esc(c.contact_id) + '" data-contact-name="' + esc(c.full_name) + '" title="Add channel"><i class="fas fa-plus"></i></button>' +
+                            '<button class="btn btn-sm btn-outline-danger unlink-btn" data-link="' + esc(c.link_id) + '" title="Unlink"><i class="fas fa-unlink"></i></button>' +
+                        '</td>' +
+                    '</tr>';
+
+                    // Hidden details row
+                    html += '<tr class="contact-details" data-contact-id="' + esc(c.contact_id) + '" style="display:none;">' +
+                        '<td></td>' +
+                        '<td colspan="6">' +
+                            '<div class="channels-container" data-contact-id="' + esc(c.contact_id) + '">' +
+                                '<div class="text-muted small py-2">Loading channels...</div>' +
+                            '</div>' +
+                        '</td>' +
+                    '</tr>';
+                });
+                el.innerHTML = html;
+
+                // Row toggle
+                document.querySelectorAll('.contact-row').forEach(function (row) {
+                    row.addEventListener('click', function (ev) {
+                        // Don't toggle if clicking a button
+                        if (ev.target.closest('button')) return;
+                        var cid = row.getAttribute('data-contact-id');
+                        var detail = document.querySelector('.contact-details[data-contact-id="' + cid + '"]');
+                        var caret = row.querySelector('.contact-caret');
+                        if (!detail) return;
+                        if (detail.style.display === 'none') {
+                            detail.style.display = 'table-row';
+                            caret.style.transform = 'rotate(90deg)';
+                            loadChannelsForContact(cid);
+                        } else {
+                            detail.style.display = 'none';
+                            caret.style.transform = 'rotate(0deg)';
+                        }
+                    });
+                });
+
+                // Add channel button
+                document.querySelectorAll('.add-channel-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        openChannelModal(btn.getAttribute('data-contact-id'), btn.getAttribute('data-contact-name'));
+                    });
+                });
+
+                // Unlink button
+                document.querySelectorAll('.unlink-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        if (!confirm('Unlink this contact?')) return;
+                        fetch('/api/crm/opportunities/contacts/' + btn.getAttribute('data-link'), {
+                            method: 'DELETE', credentials: 'same-origin'
+                        }).then(loadContacts);
+                    });
+                });
+            })
+            .catch(function (err) {
+                console.error('❌ contacts load failed:', err);
+                var el = document.getElementById('contactsBody');
+                if (el) el.innerHTML = '<tr><td colspan="7" class="text-danger">Error: ' + esc(err.message) + '</td></tr>';
+            });
+    }
+
+    function loadChannelsForContact(contactId) {
+        var container = document.querySelector('.channels-container[data-contact-id="' + contactId + '"]');
+        if (!container) return;
+
+        api('/api/crm/contacts/' + contactId + '/channels')
+            .then(function (channels) {
+                if (!channels || !channels.length) {
+                    container.innerHTML = '<div class="text-muted small py-2">No channels yet</div>';
+                    return;
+                }
+                var html = '<div class="row g-2 py-2">';
+                channels.forEach(function (ch) {
+                    var icon = CHANNEL_ICONS[ch.channel_type] || 'fa-circle';
+                    var openUrl = channelOpenUrl(ch.channel_type, ch.value);
+                    var preferred = ch.is_preferred === '1' ? ' <span class="badge bg-info">Preferred</span>' : '';
+                    var primary = ch.is_primary === '1' ? ' <span class="badge bg-success">Primary</span>' : '';
+                    var ext = ch.extension ? ' (ext. ' + esc(ch.extension) + ')' : '';
+
+                    html += '<div class="col-md-6 col-lg-4">' +
+                        '<div class="border rounded p-2 h-100 d-flex align-items-start gap-2">' +
+                            '<i class="fas ' + icon + ' fa-lg text-primary mt-1" style="width:24px;"></i>' +
+                            '<div class="flex-grow-1 min-width-0">' +
+                                '<div class="small text-muted">' + esc(ch.channel_type) + '</div>' +
+                                '<div class="fw-bold text-truncate" title="' + esc(ch.value) + '">' + esc(ch.value) + ext + '</div>' +
+                                '<div class="mt-1">' + primary + preferred + '</div>' +
+                            '</div>' +
+                            '<div class="d-flex flex-column gap-1">' +
+                                '<button class="btn btn-sm btn-outline-secondary copy-channel-btn" data-value="' + esc(ch.value) + '" title="Copy"><i class="fas fa-copy"></i></button>' +
+                                (openUrl ? '<a class="btn btn-sm btn-outline-primary" href="' + openUrl + '" target="_blank" rel="noopener" title="Open"><i class="fas fa-external-link-alt"></i></a>' : '') +
+                                '<button class="btn btn-sm btn-outline-danger del-channel-btn" data-id="' + esc(ch.channel_id) + '" title="Delete"><i class="fas fa-trash"></i></button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                });
+                html += '</div>';
+                container.innerHTML = html;
+
+                // Copy
+                container.querySelectorAll('.copy-channel-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var val = btn.getAttribute('data-value');
+                        navigator.clipboard.writeText(val).then(function () {
+                            var old = btn.innerHTML;
+                            btn.innerHTML = '<i class="fas fa-check"></i>';
+                            setTimeout(function () { btn.innerHTML = old; }, 1200);
+                        });
+                    });
+                });
+
+                // Delete
+                container.querySelectorAll('.del-channel-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        if (!confirm('Remove this channel?')) return;
+                        fetch('/api/crm/channels/' + btn.getAttribute('data-id'), {
+                            method: 'DELETE', credentials: 'same-origin'
+                        }).then(function () { loadChannelsForContact(contactId); });
+                    });
+                });
+            })
+            .catch(function (err) {
+                container.innerHTML = '<div class="text-danger small py-2">Error: ' + esc(err.message) + '</div>';
+            });
+    }
+
+    function openChannelModal(contactId, contactName) {
+        document.getElementById('channelContactId').value = contactId;
+        document.getElementById('channelContactName').textContent = contactName || '';
+        document.getElementById('channelValue').value = '';
+        document.getElementById('channelExt').value = '';
+        document.getElementById('channelLabel').value = '';
+        document.getElementById('channelPrimary').checked = false;
+        document.getElementById('channelPreferred').checked = false;
+        document.getElementById('channelType').value = 'Mobile';
+        new bootstrap.Modal(document.getElementById('channelModal')).show();
+    }
+
+    function saveChannel() {
+        var contactId = document.getElementById('channelContactId').value;
+        var data = {
+            channel_type: document.getElementById('channelType').value,
+            value:        document.getElementById('channelValue').value,
+            extension:    document.getElementById('channelExt').value,
+            label:        document.getElementById('channelLabel').value,
+            is_primary:   document.getElementById('channelPrimary').checked ? 1 : 0,
+            is_preferred: document.getElementById('channelPreferred').checked ? 1 : 0
+        };
+        if (!data.value) { alert('Value is required'); return; }
+
+        fetch('/api/crm/contacts/' + contactId + '/channels', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('channelModal'));
+            if (m) m.hide();
+            loadChannelsForContact(contactId);
+        })
+        .catch(function (err) { alert('Error: ' + err.message); });
+    }
+
+    function loadTasks() {
+        api('/api/crm/opportunities/' + opportunityId + '/tasks').then(function (list) {
+            var el = document.getElementById('tasksBody');
+            if (!el) return;
+            if (!list || !list.length) {
+                el.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No tasks yet</td></tr>';
+                return;
+            }
+            el.innerHTML = list.map(function (tk) {
+                var statusBadge = tk.status === 'Done'
+                    ? '<span class="badge bg-success">Done</span>'
+                    : '<span class="badge bg-warning text-dark">' + esc(tk.status || 'Open') + '</span>';
+                var priBadge = ({High:'danger', Medium:'warning', Low:'secondary'})[tk.priority] || 'secondary';
+                var checkbox = tk.status === 'Done'
+                    ? '<input type="checkbox" checked disabled>'
+                    : '<input type="checkbox" class="task-check" data-id="' + esc(tk.task_id) + '">';
+                return '<tr>' +
+                    '<td>' + checkbox + '</td>' +
+                    '<td>' + esc(tk.subject) + '</td>' +
+                    '<td>' + esc(tk.due_date_formatted || '—') + '</td>' +
+                    '<td><span class="badge bg-' + priBadge + '">' + esc(tk.priority || '') + '</span></td>' +
+                    '<td>' + statusBadge + '</td>' +
+                    '<td><button class="btn btn-sm btn-outline-danger del-task" data-id="' + esc(tk.task_id) + '"><i class="fas fa-trash"></i></button></td>' +
+                    '</tr>';
+            }).join('');
+
+            document.querySelectorAll('.task-check').forEach(function (cb) {
+                cb.addEventListener('change', function () {
+                    fetch('/api/crm/tasks/' + cb.getAttribute('data-id'), {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ status: 'Done' })
+                    }).then(loadTasks);
+                });
+            });
+            document.querySelectorAll('.del-task').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (!confirm('Delete this task?')) return;
+                    fetch('/api/crm/tasks/' + btn.getAttribute('data-id'), {
+                        method: 'DELETE', credentials: 'same-origin'
+                    }).then(loadTasks);
+                });
+            });
+        }).catch(function (err) {
+            console.error('tasks load failed:', err);
+            var el = document.getElementById('tasksBody');
+            if (el) el.innerHTML = '<tr><td colspan="6" class="text-danger">Error: ' + esc(err.message) + '</td></tr>';
+        });
+    }
+
+    // ---------- Load Documents ----------
+    function loadDocuments() {
+        api('/api/crm/opportunities/' + opportunityId + '/documents').then(function (list) {
+            var el = document.getElementById('documentsBody');
+            if (!el) return;
+            if (!list || !list.length) {
+                el.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No documents yet</td></tr>';
+                return;
+            }
+            el.innerHTML = list.map(function (d) {
+                var dirClass = d.direction === 'Sent' ? 'bg-primary' : 'bg-secondary';
+                var link = d.location
+                    ? '<a href="' + esc(d.location) + '" target="_blank" rel="noopener">' + esc(d.location) + '</a>'
+                    : '—';
+                return '<tr>' +
+                    '<td><strong>' + esc(d.document_name) + '</strong><br><small class="text-muted">' + link + '</small></td>' +
+                    '<td>' + esc(d.document_type || '') + '</td>' +
+                    '<td><span class="badge ' + dirClass + '">' + esc(d.direction || '') + '</span></td>' +
+                    '<td>' + esc(d.channel || '') + '</td>' +
+                    '<td>' + esc(d.created_date_formatted || '') + '</td>' +
+                    '<td><button class="btn btn-sm btn-outline-danger del-doc" data-id="' + d.doc_id + '"><i class="fas fa-trash"></i></button></td>' +
+                '</tr>';
+            }).join('');
+
+            document.querySelectorAll('.del-doc').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (!confirm('Delete this document?')) return;
+                    fetch('/api/crm/documents/' + btn.getAttribute('data-id'), {
+                        method: 'DELETE', credentials: 'same-origin'
+                    }).then(loadDocuments);
+                });
+            });
+        }).catch(function (err) {
+            console.error('documents load failed:', err);
+            var el = document.getElementById('documentsBody');
+            if (el) el.innerHTML = '<tr><td colspan="6" class="text-danger">Error: ' + esc(err.message) + '</td></tr>';
+        });
+    }
+
+    function openDocumentModal() {
+        new bootstrap.Modal(document.getElementById('documentModal')).show();
+        document.getElementById('docName').value = '';
+        document.getElementById('docLocation').value = '';
+        document.getElementById('docNotes').value = '';
+        document.getElementById('docType').value = 'Offer';
+        document.getElementById('docDirection').value = 'Sent';
+        document.getElementById('docChannel').value = 'Email';
+        document.getElementById('docStorage').value = 'URL';
+    }
+
+    function saveDocument() {
+        var data = {
+            document_name: document.getElementById('docName').value,
+            document_type: document.getElementById('docType').value,
+            direction:     document.getElementById('docDirection').value,
+            channel:       document.getElementById('docChannel').value,
+            storage_type:  document.getElementById('docStorage').value,
+            location:      document.getElementById('docLocation').value,
+            notes:         document.getElementById('docNotes').value
+        };
+        if (!data.document_name || !data.location) {
+            alert('Name and link are required');
+            return;
+        }
+        fetch('/api/crm/opportunities/' + opportunityId + '/documents', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        }).then(function (r) { return r.json(); }).then(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('documentModal'));
+            if (m) m.hide();
+            loadDocuments();
+        }).catch(function (err) { alert('Error: ' + err.message); });
+    }
+
+    // ---------- Load Company Phones ----------
+    function loadCompanyPhones() {
+        // Get the customer_id from the loaded opportunity
+        var customerId = currentOpp ? currentOpp.customer_id : null;
+        if (!customerId) {
+            var el = document.getElementById('companyPhonesBody');
+            if (el) el.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No customer linked</td></tr>';
+            return;
+        }
+
+        api('/api/crm/companies/' + customerId + '/phones').then(function (list) {
+            var el = document.getElementById('companyPhonesBody');
+            if (!el) return;
+            if (!list || !list.length) {
+                el.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No phones yet</td></tr>';
+                return;
+            }
+            el.innerHTML = list.map(function (p) {
+                var range = p.phone_range_end ? '–' + esc(p.phone_range_end) : '';
+                var ext = p.extension ? ' (ext. ' + esc(p.extension) + ')' : '';
+                var primary = p.is_primary === '1' ? ' <span class="badge bg-success">Primary</span>' : '';
+                return '<tr>' +
+                    '<td><i class="fas fa-phone me-1 text-muted"></i>' + esc(p.phone_number) + range + ext + primary + '</td>' +
+                    '<td>' + esc(p.phone_type || '') + '</td>' +
+                    '<td>' + esc(p.label || '') + '</td>' +
+                    '<td><button class="btn btn-sm btn-outline-danger del-phone-btn" data-id="' + esc(p.phone_id) + '"><i class="fas fa-trash"></i></button></td>' +
+                '</tr>';
+            }).join('');
+
+            document.querySelectorAll('.del-phone-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (!confirm('Delete this phone?')) return;
+                    fetch('/api/crm/phones/' + btn.getAttribute('data-id'), {
+                        method: 'DELETE', credentials: 'same-origin'
+                    }).then(loadCompanyPhones);
+                });
+            });
+        }).catch(function (err) {
+            console.error('phones load failed:', err);
+            var el = document.getElementById('companyPhonesBody');
+            if (el) el.innerHTML = '<tr><td colspan="4" class="text-danger">Error: ' + esc(err.message) + '</td></tr>';
+        });
+    }
+
+    function openPhoneModal() {
+        document.getElementById('phoneNumber').value = '';
+        document.getElementById('phoneRangeEnd').value = '';
+        document.getElementById('phoneExt').value = '';
+        document.getElementById('phoneLabel').value = '';
+        document.getElementById('phonePrimary').checked = false;
+        document.getElementById('phoneType').value = 'Main';
+        new bootstrap.Modal(document.getElementById('phoneModal')).show();
+    }
+
+    function savePhone() {
+        var customerId = currentOpp ? currentOpp.customer_id : null;
+        if (!customerId) { alert('No customer on this opportunity'); return; }
+
+        var data = {
+            phone_number:   document.getElementById('phoneNumber').value,
+            phone_range_end: document.getElementById('phoneRangeEnd').value,
+            phone_type:     document.getElementById('phoneType').value,
+            extension:      document.getElementById('phoneExt').value,
+            label:          document.getElementById('phoneLabel').value,
+            is_primary:     document.getElementById('phonePrimary').checked ? 1 : 0
+        };
+        if (!data.phone_number) { alert('Phone number is required'); return; }
+
+        fetch('/api/crm/companies/' + customerId + '/phones', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('phoneModal'));
+            if (m) m.hide();
+            loadCompanyPhones();
+        })
+        .catch(function (err) { alert('Error: ' + err.message); });
+    }
+
+    // ---------- Modals ----------
+    function openActivityModal() {
+        new bootstrap.Modal(document.getElementById('activityModal')).show();
+        document.getElementById('activitySubject').value = '';
+        document.getElementById('activityNotes').value = '';
+        document.getElementById('activityDate').value = new Date().toISOString().split('T')[0];
+        var rem = new Date(Date.now() + 3 * 86400000);
+        document.getElementById('activityReminder').value = rem.toISOString().split('T')[0];
+    }
+    function saveActivity() {
+        var data = {
+            activity_type: document.getElementById('activityType').value,
+            subject: document.getElementById('activitySubject').value,
+            activity_date: document.getElementById('activityDate').value,
+            notes: document.getElementById('activityNotes').value,
+            reminder_date: document.getElementById('activityReminder').value
+        };
+        if (!data.subject) { alert('Subject required'); return; }
+        fetch('/api/crm/opportunities/' + opportunityId + '/activity', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        }).then(function (r) { return r.json(); }).then(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('activityModal'));
+            if (m) m.hide();
+            loadActivities();
+        }).catch(function (err) { alert('Error: ' + err.message); });
+    }
+
+    function openTaskModal() {
+        new bootstrap.Modal(document.getElementById('taskModal')).show();
+        document.getElementById('taskSubject').value = '';
+        document.getElementById('taskNotes').value = '';
+        var d = new Date(Date.now() + 7 * 86400000);
+        document.getElementById('taskDue').value = d.toISOString().split('T')[0];
+        document.getElementById('taskPriority').value = 'Medium';
+    }
+    function saveTask() {
+        var data = {
+            subject: document.getElementById('taskSubject').value,
+            notes: document.getElementById('taskNotes').value,
+            due_date: document.getElementById('taskDue').value,
+            priority: document.getElementById('taskPriority').value
+        };
+        if (!data.subject) { alert('Subject required'); return; }
+        fetch('/api/crm/opportunities/' + opportunityId + '/tasks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        }).then(function (r) { return r.json(); }).then(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('taskModal'));
+            if (m) m.hide();
+            loadTasks();
+        }).catch(function (err) { alert('Error: ' + err.message); });
+    }
+
+    function loadContactChoices() {
+        fetch('/api/crm/contacts/search?q=' + encodeURIComponent(document.getElementById('contactSearch').value),
+              { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (list) {
+                var sel = document.getElementById('linkContactSelect');
+                var html = '<option value="">Select</option>';
+                list.forEach(function (c) {
+                    html += '<option value="' + esc(c.contact_id) + '">' + esc(c.full_name) +
+                            (c.job_title ? ' — ' + esc(c.job_title) : '') + '</option>';
+                });
+                sel.innerHTML = html;
+            });
+    }
+    function openLinkContactModal() {
+        new bootstrap.Modal(document.getElementById('linkContactModal')).show();
+        document.getElementById('contactSearch').value = '';
+        loadContactChoices();
+    }
+    function saveLink() {
+        var data = {
+            contact_id: document.getElementById('linkContactSelect').value,
+            role: document.getElementById('linkContactRole').value,
+            is_primary: document.getElementById('linkContactPrimary').value
+        };
+        if (!data.contact_id) { alert('Select a contact'); return; }
+        fetch('/api/crm/opportunities/' + opportunityId + '/contacts', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        }).then(function (r) { return r.json(); }).then(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('linkContactModal'));
+            if (m) m.hide();
+            loadContacts();
+        }).catch(function (err) { alert('Error: ' + err.message); });
+    }
+
+    // ---------- Init ----------
+    document.addEventListener('DOMContentLoaded', function () {
+        var el;
+        el = document.getElementById('logActivityBtn'); if (el) el.addEventListener('click', openActivityModal);
+        el = document.getElementById('addActivityTabBtn'); if (el) el.addEventListener('click', openActivityModal);
+        el = document.getElementById('saveActivityBtn'); if (el) el.addEventListener('click', saveActivity);
+        el = document.getElementById('addTaskBtn'); if (el) el.addEventListener('click', openTaskModal);
+        el = document.getElementById('saveTaskBtn'); if (el) el.addEventListener('click', saveTask);
+        el = document.getElementById('linkContactBtn'); if (el) el.addEventListener('click', openLinkContactModal);
+        el = document.getElementById('saveLinkBtn'); if (el) el.addEventListener('click', saveLink);
+        el = document.getElementById('addDocumentBtn'); if (el) el.addEventListener('click', openDocumentModal);
+        el = document.getElementById('saveDocumentBtn'); if (el) el.addEventListener('click', saveDocument);
+
+        // Phase 3 — Phones + Channels
+        el = document.getElementById('addPhoneBtn'); if (el) el.addEventListener('click', openPhoneModal);
+        el = document.getElementById('savePhoneBtn'); if (el) el.addEventListener('click', savePhone);
+        el = document.getElementById('saveChannelBtn'); if (el) el.addEventListener('click', saveChannel);
+
+        var searchInput = document.getElementById('contactSearch');
+        if (searchInput) {
+            var timer = null;
+            searchInput.addEventListener('input', function () {
+                clearTimeout(timer);
+                timer = setTimeout(loadContactChoices, 300);
+            });
+        }
+
+        // Modal date-picker re-init hooks (defensive — works with either alias)
+        var activityModalEl = document.getElementById('activityModal');
+        if (activityModalEl) {
+            activityModalEl.addEventListener('shown.bs.modal', function () {
+                if (typeof window.reinitDateTimePickers === 'function') {
+                    window.reinitDateTimePickers();
+                }
+            });
+        }
+        var taskModalEl = document.getElementById('taskModal');
+        if (taskModalEl) {
+            taskModalEl.addEventListener('shown.bs.modal', function () {
+                if (typeof window.reinitDateTimePickers === 'function') {
+                    window.reinitDateTimePickers();
+                }
+            });
+        }
+
+        loadOpportunity();
+        loadActivities();
+        loadContacts();
+        loadTasks();
+        loadDocuments();
+    });
+})();
+</script>
+{% endblock %}

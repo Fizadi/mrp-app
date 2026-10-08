@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.load_board.title', 'Load Board') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.load_board.breadcrumb', 'Load Board') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.load_board.title', 'Load Board') }}</h2>
+        <div>
+            <button class="btn btn-primary" id="generateBtn">
+                <i class="fas fa-sync"></i> {{ get_translation('manufacturing.load_board.generate', 'Generate Schedule') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.load_board.kpi.total_load', 'Total Load (hrs)') }}</h6><h3 id="kpiLoad">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.load_board.kpi.capacity', 'Available Capacity') }}</h6><h3 id="kpiCapacity">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.load_board.kpi.utilization', 'Utilization') }}</h6><h3 id="kpiUtilization">0%</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.load_board.kpi.bottlenecks', 'Bottlenecks') }}</h6><h3 id="kpiBottlenecks">0</h3></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.load_board.filters.workstation', 'Workstation') }}</label>
+                <select class="form-select" id="filterWorkstation">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation('manufacturing.load_board.filters.date_from', 'Date From') }}</label>
+                <input type="date" class="form-control" id="filterDateFrom">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation('manufacturing.load_board.filters.date_to', 'Date To') }}</label>
+                <input type="date" class="form-control" id="filterDateTo">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-primary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}</button>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-secondary w-100" id="resetFiltersBtn">{{ get_translation('global.reset', 'Reset') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="load-board-legend">
+        <span class="legend-item"><span class="legend-color" style="background:#28a745;"></span> {{ get_translation('manufacturing.load_board.priority.low', 'Low Priority') }}</span>
+        <span class="legend-item"><span class="legend-color" style="background:#17a2b8;"></span> {{ get_translation('manufacturing.load_board.priority.medium', 'Medium Priority') }}</span>
+        <span class="legend-item"><span class="legend-color" style="background:#ffc107;"></span> {{ get_translation('manufacturing.load_board.priority.high', 'High Priority') }}</span>
+        <span class="legend-item"><span class="legend-color" style="background:#dc3545;"></span> {{ get_translation('manufacturing.load_board.priority.critical', 'Critical Priority') }}</span>
+        <span class="legend-item"><span class="legend-color" style="background:#6c757d;"></span> {{ get_translation('manufacturing.load_board.status.completed', 'Completed') }}</span>
+        <span class="legend-item"><span class="legend-color" style="border:2px solid #0d6efd; background:transparent;"></span> {{ get_translation('manufacturing.load_board.status.in_progress', 'In Progress') }}</span>
+        <span class="legend-item"><span class="legend-color" style="border-left:4px solid #dc3545; background:transparent;"></span> {{ get_translation('manufacturing.load_board.quality.critical', 'Quality Critical') }}</span>
+    </div>
+
+    <!-- Gantt Chart -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>{{ get_translation('manufacturing.load_board.chart.title', 'Workload Gantt Chart') }}</span>
+            <span id="scheduleCount" class="badge bg-secondary">0 {{ get_translation('manufacturing.load_board.jobs', 'jobs') }}</span>
+        </div>
+        <div class="card-body">
+            <div id="loadingState" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">{{ get_translation('global.loading', 'Loading...') }}</p>
+            </div>
+            <div id="chartContainer" style="display:none;">
+                <div class="gantt-container" id="ganttContainer">
+                    <div class="gantt-chart" id="ganttChart"></div>
+                </div>
+            </div>
+            <div id="noDataMessage" style="display:none;" class="text-center py-4">
+                <i class="fas fa-calendar-plus fa-3x text-muted"></i>
+                <p class="mt-2 text-muted">{{ get_translation('manufacturing.load_board.no_data', 'No schedule data available. Click "Generate Schedule" to create one.') }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// LOAD BOARD - COMPLETE JAVASCRIPT (FIXED)
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Load Board page loaded');
+
+    function getEl(id) { return document.getElementById(id); }
+
+    function showToast(message, type) {
+        type = type || 'success';
+        var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+        var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+            '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+        document.body.insertAdjacentHTML('beforeend', toastHtml);
+        var toastEl = document.querySelector('.toast');
+        var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        toast.show();
+        setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+    }
+
+    function keyToDate(key) {
+        if (!key) return '';
+        var s = key.toString();
+        return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    }
+
+    // Load workstations for dropdown
+    function loadWorkstations() {
+        fetch('/api/manufacturing/workstations')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var select = getEl('filterWorkstation');
+                if (!select) return;
+                var opts = '<option value="">{{ get_translation("global.all", "All") }}</option>';
+                data.forEach(function(w) {
+                    if (w.IsActive && !w.IsArchived) {
+                        opts += '<option value="' + w.WorkCenterID + '">' + w.Name + '</option>';
+                    }
+                });
+                select.innerHTML = opts;
+                console.log('Workstations loaded:', data.length);
+            })
+            .catch(function(err) { console.error('Workstations error:', err); });
+    }
+
+    // Load KPIs
+    function loadKPIs() {
+        var params = new URLSearchParams();
+        var ws = getEl('filterWorkstation');
+        if (ws && ws.value) params.set('workstation_id', ws.value);
+        
+        fetch('/api/manufacturing/load-board/stats?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                getEl('kpiLoad').textContent = (res.totalLoad || 0).toFixed(1);
+                getEl('kpiCapacity').textContent = (res.totalCapacity || 0).toFixed(1);
+                getEl('kpiUtilization').textContent = (res.utilization || 0) + '%';
+                getEl('kpiBottlenecks').textContent = res.bottleneckCount || 0;
+            })
+            .catch(function(err) { console.error('KPI error:', err); });
+    }
+
+    // Load Gantt data
+    function loadGantt() {
+        var params = new URLSearchParams();
+        var ws = getEl('filterWorkstation');
+        var dateFrom = getEl('filterDateFrom');
+        var dateTo = getEl('filterDateTo');
+        
+        if (ws && ws.value) params.set('workstation_id', ws.value);
+        if (dateFrom && dateFrom.value) params.set('date_from', dateFrom.value.replace(/-/g, ''));
+        if (dateTo && dateTo.value) params.set('date_to', dateTo.value.replace(/-/g, ''));
+        
+        var loadingState = getEl('loadingState');
+        var chartContainer = getEl('chartContainer');
+        var noDataMessage = getEl('noDataMessage');
+        
+        loadingState.style.display = 'block';
+        chartContainer.style.display = 'none';
+        noDataMessage.style.display = 'none';
+        
+        fetch('/api/manufacturing/load-board/data?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                loadingState.style.display = 'none';
+                
+                if (!data.schedules || data.schedules.length === 0) {
+                    noDataMessage.style.display = 'block';
+                    getEl('scheduleCount').textContent = '0 jobs';
+                    return;
+                }
+                
+                chartContainer.style.display = 'block';
+                getEl('scheduleCount').textContent = data.schedules.length + ' jobs';
+                
+                // Call renderGantt with the data
+                renderGantt(data);
+            })
+            .catch(function(err) {
+                console.error('Error loading data:', err);
+                loadingState.style.display = 'none';
+                noDataMessage.style.display = 'block';
+                noDataMessage.innerHTML = '<div class="alert alert-danger">' + err.message + '</div>';
+            });
+    }
+
+    // ============================================================================
+    // RENDER GANTT - THE MISSING FUNCTION
+    // ============================================================================
+    function renderGantt(data) {
+        console.log('renderGantt called with data:', data);
+        var container = getEl('ganttChart');
+        if (!container) {
+            console.error('ganttChart element not found!');
+            return;
+        }
+        
+        // Group by workstation
+        var workstations = {};
+        data.schedules.forEach(function(item) {
+            if (!workstations[item.workstationId]) {
+                workstations[item.workstationId] = {
+                    name: item.workstationName,
+                    schedules: []
+                };
+            }
+            workstations[item.workstationId].schedules.push(item);
+        });
+        
+        // Find date range
+        var allDates = [];
+        data.schedules.forEach(function(s) {
+            if (s.startDateKey) allDates.push(s.startDateKey);
+            if (s.endDateKey) allDates.push(s.endDateKey);
+        });
+        
+        var minDate = Math.min.apply(null, allDates);
+        var maxDate = Math.max.apply(null, allDates);
+        
+        if (minDate === Infinity || maxDate === -Infinity) {
+            var today = parseInt(new Date().toISOString().slice(0, 10).replace(/-/g, ''));
+            minDate = today;
+            maxDate = today + 30;
+        }
+        
+        var daysRange = Math.ceil((maxDate - minDate) / 100) + 5;
+        var dayWidth = 80;
+        
+        var html = '';
+        
+        // Headers
+        html += '<div class="gantt-row" style="min-height:30px; background:#e9ecef;">';
+        html += '<div class="gantt-row-label" style="font-weight:700;">Workstation</div>';
+        html += '<div class="gantt-timeline" style="height:30px;">';
+        
+        // Date labels
+        for (var i = 0; i <= daysRange; i++) {
+            var dateVal = minDate + (i * 100);
+            var leftPos = i * dayWidth;
+            var displayDate = keyToDate(dateVal);
+            html += '<span style="position:absolute;left:' + leftPos + 'px;font-size:10px;color:#6c757d;top:2px;">' + displayDate + '</span>';
+            html += '<div class="gantt-grid-line" style="left:' + leftPos + 'px;"></div>';
+        }
+        html += '</div></div>';
+        
+        // Workstation rows
+        var sortedKeys = Object.keys(workstations).sort();
+        
+        sortedKeys.forEach(function(key) {
+            var wc = workstations[key];
+            var capacity = 0;
+            
+            data.capacity.forEach(function(c) {
+                if (c.workstationId === key) {
+                    capacity = c.capacityHours || 160;
+                }
+            });
+            
+            html += '<div class="gantt-row">';
+            html += '<div class="gantt-row-label" title="' + wc.name + '">' + wc.name + '</div>';
+            html += '<div class="gantt-timeline" style="position:relative;">';
+            
+            // Capacity bar background
+            html += '<div class="capacity-bar-container" style="position:absolute;bottom:0;left:0;right:0;height:8px;opacity:0.3;">';
+            html += '<div class="capacity-bar ' + (capacity > 0 ? 'success' : 'secondary') + '" style="width:' + Math.min((capacity / 200) * 100, 100) + '%;"></div>';
+            html += '</div>';
+            
+            // Draw bars
+            wc.schedules.forEach(function(s) {
+                if (!s.startDateKey || !s.endDateKey) return;
+                
+                var startOffset = Math.max(0, ((s.startDateKey - minDate) / 100) * dayWidth);
+                var duration = ((s.endDateKey - s.startDateKey) / 100) * dayWidth + dayWidth / 2;
+                var priorityClass = 'priority-' + (s.priority || 2);
+                var statusClass = '';
+                
+                if (s.status === 'Completed') statusClass = 'status-completed';
+                if (s.status === 'InProgress') statusClass = 'status-in-progress';
+                if (s.isQualityCritical) statusClass += ' quality-critical';
+                
+                html += '<div class="gantt-bar ' + priorityClass + ' ' + statusClass + '" ';
+                html += 'style="left:' + startOffset + 'px;width:' + Math.max(duration, 30) + 'px;" ';
+                html += 'title="' + s.orderId + ': ' + s.productName + ' (' + s.scheduledHours + ' hrs)" ';
+                html += 'data-schedule-id="' + s.id + '" ';
+                html += 'draggable="true" ';
+                html += '>';
+                html += s.orderId + ' - ' + s.productName.substring(0, 12) + (s.productName.length > 12 ? '...' : '');
+                html += '</div>';
+            });
+            
+            html += '</div></div>';
+        });
+        
+        container.innerHTML = html;
+        console.log('Gantt chart rendered with', data.schedules.length, 'schedules');
+        
+        // Make bars draggable
+        document.querySelectorAll('.gantt-bar').forEach(function(bar) {
+            bar.addEventListener('dragstart', function(e) {
+                e.dataTransfer.setData('text/plain', this.getAttribute('data-schedule-id'));
+                this.style.opacity = '0.5';
+            });
+            bar.addEventListener('dragend', function(e) {
+                this.style.opacity = '1';
+            });
+        });
+        
+        // Drop target
+        container.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+        
+        container.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var scheduleId = e.dataTransfer.getData('text/plain');
+            if (!scheduleId) return;
+            
+            var rect = e.target.closest('.gantt-timeline').getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var daysOffset = Math.round(x / dayWidth);
+            var newStartDate = minDate + (daysOffset * 100);
+            var newEndDate = newStartDate + 300;
+            
+            if (confirm('Reschedule job to ' + keyToDate(newStartDate) + '?')) {
+                fetch('/api/manufacturing/load-board/reschedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scheduleId: scheduleId,
+                        newStartDate: newStartDate,
+                        newEndDate: newEndDate
+                    })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    if (result.error) {
+                        showToast(result.error, 'error');
+                        return;
+                    }
+                    showToast('Job rescheduled', 'success');
+                    loadGantt();
+                    loadKPIs();
+                })
+                .catch(function(err) {
+                    showToast('Error rescheduling', 'error');
+                    console.error(err);
+                });
+            }
+        });
+    }
+
+    // Generate schedule
+    function generateSchedule() {
+        var btn = getEl('generateBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        
+        fetch('/api/manufacturing/load-board/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast('Schedule generated: ' + (result.inserted || 0) + ' jobs', 'success');
+            loadGantt();
+            loadKPIs();
+        })
+        .catch(function(err) {
+            showToast('Error generating schedule: ' + err.message, 'error');
+            console.error(err);
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync"></i> Generate Schedule';
+        });
+    }
+
+    // Refresh all
+    function refreshAll() {
+        loadKPIs();
+        loadGantt();
+    }
+
+    // Reset filters
+    function resetFilters() {
+        var ws = getEl('filterWorkstation');
+        var dateFrom = getEl('filterDateFrom');
+        var dateTo = getEl('filterDateTo');
+        if (ws) ws.value = '';
+        if (dateFrom) dateFrom.value = '';
+        if (dateTo) dateTo.value = '';
+        refreshAll();
+    }
+
+    // Event binding
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) applyBtn.addEventListener('click', refreshAll);
+
+    var resetBtn = getEl('resetFiltersBtn');
+    if (resetBtn) resetBtn.addEventListener('click', resetFilters);
+
+    var generateBtn = getEl('generateBtn');
+    if (generateBtn) generateBtn.addEventListener('click', generateSchedule);
+
+    var wsFilter = getEl('filterWorkstation');
+    if (wsFilter) wsFilter.addEventListener('change', refreshAll);
+
+    // Initial load
+    loadWorkstations();
+    refreshAll();
+    setInterval(refreshAll, 60000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}System Configuration{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h1 class="h3"><i class="fas fa-cogs me-2"></i>{{ get_translation('auto.aa450bf7', 'System Configuration') }}</h1>
+<div>
+<button class="btn btn-outline-success me-2" id="exportBtn"><i class="fas fa-download"></i>{{ get_translation('auto.d09b3bcb', 'Export JSON') }}</button>
+<button class="btn btn-outline-primary me-2" id="importBtn"><i class="fas fa-upload"></i>{{ get_translation('auto.9ffaae7b', 'Import JSON') }}</button>
+<button class="btn btn-primary" id="addKeyBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.5e47e2cc', 'Add Key') }}</button>
+</div>
+</div>
+<div class="card">
+<div class="card-header bg-light d-flex justify-content-between align-items-center">
+<span><i class="fas fa-list"></i>{{ get_translation('auto.9b598f0e', 'Configuration Parameters') }}</span>
+<div class="w-25">
+<select class="form-select form-select-sm" id="categoryFilter">
+<option value="">{{ get_translation('auto.dba74543', 'All Categories') }}</option>
+</select>
+</div>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+<thead class="table-light">
+<tr><th>{{ get_translation('auto.4f419902', 'Key') }}</th><th>{{ get_translation('auto.276014b7', 'Value') }}</th><th>{{ get_translation('auto.f76c03c2', 'Category') }}</th><th>{{ get_translation('auto.ee8ffbed', 'Description') }}</th><th style="width:80px">{{ get_translation('auto.91e7876c', 'Actions') }}</th></tr>
+</thead>
+<tbody id="configTableBody">
+<tr><td class="text-center py-4" colspan="5">{{ get_translation('auto.8d601cf9', 'Loading configurations...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal: Edit / Add Configuration -->
+<div class="modal fade" id="configModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header bg-primary text-white">
+<h5 class="modal-title" id="configModalTitle">{{ get_translation('auto.a0e7df17', 'Edit Configuration') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="configForm">
+<input id="originalKey" type="hidden"/>
+<div class="mb-3"><label>{{ get_translation('auto.3af86145', 'Key *') }}</label><input class="form-control" id="configKey" required="" type="text"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.d2f10355', 'Value *') }}</label><input class="form-control" id="configValue" required="" type="text"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.87149a0b', 'Category') }}</label><input class="form-control" id="configCategory" placeholder="General" type="text"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.e9d155a1', 'Description') }}</label><textarea class="form-control" id="configDesc" rows="2"></textarea></div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.219070df', 'Cancel') }}</button>
+<button class="btn btn-danger" id="deleteConfigBtn" style="display:none;">{{ get_translation('auto.afc28259', 'Delete') }}</button>
+<button class="btn btn-primary" id="saveConfigBtn">{{ get_translation('auto.47edbe06', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.ad0ca669', 'Import Configuration JSON') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body"><input accept=".json" class="form-control" id="importFile" type="file"/></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.0b060925', 'Cancel') }}</button><button class="btn btn-primary" id="doImportBtn">{{ get_translation('auto.7047f6bd', 'Import') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allConfigs = [];
+let categories = [];
+
+async function loadConfigs() {
+    const res = await fetch('/api/admin/config');
+    allConfigs = await res.json();
+    renderConfigTable();
+}
+
+async function loadCategories() {
+    const res = await fetch('/api/admin/config/categories');
+    categories = await res.json();
+    const filterSelect = document.getElementById('categoryFilter');
+    filterSelect.innerHTML = '<option value="">All Categories</option>';
+    categories.forEach(cat => {
+        filterSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+    });
+}
+
+function renderConfigTable() {
+    const filter = document.getElementById('categoryFilter').value;
+    const filtered = filter ? allConfigs.filter(c => c.category === filter) : allConfigs;
+    const tbody = document.getElementById('configTableBody');
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No configurations found</td></tr>';
+        return;
+    }
+    let html = '';
+    filtered.forEach(cfg => {
+        html += `<tr>
+            <td><strong>${escapeHtml(cfg.key)}</strong></td>
+            <td><code>${escapeHtml(cfg.value)}</code></td>
+            <td>${escapeHtml(cfg.category)}</td>
+            <td>${escapeHtml(cfg.description || '')}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary edit-config" data-key="${cfg.key}"><i class="fas fa-edit"></i></button>
+             </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// Filter change
+document.getElementById('categoryFilter').addEventListener('change', renderConfigTable);
+
+// Add / Edit
+document.getElementById('addKeyBtn').addEventListener('click', () => {
+    document.getElementById('configModalTitle').innerText = 'Add Configuration Key';
+    document.getElementById('originalKey').value = '';
+    document.getElementById('configKey').value = '';
+    document.getElementById('configKey').readOnly = false;
+    document.getElementById('configValue').value = '';
+    document.getElementById('configCategory').value = 'General';
+    document.getElementById('configDesc').value = '';
+    document.getElementById('deleteConfigBtn').style.display = 'none';
+    $('#configModal').modal('show');
+});
+
+$(document).on('click', '.edit-config', function(e) {
+    const key = $(this).data('key');
+    const config = allConfigs.find(c => c.key === key);
+    if (config) {
+        document.getElementById('configModalTitle').innerText = 'Edit Configuration';
+        document.getElementById('originalKey').value = config.key;
+        document.getElementById('configKey').value = config.key;
+        document.getElementById('configKey').readOnly = true;
+        document.getElementById('configValue').value = config.value;
+        document.getElementById('configCategory').value = config.category || 'General';
+        document.getElementById('configDesc').value = config.description || '';
+        document.getElementById('deleteConfigBtn').style.display = 'inline-block';
+        $('#configModal').modal('show');
+    }
+});
+
+document.getElementById('saveConfigBtn').addEventListener('click', async () => {
+    const originalKey = document.getElementById('originalKey').value;
+    const key = document.getElementById('configKey').value.trim();
+    const value = document.getElementById('configValue').value.trim();
+    const category = document.getElementById('configCategory').value.trim() || 'General';
+    const description = document.getElementById('configDesc').value.trim();
+
+    if (!key || !value) { alert('Key and value are required'); return; }
+
+    if (originalKey) {
+        // Update existing
+        const res = await fetch(`/api/admin/config/${encodeURIComponent(key)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value, description, category })
+        });
+        if (res.ok) {
+            $('#configModal').modal('hide');
+            await loadConfigs();
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Update failed');
+        }
+    } else {
+        // Create new
+        const res = await fetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value, description, category })
+        });
+        if (res.ok) {
+            $('#configModal').modal('hide');
+            await loadConfigs();
+            await loadCategories();
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Creation failed');
+        }
+    }
+});
+
+document.getElementById('deleteConfigBtn').addEventListener('click', async () => {
+    const key = document.getElementById('originalKey').value;
+    if (!confirm(`Delete configuration key "${key}"?`)) return;
+    const res = await fetch(`/api/admin/config/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    if (res.ok) {
+        $('#configModal').modal('hide');
+        await loadConfigs();
+        await loadCategories();
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Delete failed');
+    }
+});
+
+// Export
+document.getElementById('exportBtn').addEventListener('click', () => {
+    window.location.href = '/api/admin/config/export';
+});
+
+// Import
+document.getElementById('importBtn').addEventListener('click', () => {
+    $('#importModal').modal('show');
+});
+document.getElementById('doImportBtn').addEventListener('click', async () => {
+    const file = document.getElementById('importFile').files[0];
+    if (!file) { alert('Select a JSON file'); return; }
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/admin/config/import', { method: 'POST', body: formData });
+    if (res.ok) {
+        alert('Configuration imported');
+        $('#importModal').modal('hide');
+        await loadConfigs();
+        await loadCategories();
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Import failed');
+    }
+});
+
+// Initial load
+loadCategories();
+loadConfigs();
+</script>
+{% endblock %}

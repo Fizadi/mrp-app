@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.customers.title', 'Customers') }}{% endblock %}
+
+{% block styles %}
+<style>
+    .revenue-positive { color: #28a745; font-weight: bold; }
+    .clickable { cursor: pointer; }
+    .clickable:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-users me-2"></i>{{ get_translation('crm.customers.title', 'Customers') }}
+            <span class="badge bg-secondary ms-2" id="customersCount">0</span>
+        </h2>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4 mb-2">
+            <div class="card border-primary h-100"><div class="card-body text-center">
+                <h5 class="card-title text-primary">{{ get_translation('crm.customers.total_customers', 'Total Customers') }}</h5>
+                <p class="card-text display-6" id="kpiTotalCustomers">0</p>
+            </div></div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card border-success h-100"><div class="card-body text-center">
+                <h5 class="card-title text-success">{{ get_translation('crm.customers.active_opportunities', 'Active Opportunities') }}</h5>
+                <p class="card-text display-6" id="kpiTotalOpportunities">0</p>
+            </div></div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card border-info h-100"><div class="card-body text-center">
+                <h5 class="card-title text-info">{{ get_translation('crm.customers.lifetime_value', 'Total Lifetime Value') }}</h5>
+                <p class="card-text display-6" id="kpiTotalRevenue">$0</p>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <label class="form-label">{{ get_translation('global.search', 'Search') }}</label>
+                    <input class="form-control" id="filterSearch" type="text">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label">{{ get_translation('crm.customers.has_opportunities', 'Filter') }}</label>
+                    <select class="form-select" id="filterHasOpportunities">
+                        <option value="all">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="yes">{{ get_translation('crm.customers.with_opportunities', 'With Opportunities') }}</option>
+                        <option value="no">{{ get_translation('crm.customers.without_opportunities', 'Without Opportunities') }}</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('crm.customers.all_customers', 'All Customers') }}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0 table-sticky-dark">
+                    <thead>
+                        <tr>
+                            <th>{{ get_translation('crm.customers.customer_name', 'Customer Name') }}</th>
+                            <th>{{ get_translation('crm.customers.telephone', 'Telephone') }}</th>
+                            <th>{{ get_translation('crm.customers.open_pipeline', 'Open Pipeline') }}</th>
+                            <th>{{ get_translation('crm.customers.total_revenue', 'Total Revenue') }}</th>
+                            <th>{{ get_translation('crm.customers.opportunities', 'Opportunities') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersTableBody">
+                        <tr><td colspan="5" class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Customer Detail Modal -->
+<div class="modal fade" id="customerDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('crm.customers.detail_title', 'Customer Detail') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body" id="customerDetailBody">
+                <div class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.close', 'Close') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// 1. STATE / CONSTANTS — TOP LEVEL
+// ============================================================================
+var allCustomers = [];
+
+// ============================================================================
+// 2. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function el(id) { return document.getElementById(id); }
+
+function showToast(message, type) {
+    type = type || 'success';
+    var bg = type === 'error' ? 'bg-danger' : (type === 'warning' ? 'bg-warning text-dark' : 'bg-success');
+    var node = document.createElement('div');
+    node.className = 'toast align-items-center ' + bg + ' text-white border-0 position-fixed top-0 end-0 m-3';
+    node.style.zIndex = '9999';
+    node.innerHTML = '<div class="d-flex"><div class="toast-body">' + escapeHtml(message) +
+        '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    document.body.appendChild(node);
+    new bootstrap.Toast(node, { delay: 3500 }).show();
+    setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 4000);
+}
+
+// ============================================================================
+// 3. DATA LOADERS — TOP LEVEL, use fetch()
+// ============================================================================
+function loadCustomers() {
+    var tbody = el('customersTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">' + t('global.loading', 'Loading...') + '</td></tr>';
+
+    fetch('/api/crm/all-customers', { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            allCustomers = data || [];
+            renderCustomers();
+        })
+        .catch(function (err) {
+            console.error('load customers failed:', err);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">' +
+                t('global.error_loading', 'Error loading data') + '</td></tr>';
+        });
+}
+
+function renderCustomers() {
+    var tbody = el('customersTableBody');
+    if (!tbody) return;
+
+    var searchTerm = (el('filterSearch') || {}).value || '';
+    searchTerm = searchTerm.toLowerCase();
+    var filterOpps = (el('filterHasOpportunities') || {}).value || 'all';
+
+    var filtered = allCustomers.filter(function (c) {
+        if (searchTerm && (c.name || '').toLowerCase().indexOf(searchTerm) === -1) return false;
+        if (filterOpps === 'yes' && (c.opportunity_count || 0) === 0) return false;
+        if (filterOpps === 'no'  && (c.opportunity_count || 0) > 0) return false;
+        return true;
+    });
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">' +
+            t('global.no_data', 'No customers found') + '</td></tr>';
+        updateKPIs(0, 0, 0, 0);
+        return;
+    }
+
+    var html = '';
+    var totalOpps = 0, totalRevenue = 0;
+    filtered.forEach(function (c) {
+        totalOpps    += c.opportunity_count || 0;
+        totalRevenue += c.total_revenue || 0;
+        var revenueClass = (c.total_revenue || 0) > 0 ? 'revenue-positive' : '';
+
+        html += '<tr>' +
+            '<td><a href="#" class="clickable view-customer-link" data-id="' + escapeHtml(c.customer_id) + '">' +
+                escapeHtml(c.name) + '</a></td>' +
+            '<td>' + escapeHtml(c.telephone || '—') + '</td>' +
+            '<td>$' + Number(c.open_pipeline_value || 0).toLocaleString() + '</td>' +
+            '<td class="' + revenueClass + '">$' + Number(c.total_revenue || 0).toLocaleString() + '</td>' +
+            '<td><span class="badge bg-info">' + (c.opportunity_count || 0) + '</span></td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+
+    updateKPIs(filtered.length, totalOpps, totalRevenue, allCustomers.length);
+}
+
+function updateKPIs(count, totalOpps, totalRevenue, totalAll) {
+    var a = el('kpiTotalCustomers');    if (a) a.textContent = count;
+    var b = el('kpiTotalOpportunities'); if (b) b.textContent = totalOpps;
+    var c = el('kpiTotalRevenue');      if (c) c.textContent = '$' + Number(totalRevenue || 0).toLocaleString();
+    var d = el('customersCount');       if (d) d.textContent = totalAll;
+}
+
+function loadCustomerDetail(customerId) {
+    var body = el('customerDetailBody');
+    if (!body) return;
+    body.innerHTML = '<div class="text-center text-muted py-3">' + t('global.loading', 'Loading...') + '</div>';
+    bootstrap.Modal.getOrCreateInstance(el('customerDetailModal')).show();
+
+    fetch('/api/crm/customers/' + encodeURIComponent(customerId), { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            var html = '<table class="table table-bordered">' +
+                '<tr><th style="width:35%">' + t('crm.customers.customer_name', 'Customer Name') + '</th><td>' + escapeHtml(data.name || '') + '</td></tr>' +
+                '<tr><th>' + t('crm.customers.address', 'Address') + '</th><td>' + escapeHtml(data.address || '—') + '</td></tr>' +
+                '<tr><th>' + t('crm.customers.telephone', 'Telephone') + '</th><td>' + escapeHtml(data.telephone || '—') + '</td></tr>' +
+            '</table>';
+
+            if (data.opportunities && data.opportunities.length) {
+                html += '<h6 class="mt-3">' + t('crm.customers.opportunities', 'Opportunities') + '</h6>' +
+                    '<table class="table table-sm"><thead class="table-dark"><tr>' +
+                        '<th>' + t('crm.opportunities.table.name', 'Name') + '</th>' +
+                        '<th>' + t('crm.opportunities.table.value', 'Value') + '</th>' +
+                        '<th>' + t('crm.opportunities.table.stage', 'Stage') + '</th>' +
+                        '<th>' + t('global.status', 'Status') + '</th>' +
+                    '</tr></thead><tbody>';
+                data.opportunities.forEach(function (opp) {
+                    html += '<tr>' +
+                        '<td><a href="/crm/opportunity/' + opp.opportunity_id + '">' + escapeHtml(opp.name || '') + '</a></td>' +
+                        '<td>$' + Number(opp.value || 0).toLocaleString() + '</td>' +
+                        '<td>' + escapeHtml(opp.stage || '') + '</td>' +
+                        '<td><span class="badge ' + (opp.status === 'Open' ? 'bg-primary' : 'bg-secondary') + '">' +
+                            escapeHtml(opp.status || '') + '</span></td>' +
+                    '</tr>';
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<p class="text-muted mt-3">' + t('crm.customers.no_opportunities', 'No opportunities for this customer.') + '</p>';
+            }
+            body.innerHTML = html;
+        })
+        .catch(function (err) {
+            console.error('customer detail failed:', err);
+            body.innerHTML = '<div class="text-danger">' + t('global.error_loading', 'Error loading data') + '</div>';
+        });
+}
+
+// ============================================================================
+// 4. INIT — ONLY init + event binding
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('CRM customers page loaded | lang:', window.currentLanguage);
+
+    var searchInput = el('filterSearch');
+    if (searchInput) {
+        var timer = null;
+        searchInput.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(renderCustomers, 250);
+        });
+    }
+    var fho = el('filterHasOpportunities');
+    if (fho) fho.addEventListener('change', renderCustomers);
+    var rb = el('refreshBtn');
+    if (rb) rb.addEventListener('click', loadCustomers);
+
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('.view-customer-link');
+        if (!link) return;
+        e.preventDefault();
+        loadCustomerDetail(link.getAttribute('data-id'));
+    });
+
+    loadCustomers();
+});
+</script>
+{% endblock %}

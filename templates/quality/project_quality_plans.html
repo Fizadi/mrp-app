@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+
+{% block title %}Project Quality Plans - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<!-- Header -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+<h2 class="page-title mb-0">
+<i class="fas fa-clipboard-list me-2"></i>{{ get_translation('auto.f6ce022f', 'Project Quality Plans') }}<span class="badge bg-secondary ms-2" id="plansCount">{{ get_translation('auto.77d19ef0', '0') }}</span>
+</h2>
+<div class="d-flex gap-2">
+<button class="btn btn-primary" id="createPlanBtn">
+<i class="fas fa-plus me-1"></i>{{ get_translation('auto.6928e75f', 'Create New') }}</button>
+<button class="btn btn-success" id="refreshBtn">
+<i class="fas fa-sync-alt me-1"></i>{{ get_translation('auto.9943c75f', 'Refresh') }}</button>
+<div class="dropdown">
+<button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" id="importExportDropdown" type="button">
+<i class="fas fa-file-import me-1"></i>{{ get_translation('auto.ab66eb04', 'Import/Export') }}</button>
+<ul class="dropdown-menu dropdown-menu-end">
+<li><a class="dropdown-item" href="#" id="importCsvBtn"><i class="fas fa-upload me-2"></i>{{ get_translation('auto.a6eb2f05', 'Import CSV') }}</a></li>
+<li><a class="dropdown-item" href="#" id="exportCsvBtn"><i class="fas fa-download me-2"></i>{{ get_translation('auto.c897ca6c', 'Export CSV') }}</a></li>
+</ul>
+</div>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-warning">{{ get_translation('auto.9e3bf5e3', 'Draft') }}</h5>
+<p class="card-text display-6" id="kpiDraft">{{ get_translation('auto.39a9ef47', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-info h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-info">{{ get_translation('auto.cab2d57d', 'Pending Approval') }}</h5>
+<p class="card-text display-6" id="kpiPending">{{ get_translation('auto.f54700d6', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-success">{{ get_translation('auto.2412cf9d', 'Approved') }}</h5>
+<p class="card-text display-6" id="kpiApproved">{{ get_translation('auto.9edccce1', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters Card -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-12 col-md-4">
+<label class="form-label">{{ get_translation('auto.dd9d9399', 'Project') }}</label>
+<select class="form-select" id="filterProject">
+<option value="">{{ get_translation('auto.ca4559a9', 'All Projects') }}</option>
+                        {% for p in projects %}
+                        <option value="{{ p.ProjectID }}">{{ p.ProjectName }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-12 col-md-3">
+<label class="form-label">{{ get_translation('auto.148552f1', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.72fdaf83', 'All') }}</option>
+<option value="Draft">{{ get_translation('auto.4fee2021', 'Draft') }}</option>
+<option value="Pending Approval">{{ get_translation('auto.8d85c3c3', 'Pending Approval') }}</option>
+<option value="Approved">{{ get_translation('auto.f273fcb2', 'Approved') }}</option>
+</select>
+</div>
+<div class="col-12 col-md-5">
+<label class="form-label">{{ get_translation('auto.6d9581e4', 'Search') }}</label>
+<input class="form-control" id="filterSearch" placeholder="Plan name, product..." type="text"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Table Card -->
+<div class="card">
+<div class="card-header">
+<h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('auto.2f0e4aaa', 'Project Quality Plans') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="plansTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.df4cf1ef', 'Project') }}</th>
+<th>{{ get_translation('auto.c4f0424c', 'Product') }}</th>
+<th>{{ get_translation('auto.ba9fe113', 'Plan Name') }}</th>
+<th>{{ get_translation('auto.f7a7a732', 'Status') }}</th>
+<th>{{ get_translation('auto.e367ce39', 'Revision') }}</th>
+<th>{{ get_translation('auto.cd62506a', 'Effective Date') }}</th>
+<th>{{ get_translation('auto.32139bba', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="plansTableBody">
+<tr><td class="text-center py-4" colspan="7">{{ get_translation('auto.55417f87', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- ========== MODALS ========== -->
+<!-- Add/Edit Plan Modal -->
+<div aria-hidden="true" class="modal fade" id="planModal" tabindex="-1">
+<div class="modal-dialog modal-xl modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="planModalTitle">{{ get_translation('auto.40f413a6', 'Create Quality Plan') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="planForm">
+<input id="planId" type="hidden" value=""/>
+<div class="row g-3 mb-3">
+<div class="col-md-5">
+<label class="form-label">{{ get_translation('auto.9c79d8e1', 'Project *') }}</label>
+<select class="form-select" id="planProject" required="">
+                                {% for p in projects %}
+                                <option value="{{ p.ProjectID }}">{{ p.ProjectName }}</option>
+                                {% endfor %}
+                            </select>
+</div>
+<div class="col-md-5">
+<label class="form-label">{{ get_translation('auto.6935b824', 'Product *') }}</label>
+<select class="form-select" id="planProduct" required="">
+<option value="">{{ get_translation('auto.05682443', 'Select project first') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.25e5c8f0', 'Effective Date') }}</label>
+<input class="form-control" id="planEffective" type="date"/>
+</div>
+<div class="col-12">
+<label class="form-label">{{ get_translation('auto.855c571e', 'Plan Name *') }}</label>
+<input class="form-control" id="planName" required="" type="text"/>
+</div>
+<div class="col-12">
+<label class="form-label">{{ get_translation('auto.e162e6a8', 'Notes') }}</label>
+<textarea class="form-control" id="planNotes" rows="2"></textarea>
+</div>
+</div>
+<hr/>
+<div class="d-flex justify-content-between align-items-center">
+<h6>{{ get_translation('auto.83564a61', 'Inspection Operations') }}</h6>
+<button class="btn btn-sm btn-primary" id="addOperationBtn" type="button">
+<i class="fas fa-plus me-1"></i>{{ get_translation('auto.e4986168', 'Add Operation') }}</button>
+</div>
+<div class="mt-2" id="detailsContainer"></div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.d0def2d6', 'Cancel') }}</button>
+<button class="btn btn-warning" id="submitPlanBtn" style="display:none;" type="button">{{ get_translation('auto.cf870ef0', 'Submit for Approval') }}</button>
+<button class="btn btn-primary" id="savePlanBtn" type="button">{{ get_translation('auto.6a918f6e', 'Save Plan') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Select Operation Modal (popup to choose from library) -->
+<div aria-hidden="true" class="modal fade" id="selectOperationModal" tabindex="-1">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.b67db9c2', 'Add Inspection Operation') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<select class="form-select" id="operationSelect">
+<option value="">{{ get_translation('auto.6719811e', 'Loading operations...') }}</option>
+</select>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.23a33110', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmAddOperation" type="button">{{ get_translation('auto.8a064417', 'Add') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // ---------------- Global variables ----------------
+    let currentPlanId = null;
+    let operationsList = [];
+    let planModal = new bootstrap.Modal(document.getElementById('planModal'));
+    let selectOpModal = new bootstrap.Modal(document.getElementById('selectOperationModal'));
+
+    // ---------------- Helper functions ----------------
+    function loadKPI() {
+        $.get('/api/quality/quality-plans/kpi', function(data) {
+            $('#kpiDraft').text(data.Draft || 0);
+            $('#kpiPending').text(data['Pending Approval'] || 0);
+            $('#kpiApproved').text(data.Approved || 0);
+        });
+    }
+
+    function loadTable() {
+        let project = $('#filterProject').val();
+        let status = $('#filterStatus').val();
+        let search = $('#filterSearch').val().toLowerCase();
+        $.get('/api/quality/quality-plans/list', {project: project, status: status}, function(data) {
+            let filtered = data;
+            if (search) {
+                filtered = data.filter(p => p.planName.toLowerCase().includes(search) || p.productId.toLowerCase().includes(search));
+            }
+            $('#plansCount').text(filtered.length);
+            let tbody = $('#plansTableBody').empty();
+            for (let p of filtered) {
+                let effectiveDate = p.effectiveDateKey ? `${p.effectiveDateKey.toString().slice(0,4)}-${p.effectiveDateKey.toString().slice(4,6)}-${p.effectiveDateKey.toString().slice(6,8)}` : '';
+                let row = `<tr>
+                    <td>${escapeHtml(p.projectName)}</td>
+                    <td>${escapeHtml(p.productId)}</td>
+                    <td>${escapeHtml(p.planName)}</td>
+                    <td><span class="badge ${getStatusBadge(p.status)}">${escapeHtml(p.status)}</span></td>
+                    <td>${p.revision}</td>
+                    <td>${effectiveDate}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info edit-plan" data-id="${p.id}"><i class="fas fa-edit"></i> Edit</button>
+                        ${p.status === 'Draft' ? `<button class="btn btn-sm btn-warning submit-plan ms-1" data-id="${p.id}"><i class="fas fa-paper-plane"></i> Submit</button>` : ''}
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        });
+    }
+
+    function getStatusBadge(status) {
+        if (status === 'Draft') return 'bg-secondary';
+        if (status === 'Pending Approval') return 'bg-warning';
+        if (status === 'Approved') return 'bg-success';
+        return 'bg-primary';
+    }
+
+    function loadProductsForProject(projectId, selectedProduct) {
+        if (!projectId) {
+            $('#planProduct').html('<option value="">Select project first</option>');
+            return;
+        }
+        $.get('/api/quality/projects/' + projectId + '/products', function(products) {
+            let options = '';
+            for (let p of products) {
+                options += `<option value="${escapeHtml(p.productId)}" ${selectedProduct === p.productId ? 'selected' : ''}>${escapeHtml(p.productId)}</option>`;
+            }
+            $('#planProduct').html(options);
+        }).fail(() => {
+            $('#planProduct').html('<option value="">No products found for this project</option>');
+        });
+    }
+
+    function renderDetails(details) {
+        let container = $('#detailsContainer');
+        container.empty();
+        for (let d of details) {
+            let card = $(`
+                <div class="card mb-2" data-assignment-id="${d.assignmentId || ''}" data-op-id="${d.operationId}">
+                    <div class="card-body p-2">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-2">
+                                <strong>${escapeHtml(d.code)}</strong><br>
+                                <small>${escapeHtml(d.name)}</small>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Seq</label>
+                                <input type="number" class="form-control form-control-sm seq" value="${d.sequence}">
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Sample</label>
+                                <input type="number" class="form-control form-control-sm sample" value="${d.sampleSize || 1}">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Min</label>
+                                <input type="number" step="any" class="form-control form-control-sm spec-min" value="${d.specMin !== null ? d.specMin : ''}">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Max</label>
+                                <input type="number" step="any" class="form-control form-control-sm spec-max" value="${d.specMax !== null ? d.specMax : ''}">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Unit</label>
+                                <input type="text" class="form-control form-control-sm unit" value="${escapeHtml(d.unit || '')}">
+                            </div>
+                            <div class="col-md-1">
+                                <div class="form-check">
+                                    <input class="form-check-input critical" type="checkbox" ${d.isCritical ? 'checked' : ''}>
+                                    <label class="form-check-label small">Critical</label>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button class="btn btn-sm btn-danger remove-detail"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+            container.append(card);
+        }
+    }
+
+    function collectDetails() {
+        let details = [];
+        $('#detailsContainer .card').each(function() {
+            let card = $(this);
+            details.push({
+                assignmentId: card.data('assignment-id') || null,
+                operationId: card.data('op-id'),
+                sequence: card.find('.seq').val(),
+                sampleSize: card.find('.sample').val(),
+                isCritical: card.find('.critical').is(':checked') ? 1 : 0,
+                specMin: card.find('.spec-min').val(),
+                specMax: card.find('.spec-max').val(),
+                unit: card.find('.unit').val()
+            });
+        });
+        return details;
+    }
+
+    function savePlan(callback) {
+        let planData = {
+            projectId: $('#planProject').val(),
+            productId: $('#planProduct').val(),
+            planName: $('#planName').val(),
+            effectiveDateKey: $('#planEffective').val().replace(/-/g, ''),
+            notes: $('#planNotes').val()
+        };
+        let method = currentPlanId ? 'PUT' : 'POST';
+        let url = currentPlanId ? `/api/quality/quality-plans/plan/${currentPlanId}` : '/api/quality/quality-plans/plan';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(planData),
+            success: function(res) {
+                let planId = currentPlanId || res.id;
+                let details = collectDetails();
+                let promises = [];
+                for (let d of details) {
+                    let detailData = {
+                        operationId: d.operationId,
+                        sequence: d.sequence,
+                        sampleSize: d.sampleSize,
+                        isCritical: d.isCritical,
+                        specMin: d.specMin,
+                        specMax: d.specMax,
+                        unit: d.unit
+                    };
+                    if (d.assignmentId) detailData.assignmentId = d.assignmentId;
+                    promises.push($.ajax({
+                        url: `/api/quality/quality-plans/plan/${planId}/detail`,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(detailData)
+                    }));
+                }
+                $.when.apply($, promises).always(() => {
+                    if (callback) callback();
+                    loadTable();
+                    loadKPI();
+                });
+            },
+            error: function(xhr) {
+                alert('Error saving plan: ' + (xhr.responseJSON?.error || 'Unknown'));
+            }
+        });
+    }
+
+    function loadPlanForEdit(planId) {
+        $.get(`/api/quality/quality-plans/plan/${planId}`, function(plan) {
+            currentPlanId = plan.id;
+            $('#planId').val(plan.id);
+            $('#planName').val(plan.planName);
+            $('#planNotes').val(plan.notes || '');
+            $('#planProject').val(plan.projectId);
+            loadProductsForProject(plan.projectId, plan.productId);
+            if (plan.effectiveDateKey) {
+                let d = plan.effectiveDateKey.toString();
+                let formatted = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+                $('#planEffective').val(formatted);
+            } else {
+                $('#planEffective').val('');
+            }
+            renderDetails(plan.details);
+            $('#planModalTitle').text('Edit Quality Plan');
+            $('#submitPlanBtn').toggle(plan.status === 'Draft');
+            planModal.show();
+        });
+    }
+
+    // ---------------- Event Handlers ----------------
+    $('#createPlanBtn').click(function() {
+        currentPlanId = null;
+        $('#planForm')[0].reset();
+        $('#planId').val('');
+        $('#planName').val('');
+        $('#planNotes').val('');
+        $('#planEffective').val('');
+        let defaultProject = $('#filterProject').val() || $('#planProject option:first').val();
+        $('#planProject').val(defaultProject);
+        loadProductsForProject(defaultProject, '');
+        $('#detailsContainer').empty();
+        $('#planModalTitle').text('Create Quality Plan');
+        $('#submitPlanBtn').hide();
+        planModal.show();
+    });
+
+    $('#savePlanBtn').click(function() {
+        savePlan(() => planModal.hide());
+    });
+
+    $('#submitPlanBtn').click(function() {
+        if (!currentPlanId) return;
+        if (confirm('Submit this plan for approval? Once submitted, you cannot edit it.')) {
+            $.post(`/api/quality/quality-plans/plan/${currentPlanId}/submit`, function() {
+                planModal.hide();
+                loadTable();
+                loadKPI();
+            }).fail(function(xhr) {
+                alert(xhr.responseJSON?.error || 'Submission failed');
+            });
+        }
+    });
+
+    $(document).on('click', '.edit-plan', function() {
+        let planId = $(this).data('id');
+        loadPlanForEdit(planId);
+    });
+
+    $(document).on('click', '.submit-plan', function() {
+        let planId = $(this).data('id');
+        if (confirm('Submit this draft plan for approval?')) {
+            $.post(`/api/quality/quality-plans/plan/${planId}/submit`, function() {
+                loadTable();
+                loadKPI();
+            }).fail(function(xhr) {
+                alert(xhr.responseJSON?.error);
+            });
+        }
+    });
+
+    $('#refreshBtn').click(function() {
+        loadTable();
+        loadKPI();
+    });
+
+    $('#filterProject, #filterStatus, #filterSearch').on('change keyup', function() {
+        loadTable();
+    });
+
+    $('#addOperationBtn').click(function() {
+        if (operationsList.length === 0) {
+            $.get('/api/quality/quality-plans/operations', function(data) {
+                operationsList = data;
+                fillOperationSelect();
+                selectOpModal.show();
+            });
+        } else {
+            fillOperationSelect();
+            selectOpModal.show();
+        }
+    });
+
+    function fillOperationSelect() {
+        let select = $('#operationSelect');
+        select.empty();
+        for (let op of operationsList) {
+            select.append(`<option value="${op.id}">${op.code} - ${op.name}</option>`);
+        }
+    }
+
+    $('#confirmAddOperation').click(function() {
+        let opId = $('#operationSelect').val();
+        if (!opId) return;
+        let op = operationsList.find(o => o.id == opId);
+        if (!op) return;
+        let newCard = $(`
+            <div class="card mb-2" data-op-id="${op.id}">
+                <div class="card-body p-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <strong>${escapeHtml(op.code)}</strong><br>
+                            <small>${escapeHtml(op.name)}</small>
+                        </div>
+                        <div class="col-md-1"><label class="form-label small">Seq</label><input type="number" class="form-control form-control-sm seq" value="1"></div>
+                        <div class="col-md-1"><label class="form-label small">Sample</label><input type="number" class="form-control form-control-sm sample" value="1"></div>
+                        <div class="col-md-2"><label class="form-label small">Min</label><input type="number" step="any" class="form-control form-control-sm spec-min"></div>
+                        <div class="col-md-2"><label class="form-label small">Max</label><input type="number" step="any" class="form-control form-control-sm spec-max"></div>
+                        <div class="col-md-2"><label class="form-label small">Unit</label><input type="text" class="form-control form-control-sm unit"></div>
+                        <div class="col-md-1"><div class="form-check"><input class="form-check-input critical" type="checkbox"><label class="form-check-label small">Critical</label></div></div>
+                        <div class="col-md-1"><button class="btn btn-sm btn-danger remove-detail"><i class="fas fa-trash"></i></button></div>
+                    </div>
+                </div>
+            </div>
+        `);
+        $('#detailsContainer').append(newCard);
+        selectOpModal.hide();
+    });
+
+    $(document).on('click', '.remove-detail', function() {
+        $(this).closest('.card').remove();
+    });
+
+    $('#planProject').change(function() {
+        let projectId = $(this).val();
+        loadProductsForProject(projectId, '');
+    });
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // Initial load
+    loadKPI();
+    loadTable();
+});
+</script>
+{% endblock %}

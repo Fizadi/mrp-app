@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Document Exchange &amp; Approval{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.a0aba3e6', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('auto.bfd52298', 'Engineering') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('auto.e9a2766f', 'Document Exchange &amp; Approval') }}</li>
+</ol>
+</nav>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-6 col-sm-6 mb-2">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.72ef1267', 'Pending My Approval') }}</h5>
+<p class="card-text display-6" id="kpiPending">{{ get_translation('auto.226a72fa', '0') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-sm-6 mb-2">
+<div class="card text-white bg-danger">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.54c83ec1', 'Overdue Tasks') }}</h5>
+<p class="card-text display-6" id="kpiOverdue">{{ get_translation('auto.fbb9d203', '0') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="row mb-3 g-2">
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.c71826ed', 'Project') }}</label>
+<select class="form-select" id="filterProject">
+<option value="">{{ get_translation('auto.5e68796c', 'All Projects') }}</option>
+                {% for proj in projects %}
+                <option value="{{ proj.ProjectID }}">{{ proj.ProjectName }}</option>
+                {% endfor %}
+            </select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.81d498b5', 'Document Type') }}</label>
+<select class="form-select" id="filterDocType">
+<option value="">{{ get_translation('auto.c56a3806', 'All') }}</option>
+<option value="Drawing">{{ get_translation('auto.dce5386d', 'Drawing') }}</option>
+<option value="Specification">{{ get_translation('auto.9b93e1aa', 'Specification') }}</option>
+<option value="Work Instruction">{{ get_translation('auto.4e26d97d', 'Work Instruction') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.26c7e0c1', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.139f60ec', 'All') }}</option>
+<option value="Draft">{{ get_translation('auto.f52f6948', 'Draft') }}</option>
+<option value="InProgress">{{ get_translation('auto.3d96a793', 'In Progress') }}</option>
+<option value="Completed">{{ get_translation('auto.044dff07', 'Completed') }}</option>
+<option value="Rejected">{{ get_translation('auto.21fab6fb', 'Rejected') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.53619e88', 'Assigned To') }}</label>
+<select class="form-select" id="filterAssignedTo">
+<option value="">{{ get_translation('auto.d15e4177', 'All') }}</option>
+                {% for user in users %}
+                <option value="{{ user.UserID }}">{{ user.FullName }}</option>
+                {% endfor %}
+            </select>
+</div>
+<div class="col-md-3 d-flex align-items-end gap-2">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.eb910499', 'Apply Filters') }}</button>
+<button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('auto.1fc07759', 'Reset') }}</button>
+<button class="btn btn-success" id="uploadDocBtn">{{ get_translation('auto.aea8c787', 'Upload New Document') }}</button>
+</div>
+</div>
+<!-- Documents Table -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.6c2f6c84', 'Document Register &amp; Workflow') }}</div>
+<div class="card-body" style="overflow-x: auto;">
+<table class="table table-striped table-hover">
+<thead>
+<tr>
+<th>{{ get_translation('auto.4e05e34a', 'Document Number') }}</th><th>{{ get_translation('auto.cb0bd0b6', 'Title') }}</th><th>{{ get_translation('auto.752d5db1', 'Rev') }}</th><th>{{ get_translation('auto.2659f3b5', 'Type') }}</th>
+<th>{{ get_translation('auto.8a06417b', 'Doc Status') }}</th><th>{{ get_translation('auto.644cef5e', 'Workflow Step') }}</th><th>{{ get_translation('auto.a4806c40', 'Prepared By') }}</th>
+<th>{{ get_translation('auto.55cb8979', 'Checked By') }}</th><th>{{ get_translation('auto.4f5e7eb7', 'Approved By') }}</th>
+<th>{{ get_translation('auto.6c449e97', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="docsTableBody">
+<tr><td class="text-center" colspan="10">{{ get_translation('auto.df6194dd', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Upload Document Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.c0ff0f9a', 'Upload New Document') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form enctype="multipart/form-data" id="uploadForm">
+<div class="mb-3"><label>{{ get_translation('auto.f3dea243', 'Document Number *') }}</label><input class="form-control" id="uploadDocNumber" required="" type="text"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.52e54599', 'Title *') }}</label><input class="form-control" id="uploadTitle" required="" type="text"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.a12be5a1', 'Document Type') }}</label><select class="form-select" id="uploadDocType"><option>{{ get_translation('auto.3fef1197', 'Drawing') }}</option><option>{{ get_translation('auto.5d21a568', 'Specification') }}</option><option>{{ get_translation('auto.292023c1', 'Work Instruction') }}</option></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.ec8ff657', 'Project') }}</label><select class="form-select" id="uploadProjectId"><option value="">{{ get_translation('auto.c68e2a7c', 'None') }}</option>{% for proj in projects %}<option value="{{ proj.ProjectID }}">{{ proj.ProjectName }}</option>{% endfor %}</select></div>
+<div class="mb-3"><label>{{ get_translation('auto.a369fec8', 'File') }}</label><input accept=".pdf,.doc,.docx,.jpg,.png,.dwg,.dxf" class="form-control" id="uploadFile" required="" type="file"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.affc4601', 'Notes') }}</label><textarea class="form-control" id="uploadNotes" rows="2"></textarea></div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.6cfbb0d9', 'Cancel') }}</button><button class="btn btn-primary" id="saveUploadBtn">{{ get_translation('auto.127fb565', 'Upload') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Workflow Action Modal (Approve/Reject) -->
+<div class="modal fade" id="actionModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5 id="actionModalTitle">{{ get_translation('auto.d3d62d55', 'Review Document') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p><strong>{{ get_translation('auto.2eb842ca', 'Document:') }}</strong> <span id="actionDocTitle"></span></p>
+<label>{{ get_translation('auto.85689f6a', 'Comments') }}</label>
+<textarea class="form-control" id="actionComments" rows="3"></textarea>
+<input id="actionWorkflowId" type="hidden"/>
+</div>
+<div class="modal-footer">
+<button class="btn btn-danger" id="rejectBtn">{{ get_translation('auto.9112a695', 'Reject') }}</button>
+<button class="btn btn-success" id="approveBtn">{{ get_translation('auto.1d74681c', 'Approve') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.d5bad549', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Thread View Modal -->
+<div class="modal fade" id="threadModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.e08fa9fc', 'Exchange Thread') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="threadContent">
+<p>{{ get_translation('auto.dd136735', 'Loading...') }}</p>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.63ede13a', 'Close') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var currentDocId = null;
+    var currentWorkflowId = null;
+
+    // Helper: show toast (fallback to alert if not defined)
+    function showToast(msg, type) { alert(msg); }
+
+    // Load KPI stats (pending my approval, overdue)
+    function loadStats() {
+        var userId = getCurrentUserId();  // you must implement or pass from session
+        $.get('/api/bom/documents/approval/stats', { user_id: userId })
+            .done(function(s) {
+                $('#kpiPending').text(s.pendingMyApproval);
+                $('#kpiOverdue').text(s.overdueTasks);
+            })
+            .fail(function() { console.error("Stats error"); });
+    }
+
+    // Load document list with filters
+    function loadDocuments() {
+        var params = {
+            project_id: $('#filterProject').val(),
+            doc_type: $('#filterDocType').val(),
+            status: $('#filterStatus').val(),
+            assigned_to: $('#filterAssignedTo').val()
+        };
+        $.get('/api/bom/documents/approval/list', params)
+            .done(function(docs) {
+                var $tbody = $('#docsTableBody');
+                $tbody.empty();
+                if (!docs.length) {
+                    $tbody.html('<tr><td colspan="10" class="text-center">No documents found</td></tr>');
+                    return;
+                }
+                docs.forEach(function(d) {
+                    var row = '<tr>' +
+                        '<td><a href="#" class="doc-link" data-docid="' + d.docId + '">' + escapeHtml(d.docNumber) + '</a></td>' +
+                        '<td>' + escapeHtml(d.title) + '</td>' +
+                        '<td>' + escapeHtml(d.revision) + '</td>' +
+                        '<td>' + escapeHtml(d.docType) + '</td>' +
+                        '<td><span class="badge bg-' + getStatusClass(d.docStatus) + '">' + escapeHtml(d.docStatus) + '</span></td>' +
+                        '<td>' + escapeHtml(d.stepName || d.currentStep) + '</td>' +
+                        '<td>' + (d.preparedBy || '-') + '</td>' +
+                        '<td>' + (d.checkedBy || '-') + '</td>' +
+                        '<td>' + (d.approvedBy || '-') + '</td>' +
+                        '<td>' +
+                        (d.workflowId ? '' : '<button class="btn btn-sm btn-info start-workflow me-1" data-docid="' + d.docId + '">Start Workflow</button>') +
+                        (d.workflowId && d.workflowStatus !== 'Completed' && d.workflowStatus !== 'Rejected' ? '<button class="btn btn-sm btn-warning act-workflow me-1" data-wfid="' + d.workflowId + '" data-docnum="' + escapeHtml(d.docNumber) + '">Review</button>' : '') +
+                        '<button class="btn btn-sm btn-secondary view-thread" data-docid="' + d.docId + '">Thread</button>' +
+                        '</td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() { $('#docsTableBody').html('<tr><td colspan="10" class="text-danger">Error loading documents</td></tr>'); });
+    }
+
+    function getStatusClass(status) {
+        switch(status) {
+            case 'Draft': return 'secondary';
+            case 'InProgress': return 'info';
+            case 'Completed': return 'success';
+            case 'Rejected': return 'danger';
+            default: return 'light';
+        }
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    // Start workflow for a document
+    function startWorkflow(docId) {
+        var userId = getCurrentUserId();
+        $.post('/api/bom/documents/approval/start-workflow/' + docId, JSON.stringify({ user_id: userId }), { contentType: 'application/json' })
+            .done(function(resp) {
+                showToast('Workflow started', 'success');
+                loadDocuments();
+            })
+            .fail(function() { alert('Failed to start workflow'); });
+    }
+
+    // Open approval/rejection modal
+    function openActionModal(workflowId, docTitle) {
+        currentWorkflowId = workflowId;
+        $('#actionDocTitle').text(docTitle);
+        $('#actionComments').val('');
+        $('#actionModal').modal('show');
+    }
+
+    // Perform approve / reject
+    function performAction(action) {
+        if (!currentWorkflowId) return;
+        var comments = $('#actionComments').val();
+        var userId = getCurrentUserId();
+        $.post('/api/bom/documents/approval/action/' + currentWorkflowId, 
+               JSON.stringify({ action: action, comments: comments, user_id: userId }),
+               { contentType: 'application/json' })
+            .done(function(resp) {
+                $('#actionModal').modal('hide');
+                loadDocuments();
+                loadStats();
+                showToast(resp.message, 'success');
+            })
+            .fail(function() { alert('Action failed'); });
+    }
+
+    // Upload new document
+    function uploadDocument() {
+        var formData = new FormData();
+        formData.append('docNumber', $('#uploadDocNumber').val());
+        formData.append('title', $('#uploadTitle').val());
+        formData.append('docType', $('#uploadDocType').val());
+        formData.append('projectId', $('#uploadProjectId').val());
+        formData.append('notes', $('#uploadNotes').val());
+        var file = $('#uploadFile')[0].files[0];
+        if (!file) { alert('Please select a file'); return; }
+        formData.append('file', file);
+        $.ajax({
+            url: '/api/bom/documents',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function() {
+                $('#uploadModal').modal('hide');
+                loadDocuments();
+                showToast('Document uploaded', 'success');
+            },
+            error: function(xhr) { alert('Upload failed: ' + (xhr.responseJSON?.error || '')); }
+        });
+    }
+
+    // View exchange thread
+    function viewThread(docId) {
+        $('#threadContent').html('<p>Loading...</p>');
+        $('#threadModal').modal('show');
+        $.get('/api/bom/documents/exchange/thread/' + docId)
+            .done(function(threads) {
+                var html = '';
+                if (!threads.length) {
+                    html = '<p>No exchange threads found for this document.</p>';
+                } else {
+                    html = '<ul class="list-group">';
+                    threads.forEach(function(t) {
+                        html += '<li class="list-group-item"><strong>' + escapeHtml(t.subject) + '</strong><br>' +
+                                'Created: ' + (t.createdAt || '') + '<br>' +
+                                'Customer Project: ' + (t.customerProject || '-') + '<br>' +
+                                'Internal Project: ' + (t.internalProject || '-') + '</li>';
+                    });
+                    html += '</ul>';
+                }
+                $('#threadContent').html(html);
+            })
+            .fail(function() { $('#threadContent').html('<p class="text-danger">Failed to load thread</p>'); });
+    }
+
+    // Placeholder: get current user ID – replace with session value from backend
+    function getCurrentUserId() {
+        // In real app, this should be injected from Flask session
+        // For now, return a default (you can set via template variable)
+        return 1;
+    }
+
+    // Event bindings
+    $('#applyFiltersBtn').click(loadDocuments);
+    $('#resetFiltersBtn').click(function() {
+        $('#filterProject').val('');
+        $('#filterDocType').val('');
+        $('#filterStatus').val('');
+        $('#filterAssignedTo').val('');
+        loadDocuments();
+    });
+    $('#uploadDocBtn').click(function() {
+        $('#uploadDocNumber').val('');
+        $('#uploadTitle').val('');
+        $('#uploadDocType').val('Drawing');
+        $('#uploadProjectId').val('');
+        $('#uploadFile').val('');
+        $('#uploadNotes').val('');
+        $('#uploadModal').modal('show');
+    });
+    $('#saveUploadBtn').click(uploadDocument);
+    $('#approveBtn').click(function() { performAction('approve'); });
+    $('#rejectBtn').click(function() { performAction('reject'); });
+
+    $(document).on('click', '.start-workflow', function() { startWorkflow($(this).data('docid')); });
+    $(document).on('click', '.act-workflow', function() { openActionModal($(this).data('wfid'), $(this).data('docnum')); });
+    $(document).on('click', '.view-thread', function() { viewThread($(this).data('docid')); });
+    $(document).on('click', '.doc-link', function(e) { e.preventDefault(); viewThread($(this).data('docid')); });
+
+    // Initial load
+    loadStats();
+    loadDocuments();
+});
+</script>
+{% endblock %}

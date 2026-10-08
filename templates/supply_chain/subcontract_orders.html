@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block title %}Subcontract Purchase Orders{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.12b9f4a2', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.bb031aa9', 'Subcontract Orders') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.b3012ce1', 'Subcontract Purchase Orders') }}</h2>
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.34069e86', 'Supplier') }}</label>
+<input class="form-control" id="filterSupplier" placeholder="Supplier Name" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.4e1267e1', 'Production Order') }}</label>
+<input class="form-control" id="filterProdOrder" placeholder="PO ID" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.a4d31209', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.25683b53', 'All') }}</option>
+<option>{{ get_translation('auto.a6e731ab', 'Draft') }}</option>
+<option>{{ get_translation('auto.0abb6922', 'Sent') }}</option>
+<option>{{ get_translation('auto.f6e98199', 'Partially Received') }}</option>
+<option>{{ get_translation('auto.d1dd2158', 'Closed') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.18adca49', 'Order Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.d03a868f', 'Order Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-1 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.efee083d', 'Refresh') }}</button>
+</div>
+</div>
+<!-- KPI Cards (same as purchase orders) -->
+<div class="row mb-4">
+<div class="col-md-2"><div class="card text-white bg-secondary"><div class="card-body"><h6>{{ get_translation('auto.85304408', 'Draft') }}</h6><h3 id="kpiDraft">{{ get_translation('auto.67935b0b', '0') }}</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('auto.2002d66d', 'Sent') }}</h6><h3 id="kpiSent">{{ get_translation('auto.53f415ee', '0') }}</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('auto.48b47ad2', 'Partially Received') }}</h6><h3 id="kpiPartial">{{ get_translation('auto.28e45758', '0') }}</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.f1563d8f', 'Closed') }}</h6><h3 id="kpiClosed">{{ get_translation('auto.9b661c12', '0') }}</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-danger"><div class="card-body"><h6>{{ get_translation('auto.39aae1d3', 'Overdue') }}</h6><h3 id="kpiOverdue">{{ get_translation('auto.77590fc4', '0') }}</h3></div></div></div>
+</div>
+<!-- Main Card -->
+<div class="card">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('auto.2eb39e08', 'Subcontract Orders List') }}</span>
+<div>
+<button class="btn btn-sm btn-success me-2" id="createFromProdBtn">{{ get_translation('auto.78b0b11c', '+ Create from Production Order') }}</button>
+<a class="btn btn-sm btn-info" href="#" id="exportCsvBtn">{{ get_translation('auto.1dd31a7b', 'Export CSV') }}</a>
+</div>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr>
+<th>{{ get_translation('auto.d8089539', 'PO#') }}</th>
+<th>{{ get_translation('auto.3e14f751', 'Production Order') }}</th>
+<th>{{ get_translation('auto.d737c84c', 'Supplier') }}</th>
+<th>{{ get_translation('auto.eebb27b8', 'Operation') }}</th>
+<th>{{ get_translation('auto.65e0a640', 'Status') }}</th>
+<th>{{ get_translation('auto.3d779e53', 'Due Date') }}</th>
+<th>{{ get_translation('auto.229a4fb6', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="subcontractBody">
+<tr><td class="text-center" colspan="7">{{ get_translation('auto.6930fb06', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Modal: Create Subcontract from Production Order -->
+<div class="modal fade" id="createSubModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.243f1b01', 'Create Subcontract PO from Production Order') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-3"><label>{{ get_translation('auto.7e621820', 'Production Order') }}</label><select class="form-select" id="prodOrderSelect"></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.864d2c1d', 'Unit Price (per item)') }}</label><input class="form-control" id="unitPrice" required="" step="any" type="number"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.3ade180e', 'Currency (optional)') }}</label><input class="form-control" id="currency" type="text" value="IRR"/></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="confirmCreateSub" type="button">{{ get_translation('auto.103e9936', 'Create PO') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Reuse receive goods modal from purchase orders (same ID) -->
+<!-- Ensure receiveGoodsModal exists in base or copy from purchase_orders.html -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    function loadSubcontractOrders() {
+        var params = {};
+        if ($('#filterSupplier').val()) params.supplier = $('#filterSupplier').val();
+        if ($('#filterProdOrder').val()) params.production_order = $('#filterProdOrder').val();
+        if ($('#filterStatus').val()) params.status = $('#filterStatus').val();
+        if ($('#filterDateFrom').val()) params.date_from = $('#filterDateFrom').val();
+        if ($('#filterDateTo').val()) params.date_to = $('#filterDateTo').val();
+
+        $.get('/api/subcontract/list', params, function(data) {
+            $('#kpiDraft').text(data.kpi.Draft);
+            $('#kpiSent').text(data.kpi.Sent);
+            $('#kpiPartial').text(data.kpi['Partially Received']);
+            $('#kpiClosed').text(data.kpi.Closed);
+            $('#kpiOverdue').text(data.kpi.Overdue);
+
+            var tbody = $('#subcontractBody');
+            if (!data.items.length) {
+                tbody.html('<tr><td colspan="7" class="text-center">No subcontract orders found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(data.items, function(i, po) {
+                var badgeClass = 'secondary';
+                if (po.status === 'Sent') badgeClass = 'info';
+                else if (po.status === 'Partially Received') badgeClass = 'warning';
+                else if (po.status === 'Closed') badgeClass = 'success';
+                else if (po.status === 'Overdue') badgeClass = 'danger';
+                rows += `<tr>
+                    <td><a href="#" class="po-link" data-id="${po.poId}">${po.poId}</a></td>
+                    <td><a href="#" class="prod-link" data-id="${po.productionOrderId}">${po.productionOrderId}</a></td>
+                    <td>${po.supplierName || po.supplierId}</td>
+                    <td>${po.operation}</td>
+                    <td><span class="badge bg-${badgeClass}">${po.status}</span></td>
+                    <td>${po.expectedDeliveryDateKey || '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary receive-sub" data-id="${po.poId}">Receive</button>
+                        <button class="btn btn-sm btn-secondary attach-sub" data-id="${po.poId}">Files</button>
+                    </td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    // Load available production orders for dropdown
+    function loadProductionOrdersForDropdown() {
+        $.get('/api/subcontract/linked-production-orders', function(data) {
+            var select = $('#prodOrderSelect');
+            select.empty();
+            select.append('<option value="">Select Production Order</option>');
+            $.each(data, function(i, po) {
+                select.append(`<option value="${po.id}" data-supplier="${po.supplierId}">${po.id} - ${po.product} (Qty:${po.quantity})</option>`);
+            });
+        });
+    }
+
+    // Create subcontract modal
+    $('#createFromProdBtn').click(function() {
+        loadProductionOrdersForDropdown();
+        $('#unitPrice').val('');
+        $('#createSubModal').modal('show');
+    });
+
+    $('#confirmCreateSub').click(function() {
+        var prodOrderId = $('#prodOrderSelect').val();
+        var unitPrice = $('#unitPrice').val();
+        if (!prodOrderId || !unitPrice) {
+            alert('Please select a production order and enter unit price');
+            return;
+        }
+        $.ajax({
+            url: '/api/subcontract/create-from-production',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                productionOrderId: prodOrderId,
+                unitPrice: parseFloat(unitPrice)
+            }),
+            success: function(resp) {
+                $('#createSubModal').modal('hide');
+                loadSubcontractOrders();
+                alert('Subcontract PO created: ' + resp.poId);
+            },
+            error: function(xhr) {
+                alert('Error: ' + xhr.responseJSON.error);
+            }
+        });
+    });
+
+    // Receive goods (reuse existing modal from purchase_orders page)
+    // We'll implement a simple version here
+    function showReceiveModal(poId) {
+        // Fetch PO details and show modal similar to purchase orders
+        $.get('/api/purchase-orders/' + poId, function(po) {
+            var html = '';
+            $.each(po.lines, function(i, line) {
+                var remaining = line.quantity - (line.receivedQuantity || 0);
+                if (remaining <= 0) {
+                    html += `<div class="alert alert-secondary">${line.productId} – Fully received</div>`;
+                } else {
+                    html += `<div class="border p-2 mb-2">
+                        <strong>${line.productId}</strong><br>
+                        Ordered: ${line.quantity}, Received: ${line.receivedQuantity || 0}, Remaining: ${remaining}<br>
+                        <label>Quantity to receive:</label>
+                        <input type="number" class="form-control receive-qty" data-lineid="${line.lineId}" data-max="${remaining}" step="any" min="0" max="${remaining}">
+                    </div>`;
+                }
+            });
+            $('#receiveLinesContainer').html(html);
+            $('#receivePoId').val(poId);
+            $('#receiveWarehouse').val('WIP');
+            $('#receiveNotes').val('');
+            $('#receiveModal').modal('show');
+        });
+    }
+
+    // Attachments modal (reuse)
+    function showAttachmentsModal(poId) {
+        $('#attachmentsPoId').val(poId);
+        refreshAttachmentsList(poId);
+        $('#attachmentsModal').modal('show');
+    }
+    function refreshAttachmentsList(poId) {
+        $.get('/api/purchase-orders/' + poId + '/attachments', function(files) {
+            var container = $('#attachmentsList');
+            if (files.length === 0) container.html('<p>No attachments.</p>');
+            else {
+                var list = '<ul>';
+                $.each(files, function(i, f) {
+                    list += `<li><a href="#" data-id="${f.id}">${f.name}</a> (${f.dateKey})</li>`;
+                });
+                list += '</ul>';
+                container.html(list);
+            }
+        });
+    }
+
+    $('#subcontractBody').on('click', '.receive-sub', function() {
+        showReceiveModal($(this).data('id'));
+    });
+    $('#subcontractBody').on('click', '.attach-sub', function() {
+        showAttachmentsModal($(this).data('id'));
+    });
+
+    // Receive confirmation (copy from purchase_orders)
+    $('#confirmReceiveBtn').click(function() {
+        var poId = $('#receivePoId').val();
+        var warehouse = $('#receiveWarehouse').val();
+        var notes = $('#receiveNotes').val();
+        var receipts = [];
+        $('.receive-qty').each(function() {
+            var qty = parseFloat($(this).val());
+            if (qty && qty > 0) {
+                receipts.push({
+                    lineId: parseInt($(this).data('lineid')),
+                    quantity: qty
+                });
+            }
+        });
+        if (receipts.length === 0) {
+            alert('No quantity entered');
+            return;
+        }
+        var promises = receipts.map(function(rec) {
+            return $.ajax({
+                url: '/api/purchase-orders/' + poId + '/receive',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    lineId: rec.lineId,
+                    quantity: rec.quantity,
+                    warehouseId: warehouse,
+                    notes: notes
+                })
+            });
+        });
+        $.when.apply($, promises).then(function() {
+            $('#receiveModal').modal('hide');
+            loadSubcontractOrders();
+        }).fail(function() {
+            alert('Error processing receipt');
+        });
+    });
+
+    // Filter refresh
+    $('#refreshBtn').click(loadSubcontractOrders);
+    // Export CSV (simple)
+    $('#exportCsvBtn').click(function(e) {
+        e.preventDefault();
+        var params = $.param({
+            supplier: $('#filterSupplier').val(),
+            production_order: $('#filterProdOrder').val(),
+            status: $('#filterStatus').val(),
+            date_from: $('#filterDateFrom').val(),
+            date_to: $('#filterDateTo').val()
+        });
+        window.location.href = '/api/subcontract/export?' + params;
+    });
+
+    loadSubcontractOrders();
+});
+</script>
+<!-- Modals – include the same receive and attachments modals as purchase_orders.html, or copy from there -->
+<!-- Ensure you have elements with IDs: receiveModal, receiveLinesContainer, receivePoId, receiveWarehouse, receiveNotes, confirmReceiveBtn, attachmentsModal, attachmentsList, attachmentsPoId, uploadForm -->
+{% endblock %}

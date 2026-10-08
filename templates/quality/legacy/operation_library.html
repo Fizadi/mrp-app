@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Operation Library - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<!-- Header -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+<h2 class="page-title mb-0">
+<i class="fas fa-microscope me-2"></i>{{ get_translation('auto.baf055b7', 'Operation Library') }}<span class="badge bg-secondary ms-2" id="operationsCount">{{ get_translation('auto.65833114', '0') }}</span>
+</h2>
+<div class="d-flex gap-2">
+<button class="btn btn-primary" id="createOperationBtn">
+<i class="fas fa-plus me-1"></i>{{ get_translation('auto.2045dc27', 'Create New') }}</button>
+<button class="btn btn-outline-primary" id="refreshBtn">
+<i class="fas fa-sync-alt me-1"></i>{{ get_translation('auto.0c16c0a2', 'Refresh') }}</button>
+<div class="dropdown">
+<button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" id="importExportDropdown" type="button">
+<i class="fas fa-file-import me-1"></i>{{ get_translation('auto.484a50ff', 'Import/Export') }}</button>
+<ul class="dropdown-menu dropdown-menu-end">
+<li><a class="dropdown-item" href="#" id="importCsvBtn"><i class="fas fa-upload me-2"></i>{{ get_translation('auto.d2839010', 'Import CSV') }}</a></li>
+<li><a class="dropdown-item" href="#" id="exportCsvBtn"><i class="fas fa-download me-2"></i>{{ get_translation('auto.5bc64c3d', 'Export CSV') }}</a></li>
+</ul>
+</div>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-primary h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-primary">{{ get_translation('auto.d98e4942', 'Total Operations') }}</h5>
+<p class="card-text display-6" id="kpiTotal">{{ get_translation('auto.2a5bd143', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-success">{{ get_translation('auto.4cedde00', 'Active Operations') }}</h5>
+<p class="card-text display-6" id="kpiActive">{{ get_translation('auto.678d6a67', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-info h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-info">{{ get_translation('auto.f0ba1486', 'Used in Templates') }}</h5>
+<p class="card-text display-6" id="kpiUsed">{{ get_translation('auto.e41eadc1', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters Card -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-12 col-md-3">
+<label class="form-label">{{ get_translation('auto.cf4efcba', 'Category') }}</label>
+<select class="form-select" id="filterCategory">
+<option value="">{{ get_translation('auto.ebb1a7da', 'All') }}</option>
+<option>{{ get_translation('auto.5765422e', 'Dimensional') }}</option>
+<option>{{ get_translation('auto.9868a124', 'Pressure') }}</option>
+<option>{{ get_translation('auto.4c030562', 'Leak') }}</option>
+<option>{{ get_translation('auto.2abee2de', 'Visual') }}</option>
+<option>{{ get_translation('auto.c475acc2', 'Electrical') }}</option>
+</select>
+</div>
+<div class="col-12 col-md-3">
+<label class="form-label">{{ get_translation('auto.6c3260c0', 'Skill Level') }}</label>
+<select class="form-select" id="filterSkill">
+<option value="">{{ get_translation('auto.dffd25e3', 'All') }}</option>
+<option>{{ get_translation('auto.032fffa6', 'Basic') }}</option>
+<option>{{ get_translation('auto.1b3b8854', 'Intermediate') }}</option>
+<option>{{ get_translation('auto.cfed2f68', 'Advanced') }}</option>
+</select>
+</div>
+<div class="col-12 col-md-2">
+<label class="form-label">{{ get_translation('auto.15a35098', 'Status') }}</label>
+<div class="form-check mt-2">
+<input checked="" class="form-check-input" id="filterActiveOnly" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.ac89e82a', 'Active only') }}</label>
+</div>
+</div>
+<div class="col-12 col-md-4">
+<label class="form-label">{{ get_translation('auto.70b46dfc', 'Search') }}</label>
+<input class="form-control" id="filterSearch" placeholder="Code, name, equipment..." type="text"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Table Card -->
+<div class="card">
+<div class="card-header">
+<h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('auto.cf9741bc', 'Quality Operations') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="operationsTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.81dd4d6f', 'Code') }}</th>
+<th>{{ get_translation('auto.2f6771f9', 'Name') }}</th>
+<th>{{ get_translation('auto.ca3aa9d8', 'Category') }}</th>
+<th>{{ get_translation('auto.1a7f65ae', 'Unit') }}</th>
+<th>{{ get_translation('auto.e07c74e6', 'Min/Target/Max') }}</th>
+<th>{{ get_translation('auto.d2aa3f6b', 'Equipment Required') }}</th>
+<th>{{ get_translation('auto.d57a9254', 'Calibration') }}</th>
+<th>{{ get_translation('auto.b402b1ec', 'Est. Time') }}</th>
+<th>{{ get_translation('auto.70a99794', 'Skill Level') }}</th>
+<th>{{ get_translation('auto.d2da926f', 'Status') }}</th>
+<th>{{ get_translation('auto.0a629e17', 'Used In Templates') }}</th>
+<th>{{ get_translation('auto.f68e790a', 'Last Modified') }}</th>
+<th>{{ get_translation('auto.82ff1ae1', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="operationsTableBody">
+<tr><td class="text-center py-4" colspan="13">{{ get_translation('auto.617a0285', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- ========== MODALS ========== -->
+<!-- Create/Edit Modal -->
+<input id="opProductCode" type="hidden" value="General"/>
+<input id="opDescription" type="hidden" value=""/>
+<div aria-hidden="true" class="modal fade" id="operationModal" tabindex="-1">
+<div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="operationModalTitle">{{ get_translation('auto.f5cc005e', 'Create Operation') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="operationForm">
+<!--input type="hidden" id="opProductCode" value="General"-->
+<input id="operationId" type="hidden" value=""/>
+<input id="opProductCode" type="hidden" value="General"/>
+<input id="opDescription" type="hidden" value=""/>
+<div class="row g-3">
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.fe8f047e', 'Code *') }}</label>
+<input class="form-control" id="opCode" required="" type="text"/>
+</div>
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.3d33e23e', 'Name *') }}</label>
+<input class="form-control" id="opName" required="" type="text"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.5ea813ef', 'Category') }}</label>
+<select class="form-select" id="opCategory">
+<option>{{ get_translation('auto.285dd030', 'General') }}</option>
+<option>{{ get_translation('auto.88521674', 'Dimensional') }}</option>
+<option>{{ get_translation('auto.607270db', 'Pressure') }}</option>
+<option>{{ get_translation('auto.2e0823be', 'Leak') }}</option>
+<option>{{ get_translation('auto.80fcfc12', 'Visual') }}</option>
+<option>{{ get_translation('auto.ebca11f1', 'Electrical') }}</option>
+</select>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.ef7d24bf', 'Unit of Measure') }}</label>
+<input class="form-control" id="opUnit" type="text"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.9846a1a9', 'Skill Level') }}</label>
+<select class="form-select" id="opSkill">
+<option>{{ get_translation('auto.9d1a701d', 'Basic') }}</option>
+<option>{{ get_translation('auto.3c8698fc', 'Intermediate') }}</option>
+<option>{{ get_translation('auto.29ea335e', 'Advanced') }}</option>
+</select>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.a23f2e62', 'Min Value') }}</label>
+<input class="form-control" id="opMin" step="any" type="number"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.b60b75c3', 'Target Value') }}</label>
+<input class="form-control" id="opTarget" step="any" type="number"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.263f8b89', 'Max Value') }}</label>
+<input class="form-control" id="opMax" step="any" type="number"/>
+</div>
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.b6f70929', 'Equipment Required') }}</label>
+<input class="form-control" id="opEquipment" type="text"/>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.cbdb8d22', 'Est. Time (min)') }}</label>
+<input class="form-control" id="opEstTime" type="number"/>
+</div>
+<div class="col-md-3">
+<div class="form-check mt-4">
+<input class="form-check-input" id="opCalibrationReq" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.56780f75', 'Calibration Required') }}</label>
+</div>
+</div>
+<div class="col-12">
+<div class="form-check">
+<input checked="" class="form-check-input" id="opIsActive" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.0d9ae052', 'Active') }}</label>
+</div>
+</div>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.acd616e6', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveOperationBtn" type="button">{{ get_translation('auto.7d76c741', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Equipment Modal -->
+<div aria-hidden="true" class="modal fade" id="equipmentModal" tabindex="-1">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.3f1707d8', 'Equipment Details') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body" id="equipmentModalBody">{{ get_translation('auto.4a8b754c', 'Loading...') }}</div>
+</div>
+</div>
+</div>
+<!-- Templates Modal -->
+<div aria-hidden="true" class="modal fade" id="templatesModal" tabindex="-1">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.467f935b', 'Templates Using This Operation') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body" id="templatesModalBody"></div>
+</div>
+</div>
+</div>
+<!-- Version History Modal -->
+<div aria-hidden="true" class="modal fade" id="versionModal" tabindex="-1">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.d8f8bed4', 'Version History') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body" id="versionModalBody">
+<p class="text-muted">{{ get_translation('auto.2241765e', 'Version tracking will be available soon.') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Archive Confirmation Modal -->
+<div aria-hidden="true" class="modal fade" id="archiveModal" tabindex="-1">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.1bd907f2', 'Archive Operation') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">{{ get_translation('auto.9daacbfd', 'Are you sure you want to archive this operation? It will no longer appear in active lists.') }}</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.39ae0ebb', 'Cancel') }}</button>
+<button class="btn btn-danger" id="confirmArchiveBtn" type="button">{{ get_translation('auto.3ef6dce6', 'Archive') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script>
+$(document).ready(function() {
+    if (typeof window.operationLibrary !== 'undefined' && window.operationLibrary.init) {
+        window.operationLibrary.init();
+    } else {
+        console.error('operationLibrary not loaded');
+        alert('Error: operationLibrary not found. Check that app.js is loaded and defines it.');
+    }
+});
+</script>
+{% endblock %}

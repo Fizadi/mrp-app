@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('certificate.list_title', 'Progress Certificates') }}</h2>
+        <div>
+            <button class="btn btn-primary" id="createCertBtn">{{ get_translation('certificate.create', '+ Create Certificate') }}</button>
+            <a href="/project/dashboard/{{ project_id }}" class="btn btn-secondary ms-2">{{ get_translation('certificate.back_to_dashboard', '← Back to Dashboard') }}</a>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-4">
+        <div class="col-md-4"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('certificate.total_certified', 'Total Certified') }}</h6><h3 id="kpi-total">0</h3></div></div>
+        <div class="col-md-4"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('certificate.pending_approval', 'Pending Approval') }}</h6><h3 id="kpi-pending">0</h3></div></div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>{{ get_translation('certificate.number', 'Certificate #') }}</th>
+                    <th>{{ get_translation('certificate.period', 'Period') }}</th>
+                    <th>{{ get_translation('certificate.status', 'Status') }}</th>
+                    <th>{{ get_translation('certificate.total_amount', 'Total Amount') }}</th>
+                    <th>{{ get_translation('certificate.net_payable', 'Net Payable') }}</th>
+                    <th>{{ get_translation('certificate.actions', 'Actions') }}</th>
+                </tr>
+            </thead>
+            <tbody id="cert-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="createCertModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5>{{ get_translation('certificate.create_new', 'Create Certificate') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-2"><label>{{ get_translation('certificate.period_start', 'Period Start Date') }}</label><input type="date" id="period-start" class="form-control"></div>
+            <div class="mb-2"><label>{{ get_translation('certificate.period_end', 'Period End Date') }}</label><input type="date" id="period-end" class="form-control"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-primary" id="confirmCreate">{{ get_translation('certificate.create', 'Create') }}</button><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('certificate.cancel', 'Cancel') }}</button></div>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    draft:               {{ get_translation('certificate.draft', 'Draft')|tojson }},
+    submitted:           {{ get_translation('certificate.submitted', 'Submitted')|tojson }},
+    approved:            {{ get_translation('certificate.approved', 'Approved')|tojson }},
+    view:                {{ get_translation('certificate.view', 'View')|tojson }},
+    select_period:       {{ get_translation('certificate.select_period', 'Select period')|tojson }},
+    create_error:        {{ get_translation('certificate.create_error', 'Error creating certificate')|tojson }},
+    load_error:          {{ get_translation('certificate.load_error', 'Failed to load certificates')|tojson }},
+    error:               {{ get_translation('global.error', 'Error')|tojson }},
+    unknown:             {{ get_translation('global.unknown', 'Unknown')|tojson }}
+};
+
+// ============================================================
+// 2. State — TOP LEVEL
+// ============================================================
+var projectId = "{{ project_id }}";
+
+// ============================================================
+// 3. Helper functions — TOP LEVEL
+// ============================================================
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function showModal(id) {
+    var el = document.getElementById(id);
+    if (el) new bootstrap.Modal(el).show();
+}
+
+// ============================================================
+// 4. Data loading — TOP LEVEL, fetch()
+// ============================================================
+function loadCertificates() {
+    fetch('/api/project/' + projectId + '/certificates')
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            console.log('Certificates API response:', data);
+
+            var html = '';
+            var total = 0, pending = 0;
+
+            (data || []).forEach(function(c) {
+                total += c.total;
+                if (c.status === 'Submitted') pending++;
+
+                var statusText;
+                if (c.status === 'Draft') statusText = trans.draft;
+                else if (c.status === 'Submitted') statusText = trans.submitted;
+                else statusText = trans.approved;
+
+                var statusClass;
+                if (c.status === 'Approved') statusClass = 'success';
+                else if (c.status === 'Draft') statusClass = 'secondary';
+                else statusClass = 'warning';
+
+                html += '<tr>';
+                html += '<td><a href="/project/certificate/' + c.id + '">' + escapeHtml(c.number) + '</a></td>';
+                html += '<td>' + escapeHtml(c.start) + ' to ' + escapeHtml(c.end) + '</td>';
+                html += '<td><span class="badge bg-' + statusClass + '">' + statusText + '</span></td>';
+                html += '<td>' + Number(c.total).toLocaleString() + '</td>';
+                html += '<td>' + Number(c.net).toLocaleString() + '</td>';
+                html += '<td><a href="/project/certificate/' + c.id + '" class="btn btn-sm btn-primary">' + trans.view + '</a></td>';
+                html += '</tr>';
+            });
+
+            var tbody = document.getElementById('cert-tbody');
+            if (tbody) tbody.innerHTML = html;
+
+            var kpiTotal = document.getElementById('kpi-total');
+            var kpiPending = document.getElementById('kpi-pending');
+            if (kpiTotal) kpiTotal.innerText = total.toLocaleString();
+            if (kpiPending) kpiPending.innerText = pending;
+        })
+        .catch(function(err) {
+            console.error('API error:', err);
+            var tbody = document.getElementById('cert-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-danger">' + trans.load_error + '</td></tr>';
+            }
+        });
+}
+
+// ============================================================
+// 5. Action handlers — TOP LEVEL
+// ============================================================
+function confirmCreateCertificate() {
+    var startEl = document.getElementById('period-start');
+    var endEl = document.getElementById('period-end');
+
+    var startVal = startEl ? startEl.value.replace(/-/g, '') : '';
+    var endVal = endEl ? endEl.value.replace(/-/g, '') : '';
+
+    var data = {
+        project_id: projectId,
+        start_date_key: startVal,
+        end_date_key: endVal
+    };
+
+    if (!data.start_date_key || !data.end_date_key) {
+        alert(trans.select_period);
+        return;
+    }
+
+    fetch('/api/project/certificates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(function(res) {
+        // Reload on success (matches original behavior)
+        window.location.reload();
+    })
+    .catch(function(err) {
+        console.error('Create error:', err);
+        alert(trans.create_error);
+    });
+}
+
+// ============================================================
+// 6. Init — DOMContentLoaded
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadCertificates();
+
+    // Create certificate button — open modal
+    var createBtn = document.getElementById('createCertBtn');
+    if (createBtn) {
+        createBtn.addEventListener('click', function() {
+            showModal('createCertModal');
+        });
+    }
+
+    // Confirm create — submit
+    var confirmBtn = document.getElementById('confirmCreate');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', confirmCreateCertificate);
+    }
+});
+</script>
+{% endblock %}

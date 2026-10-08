@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Document Checkout Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.5e04abb5', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('auto.72b3243c', 'Engineering') }}</li>
+<li class="breadcrumb-item">{{ get_translation('auto.262c7182', 'Documents') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('auto.21872836', 'Document Checkout') }}</li>
+</ol>
+</nav>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-6 col-sm-6 mb-2">
+<div class="card text-white bg-danger">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.83384f3d', 'Checked Out Documents') }}</h5>
+<p class="card-text display-6" id="kpiCheckedOut">{{ get_translation('auto.ad7e5f5f', '0') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-sm-6 mb-2">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.cf17c0bd', 'Available Documents') }}</h5>
+<p class="card-text display-6" id="kpiAvailable">{{ get_translation('auto.026c721d', '0') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="row mb-3 g-2">
+<div class="col-md-3">
+<label>{{ get_translation('auto.3fcb879d', 'Document Type') }}</label>
+<select class="form-select" id="filterDocType">
+<option value="">{{ get_translation('auto.ff811cc7', 'All') }}</option>
+<option value="Drawing">{{ get_translation('auto.c84479e0', 'Drawing') }}</option>
+<option value="Specification">{{ get_translation('auto.1fb9d108', 'Specification') }}</option>
+<option value="Work Instruction">{{ get_translation('auto.195c6bc6', 'Work Instruction') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.b814cf69', 'Checkout Status') }}</label>
+<select class="form-select" id="filterCheckout">
+<option value="">{{ get_translation('auto.1bb77491', 'All') }}</option>
+<option value="checked_out">{{ get_translation('auto.65f08546', 'Checked Out') }}</option>
+<option value="available">{{ get_translation('auto.b17e8501', 'Available') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.b3ede722', 'Project') }}</label>
+<select class="form-select" id="filterProject">
+<option value="">{{ get_translation('auto.e1690cd6', 'All Projects') }}</option>
+                {% for proj in projects %}
+                <option value="{{ proj.ProjectID }}">{{ proj.ProjectName }}</option>
+                {% endfor %}
+            </select>
+</div>
+<div class="col-md-3 d-flex align-items-end">
+<button class="btn btn-primary me-2" id="applyFiltersBtn">{{ get_translation('auto.729a62bd', 'Apply Filters') }}</button>
+<button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('auto.a84a4707', 'Reset') }}</button>
+</div>
+</div>
+<!-- Documents Table -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.462f6d35', 'Document Library') }}</div>
+<div class="card-body" style="overflow-x: auto;">
+<table class="table table-striped table-hover">
+<thead>
+<tr>
+<th>{{ get_translation('auto.ac9a5bf2', 'Document Number') }}</th><th>{{ get_translation('auto.3725dbb2', 'Title') }}</th><th>{{ get_translation('auto.5f698c19', 'Revision') }}</th>
+<th>{{ get_translation('auto.3cce5b0d', 'Checked Out By') }}</th><th>{{ get_translation('auto.fdef727f', 'Checked Out Date') }}</th><th>{{ get_translation('auto.e48d19d7', 'Status') }}</th>
+<th>{{ get_translation('auto.eb43e023', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="docsTableBody">
+<tr><td class="text-center" colspan="7">{{ get_translation('auto.0ab34055', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Check Out Modal -->
+<div class="modal fade" id="checkoutModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.54d2a511', 'Check Out Document') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.3c4a182b', 'Document:') }}<span id="checkoutDocTitle"></span></p>
+<label>{{ get_translation('auto.d8cbbff5', 'Your Name') }}</label><input class="form-control" id="checkoutUser" type="text" value="Current User"/>
+<input id="checkoutDocId" type="hidden"/>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.4bf3a7ea', 'Cancel') }}</button><button class="btn btn-primary" id="confirmCheckoutBtn">{{ get_translation('auto.868a259b', 'Check Out') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Check In Modal -->
+<div class="modal fade" id="checkinModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.100451cf', 'Check In Document') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.9b110225', 'Document:') }}<span id="checkinDocTitle"></span></p>
+<div class="mb-3"><label>{{ get_translation('auto.9c69b8c1', 'Upload New Revision (optional)') }}</label><input accept=".pdf,.doc,.docx,.jpg,.png,.dwg,.dxf" class="form-control" id="checkinFile" type="file"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.249b444f', 'Change Notes') }}</label><textarea class="form-control" id="checkinNotes" rows="2"></textarea></div>
+<input id="checkinDocId" type="hidden"/>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.3652af24', 'Cancel') }}</button><button class="btn btn-primary" id="confirmCheckinBtn">{{ get_translation('auto.3cd4edd9', 'Check In') }}</button></div>
+</div>
+</div>
+</div>
+<!-- View History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.28fbaef1', 'Revision History') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="historyContent">{{ get_translation('auto.04214eff', 'Loading...') }}</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Load KPI stats
+    function loadStats() {
+        $.get('/api/bom/documents/stats')
+            .done(function(s) {
+                $('#kpiCheckedOut').text(s.checkedOut);
+                var total = (s.draft + s.underReview + s.approved + s.obsolete);
+                $('#kpiAvailable').text(total - s.checkedOut);
+            })
+            .fail(console.error);
+    }
+
+    // Load document list with filters
+    function loadDocuments() {
+        var params = {
+            doc_type: $('#filterDocType').val(),
+            checkout_status: $('#filterCheckout').val(),
+            project: $('#filterProject').val()
+        };
+        $.get('/api/bom/documents', params)
+            .done(function(docs) {
+                var $tbody = $('#docsTableBody');
+                $tbody.empty();
+                if (!docs.length) {
+                    $tbody.html('<tr><td colspan="7" class="text-center">No documents found</td></tr>');
+                    return;
+                }
+                docs.forEach(function(d) {
+                    var lockIcon = d.checkedOutBy ? '<i class="fas fa-lock text-danger"></i>' : '<i class="fas fa-unlock text-success"></i>';
+                    var row = '<tr>' +
+                        '<td><a href="/engineering/documents?doc=' + d.id + '">' + escapeHtml(d.docNumber) + '</a> ' + lockIcon + '</td>' +
+                        '<td>' + escapeHtml(d.title) + '</td>' +
+                        '<td>' + escapeHtml(d.revision) + '</td>' +
+                        '<td>' + (d.checkedOutBy || '-') + '</td>' +
+                        '<td>' + (d.checkedOutDate || '-') + '</td>' +
+                        '<td>' + '<span class="badge bg-' + (d.checkedOutBy ? 'danger' : 'success') + '">' + (d.checkedOutBy ? 'Checked Out' : 'Available') + '</span>' + '</td>' +
+                        '<td>' +
+                        (d.checkedOutBy ? '<button class="btn btn-sm btn-warning checkin-doc me-1" data-id="' + d.id + '" data-title="' + escapeHtml(d.title) + '">Check In</button>' :
+                                          '<button class="btn btn-sm btn-primary checkout-doc me-1" data-id="' + d.id + '" data-title="' + escapeHtml(d.title) + '">Check Out</button>') +
+                        '<button class="btn btn-sm btn-secondary history-doc" data-id="' + d.id + '">View History</button>' +
+                        '</td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() { $('#docsTableBody').html('<tr><td colspan="7" class="text-danger">Error loading documents</td></tr>'); });
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    // Check out
+    function openCheckout(id, title) {
+        $('#checkoutDocId').val(id);
+        $('#checkoutDocTitle').text(title);
+        $('#checkoutModal').modal('show');
+    }
+    function confirmCheckout() {
+        var id = $('#checkoutDocId').val();
+        var user = $('#checkoutUser').val();
+        $.post('/api/bom/documents/' + id + '/checkout', JSON.stringify({user: user}), {contentType: 'application/json'})
+            .done(function() {
+                $('#checkoutModal').modal('hide');
+                loadDocuments();
+                loadStats();
+                alert('Checked out');
+            })
+            .fail(function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Checkout failed')); });
+    }
+
+    // Check in
+    function openCheckin(id, title) {
+        $('#checkinDocId').val(id);
+        $('#checkinDocTitle').text(title);
+        $('#checkinFile').val('');
+        $('#checkinNotes').val('');
+        $('#checkinModal').modal('show');
+    }
+    function confirmCheckin() {
+        var id = $('#checkinDocId').val();
+        var formData = new FormData();
+        var file = $('#checkinFile')[0].files[0];
+        if (file) formData.append('file', file);
+        formData.append('user', 'Current User');
+        formData.append('notes', $('#checkinNotes').val());
+        $.ajax({
+            url: '/api/bom/documents/' + id + '/checkin',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function() {
+                $('#checkinModal').modal('hide');
+                loadDocuments();
+                loadStats();
+                alert('Checked in');
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Check-in failed')); }
+        });
+    }
+
+    // View history
+    function viewHistory(id) {
+        $('#historyContent').html('<p>Loading...</p>');
+        $('#historyModal').modal('show');
+        $.get('/api/bom/documents/' + id + '/revisions')
+            .done(function(revisions) {
+                var html = '';
+                if (!revisions.length) {
+                    html = '<p>No revision history available.</p>';
+                } else {
+                    html = '<table class="table table-sm"><thead><tr><th>Revision</th><th>Change Notes</th><th>Date</th><th>By</th></tr></thead><tbody>';
+                    revisions.forEach(function(r) {
+                        html += '<tr><td>' + escapeHtml(r.revision) + '</td><td>' + escapeHtml(r.changeNotes) + '</td><td>' + (r.createdDate || '-') + '</td><td>' + escapeHtml(r.createdBy) + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                }
+                $('#historyContent').html(html);
+            })
+            .fail(function() { $('#historyContent').html('<p class="text-danger">Failed to load history</p>'); });
+    }
+
+    // Event binding
+    $('#applyFiltersBtn').click(loadDocuments);
+    $('#resetFiltersBtn').click(function() {
+        $('#filterDocType').val('');
+        $('#filterCheckout').val('');
+        $('#filterProject').val('');
+        loadDocuments();
+    });
+    $(document).on('click', '.checkout-doc', function() { openCheckout($(this).data('id'), $(this).data('title')); });
+    $(document).on('click', '.checkin-doc', function() { openCheckin($(this).data('id'), $(this).data('title')); });
+    $(document).on('click', '.history-doc', function() { viewHistory($(this).data('id')); });
+    $('#confirmCheckoutBtn').click(confirmCheckout);
+    $('#confirmCheckinBtn').click(confirmCheckin);
+
+    // Initial load
+    loadStats();
+    loadDocuments();
+});
+</script>
+{% endblock %}

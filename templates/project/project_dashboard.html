@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('global.home', 'Home') }}</a></li>
+            <li class="breadcrumb-item"><a href="/project/project_portfolio">{{ get_translation('project.projects', 'Projects') }}</a></li>
+            <li class="breadcrumb-item active">{{ project_id }} {{ get_translation('project.dashboard.breadcrumb', 'Dashboard') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('project.dashboard.title', 'Project Dashboard') }}: {{ project_id }}</h2>
+        <a class="btn btn-secondary" href="/project/project_portfolio">{{ get_translation('project.dashboard.btn.back', '← Back to Portfolio') }}</a>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="row g-2 mb-4">
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('project.dashboard.kpi.percent', '% Complete') }}</h6><h3 id="kpi-complete">0%</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('project.dashboard.kpi.budget_util', 'Budget Util.') }}</h6><h3 id="kpi-budget">0%</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-success text-white"><h6>{{ get_translation('project.dashboard.kpi.milestone', 'Milestone Prog.') }}</h6><h3 id="kpi-milestone">0%</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('project.dashboard.kpi.service_orders', 'Service Orders') }}</h6><h3 id="kpi-service">0</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-danger text-white"><h6>{{ get_translation('project.dashboard.kpi.reminders', 'Pending Reminders') }}</h6><h3 id="kpi-reminder">0</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-secondary text-white" id="warranty-card"><h6>{{ get_translation('project.dashboard.kpi.warranty', 'Warranty') }}</h6><h3 id="kpi-warranty">{{ get_translation('project.dashboard.warranty_ok', 'OK') }}</h3></div></div>
+    </div>
+
+    <!-- Tab Buttons -->
+    <div class="mb-3">
+        <button class="btn btn-primary" id="btnOverview" onclick="showTab('overview')">{{ get_translation('project.dashboard.tab.overview', 'Overview') }}</button>
+        <button class="btn btn-secondary" id="btnMilestones" onclick="showTab('milestones')">{{ get_translation('project.dashboard.tab.milestones', 'Milestones') }}</button>
+        <button class="btn btn-secondary" id="btnProducts" onclick="showTab('products')">{{ get_translation('project.dashboard.tab.products', 'Products') }}</button>
+        <button class="btn btn-secondary" id="btnQuality" onclick="showTab('quality')">{{ get_translation('project.dashboard.tab.quality', 'Quality') }}</button>
+        <button class="btn btn-secondary" id="btnDocuments" onclick="showTab('documents')">{{ get_translation('project.dashboard.tab.documents', 'Documents') }}</button>
+        <button class="btn btn-secondary" id="btnFinancial" onclick="showTab('financial')">{{ get_translation('project.dashboard.tab.financial', 'Financial') }}</button>
+        <button class="btn btn-secondary" id="btnServiceOrders" onclick="showTab('serviceorders')">{{ get_translation('project.dashboard.tab.service_orders', 'Service Orders') }}</button>
+        <button class="btn btn-secondary" id="btnReminders" onclick="showTab('reminders')">{{ get_translation('project.dashboard.tab.reminders', 'Reminders') }}</button>
+        <button class="btn btn-secondary" id="btnCertificates" onclick="showTab('certificates')">{{ get_translation('project.dashboard.tab.certificates', 'Progress Certificates') }}</button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="overviewTab">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card p-3"><h5>{{ get_translation('project.dashboard.section.project_details', 'Project Details') }}</h5>
+                    <p><strong>{{ get_translation('project.dashboard.field.status', 'Status:') }}</strong> <span id="overview-status"></span></p>
+                    <p><strong>{{ get_translation('project.dashboard.field.manager', 'Manager:') }}</strong> <span id="overview-manager"></span></p>
+                    <p><strong>{{ get_translation('project.dashboard.field.winloss', 'Win/Loss Reason:') }}</strong> <span id="overview-winloss"></span></p>
+                    <p><strong>{{ get_translation('project.dashboard.field.start', 'Start Date:') }}</strong> <span id="overview-start"></span></p>
+                    <p><strong>{{ get_translation('project.dashboard.field.end', 'End Date:') }}</strong> <span id="overview-end"></span></p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3"><h5>{{ get_translation('project.dashboard.section.financial_summary', 'Financial Summary') }}</h5>
+                    <p><strong>{{ get_translation('project.dashboard.field.budget', 'Budget:') }}</strong> <span id="fin-budget"></span></p>
+                    <p><strong>{{ get_translation('project.dashboard.field.actual_cost', 'Actual Cost:') }}</strong> <span id="fin-actual"></span></p>
+                    <p><strong>{{ get_translation('project.dashboard.field.committed_cost', 'Committed Cost:') }}</strong> <span id="fin-committed"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Milestones Tab -->
+    <div id="milestonesTab" style="display:none;">
+        <button class="btn btn-primary mb-2" id="addMilestoneBtn">{{ get_translation('project.dashboard.btn.add_milestone', '+ Add Milestone') }}</button>
+        <table class="table table-sm">
+            <thead class="table-dark"><tr><th>{{ get_translation('project.dashboard.col.milestone_name', 'Name') }}</th><th>{{ get_translation('project.dashboard.col.planned_date', 'Planned Date') }}</th><th>{{ get_translation('project.dashboard.col.actual_date', 'Actual Date') }}</th><th>{{ get_translation('project.dashboard.col.completion', 'Completion %') }}</th><th>{{ get_translation('global.status', 'Status') }}</th></tr></thead>
+            <tbody id="milestones-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Products Tab -->
+    <div id="productsTab" style="display:none;">
+        <table class="table table-sm">
+            <thead class="table-dark"><tr><th>{{ get_translation('project.dashboard.col.product_id', 'Product ID') }}</th><th>{{ get_translation('project.dashboard.col.quantity', 'Quantity') }}</th><th>{{ get_translation('project.dashboard.col.unit_price', 'Unit Price') }}</th><th>{{ get_translation('project.dashboard.col.total', 'Total') }}</th></tr></thead>
+            <tbody id="products-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Quality Tab -->
+    <div id="qualityTab" style="display:none;">
+        <table class="table table-sm">
+            <thead class="table-dark"><tr><th>{{ get_translation('project.dashboard.col.plan_name', 'Plan Name') }}</th><th>{{ get_translation('project.dashboard.col.standard', 'Standard') }}</th><th>{{ get_translation('global.status', 'Status') }}</th><th>{{ get_translation('project.dashboard.col.due_date', 'Due Date') }}</th></tr></thead>
+            <tbody id="quality-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Documents Tab -->
+    <div id="documentsTab" style="display:none;">
+        <table class="table table-sm">
+            <thead class="table-dark"><tr><th>{{ get_translation('project.dashboard.col.document_number', 'Document #') }}</th><th>{{ get_translation('project.dashboard.col.title', 'Title') }}</th><th>{{ get_translation('project.dashboard.col.rev', 'Rev') }}</th><th>{{ get_translation('global.status', 'Status') }}</th></tr></thead>
+            <tbody id="documents-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Financial Tab -->
+    <div id="financialTab" style="display:none;">
+        <div class="card p-3">
+            <h5>{{ get_translation('project.dashboard.section.detailed_financials', 'Detailed Financials') }}</h5>
+            <canvas id="financialChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Service Orders Tab -->
+    <div id="serviceordersTab" style="display:none;">
+        <table class="table table-sm">
+            <thead class="table-dark"><tr><th>{{ get_translation('project.dashboard.col.order_number', 'Order #') }}</th><th>{{ get_translation('project.dashboard.col.date', 'Date') }}</th><th>{{ get_translation('global.status', 'Status') }}</th><th>{{ get_translation('project.dashboard.col.amount', 'Amount') }}</th></tr></thead>
+            <tbody id="so-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Reminders Tab -->
+    <div id="remindersTab" style="display:none;">
+        <button class="btn btn-primary mb-2" id="addReminderBtn">{{ get_translation('project.dashboard.btn.add_reminder', '+ Add Reminder') }}</button>
+        <table class="table table-sm">
+            <thead class="table-dark"><tr><th>{{ get_translation('project.dashboard.col.title', 'Title') }}</th><th>{{ get_translation('project.dashboard.col.due_date', 'Due Date') }}</th><th>{{ get_translation('global.status', 'Status') }}</th><th>{{ get_translation('project.dashboard.col.assigned_to', 'Assigned To') }}</th></tr></thead>
+            <tbody id="reminders-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Certificates Tab -->
+    <div id="certificatesTab" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>{{ get_translation('certificate.list_title', 'Progress Certificates') }}</h5>
+            <button class="btn btn-sm btn-primary" id="createCertFromDashboard">{{ get_translation('certificate.create', '+ Create Certificate') }}</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead class="table-dark">
+                    <tr><th>{{ get_translation('certificate.number', 'Certificate #') }}</th><th>{{ get_translation('certificate.period', 'Period') }}</th><th>{{ get_translation('global.status', 'Status') }}</th><th>{{ get_translation('certificate.total_amount', 'Total Amount') }}</th><th>{{ get_translation('certificate.net_payable', 'Net Payable') }}</th><th>{{ get_translation('global.actions', 'Actions') }}</th></tr>
+                </thead>
+                <tbody id="dashboard-cert-tbody">
+                    <tr><td colspan="6" class="text-muted">{{ get_translation('certificate.no_certificates', 'No certificates found') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Milestone Modal -->
+<div class="modal fade" id="milestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('project.dashboard.modal.add_milestone', 'Add Milestone') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input class="form-control mb-2" id="ms-name" placeholder="{{ get_translation('project.dashboard.field.milestone_name', 'Milestone Name') }}">
+                <input class="form-control mb-2" id="ms-date" type="date">
+                <select class="form-select" id="ms-status">
+                    <option value="Open">{{ get_translation('global.open', 'Open') }}</option>
+                    <option value="In Progress">{{ get_translation('global.in_progress', 'In Progress') }}</option>
+                    <option value="Completed">{{ get_translation('global.completed', 'Completed') }}</option>
+                </select>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" id="save-milestone">{{ get_translation('global.save', 'Save') }}</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Reminder Modal -->
+<div class="modal fade" id="reminderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('project.dashboard.modal.add_reminder', 'Add Reminder') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input class="form-control mb-2" id="rem-title" placeholder="{{ get_translation('project.dashboard.field.title', 'Title') }}">
+                <input class="form-control mb-2" id="rem-date" type="date">
+                <input class="form-control mb-2" id="rem-assign" placeholder="{{ get_translation('project.dashboard.field.assigned_to', 'Assigned To') }}">
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" id="save-reminder">{{ get_translation('global.save', 'Save') }}</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Certificate Modal -->
+<div class="modal fade" id="createCertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('certificate.create_new', 'Create Certificate') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label>{{ get_translation('certificate.period_start', 'Period Start Date') }}</label><input type="date" id="cert-period-start" class="form-control"></div>
+                <div class="mb-2"><label>{{ get_translation('certificate.period_end', 'Period End Date') }}</label><input type="date" id="cert-period-end" class="form-control"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" id="confirmCertCreate">{{ get_translation('certificate.create', 'Create') }}</button><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Local libraries (NO CDN per project context Section 3) -->
+<script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+
+<script>
+const projectId = "{{ project_id }}";
+let financialChart = null;
+
+// Server-injected translations for JS
+var trans = {
+    no_milestones:      {{ get_translation('project.dashboard.msg.no_milestones', 'No milestones found')|tojson }},
+    no_products:        {{ get_translation('project.dashboard.msg.no_products', 'No products found')|tojson }},
+    no_quality_plans:   {{ get_translation('project.dashboard.msg.no_quality_plans', 'No quality plans found')|tojson }},
+    no_documents:       {{ get_translation('project.dashboard.msg.no_documents', 'No documents found')|tojson }},
+    no_service_orders:  {{ get_translation('project.dashboard.msg.no_service_orders', 'No service orders found')|tojson }},
+    no_reminders:       {{ get_translation('project.dashboard.msg.no_reminders', 'No reminders found')|tojson }},
+    no_certificates:    {{ get_translation('certificate.no_certificates', 'No certificates found')|tojson }},
+    select_dates:       {{ get_translation('certificate.select_period', 'Select dates')|tojson }},
+    create_error:       {{ get_translation('certificate.create_error', 'Error creating certificate')|tojson }},
+    view:               {{ get_translation('global.view', 'View')|tojson }},
+    warranty_expired:   {{ get_translation('project.dashboard.warranty_expired', 'EXPIRED!')|tojson }},
+    warranty_ok:        {{ get_translation('project.dashboard.warranty_ok', 'OK')|tojson }},
+    chart_budget:       {{ get_translation('project.dashboard.chart.budget', 'Budget')|tojson }},
+    chart_actual:       {{ get_translation('project.dashboard.chart.actual', 'Actual')|tojson }},
+    chart_committed:    {{ get_translation('project.dashboard.chart.committed', 'Committed')|tojson }},
+    chart_amount:       {{ get_translation('project.dashboard.chart.amount', 'Amount')|tojson }},
+    not_assigned:       {{ get_translation('project.dashboard.not_assigned', 'Not assigned')|tojson }}
+};
+
+function loadOverview() {
+    $.get(`/api/project/dashboard_data/${projectId}`).done(function(data) {
+        $('#kpi-complete').text(data.kpis.percent_complete + '%');
+        $('#kpi-budget').text(data.kpis.budget_utilisation + '%');
+        $('#kpi-milestone').text(data.kpis.milestone_progress + '%');
+        $('#kpi-service').text(data.kpis.active_service_orders);
+        $('#kpi-reminder').text(data.kpis.pending_reminders);
+        if(data.kpis.warranty_expiry_warning) {
+            $('#kpi-warranty').text(trans.warranty_expired);
+            $('#warranty-card').addClass('bg-danger').removeClass('bg-secondary');
+        } else {
+            $('#kpi-warranty').text(trans.warranty_ok);
+        }
+        $('#overview-status').text(data.project.status);
+        // FIX: Manager fallback — uses translated "Not assigned" when the value is missing or null
+        $('#overview-manager').text(
+            data.project.manager || '{{ get_translation("project.dashboard.not_assigned", "Not assigned") }}'
+        );
+        $('#overview-winloss').text(data.project.winloss_reason || '-');
+        $('#overview-start').text(data.project.start_date || '-');
+        $('#overview-end').text(data.project.end_date || '-');
+        $('#fin-budget').text(data.financial.currency + ' ' + Number(data.financial.budget).toLocaleString());
+        $('#fin-actual').text(data.financial.currency + ' ' + Number(data.financial.actual_cost).toLocaleString());
+        $('#fin-committed').text(data.financial.currency + ' ' + Number(data.financial.committed_cost).toLocaleString());
+
+        if (financialChart) financialChart.destroy();
+        const ctx = document.getElementById('financialChart');
+        if (ctx) {
+            financialChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [trans.chart_budget, trans.chart_actual, trans.chart_committed],
+                    datasets: [{
+                        label: trans.chart_amount,
+                        data: [data.financial.budget, data.financial.actual_cost, data.financial.committed_cost],
+                        backgroundColor: ['#0d6efd', '#dc3545', '#ffc107']
+                    }]
+                }
+            });
+        }
+    }).fail(() => console.error('Overview failed'));
+}
+
+function loadMilestones() {
+    $.get(`/api/project/milestones/${projectId}`).done(function(data) {
+        let html = '';
+        if (data.length === 0) html = '<tr><td colspan="5" class="text-muted">' + trans.no_milestones + '</td></tr>';
+        else data.forEach(m => { html += `<tr><td>${m.name}</td><td>${m.planned_date}</td><td>${m.actual_date||'-'}</td><td>${m.completion}%</td><td>${m.status}</td></tr>`; });
+        $('#milestones-table').html(html);
+    }).fail(() => console.warn('Milestones failed'));
+}
+
+function loadProducts() {
+    $.get(`/api/project/products/${projectId}`).done(function(data) {
+        let html = '';
+        if (data.length === 0) html = '<tr><td colspan="4" class="text-muted">' + trans.no_products + '</td></tr>';
+        else data.forEach(p => { html += `<tr><td>${p.id}</td><td>${p.qty}</td><td>${p.unit_price}</td><td>${p.total}</td></tr>`; });
+        $('#products-table').html(html);
+    }).fail(() => console.warn('Products failed'));
+}
+
+function loadQuality() {
+    $.get(`/api/project/quality/${projectId}`).done(function(data) {
+        let html = '';
+        if (!data || data.length === 0) html = '<tr><td colspan="4" class="text-muted">' + trans.no_quality_plans + '</td></tr>';
+        else data.forEach(q => { html += `<tr><td>${q.name || '-'}</td><td>${q.standard || '-'}</td><td>${q.status || '-'}</td><td>${q.due_date || '-'}</td></tr>`; });
+        $('#quality-table').html(html);
+    }).fail(() => console.warn('Quality failed'));
+}
+
+function loadDocuments() {
+    $.get(`/api/project/documents/${projectId}`).done(function(data) {
+        let html = '';
+        if (data.length === 0) html = '<tr><td colspan="4" class="text-muted">' + trans.no_documents + '</td></tr>';
+        else data.forEach(d => { html += `<tr><td>${d.number}</td><td>${d.title}</td><td>${d.rev}</td><td>${d.status}</td></tr>`; });
+        $('#documents-table').html(html);
+    }).fail(() => console.warn('Documents failed'));
+}
+
+function loadServiceOrders() {
+    $.get(`/api/project/service_orders/${projectId}`).done(function(data) {
+        let html = '';
+        if (data.length === 0) html = '<tr><td colspan="4" class="text-muted">' + trans.no_service_orders + '</td></tr>';
+        else data.forEach(o => { html += `<tr><td>${o.number}</td><td>${o.date}</td><td>${o.status}</td><td>${o.amount}</td></tr>`; });
+        $('#so-table').html(html);
+    }).fail(() => console.warn('Service orders failed'));
+}
+
+function loadReminders() {
+    $.get(`/api/project/reminders/${projectId}`).done(function(data) {
+        let html = '';
+        if (data.length === 0) html = '<tr><td colspan="4" class="text-muted">' + trans.no_reminders + '</td></tr>';
+        else data.forEach(r => { html += `<tr><td>${r.title}</td><td>${r.due_date}</td><td>${r.status}</td><td>${r.assigned_to||'-'}</td></tr>`; });
+        $('#reminders-table').html(html);
+    }).fail(() => console.warn('Reminders failed'));
+}
+
+function loadCertificates() {
+    $.get(`/api/project/${projectId}/certificates`).done(function(data) {
+        let html = '';
+        if (!data || data.length === 0) html = '<tr><td colspan="6" class="text-muted">' + trans.no_certificates + '</td></tr>';
+        else data.forEach(c => {
+            const statusClass = c.status === 'Approved' ? 'success' : (c.status === 'Draft' ? 'secondary' : 'warning');
+            html += `<tr>
+                        <td><a href="/project/certificate/${c.id}">${c.number}</a></td>
+                        <td>${c.start} to ${c.end}</td>
+                        <td><span class="badge bg-${statusClass}">${c.status}</span></td>
+                        <td>${Number(c.total).toLocaleString()}</td>
+                        <td>${Number(c.net).toLocaleString()}</td>
+                        <td><a href="/project/certificate/${c.id}" class="btn btn-sm btn-primary">${trans.view}</a></td>
+                     </tr>`;
+        });
+        $('#dashboard-cert-tbody').html(html);
+    }).fail(() => console.warn('Certificates failed'));
+}
+
+function createCertificate() {
+    const startDate = $('#cert-period-start').val();
+    const endDate = $('#cert-period-end').val();
+    if (!startDate || !endDate) { alert(trans.select_dates); return; }
+    $.ajax({
+        url: '/api/project/certificates', method: 'POST', contentType: 'application/json',
+        data: JSON.stringify({ project_id: projectId, start_date_key: startDate.replace(/-/g,''), end_date_key: endDate.replace(/-/g,'') }),
+        success: function(res) { if (res.success) location.reload(); else alert('Error'); },
+        error: function() { alert(trans.create_error); }
+    });
+}
+
+function showTab(tabName) {
+    const tabs = ['overviewTab', 'milestonesTab', 'productsTab', 'qualityTab', 'documentsTab', 'financialTab', 'serviceordersTab', 'remindersTab', 'certificatesTab'];
+    tabs.forEach(tab => { document.getElementById(tab).style.display = 'none'; });
+    document.getElementById(tabName + 'Tab').style.display = 'block';
+
+    const buttons = ['btnOverview', 'btnMilestones', 'btnProducts', 'btnQuality', 'btnDocuments', 'btnFinancial', 'btnServiceOrders', 'btnReminders', 'btnCertificates'];
+    buttons.forEach(btn => {
+        document.getElementById(btn).classList.remove('btn-primary');
+        document.getElementById(btn).classList.add('btn-secondary');
+    });
+    document.getElementById('btn' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.remove('btn-secondary');
+    document.getElementById('btn' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('btn-primary');
+
+    if (tabName === 'overview') loadOverview();
+    else if (tabName === 'milestones') loadMilestones();
+    else if (tabName === 'products') loadProducts();
+    else if (tabName === 'quality') loadQuality();
+    else if (tabName === 'documents') loadDocuments();
+    else if (tabName === 'financial') loadOverview();
+    else if (tabName === 'serviceorders') loadServiceOrders();
+    else if (tabName === 'reminders') loadReminders();
+    else if (tabName === 'certificates') loadCertificates();
+}
+
+// Expose showTab globally since it's called from inline onclick
+window.showTab = showTab;
+
+$(document).ready(function() {
+    $('#createCertFromDashboard').click(() => $('#createCertModal').modal('show'));
+    $('#confirmCertCreate').click(createCertificate);
+    $('#addMilestoneBtn').click(() => $('#milestoneModal').modal('show'));
+    $('#addReminderBtn').click(() => $('#reminderModal').modal('show'));
+
+    $('#save-milestone').click(function() {
+        $.post('/api/project/add_milestone', JSON.stringify({
+            project_id: projectId, milestone_name: $('#ms-name').val(),
+            planned_date_key: $('#ms-date').val().replace(/-/g,''), status: $('#ms-status').val()
+        })).done(() => { $('#milestoneModal').modal('hide'); loadMilestones(); });
+    });
+
+    $('#save-reminder').click(function() {
+        $.post('/api/project/add_reminder', JSON.stringify({
+            project_id: projectId, title: $('#rem-title').val(),
+            due_date_key: $('#rem-date').val().replace(/-/g,''), assigned_to: $('#rem-assign').val()
+        })).done(() => { $('#reminderModal').modal('hide'); loadReminders(); });
+    });
+
+    showTab('overview');
+});
+</script>
+{% endblock %}

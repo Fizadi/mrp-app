@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Receiving Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.1ec1ecb0', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.a5f7c443', 'Receiving') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.c1c1aef9', 'Goods Receipt') }}</h2>
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.3e0c14ff', 'Supplier') }}</label>
+<input class="form-control" id="filterSupplier" placeholder="Supplier name or code" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.1927b36f', 'Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.b596b6a6', 'Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.801ee5e6', 'PO#') }}</label>
+<input class="form-control" id="filterPo" placeholder="PO number" type="text"/>
+</div>
+<div class="col-md-3 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.02a06071', 'Refresh') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-4"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('auto.22d4de3f', 'Expected Today') }}</h6><h3 id="kpiExpectedToday">{{ get_translation('auto.646e3fd5', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-danger"><div class="card-body"><h6>{{ get_translation('auto.535e1cf9', 'Overdue Receipts') }}</h6><h3 id="kpiOverdue">{{ get_translation('auto.5ee9ecc1', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('auto.fa12faa1', 'Pending Inspection') }}</h6><h3 id="kpiPendingInspection">{{ get_translation('auto.bfc4e066', '0') }}</h3></div></div></div>
+</div>
+<!-- Expected Receipts Table -->
+<div class="card">
+<div class="card-header">
+<span>{{ get_translation('auto.fb0b1ad3', 'Expected Receipts (Open POs)') }}</span>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr><th>{{ get_translation('auto.6a37190e', 'PO#') }}</th><th>{{ get_translation('auto.a9063135', 'Supplier') }}</th><th>{{ get_translation('auto.de0c7917', 'Expected Date') }}</th><th>{{ get_translation('auto.d8812261', 'Outstanding Qty') }}</th><th>{{ get_translation('auto.08e521de', 'Status') }}</th><th>{{ get_translation('auto.46171f5a', 'Actions') }}</th></tr>
+</thead>
+<tbody id="receivingBody">
+<tr><td class="text-center" colspan="6">{{ get_translation('auto.dabbf1d6', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Receive Goods Modal -->
+<div class="modal fade" id="receiveModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.89421cf1', 'Receive Against PO') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="receivePoId" type="hidden"/>
+<div id="receiveLinesContainer"></div>
+<div class="mb-3 mt-3"><label>{{ get_translation('auto.982f184b', 'Warehouse') }}</label><input class="form-control" id="receiveWarehouse" type="text" value="RAW"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.bcdd899d', 'Notes') }}</label><textarea class="form-control" id="receiveNotes"></textarea></div>
+<div class="form-check mb-3">
+<input class="form-check-input" id="createInspection" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.18610973', 'Create Quality Inspection Batch') }}</label>
+</div>
+<hr/>
+<div class="mb-3"><label>{{ get_translation('auto.15fee99f', 'Attach Documents (optional)') }}</label><input class="form-control" id="attachFile" type="file"/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="confirmReceiveBtn" type="button">{{ get_translation('auto.79760507', 'Confirm Receipt') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    function loadKPI() {
+        // ✅ Fixed: /api/receiving/kpi → /api/supply-chain/receiving/kpi
+        $.get('/api/supply-chain/receiving/kpi', function(data) {
+            $('#kpiExpectedToday').text(data.expected_today);
+            $('#kpiOverdue').text(data.overdue);
+            $('#kpiPendingInspection').text(data.pending_inspection);
+        });
+    }
+
+    function loadExpectedList() {
+        var params = {};
+        if ($('#filterSupplier').val()) params.supplier = $('#filterSupplier').val();
+        if ($('#filterDateFrom').val()) params.date_from = $('#filterDateFrom').val();
+        if ($('#filterDateTo').val()) params.date_to = $('#filterDateTo').val();
+        if ($('#filterPo').val()) params.po_number = $('#filterPo').val();
+        // ✅ Fixed: /api/receiving/expected-list → /api/supply-chain/receiving/expected-list
+        $.get('/api/supply-chain/receiving/expected-list', params, function(data) {
+            var tbody = $('#receivingBody');
+            if (!data.length) {
+                tbody.html('<tr><td colspan="6" class="text-center">No pending receipts found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(data, function(i, po) {
+                rows += `<tr>
+                    <td><a href="#" class="po-link" data-id="${po.poId}">${po.poId}</a></td>
+                    <td>${po.supplierName}</td>
+                    <td>${po.expectedDateKey || '-'}</td>
+                    <td>${po.outstandingQty}</td>
+                    <td>${po.status}</td>
+                    <td><button class="btn btn-sm btn-primary receive-po" data-id="${po.poId}">Receive</button></td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    // Show receive modal with PO details
+    async function showReceiveModal(poId) {
+        $('#receivePoId').val(poId);
+        $('#receiveWarehouse').val('RAW');
+        $('#receiveNotes').val('');
+        $('#createInspection').prop('checked', false);
+        $('#attachFile').val('');
+        // Fetch PO details
+        // ✅ Fixed: /api/receiving/po-details/ → /api/supply-chain/receiving/po-details/
+        $.get('/api/supply-chain/receiving/po-details/' + poId, function(po) {
+            var container = $('#receiveLinesContainer');
+            container.empty();
+            if (!po.lines.length) {
+                container.html('<div class="alert alert-warning">All lines already received</div>');
+                $('#confirmReceiveBtn').prop('disabled', true);
+                return;
+            }
+            $('#confirmReceiveBtn').prop('disabled', false);
+            $.each(po.lines, function(i, line) {
+                var remaining = line.orderedQty - line.receivedQty;
+                var div = $('<div>').addClass('border p-2 mb-2');
+                div.html(`
+                    <strong>${line.productId}</strong><br>
+                    Ordered: ${line.orderedQty}, Received: ${line.receivedQty}, Remaining: ${remaining}<br>
+                    <label>Quantity to receive:</label>
+                    <input type="number" class="form-control receive-qty" data-lineid="${line.lineId}" data-max="${remaining}" step="any" min="0" max="${remaining}" value="${remaining}">
+                `);
+                container.append(div);
+            });
+            $('#receiveModal').modal('show');
+        }).fail(function() { alert('Error loading PO details'); });
+    }
+
+    // Confirm receipt
+    $('#confirmReceiveBtn').click(function() {
+        var poId = $('#receivePoId').val();
+        var warehouse = $('#receiveWarehouse').val();
+        var notes = $('#receiveNotes').val();
+        var createInspection = $('#createInspection').is(':checked');
+        var receipts = [];
+        $('.receive-qty').each(function() {
+            var qty = parseFloat($(this).val());
+            if (qty && qty > 0) {
+                receipts.push({
+                    lineId: parseInt($(this).data('lineid')),
+                    quantity: qty
+                });
+            }
+        });
+        if (receipts.length === 0) {
+            alert('No quantity entered');
+            return;
+        }
+        // First upload attachment if present
+        var file = $('#attachFile')[0].files[0];
+        function proceedWithReceipt() {
+            $.ajax({
+                // ✅ Fixed: /api/receiving/receive → /api/supply-chain/receiving/receive
+                url: '/api/supply-chain/receiving/receive',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    poId: poId,
+                    receipts: receipts,
+                    warehouseId: warehouse,
+                    notes: notes,
+                    createInspection: createInspection,
+                    projectId: null
+                }),
+                success: function(resp) {
+                    $('#receiveModal').modal('hide');
+                    loadKPI();
+                    loadExpectedList();
+                },
+                error: function(xhr) { alert(xhr.responseJSON.error); }
+            });
+        }
+        if (file) {
+            var formData = new FormData();
+            formData.append('poId', poId);
+            formData.append('file', file);
+            formData.append('title', 'Receiving attachment');
+            $.ajax({
+                // ✅ Fixed: /api/receiving/upload-attachment → /api/supply-chain/receiving/upload-attachment
+                // ⚠️ This endpoint is NOT implemented in api.py. The request will
+                //    404, the error handler fires, and proceedWithReceipt() runs
+                //    anyway. Receipt succeeds; attachment is simply not saved.
+                url: '/api/supply-chain/receiving/upload-attachment',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: proceedWithReceipt,
+                error: function() { alert('Attachment upload failed, but receipt will continue'); proceedWithReceipt(); }
+            });
+        } else {
+            proceedWithReceipt();
+        }
+    });
+
+    // Event handlers for dynamic buttons
+    $('#receivingBody').on('click', '.receive-po', function() {
+        var poId = $(this).data('id');
+        showReceiveModal(poId);
+    });
+
+
+// Live filtering: Supplier and PO# as you type
+$('#filterSupplier, #filterPo').on('input', function() {
+    loadExpectedList();   // refresh only the table
+});
+
+// Live filtering: Date range when changed
+$('#filterDateFrom, #filterDateTo').on('change', function() {
+    loadExpectedList();
+});
+
+// Optional: Keep the Refresh button if you want to also reload KPI cards
+$('#refreshBtn').click(function() {
+    loadKPI();             // reload KPI cards
+    loadExpectedList();    // reload table
+});
+
+
+    // Initial load
+    loadKPI();
+    loadExpectedList();
+});
+</script>
+{% endblock %}

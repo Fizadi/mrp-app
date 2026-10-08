@@ -1,0 +1,582 @@
+{% extends "base.html" %}
+{% block title %}Role &amp; Permissions{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<h1 class="h3 mb-4"><i class="fas fa-lock me-2"></i>{{ get_translation('auto.e3b8d23e', 'Role &amp; Permissions') }}</h1>
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+<div class="col-sm-6 col-lg-3">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<div class="d-flex justify-content-between">
+<div><h6>{{ get_translation('auto.3ed77846', 'Total Roles') }}</h6><h2 class="mb-0" id="kpiTotalRoles">{{ get_translation('auto.5691d06d', '0') }}</h2></div>
+<i class="fas fa-tag fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="col-sm-6 col-lg-3">
+<div class="card text-white bg-success">
+<div class="card-body">
+<div class="d-flex justify-content-between">
+<div><h6>{{ get_translation('auto.e5525227', 'Permissions Defined') }}</h6><h2 class="mb-0" id="kpiTotalPermissions">{{ get_translation('auto.596a486b', '0') }}</h2></div>
+<i class="fas fa-key fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="col-sm-6 col-lg-3">
+<div class="card text-white bg-info">
+<div class="card-body">
+<div class="d-flex justify-content-between">
+<div><h6>{{ get_translation('auto.93220c09', 'Users with Exceptions') }}</h6><h2 class="mb-0" id="kpiUserExceptions">{{ get_translation('auto.0784674d', '0') }}</h2></div>
+<i class="fas fa-user-cog fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="col-sm-6 col-lg-3">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<div class="d-flex justify-content-between">
+<div><h6>{{ get_translation('auto.5a058735', 'Entity Permissions') }}</h6><h2 class="mb-0" id="kpiEntityPerms">{{ get_translation('auto.cfe3d57e', '0') }}</h2></div>
+<i class="fas fa-building fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Role List and Matrix -->
+<div class="row">
+<!-- Left: Role list -->
+<div class="col-md-4 col-lg-3 mb-4">
+<div class="card">
+<div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+<span><i class="fas fa-list"></i>{{ get_translation('auto.735c16de', 'Roles') }}</span>
+<button class="btn btn-sm btn-light" id="addRoleBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.66c74d7b', 'New') }}</button>
+</div>
+<div class="list-group list-group-flush" id="roleList">
+<div class="list-group-item text-muted">{{ get_translation('auto.a5af8767', 'Loading roles...') }}</div>
+</div>
+</div>
+</div>
+<!-- Right: Permissions Matrix + Tabs -->
+<div class="col-md-8 col-lg-9">
+<div class="card">
+<div class="card-header">
+<ul class="nav nav-tabs card-header-tabs" id="permTabs" role="tablist">
+<li class="nav-item"><button class="nav-link active" data-bs-target="#permissionsTab" data-bs-toggle="tab">{{ get_translation('auto.85dd8e86', 'Permissions Matrix') }}</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-target="#userExceptionsTab" data-bs-toggle="tab">{{ get_translation('auto.abd59130', 'User Exceptions') }}</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-target="#entityPermsTab" data-bs-toggle="tab">{{ get_translation('auto.ebbca044', 'Entity Permissions') }}</button></li>
+</ul>
+</div>
+<div class="card-body tab-content">
+<!-- Permissions Matrix -->
+<div class="tab-pane fade show active" id="permissionsTab">
+<div id="permissionsMatrixArea">
+<p class="text-muted">{{ get_translation('auto.1476e91f', 'Select a role from the left to edit its permissions.') }}</p>
+</div>
+<div class="mt-3 text-end">
+<button class="btn btn-primary" id="savePermissionsBtn" style="display:none;">{{ get_translation('auto.3eecf348', 'Save Permissions') }}</button>
+</div>
+</div>
+<!-- User Exceptions Tab -->
+<div class="tab-pane fade" id="userExceptionsTab">
+<div class="table-responsive">
+<table class="table table-sm" id="userExceptionsTable">
+<thead><tr><th>{{ get_translation('auto.7878792b', 'User') }}</th><th>{{ get_translation('auto.6593262a', 'Permissions (JSON)') }}</th><th>{{ get_translation('auto.174d6619', 'Actions') }}</th></tr></thead>
+<tbody id="userExceptionsBody"><tr><td class="text-muted" colspan="3">{{ get_translation('auto.2cac32ed', 'Loading...') }}</td></tr></tbody>
+</table>
+</div>
+<button class="btn btn-success mt-2" id="addUserExceptionBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.e6fc71c7', 'Add User Exception') }}</button>
+</div>
+<!-- Entity Permissions Tab -->
+<div class="tab-pane fade" id="entityPermsTab">
+<div class="table-responsive">
+<table class="table table-sm" id="entityPermsTable">
+<thead><tr><th>{{ get_translation('auto.3921e3b5', 'Project') }}</th><th>{{ get_translation('auto.32c15c58', 'Role') }}</th><th>{{ get_translation('auto.06152948', 'Permission') }}</th><th>{{ get_translation('auto.c20c116f', 'Expiry') }}</th><th></th></tr></thead>
+<tbody id="entityPermsBody"><tr><td class="text-muted" colspan="5">{{ get_translation('auto.107a31e9', 'Loading...') }}</td></tr></tbody>
+</table>
+</div>
+<button class="btn btn-success mt-2" id="addEntityPermBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.8c81ec6b', 'Grant Entity Permission') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Modals -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header bg-primary text-white"><h5 id="roleModalTitle">{{ get_translation('auto.be0ee3ef', 'Add Role') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="roleForm">
+<input id="roleId" type="hidden"/>
+<div class="mb-2"><label>{{ get_translation('auto.f33f8dca', 'Role Code *') }}</label><input class="form-control" id="roleCode" required="" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.3a0f1122', 'Role Name *') }}</label><input class="form-control" id="roleName" required="" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.59779a4c', 'Description') }}</label><textarea class="form-control" id="roleDesc"></textarea></div>
+<div class="alert alert-info small">{{ get_translation('auto.33eb0dc5', 'Permissions will be set in the matrix after creation.') }}</div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.1eb82082', 'Cancel') }}</button><button class="btn btn-primary" id="saveRoleBtn">{{ get_translation('auto.bc0f5e93', 'Save') }}</button></div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="userExceptionModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header bg-info text-white"><h5>{{ get_translation('auto.5c0c33e2', 'User Permission Exception') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="exceptionUserId" type="hidden"/>
+<div class="mb-3"><label>{{ get_translation('auto.00921583', 'User') }}</label><select class="form-select" id="exceptionUserSelect"><option value="">{{ get_translation('auto.8e70697e', 'Select user') }}</option></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.acc1e0d1', 'Permissions (JSON) – override role permissions') }}</label><textarea class="form-control" id="exceptionPermissionsJson" placeholder='{"quality": {"view": true, "approve": false}}' rows="6"></textarea></div>
+<div class="small text-muted">{{ get_translation('auto.54c23fb9', 'Use same structure as role permissions. Leave empty to remove exception.') }}</div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.730b419d', 'Cancel') }}</button><button class="btn btn-primary" id="saveExceptionBtn">{{ get_translation('auto.fefb8c2f', 'Save') }}</button></div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="entityPermModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header bg-warning text-dark"><h5>{{ get_translation('auto.2302e773', 'Grant Entity Permission') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-2"><label>{{ get_translation('auto.3e3ae0c0', 'Project') }}</label><select class="form-select" id="entityProjectId"><option value="">{{ get_translation('auto.60390023', 'Select project') }}</option></select></div>
+<div class="mb-2"><label>{{ get_translation('auto.0890620d', 'Role') }}</label><select class="form-select" id="entityRoleId"><option value="">{{ get_translation('auto.24494e9f', 'Select role') }}</option></select></div>
+<div class="mb-2"><label>{{ get_translation('auto.bec34443', 'Permission Code') }}</label><select class="form-select" id="entityPermCode"><option value="">{{ get_translation('auto.b1a6578e', 'Select permission') }}</option></select></div>
+<div class="mb-2"><div class="form-check"><input checked="" class="form-check-input" id="entityIsAllowed" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.bd143f02', 'Allowed') }}</label></div></div>
+<div class="mb-2"><label>{{ get_translation('auto.779f3dbb', 'Expiry Date (YYYYMMDD)') }}</label><input class="form-control" id="entityExpiryDate" placeholder="e.g., 20251231" type="number"/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.ec9bb568', 'Cancel') }}</button><button class="btn btn-primary" id="saveEntityPermBtn">{{ get_translation('auto.2cbd24cd', 'Grant') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ----------------------------- Global variables -----------------------------
+let allPermissions = {};      // { module: [ {id,code,name,description} ] }
+let roles = [];               // list of roles from API
+let currentRoleId = null;     // selected role ID
+let currentRolePermissions = {}; // permissions object of selected role
+let permissionsByCode = {};    // { "QUALITY_TEMPLATE_VIEW": {id,code,name,...} }
+
+// Helper: escape HTML to prevent injection
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// ----------------------------- API calls -----------------------------
+async function fetchPermissions() {
+    try {
+        const res = await fetch('/api/admin/permissions');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        allPermissions = data;
+        // Build flat map for quick lookups
+        permissionsByCode = {};
+        for (let mod in allPermissions) {
+            allPermissions[mod].forEach(p => { permissionsByCode[p.code] = p; });
+        }
+        document.getElementById('kpiTotalPermissions').innerText = Object.keys(permissionsByCode).length;
+        return data;
+    } catch (err) {
+        console.error('Failed to fetch permissions:', err);
+        document.getElementById('permissionsMatrixArea').innerHTML = '<div class="alert alert-danger">Failed to load permissions. Check console.</div>';
+        return {};
+    }
+}
+
+async function fetchRoles() {
+    try {
+        const res = await fetch('/api/admin/roles');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        roles = data;
+        document.getElementById('kpiTotalRoles').innerText = roles.length;
+        renderRoleList();
+        return roles;
+    } catch (err) {
+        console.error('Failed to fetch roles:', err);
+        document.getElementById('roleList').innerHTML = '<div class="list-group-item text-danger">Error loading roles</div>';
+        return [];
+    }
+}
+
+// ----------------------------- Role list rendering -----------------------------
+function renderRoleList() {
+    const container = document.getElementById('roleList');
+    if (!roles.length) {
+        container.innerHTML = '<div class="list-group-item text-muted">No roles found</div>';
+        return;
+    }
+    let html = '';
+    roles.forEach(role => {
+        const activeClass = (currentRoleId === role.id) ? 'active' : '';
+        html += `<a href="#" class="list-group-item list-group-item-action ${activeClass}" data-id="${role.id}">
+                    <div><strong>${escapeHtml(role.name)}</strong> <span class="badge bg-secondary">${role.userCount} users</span></div>
+                    <small class="text-muted">${escapeHtml(role.code)}</small>
+                    <div class="float-end">
+                        <button class="btn btn-sm btn-outline-secondary edit-role-btn" data-id="${role.id}" data-code="${role.code}" data-name="${role.name}" data-desc="${role.description||''}"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-outline-danger delete-role-btn" data-id="${role.id}" data-code="${role.code}" ${role.isSystem ? 'disabled' : ''}><i class="fas fa-trash"></i></button>
+                    </div>
+                </a>`;
+    });
+    container.innerHTML = html;
+}
+
+// ----------------------------- Select role and show permissions -----------------------------
+async function selectRole(roleId) {
+    currentRoleId = roleId;
+    const role = roles.find(r => r.id === roleId);
+    if (role) {
+        currentRolePermissions = role.permissions || {};
+    }
+    renderRoleList(); // update active highlight
+    // Ensure permissions are loaded
+    if (!allPermissions || Object.keys(allPermissions).length === 0) {
+        await fetchPermissions();
+    }
+    renderPermissionMatrix();
+    document.getElementById('savePermissionsBtn').style.display = 'block';
+}
+
+// ----------------------------- Permission matrix rendering -----------------------------
+function renderPermissionMatrix() {
+    const container = document.getElementById('permissionsMatrixArea');
+    if (!currentRoleId) {
+        container.innerHTML = '<p class="text-muted">Select a role from the left to edit its permissions.</p>';
+        return;
+    }
+    if (!allPermissions || Object.keys(allPermissions).length === 0) {
+        container.innerHTML = '<p class="text-warning">Loading permissions...</p>';
+        return;
+    }
+    let html = '';
+    for (let module in allPermissions) {
+        html += `<div class="card mb-3"><div class="card-header bg-light">${module}</div><div class="card-body"><div class="row">`;
+        allPermissions[module].forEach(perm => {
+            const isChecked = isPermissionGranted(perm.code, currentRolePermissions);
+            html += `<div class="col-md-6 col-lg-4 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input perm-checkbox" type="checkbox" value="${perm.code}" id="perm_${perm.code}" ${isChecked ? 'checked' : ''}>
+                            <label class="form-check-label" for="perm_${perm.code}">${perm.name}</label>
+                            <div class="small text-muted">${perm.description || ''}</div>
+                        </div>
+                    </div>`;
+        });
+        html += `</div></div></div>`;
+    }
+    container.innerHTML = html;
+}
+
+// Check if a permission code is granted in the role's permissions object (supports nested and flat)
+function isPermissionGranted(code, perms) {
+    if (!perms || typeof perms !== 'object') return false;
+    if (perms.all === true) return true;
+    // Flatten nested permissions (e.g., { quality: { view: true } } -> { 'quality.view': true })
+    function flatten(obj, prefix = '') {
+        let flat = {};
+        for (let key in obj) {
+            if (obj[key] && typeof obj[key] === 'object') {
+                Object.assign(flat, flatten(obj[key], prefix ? `${prefix}.${key}` : key));
+            } else {
+                flat[prefix ? `${prefix}.${key}` : key] = obj[key];
+            }
+        }
+        return flat;
+    }
+    const flatPerms = flatten(perms);
+    if (flatPerms[code] === true) return true;
+    // Try module-based matching for codes like "QUALITY_TEMPLATE_VIEW"
+    const parts = code.split('_');
+    if (parts.length >= 2) {
+        const module = parts[0].toLowerCase();
+        const action = parts.slice(1).join('_').toLowerCase();
+        if (flatPerms[`${module}.${action}`] === true) return true;
+        if (perms[module] && perms[module][action] === true) return true;
+    }
+    return false;
+}
+
+// ----------------------------- Save permissions for current role -----------------------------
+async function savePermissions() {
+    if (!currentRoleId) return;
+    const checked = [];
+    document.querySelectorAll('.perm-checkbox:checked').forEach(cb => checked.push(cb.value));
+    // Build flat permissions object { "PERMISSION_CODE": true/false }
+    const flatPerms = {};
+    for (let code in permissionsByCode) {
+        flatPerms[code] = checked.includes(code);
+    }
+    const payload = { Permissions: flatPerms };
+    try {
+        const res = await fetch(`/api/admin/roles/${currentRoleId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            alert('Permissions saved');
+            await fetchRoles(); // refresh roles to get updated permissions
+            const role = roles.find(r => r.id === currentRoleId);
+            if (role) currentRolePermissions = role.permissions;
+            renderPermissionMatrix();
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Error saving permissions');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Network error while saving');
+    }
+}
+
+// ----------------------------- Role CRUD -----------------------------
+document.getElementById('addRoleBtn').addEventListener('click', () => {
+    document.getElementById('roleModalTitle').innerText = 'Add Role';
+    document.getElementById('roleId').value = '';
+    document.getElementById('roleCode').value = '';
+    document.getElementById('roleName').value = '';
+    document.getElementById('roleDesc').value = '';
+    $('#roleModal').modal('show');
+});
+document.getElementById('saveRoleBtn').addEventListener('click', async () => {
+    const id = document.getElementById('roleId').value;
+    const payload = {
+        RoleCode: document.getElementById('roleCode').value.trim(),
+        RoleName: document.getElementById('roleName').value.trim(),
+        Description: document.getElementById('roleDesc').value.trim()
+    };
+    if (!payload.RoleCode || !payload.RoleName) { alert('Role code and name required'); return; }
+    let url = '/api/admin/roles';
+    let method = 'POST';
+    if (id) {
+        url = `/api/admin/roles/${id}`;
+        method = 'PUT';
+        delete payload.RoleCode; // cannot change code on update
+    }
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) {
+        $('#roleModal').modal('hide');
+        await fetchRoles();
+        if (!id) {
+            // newly created role – optionally select it
+            const newRole = roles.find(r => r.code === payload.RoleCode);
+            if (newRole) selectRole(newRole.id);
+        }
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Error saving role');
+    }
+});
+$(document).on('click', '.edit-role-btn', function(e) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    document.getElementById('roleModalTitle').innerText = 'Edit Role';
+    document.getElementById('roleId').value = btn.dataset.id;
+    document.getElementById('roleCode').value = btn.dataset.code;
+    document.getElementById('roleCode').readOnly = true;
+    document.getElementById('roleName').value = btn.dataset.name;
+    document.getElementById('roleDesc').value = btn.dataset.desc || '';
+    $('#roleModal').modal('show');
+});
+$(document).on('click', '.delete-role-btn', async function(e) {
+    e.stopPropagation();
+    const id = e.currentTarget.dataset.id;
+    if (!confirm('Delete this role? It will be removed if no users have it.')) return;
+    const res = await fetch(`/api/admin/roles/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+        if (currentRoleId === parseInt(id)) {
+            currentRoleId = null;
+            document.getElementById('permissionsMatrixArea').innerHTML = '<p class="text-muted">Select a role to edit permissions.</p>';
+            document.getElementById('savePermissionsBtn').style.display = 'none';
+        }
+        await fetchRoles();
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Delete failed');
+    }
+});
+// Event delegation for role clicks (for dynamically added role items)
+$(document).on('click', '#roleList a.list-group-item-action', function(e) {
+    if ($(e.target).closest('.edit-role-btn, .delete-role-btn').length) return;
+    e.preventDefault();
+    const roleId = parseInt($(this).data('id'));
+    selectRole(roleId);
+});
+
+// ----------------------------- User Exceptions -----------------------------
+async function loadUserExceptions() {
+    try {
+        const res = await fetch('/api/admin/user-exceptions');
+        const users = await res.json();
+        document.getElementById('kpiUserExceptions').innerText = users.length;
+        const tbody = document.getElementById('userExceptionsBody');
+        if (!users.length) { tbody.innerHTML = '<tr><td colspan="3" class="text-muted">No user exceptions</td></tr>'; return; }
+        let html = '';
+        users.forEach(u => {
+            html += `<tr>
+                <td>${escapeHtml(u.fullname)} (${escapeHtml(u.username)})</td>
+                <td><code>${escapeHtml(JSON.stringify(u.permissions))}</code></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary edit-exception" data-id="${u.id}" data-perms='${JSON.stringify(u.permissions)}'><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger delete-exception" data-id="${u.id}"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch (err) {
+        console.error('Failed to load user exceptions', err);
+    }
+}
+async function loadUserSelectForException(selectedUserId) {
+    const res = await fetch('/api/admin/all-users');
+    const data = await res.json();
+    const select = document.getElementById('exceptionUserSelect');
+    select.innerHTML = '<option value="">Select user</option>';
+    data.forEach(u => {
+        select.innerHTML += `<option value="${u.id}" ${u.id == selectedUserId ? 'selected' : ''}>${escapeHtml(u.fullname)} (${escapeHtml(u.username)})</option>`;
+    });
+}
+document.getElementById('saveExceptionBtn').addEventListener('click', async () => {
+    let userId = document.getElementById('exceptionUserId').value;
+    const selectedUserId = document.getElementById('exceptionUserSelect').value;
+    if (!userId && selectedUserId) userId = selectedUserId;
+    if (!userId) { alert('Select a user'); return; }
+    let permsJson = document.getElementById('exceptionPermissionsJson').value.trim();
+    let perms = {};
+    try { perms = JSON.parse(permsJson); } catch(e) { alert('Invalid JSON'); return; }
+    const res = await fetch(`/api/admin/user-exceptions/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Permissions: perms })
+    });
+    if (res.ok) {
+        $('#userExceptionModal').modal('hide');
+        await loadUserExceptions();
+    } else alert('Error saving exception');
+});
+$(document).on('click', '.edit-exception', function(e) {
+    const btn = e.currentTarget;
+    const userId = btn.dataset.id;
+    const perms = btn.dataset.perms;
+    document.getElementById('exceptionUserId').value = userId;
+    document.getElementById('exceptionPermissionsJson').value = JSON.stringify(perms, null, 2);
+    loadUserSelectForException(userId);
+    $('#userExceptionModal').modal('show');
+});
+$(document).on('click', '.delete-exception', async function(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!confirm('Remove custom permissions for this user?')) return;
+    const res = await fetch(`/api/admin/user-exceptions/${id}`, { method: 'DELETE' });
+    if (res.ok) await loadUserExceptions();
+});
+document.getElementById('addUserExceptionBtn').addEventListener('click', () => {
+    document.getElementById('exceptionUserId').value = '';
+    document.getElementById('exceptionPermissionsJson').value = '{}';
+    loadUserSelectForException(null);
+    $('#userExceptionModal').modal('show');
+});
+
+// ----------------------------- Entity Permissions -----------------------------
+async function loadEntityPermissions() {
+    try {
+        const res = await fetch('/api/admin/entity-permissions');
+        const perms = await res.json();
+        document.getElementById('kpiEntityPerms').innerText = perms.length;
+        const tbody = document.getElementById('entityPermsBody');
+        if (!perms.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No entity permissions</td></tr>'; return; }
+        let html = '';
+        perms.forEach(p => {
+            html += `<tr>
+                <td>${escapeHtml(p.projectName || p.projectId)}</td>
+                <td>${escapeHtml(p.roleName)}</td>
+                <td><code>${p.permissionCode}</code></td>
+                <td>${p.expiryDateKey || '-'}</td>
+                <td><button class="btn btn-sm btn-danger delete-entity-perm" data-id="${p.id}"><i class="fas fa-trash"></i></button></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch (err) {
+        console.error('Failed to load entity permissions', err);
+    }
+}
+document.getElementById('addEntityPermBtn').addEventListener('click', async () => {
+    // load dropdowns
+    const [projectsRes, rolesRes, permsRes] = await Promise.all([
+        fetch('/api/admin/projects/list'),
+        fetch('/api/admin/roles'),
+        fetch('/api/admin/permissions')
+    ]);
+    const projects = await projectsRes.json();
+    const rolesList = await rolesRes.json();
+    const permsData = await permsRes.json();
+    let allPerms = [];
+    for (let mod in permsData) allPerms.push(...permsData[mod]);
+    const projectSelect = document.getElementById('entityProjectId');
+    projectSelect.innerHTML = '<option value="">Select project</option>';
+    projects.forEach(p => projectSelect.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`);
+    const roleSelect = document.getElementById('entityRoleId');
+    roleSelect.innerHTML = '<option value="">Select role</option>';
+    rolesList.forEach(r => roleSelect.innerHTML += `<option value="${r.id}">${escapeHtml(r.name)}</option>`);
+    const permSelect = document.getElementById('entityPermCode');
+    permSelect.innerHTML = '<option value="">Select permission</option>';
+    allPerms.forEach(p => permSelect.innerHTML += `<option value="${p.code}">${p.name} (${p.code})</option>`);
+    document.getElementById('entityIsAllowed').checked = true;
+    document.getElementById('entityExpiryDate').value = '';
+    $('#entityPermModal').modal('show');
+});
+document.getElementById('saveEntityPermBtn').addEventListener('click', async () => {
+    const projectId = document.getElementById('entityProjectId').value;
+    const roleId = document.getElementById('entityRoleId').value;
+    const permCode = document.getElementById('entityPermCode').value;
+    if (!projectId || !roleId || !permCode) { alert('Please fill all fields'); return; }
+    const payload = {
+        ProjectID: projectId,
+        RoleID: roleId,
+        PermissionCode: permCode,
+        IsAllowed: document.getElementById('entityIsAllowed').checked,
+        ExpiryDateKey: document.getElementById('entityExpiryDate').value || null
+    };
+    const res = await fetch('/api/admin/entity-permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+        $('#entityPermModal').modal('hide');
+        await loadEntityPermissions();
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Error adding entity permission');
+    }
+});
+$(document).on('click', '.delete-entity-perm', async function(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!confirm('Delete this entity permission?')) return;
+    const res = await fetch(`/api/admin/entity-permissions/${id}`, { method: 'DELETE' });
+    if (res.ok) await loadEntityPermissions();
+});
+
+// ----------------------------- Save permissions button -----------------------------
+document.getElementById('savePermissionsBtn').addEventListener('click', savePermissions);
+
+// ----------------------------- Initial load -----------------------------
+(async function init() {
+    await fetchPermissions();
+    await fetchRoles();
+    await loadUserExceptions();
+    await loadEntityPermissions();
+})();
+</script>
+{% endblock %}

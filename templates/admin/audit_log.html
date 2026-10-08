@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h1 class="h3"><i class="fas fa-history me-2"></i>{{ get_translation('auto.74303f2d', 'Audit Log') }}</h1>
+<button class="btn btn-outline-success" id="exportBtn"><i class="fas fa-download"></i>{{ get_translation('auto.7f9bd8c9', 'Export CSV') }}</button>
+</div>
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+<div class="col-md-6">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<div class="d-flex justify-content-between">
+<div><h6>{{ get_translation('auto.7f3db579', 'Events Today') }}</h6><h2 class="mb-0" id="kpiToday">{{ get_translation('auto.72a7b7b4', '0') }}</h2></div>
+<i class="fas fa-calendar-day fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="col-md-6">
+<div class="card">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.fa2146ac', 'Top Users (30 days)') }}</h6>
+<div class="small" id="kpiUsers">{{ get_translation('auto.922dcb88', 'Loading...') }}</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-4">
+<div class="card-body row g-3 align-items-end">
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.02b51b62', 'User') }}</label>
+<select class="form-select" id="filterUser"><option value="">{{ get_translation('auto.346dc81b', 'All users') }}</option></select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.2e0035b7', 'Module') }}</label>
+<select class="form-select" id="filterModule"><option value="">{{ get_translation('auto.1f2df9c9', 'All modules') }}</option></select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.7cbb2b70', 'Action') }}</label>
+<select class="form-select" id="filterAction"><option value="">{{ get_translation('auto.d119f02c', 'All actions') }}</option></select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.079d71e5', 'Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.45f34b83', 'Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-2">
+<button class="btn btn-primary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i>{{ get_translation('auto.8d2a0319', 'Apply') }}</button>
+</div>
+</div>
+<div class="card-footer text-end">
+<button class="btn btn-secondary btn-sm" id="clearFiltersBtn">{{ get_translation('auto.33fe2c01', 'Clear Filters') }}</button>
+</div>
+</div>
+<!-- Log Table -->
+<div class="card">
+<div class="card-header bg-light">{{ get_translation('auto.e575aff9', 'Event Log') }}</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-sm mb-0">
+<thead class="table-light">
+<tr><th>{{ get_translation('auto.1580b428', 'Timestamp') }}</th><th>{{ get_translation('auto.c652cbfd', 'User') }}</th><th>{{ get_translation('auto.9c2d757a', 'Action') }}</th><th>{{ get_translation('auto.b1b77108', 'Module') }}</th><th>{{ get_translation('auto.9b4d6566', 'Record ID') }}</th><th style="width:60px"></th></tr>
+</thead>
+<tbody id="logTableBody">
+<tr><td class="text-center py-4" colspan="6">{{ get_translation('auto.37793014', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal: View Details -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header bg-info text-white">
+<h5 class="modal-title">{{ get_translation('auto.0b8a58e8', 'Audit Log Details') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body" id="detailContent">{{ get_translation('auto.439f0985', 'Loading...') }}</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.b33d3a7b', 'Close') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentFilters = { user_id: '', module: '', action_type: '', date_from: '', date_to: '' };
+
+async function loadFilters() {
+    const res = await fetch('/api/admin/audit-log/filters');
+    const data = await res.json();
+    const userSelect = $('#filterUser');
+    userSelect.empty().append('<option value="">All users</option>');
+    data.users.forEach(u => {
+        userSelect.append(`<option value="${u.id}">${escapeHtml(u.username)} (${escapeHtml(u.fullName || '')})</option>`);
+    });
+    const moduleSelect = $('#filterModule');
+    moduleSelect.empty().append('<option value="">All modules</option>');
+    data.modules.forEach(m => {
+        moduleSelect.append(`<option value="${m}">${m}</option>`);
+    });
+    const actionSelect = $('#filterAction');
+    actionSelect.empty().append('<option value="">All actions</option>');
+    data.actions.forEach(a => {
+        actionSelect.append(`<option value="${a}">${a}</option>`);
+    });
+}
+
+async function loadLogs() {
+    const params = new URLSearchParams();
+    if (currentFilters.user_id) params.append('user_id', currentFilters.user_id);
+    if (currentFilters.module) params.append('module', currentFilters.module);
+    if (currentFilters.action_type) params.append('action_type', currentFilters.action_type);
+    if (currentFilters.date_from) params.append('date_from', currentFilters.date_from);
+    if (currentFilters.date_to) params.append('date_to', currentFilters.date_to);
+    const res = await fetch(`/api/admin/audit-log?${params.toString()}`);
+    const data = await res.json();
+
+    // KPIs
+    document.getElementById('kpiToday').innerText = data.kpi.today_events;
+    const usersDiv = document.getElementById('kpiUsers');
+    if (data.kpi.by_user.length) {
+        usersDiv.innerHTML = data.kpi.by_user.map(u => `<span class="badge bg-secondary me-2">${escapeHtml(u.username)}: ${u.count}</span>`).join('');
+    } else {
+        usersDiv.innerHTML = '<span class="text-muted">No data</span>';
+    }
+
+    const tbody = document.getElementById('logTableBody');
+    if (!data.logs.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No audit records found</td></tr>';
+        return;
+    }
+    let html = '';
+    data.logs.forEach(log => {
+        html += `<tr>
+            <td><small>${escapeHtml(log.timestamp)}</small></td>
+            <td>${escapeHtml(log.username)}</td>
+            <td><span class="badge bg-info">${escapeHtml(log.action)}</span></td>
+            <td>${escapeHtml(log.module)}</td>
+            <td><code>${escapeHtml(log.recordId || '-')}</code></td>
+            <td><button class="btn btn-sm btn-outline-secondary view-details" data-id="${log.id}"><i class="fas fa-eye"></i></button></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+$(document).on('click', '.view-details', async function() {
+    const id = $(this).data('id');
+    const res = await fetch(`/api/admin/audit-log`);
+    const data = await res.json();
+    const log = data.logs.find(l => l.id == id);
+    if (log) {
+        let details = `
+            <table class="table table-bordered">
+                <tr><th>Timestamp</th><td>${escapeHtml(log.timestamp)}</td></tr>
+                <tr><th>User</th><td>${escapeHtml(log.username)} (${escapeHtml(log.fullName || '')})</td></tr>
+                <tr><th>Action</th><td>${escapeHtml(log.action)}</td></tr>
+                <tr><th>Module</th><td>${escapeHtml(log.module)}</td></tr>
+                <tr><th>Table</th><td>${escapeHtml(log.tableName)}</td></tr>
+                <tr><th>Record ID</th><td><code>${escapeHtml(log.recordId)}</code></td></tr>
+                <tr><th>IP Address</th><td>${escapeHtml(log.ipAddress)}</td></tr>
+                <tr><th>Description</th><td>${escapeHtml(log.description)}</td></tr>
+                <tr><th>Old Values</th><td><pre class="small">${escapeHtml(log.oldValues || '-')}</pre></td></tr>
+                <tr><th>New Values</th><td><pre class="small">${escapeHtml(log.newValues || '-')}</pre></td></tr>
+            </table>
+        `;
+        $('#detailContent').html(details);
+        $('#detailModal').modal('show');
+    }
+});
+
+document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+    currentFilters.user_id = document.getElementById('filterUser').value;
+    currentFilters.module = document.getElementById('filterModule').value;
+    currentFilters.action_type = document.getElementById('filterAction').value;
+    currentFilters.date_from = document.getElementById('filterDateFrom').value;
+    currentFilters.date_to = document.getElementById('filterDateTo').value;
+    loadLogs();
+});
+document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+    document.getElementById('filterUser').value = '';
+    document.getElementById('filterModule').value = '';
+    document.getElementById('filterAction').value = '';
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
+    currentFilters = { user_id: '', module: '', action_type: '', date_from: '', date_to: '' };
+    loadLogs();
+});
+document.getElementById('exportBtn').addEventListener('click', () => {
+    let url = '/api/admin/audit-log/export?';
+    const params = new URLSearchParams();
+    if (currentFilters.user_id) params.append('user_id', currentFilters.user_id);
+    if (currentFilters.module) params.append('module', currentFilters.module);
+    if (currentFilters.action_type) params.append('action_type', currentFilters.action_type);
+    if (currentFilters.date_from) params.append('date_from', currentFilters.date_from);
+    if (currentFilters.date_to) params.append('date_to', currentFilters.date_to);
+    window.location.href = url + params.toString();
+});
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+loadFilters();
+loadLogs();
+</script>
+{% endblock %}

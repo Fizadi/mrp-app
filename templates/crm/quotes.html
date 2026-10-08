@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.quotes.title', 'Quotes & Estimates') }}{% endblock %}
+
+{% block styles %}
+<style>
+    .status-badge { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+    .status-draft      { background-color:#6c757d; color:white; }
+    .status-sent       { background-color:#0d6efd; color:white; }
+    .status-accepted   { background-color:#198754; color:white; }
+    .status-rejected   { background-color:#dc3545; color:white; }
+    .status-superseded { background-color:#fd7e14; color:white; }
+    .quote-card { transition: all .2s; cursor: pointer; }
+    .quote-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-file-invoice-dollar me-2"></i>{{ get_translation('crm.quotes.title', 'Quotes & Estimates') }}
+            <span class="badge bg-secondary ms-2" id="quotesCount">0</span>
+        </h2>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-3 mb-2"><div class="card border-primary h-100"><div class="card-body text-center">
+            <h5 class="card-title text-primary">{{ get_translation('crm.quotes.total_quotes', 'Total Quotes') }}</h5>
+            <p class="card-text display-6" id="kpiTotalQuotes">0</p>
+        </div></div></div>
+        <div class="col-md-3 mb-2"><div class="card border-success h-100"><div class="card-body text-center">
+            <h5 class="card-title text-success">{{ get_translation('crm.quotes.total_value', 'Total Value') }}</h5>
+            <p class="card-text display-6" id="kpiTotalValue">$0</p>
+        </div></div></div>
+        <div class="col-md-3 mb-2"><div class="card border-warning h-100"><div class="card-body text-center">
+            <h5 class="card-title text-warning">{{ get_translation('crm.quotes.open_drafts', 'Open Drafts') }}</h5>
+            <p class="card-text display-6" id="kpiDraftCount">0</p>
+        </div></div></div>
+        <div class="col-md-3 mb-2"><div class="card border-info h-100"><div class="card-body text-center">
+            <h5 class="card-title text-info">{{ get_translation('crm.quotes.acceptance_rate', 'Acceptance Rate') }}</h5>
+            <p class="card-text display-6" id="kpiAcceptanceRate">0%</p>
+        </div></div></div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('crm.quotes.status', 'Status') }}</label>
+                    <select class="form-select" id="filterStatus">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Draft">{{ get_translation('global.status.draft', 'Draft') }}</option>
+                        <option value="Sent">{{ get_translation('crm.quote.status.sent', 'Sent') }}</option>
+                        <option value="Accepted">{{ get_translation('crm.quote.status.accepted', 'Accepted') }}</option>
+                        <option value="Rejected">{{ get_translation('crm.quote.status.rejected', 'Rejected') }}</option>
+                        <option value="Superseded">{{ get_translation('crm.quote.status.superseded', 'Superseded') }}</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('crm.quotes.customer', 'Customer') }}</label>
+                    <select class="form-select" id="filterCustomer">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('crm.opportunity', 'Opportunity') }}</label>
+                    <select class="form-select" id="filterOpportunity">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('global.search', 'Search') }}</label>
+                    <input class="form-control" id="filterSearch"
+                           placeholder="{{ get_translation('crm.quotes.search_hint', 'Quote #, subject...') }}" type="text">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('crm.quotes.quotes_list', 'Quotes List') }}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height:600px; overflow-y:auto;">
+                <table class="table table-hover table-striped mb-0 table-sticky-dark" id="quotesTable">
+                    <thead>
+                        <tr>
+                            <th>{{ get_translation('crm.quotes.quote_number', 'Quote #') }}</th>
+                            <th>{{ get_translation('crm.quotes.customer', 'Customer') }}</th>
+                            <th>{{ get_translation('crm.quotes.subject', 'Subject') }}</th>
+                            <th>{{ get_translation('crm.quotes.total_amount', 'Total Amount') }}</th>
+                            <th>{{ get_translation('global.status', 'Status') }}</th>
+                            <th>{{ get_translation('crm.quotes.source_opportunity', 'Source Opportunity') }}</th>
+                            <th>{{ get_translation('crm.quotes.revision', 'Rev') }}</th>
+                            <th>{{ get_translation('crm.quotes.valid_until', 'Valid Until') }}</th>
+                            <th>{{ get_translation('crm.quotes.created_by', 'Created By') }}</th>
+                            <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="quotesTableBody">
+                        <tr><td class="text-center py-4" colspan="10">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// 1. STATE — TOP LEVEL
+// ============================================================================
+var allQuotes = [];
+var allCustomersCache = [];
+
+// ============================================================================
+// 2. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function el(id) { return document.getElementById(id); }
+
+function statusKey(raw) {
+    if (!raw) return '';
+    return 'crm.quote.status.' + String(raw).toLowerCase().replace(/ /g, '_');
+}
+function statusLabel(raw) { return t(statusKey(raw), raw); }
+function statusBadgeClass(status) {
+    return {
+        'Draft':      'bg-secondary',
+        'Sent':       'bg-primary',
+        'Accepted':   'bg-success',
+        'Rejected':   'bg-danger',
+        'Superseded': 'bg-warning',
+    }[status] || 'bg-secondary';
+}
+
+function showToast(message, type) {
+    type = type || 'success';
+    var bg = type === 'error' ? 'bg-danger' : (type === 'warning' ? 'bg-warning text-dark' : 'bg-success');
+    var node = document.createElement('div');
+    node.className = 'toast align-items-center ' + bg + ' text-white border-0 position-fixed top-0 end-0 m-3';
+    node.style.zIndex = '9999';
+    node.innerHTML = '<div class="d-flex"><div class="toast-body">' + escapeHtml(message) +
+        '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    document.body.appendChild(node);
+    new bootstrap.Toast(node, { delay: 3500 }).show();
+    setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 4000);
+}
+
+// ============================================================================
+// 3. LOADERS — TOP LEVEL, fetch() only
+// ============================================================================
+function loadQuotes() {
+    var tbody = el('quotesTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4">' + t('global.loading', 'Loading...') + '</td></tr>';
+
+    var params = new URLSearchParams();
+    var s = (el('filterStatus') || {}).value || '';
+    var c = (el('filterCustomer') || {}).value || '';
+    if (s) params.append('status', s);
+    if (c) params.append('customer_id', c);
+
+    fetch('/api/crm/quotes?' + params.toString(), { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            allQuotes = data || [];
+            renderQuotes();
+        })
+        .catch(function (err) {
+            console.error('load quotes failed:', err);
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">' +
+                t('global.error_loading', 'Error loading data') + '</td></tr>';
+        });
+}
+
+function renderQuotes() {
+    var tbody = el('quotesTableBody');
+    if (!tbody) return;
+
+    var search = ((el('filterSearch') || {}).value || '').toLowerCase();
+    var filtered = allQuotes.filter(function (q) {
+        if (!search) return true;
+        return (q.quote_number || '').toLowerCase().indexOf(search) !== -1
+            || (q.subject || '').toLowerCase().indexOf(search) !== -1
+            || (q.customer_name || '').toLowerCase().indexOf(search) !== -1;
+    });
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">' +
+            t('global.no_data', 'No quotes found') + '</td></tr>';
+        updateKPIs([]);
+        return;
+    }
+
+    var html = '';
+    filtered.forEach(function (q) {
+        // Dates: ALWAYS use formatted twin from server
+        var validUntil = q.valid_until_date_formatted || '—';
+        var statusCls = statusBadgeClass(q.status);
+
+        var oppCell = q.opportunity_name
+            ? '<a href="/crm/opportunity/' + q.opportunity_id + '">' + escapeHtml(q.opportunity_name) + '</a>'
+            : '<span class="text-muted">—</span>';
+
+        var actions =
+            '<a class="btn btn-sm btn-outline-info me-1" href="/crm/quote/' + q.quote_id + '" title="' +
+                t('global.view', 'View') + '"><i class="fas fa-eye"></i></a>';
+
+        html += '<tr>' +
+            '<td><a href="/crm/quote/' + q.quote_id + '">' + escapeHtml(q.quote_number || q.quote_id) + '</a></td>' +
+            '<td>' + escapeHtml(q.customer_name || '') + '</td>' +
+            '<td>' + escapeHtml(q.subject || '') + '</td>' +
+            '<td>$' + Number(q.total_amount || 0).toLocaleString() + '</td>' +
+            '<td><span class="badge ' + statusCls + '">' + escapeHtml(statusLabel(q.status)) + '</span></td>' +
+            '<td>' + oppCell + '</td>' +
+            '<td>Rev. ' + (q.revision || 1) + '</td>' +
+            '<td>' + escapeHtml(validUntil) + '</td>' +
+            '<td>' + escapeHtml(q.created_by_name || '') + '</td>' +
+            '<td>' + actions + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+    updateKPIs(filtered);
+}
+
+function updateKPIs(list) {
+    var total = list.length;
+    var totalValue = 0, drafts = 0, accepted = 0;
+    list.forEach(function (q) {
+        totalValue += Number(q.total_amount || 0);
+        if (q.status === 'Draft')    drafts++;
+        if (q.status === 'Accepted') accepted++;
+    });
+    var a = el('kpiTotalQuotes');    if (a) a.textContent = total;
+    var b = el('kpiTotalValue');     if (b) b.textContent = '$' + totalValue.toLocaleString();
+    var c = el('kpiDraftCount');     if (c) c.textContent = drafts;
+    var d = el('kpiAcceptanceRate'); if (d) d.textContent = (total ? Math.round(accepted / total * 100) : 0) + '%';
+    var e = el('quotesCount');       if (e) e.textContent = total;
+}
+
+function loadCustomersForFilter() {
+    fetch('/api/crm/customers', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            allCustomersCache = data || [];
+            var sel = el('filterCustomer');
+            if (!sel) return;
+            var html = '<option value="">' + t('global.all', 'All') + '</option>';
+            allCustomersCache.forEach(function (c) {
+                html += '<option value="' + escapeHtml(c.customer_id) + '">' + escapeHtml(c.name) + '</option>';
+            });
+            sel.innerHTML = html;
+        })
+        .catch(function (err) { console.error('load customers failed:', err); });
+}
+
+// ============================================================================
+// 4. INIT — ONLY init + event binding
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('CRM quotes page loaded | lang:', window.currentLanguage);
+
+    loadCustomersForFilter();
+    loadQuotes();
+
+    var rb = el('refreshBtn'); if (rb) rb.addEventListener('click', loadQuotes);
+    var fs = el('filterStatus');   if (fs) fs.addEventListener('change', loadQuotes);
+    var fc = el('filterCustomer'); if (fc) fc.addEventListener('change', loadQuotes);
+
+    var searchEl = el('filterSearch');
+    if (searchEl) {
+        var timer = null;
+        searchEl.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(renderQuotes, 250);
+        });
+    }
+});
+</script>
+{% endblock %}

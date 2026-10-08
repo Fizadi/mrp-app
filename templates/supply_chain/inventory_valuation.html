@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Inventory Valuation{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.263f1729', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.939326ec', 'Inventory Valuation') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.7eaf574b', 'Inventory Valuation') }}</h2>
+<!-- Filters and Valuation Method -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.db6182e4', 'Valuation Method') }}</label>
+<select class="form-select" id="valuationMethod">
+<option value="weighted_avg">{{ get_translation('auto.f17fde91', 'Weighted Average Cost') }}</option>
+<option value="standard">{{ get_translation('auto.8aeeb494', 'Standard Cost') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.0a1ffff7', 'Product Category / Search') }}</label>
+<input class="form-control" id="filterCategory" placeholder="Product ID or Name" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.00076816', 'Valuation Date (optional)') }}</label>
+<input class="form-control" id="valuationDate" type="date"/>
+</div>
+<div class="col-md-4 d-flex align-items-end">
+<button class="btn btn-primary me-2" id="runValuationBtn">{{ get_translation('auto.149b52e2', 'Run Valuation') }}</button>
+<button class="btn btn-warning me-2" id="adjustCostBtn">{{ get_translation('auto.b58f0d02', 'Adjust Standard Cost') }}</button>
+<a class="btn btn-info" href="#" id="exportBtn">{{ get_translation('auto.1c13b8b1', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.ad1923bd', 'Total Inventory Value') }}</h6><h3 id="totalValue">{{ get_translation('auto.0c0e062e', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.09fcc478', 'Value by Warehouse') }}</h6><div id="warehouseBreakdown"></div></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('auto.e8f0e6fb', 'Top Categories') }}</h6><div id="categoryBreakdown"></div></div></div></div>
+</div>
+<!-- Valuation Report Table -->
+<div class="card">
+<div class="card-header">
+<span>{{ get_translation('auto.2711bbd2', 'Valuation Details') }}</span>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover" id="valuationTable">
+<thead>
+<tr><th>{{ get_translation('auto.04c9e913', 'Product') }}</th><th>{{ get_translation('auto.550f7c08', 'Warehouse') }}</th><th>{{ get_translation('auto.a4e4a5c5', 'Quantity') }}</th><th>{{ get_translation('auto.3b23fb4d', 'Unit Cost') }}</th><th>{{ get_translation('auto.f0b716df', 'Total Value') }}</th></tr>
+</thead>
+<tbody id="valuationBody">
+<tr><td class="text-center" colspan="5">{{ get_translation('auto.520bbd04', 'Click Run Valuation to generate report') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Adjust Standard Cost Modal -->
+<div class="modal fade" id="costModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.9b989c24', 'Adjust Standard Cost') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-3"><label>{{ get_translation('auto.573f6f59', 'Product') }}</label><select class="form-select" id="costProduct"></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.b35f7ad9', 'New Standard Cost') }}</label><input class="form-control" id="newCost" step="any" type="number"/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="confirmCostUpdate" type="button">{{ get_translation('auto.e9075aed', 'Update') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Load products for dropdown
+    function loadProductsForCost() {
+        $.get('/api/products/list', function(data) {
+            var select = $('#costProduct');
+            select.empty();
+            select.append('<option value="">Select Product</option>');
+            $.each(data, function(i, p) {
+                select.append(`<option value="${p.id}">${p.id} - ${p.desc}</option>`);
+            });
+        });
+    }
+
+    // KPI and report loading
+    function loadValuation() {
+        var method = $('#valuationMethod').val();
+        var category = $('#filterCategory').val();
+        var date = $('#valuationDate').val();
+        // KPI call (includes method)
+        $.get('/api/valuation/kpi', { method: method }, function(kpiData) {
+            $('#totalValue').text(kpiData.total_value.toLocaleString());
+            // Warehouse breakdown
+            var whHtml = '<ul class="list-unstyled">';
+            $.each(kpiData.by_warehouse, function(i, wh) {
+                whHtml += `<li>${wh.warehouse}: ${wh.value.toLocaleString()}</li>`;
+            });
+            whHtml += '</ul>';
+            $('#warehouseBreakdown').html(whHtml);
+            var catHtml = '<ul class="list-unstyled">';
+            $.each(kpiData.by_category, function(i, cat) {
+                catHtml += `<li>${cat.category}: ${cat.value.toLocaleString()}</li>`;
+            });
+            catHtml += '</ul>';
+            $('#categoryBreakdown').html(catHtml);
+        });
+        // Report table
+        $.get('/api/valuation/report', { method: method, category: category, date: date }, function(data) {
+            var tbody = $('#valuationBody');
+            if (!data.length) {
+                tbody.html('<tr><td colspan="5" class="text-center">No inventory records found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(data, function(i, item) {
+                rows += `<tr>
+                    <td>${item.productName || item.productId} <br><small>${item.productId}</small></td>
+                    <td>${item.warehouseName}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.unitCost}</td>
+                    <td>${item.totalValue.toLocaleString()}</td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    // Run valuation on page load and button click
+    $('#runValuationBtn').click(loadValuation);
+    // When method changes, also refresh
+    $('#valuationMethod').change(loadValuation);
+    $('#filterCategory').on('input', loadValuation); // debounce optional
+
+    // Adjust standard cost modal
+    $('#adjustCostBtn').click(function() {
+        loadProductsForCost();
+        $('#newCost').val('');
+        $('#costModal').modal('show');
+    });
+    $('#confirmCostUpdate').click(function() {
+        var productId = $('#costProduct').val();
+        var newCost = parseFloat($('#newCost').val());
+        if (!productId || isNaN(newCost)) {
+            alert('Please select a product and enter a valid cost');
+            return;
+        }
+        $.ajax({
+            url: '/api/valuation/update-standard-cost',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ productId: productId, newStandardCost: newCost }),
+            success: function() {
+                $('#costModal').modal('hide');
+                loadValuation();  // refresh report
+                alert('Standard cost updated');
+            },
+            error: function(xhr) { alert(xhr.responseJSON.error); }
+        });
+    });
+
+    // Export CSV
+    $('#exportBtn').click(function(e) {
+        e.preventDefault();
+        var method = $('#valuationMethod').val();
+        var category = $('#filterCategory').val();
+        var params = $.param({ method: method, category: category });
+        window.location.href = '/api/valuation/export?' + params;
+    });
+
+    // Initial load
+    loadValuation();
+});
+</script>
+{% endblock %}

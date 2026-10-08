@@ -1,0 +1,745 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('auto.qlt_title', 'Product Quality Plans') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">
+                <i class="fas fa-clipboard-check me-2"></i>
+                {{ get_translation('auto.qlt_title', 'Product Quality Plans') }}
+                <span class="text-muted fs-6" id="currentProductDisplay" style="display: none;">
+                    (<span id="currentProductName"></span>)
+                </span>
+            </h1>
+            <small class="text-muted" id="recordCount">
+                {{ get_translation('auto.qlt_loading_assignments', 'Loading assignments...') }}
+            </small>
+        </div>
+        <div class="d-flex">
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm" id="refreshBtn" title="Refresh">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="btn btn-primary btn-sm" id="createBtn">
+                    <i class="fas fa-plus me-1"></i> {{ get_translation('auto.qlt_assign_qc', 'Assign QC') }}
+                </button>
+                <button class="btn btn-success btn-sm" id="applyTemplateBtn">
+                    <i class="fas fa-layer-group me-1"></i> {{ get_translation('auto.qlt_copy_template', 'Copy from Template') }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label">{{ get_translation('auto.qlt_product', 'Product') }}</label>
+                    <select class="form-select form-select-sm" id="productFilter">
+                        <option value="">{{ get_translation('auto.qlt_all_products', 'All Products') }}</option>
+                        {% for product in products %}
+                        <option value="{{ product.ProductId }}" data-name="{{ product.descEnglish }}">
+                            {{ product.descEnglish }} ({{ product.ProductId }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{{ get_translation('auto.qlt_criticality', 'Criticality') }}</label>
+                    <select class="form-select form-select-sm" id="criticalityFilter">
+                        <option value="">{{ get_translation('auto.qlt_all', 'All') }}</option>
+                        <option value="critical">{{ get_translation('auto.qlt_critical_only', 'Critical Only') }}</option>
+                        <option value="non-critical">{{ get_translation('auto.qlt_non_critical', 'Non-Critical') }}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{{ get_translation('auto.qlt_status', 'Status') }}</label>
+                    <select class="form-select form-select-sm" id="statusFilter">
+                        <option value="all">{{ get_translation('auto.qlt_all', 'All') }}</option>
+                        <option value="active">{{ get_translation('auto.qlt_active_only', 'Active Only') }}</option>
+                        <option value="inactive">{{ get_translation('auto.qlt_inactive_only', 'Inactive Only') }}</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-sm btn-outline-primary w-100" id="clearFiltersBtn">
+                        <i class="fas fa-times me-1"></i>{{ get_translation('auto.qlt_clear_filters', 'Clear Filters') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-uppercase mb-0">{{ get_translation('auto.qlt_total_assignments', 'Total Assignments') }}</h6>
+                            <h2 class="mb-0" id="totalAssignments">0</h2>
+                        </div>
+                        <div class="align-self-center"><i class="fas fa-list-check fa-2x opacity-50"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-uppercase mb-0">{{ get_translation('auto.qlt_critical_ops', 'Critical Operations') }}</h6>
+                            <h2 class="mb-0" id="criticalAssignments">0</h2>
+                        </div>
+                        <div class="align-self-center"><i class="fas fa-exclamation-triangle fa-2x opacity-50"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-uppercase mb-0">{{ get_translation('auto.qlt_pending_eco', 'Pending ECO Changes') }}</h6>
+                            <h2 class="mb-0" id="pendingEcoCount">0</h2>
+                        </div>
+                        <div class="align-self-center"><i class="fas fa-code-branch fa-2x opacity-50"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-uppercase mb-0">{{ get_translation('auto.qlt_active', 'Active') }}</h6>
+                            <h2 class="mb-0" id="activeAssignments">0</h2>
+                        </div>
+                        <div class="align-self-center"><i class="fas fa-check-circle fa-2x opacity-50"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-table-list me-2"></i>{{ get_translation('auto.qlt_assignments', 'Quality Plan Assignments') }}</h5>
+            <span class="badge bg-light text-dark" id="tableCount">{{ get_translation('auto.qlt_0_assignments', '0 assignments') }}</span>
+        </div>
+        <div class="card-body p-0">
+            <!-- Loading State -->
+            <div class="text-center p-5" id="loadingState">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">{{ get_translation('auto.qlt_loading', 'Loading...') }}</span>
+                </div>
+                <p class="mt-2 text-muted">{{ get_translation('auto.qlt_loading_assignments_text', 'Loading assignments...') }}</p>
+            </div>
+            <!-- Empty State -->
+            <div class="text-center text-muted py-5" id="emptyState" style="display: none;">
+                <i class="fas fa-clipboard-question fa-3x mb-3"></i>
+                <h5>{{ get_translation('auto.qlt_no_assignments', 'No assignments found') }}</h5>
+                <p>{{ get_translation('auto.qlt_adjust_filters', 'Try adjusting your filters or create a new assignment.') }}</p>
+            </div>
+            <!-- Table Container -->
+            <div class="table-responsive" id="tableContainer" style="display: none;">
+                <table class="table table-hover mb-0" id="dataTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ get_translation('auto.qlt_product', 'Product') }}</th>
+                            <th>{{ get_translation('auto.qlt_operation', 'Operation') }}</th>
+                            <th>{{ get_translation('auto.qlt_work_center', 'Work Center') }}</th>
+                            <th>{{ get_translation('auto.qlt_sampling', 'Sampling') }}</th>
+                            <th>{{ get_translation('auto.qlt_critical', 'Critical') }}</th>
+                            <th>{{ get_translation('auto.qlt_effective_date', 'Effective Date') }}</th>
+                            <th>{{ get_translation('auto.qlt_actions', 'Actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign QC Modal -->
+<div class="modal fade" id="assignmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('auto.qlt_assign_qc', 'Assign QC to Product') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="assignmentForm">
+                    <input type="hidden" id="assignmentId">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ get_translation('auto.qlt_product', 'Product') }} *</label>
+                            <select class="form-select" id="productId" required>
+                                <option value="">{{ get_translation('auto.qlt_select_product', 'Select Product') }}</option>
+                                {% for product in products %}
+                                <option value="{{ product.ProductId }}">{{ product.descEnglish }} ({{ product.ProductId }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('auto.qlt_operation', 'Quality Operation') }} *</label>
+                            <select class="form-select" id="qcOperationId" required>
+                                <option value="">{{ get_translation('auto.qlt_select_operation', 'Select Operation') }}</option>
+                                {% for op in quality.operations %}
+                                <option value="{{ op.QCOperationID }}">{{ op.OperationCode }} - {{ op.OperationName }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('auto.qlt_work_center', 'Work Center') }}</label>
+                            <select class="form-select" id="workCenterId">
+                                <option value="">{{ get_translation('auto.qlt_select_work_center', 'Select Work Center') }}</option>
+                                {% for wc in work_centers %}
+                                <option value="{{ wc.WorkCenterID }}">{{ wc.Name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ get_translation('auto.qlt_sequence', 'Sequence') }}</label>
+                            <input type="number" class="form-control" id="operationSequence" value="10">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ get_translation('auto.qlt_sampling_size', 'Sampling Size') }}</label>
+                            <input type="number" class="form-control" id="samplingSize" value="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ get_translation('auto.qlt_sampling_frequency', 'Sampling Frequency') }}</label>
+                            <select class="form-select" id="samplingFrequency">
+                                <option value="">{{ get_translation('auto.qlt_select_frequency', 'Select Frequency') }}</option>
+                                <option value="Each Batch">Each Batch</option>
+                                <option value="Sample">Sample</option>
+                                <option value="First of Batch">First of Batch</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('auto.qlt_effective_date', 'Effective Date') }}</label>
+                            <input type="date" class="form-control" id="effectiveDate" value="{{ current_time[:10] }}">
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mt-4">
+                                <input type="checkbox" class="form-check-input" id="isCritical">
+                                <label class="form-check-label">{{ get_translation('auto.qlt_critical', 'Critical') }}</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="isActive" checked>
+                                <label class="form-check-label">{{ get_translation('auto.qlt_active', 'Active') }}</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.qlt_cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="saveBtn">{{ get_translation('auto.qlt_save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Copy from Template Modal -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('auto.qlt_copy_from_template', 'Copy from Template') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="templateForm">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('auto.qlt_template', 'Template') }} *</label>
+                        <select class="form-select" id="templateId" required>
+                            <option value="">{{ get_translation('auto.qlt_select_template', 'Select Template') }}</option>
+                            {% for template in templates %}
+                            <option value="{{ template.TemplateID }}">{{ template.TemplateCode }} - {{ template.TemplateName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('auto.qlt_product', 'Product') }} *</label>
+                        <select class="form-select" id="templateProductId" required>
+                            <option value="">{{ get_translation('auto.qlt_select_product', 'Select Product') }}</option>
+                            {% for product in products %}
+                            <option value="{{ product.ProductId }}">{{ product.descEnglish }} ({{ product.ProductId }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.qlt_cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="applyTemplateSubmitBtn">{{ get_translation('auto.qlt_copy', 'Copy') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View ECO History Modal -->
+<div class="modal fade" id="ecoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('auto.qlt_eco_history', 'ECO History') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="ecoModalBody">
+                <p>{{ get_translation('auto.qlt_no_eco_changes', 'No ECO changes for this assignment.') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.qlt_close', 'Close') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Store basic translations for JavaScript
+const trans = {
+    edit: {{ get_translation('global.edit', 'Edit')|tojson }},
+    delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+    activate: {{ get_translation('auto.qlt_activate', 'Activate')|tojson }},
+    deactivate: {{ get_translation('auto.qlt_deactivate', 'Deactivate')|tojson }},
+    confirm_delete: {{ get_translation('auto.qlt_confirm_delete', 'Are you sure you want to deactivate this assignment?')|tojson }},
+    success: {{ get_translation('global.success', 'Success')|tojson }},
+    error: {{ get_translation('global.error', 'Error')|tojson }},
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    qlt_view_eco: {{ get_translation('auto.qlt_view_eco', 'View ECO History')|tojson }},
+    qlt_loading_eco: {{ get_translation('auto.qlt_loading_eco', 'Loading ECO history...')|tojson }},
+    qlt_eco_error: {{ get_translation('auto.qlt_eco_error', 'Unable to load ECO history.')|tojson }}
+};
+
+$(document).ready(function() {
+    console.log("Product Quality Plans: Initializing...");
+    
+    // Read product_id from URL and auto-apply filter
+    const urlParams = new URLSearchParams(window.location.search);
+    const productIdFromUrl = urlParams.get('product_id');
+    let currentProductName = '';
+    
+    if (productIdFromUrl) {
+        console.log("Auto-filtering by product_id:", productIdFromUrl);
+        $('#productFilter').val(productIdFromUrl);
+        currentProductName = $('#productFilter option:selected').data('name') || productIdFromUrl;
+        $('#currentProductName').text(currentProductName);
+        $('#currentProductDisplay').show();
+    } else {
+        $('#currentProductDisplay').hide();
+    }
+    
+    // Initialize
+    initPage();
+    loadData();
+    setupEventListeners();
+    
+    // Ctrl+Click handling for all action links/buttons
+    $(document).on('click', 'a, .open-in-new-tab, .action-link', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            const url = $(this).attr('href');
+            if (url && url !== '#' && !url.startsWith('javascript:')) {
+                e.preventDefault();
+                window.open(url, '_blank');
+            }
+        }
+    });
+});
+
+function initPage() {
+    console.log("Page initialized");
+}
+
+function setupEventListeners() {
+    $('#refreshBtn').click(function() { loadData(); });
+    $('#createBtn').click(function() { showCreateModal(); });
+    $('#applyTemplateBtn').click(function() { showTemplateModal(); });
+    $('#productFilter, #criticalityFilter, #statusFilter').change(function() { loadData(); });
+    $('#clearFiltersBtn').click(function() {
+        $('#productFilter').val('');
+        $('#criticalityFilter').val('');
+        $('#statusFilter').val('all');
+        loadData();
+    });
+    $('#saveBtn').click(function() { saveAssignment(); });
+    $('#applyTemplateSubmitBtn').click(function() { applyTemplate(); });
+}
+
+function loadData() {
+    showLoadingState();
+    
+    const params = {};
+    const productId = $('#productFilter').val();
+    if (productId) params.source_id = productId;
+    
+    const criticality = $('#criticalityFilter').val();
+    if (criticality === 'critical') params.is_critical = 'true';
+    else if (criticality === 'non-critical') params.is_critical = 'false';
+    
+    const status = $('#statusFilter').val();
+    if (status === 'active') params.is_active = 'true';
+    else if (status === 'inactive') params.is_active = 'false';
+    
+    let url = '/api/quality/planning/assignments/list';
+    const queryString = $.param(params);
+    if (queryString) url += '?' + queryString;
+    
+    console.log("Loading data from:", url);
+    
+    $.ajax({
+        url: url,
+        method: 'GET',
+        success: function(data) {
+            console.log("Data loaded:", data.length, "items");
+            updateStatistics(data);
+            renderTable(data);
+            updateRecordCount(data.length);
+            hideLoadingState();
+            if (data.length > 0) showTable();
+            else showEmptyState();
+        },
+        error: function(xhr, status, error) {
+            console.error("Error loading data:", error);
+            showErrorState("Failed to load data: " + (xhr.responseText || error));
+        }
+    });
+}
+
+function updateStatistics(data) {
+    const total = data.length;
+    const critical = data.filter(item => item.IsCritical).length;
+    const pendingEco = 0;
+    const active = data.filter(item => item.IsActive).length;
+    
+    $('#totalAssignments').text(total);
+    $('#criticalAssignments').text(critical);
+    $('#pendingEcoCount').text(pendingEco);
+    $('#activeAssignments').text(active);
+}
+
+function renderTable(data) {
+    const tbody = $('#tableBody');
+    tbody.empty();
+    
+    if (data.length === 0) {
+        showEmptyState();
+        return;
+    }
+    
+    data.forEach(function(item) {
+        const row = $('<tr>').addClass('data-row').attr('data-id', item.AssignmentID);
+        
+        // Product column
+        const productLink = item.ProductName ? 
+            `<a href="/engineering/products?product_id=${encodeURIComponent(item.SourceID)}" class="product-link">${escapeHtml(item.ProductName)}</a>` :
+            escapeHtml(item.SourceID);
+        row.append($('<td>').html(productLink));
+        
+        // Operation column
+        const operationLink = item.OperationCode ? 
+            `<a href="/quality/operation/${item.QCOperationID}" class="operation-link">${escapeHtml(item.OperationCode)} - ${escapeHtml(item.OperationName || '')}</a>` :
+            escapeHtml(item.OperationCode || '');
+        row.append($('<td>').html(operationLink));
+        
+        // Work Center column
+        row.append($('<td>').html(escapeHtml(item.WorkCenterName || item.WorkCenterID || '—')));
+        
+        // Sampling column
+        let samplingText = '';
+        if (item.SamplingSize) samplingText += `${item.SamplingSize} units`;
+        if (item.SamplingFrequency) samplingText += samplingText ? ` / ${escapeHtml(item.SamplingFrequency)}` : escapeHtml(item.SamplingFrequency);
+        row.append($('<td>').html(samplingText || '—'));
+        
+        // Critical column
+        if (item.IsCritical) {
+            row.append($('<td>').html('<span class="badge bg-danger">Critical</span>'));
+        } else {
+            row.append($('<td>').html('<span class="badge bg-secondary">—</span>'));
+        }
+        
+        // Effective Date column
+        const effDate = item.EffectiveDateFormatted || (item.EffectiveDateKey ? 
+            `${item.EffectiveDateKey.toString().slice(0,4)}-${item.EffectiveDateKey.toString().slice(4,6)}-${item.EffectiveDateKey.toString().slice(6,8)}` : '—');
+        row.append($('<td>').html(effDate));
+        
+        // Actions column
+        row.append($('<td>').html(`
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary edit-btn" title="${trans.edit}"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-outline-info eco-btn" title="${trans.qlt_view_eco}"><i class="fas fa-code-branch"></i></button>
+                ${item.IsActive ? 
+                    `<button class="btn btn-outline-danger delete-btn" title="${trans.deactivate}"><i class="fas fa-trash"></i></button>` : 
+                    `<button class="btn btn-outline-success activate-btn" title="${trans.activate}"><i class="fas fa-check"></i></button>`
+                }
+            </div>
+        `));
+        
+        tbody.append(row);
+    });
+    
+    // Bind button events
+    $('.edit-btn').click(function(e) { 
+        if (!e.ctrlKey) editAssignment($(this).closest('tr').data('id')); 
+    });
+    $('.delete-btn').click(function(e) { 
+        if (!e.ctrlKey) deleteAssignment($(this).closest('tr').data('id')); 
+    });
+    $('.activate-btn').click(function(e) { 
+        if (!e.ctrlKey) activateAssignment($(this).closest('tr').data('id')); 
+    });
+    $('.eco-btn').click(function(e) { 
+        if (!e.ctrlKey) showEcoHistory($(this).closest('tr').data('id')); 
+    });
+}
+
+function showCreateModal() {
+    $('#assignmentForm')[0].reset();
+    $('#assignmentId').val('');
+    $('#isActive').prop('checked', true);
+    $('#operationSequence').val(10);
+    $('#samplingSize').val(1);
+    $('#effectiveDate').val(new Date().toISOString().split('T')[0]);
+    
+    const currentProduct = $('#productFilter').val();
+    if (currentProduct) {
+        $('#productId').val(currentProduct);
+    }
+    
+    $('#assignmentModal').modal('show');
+}
+
+function editAssignment(assignmentId) {
+    $.ajax({
+        url: '/api/quality/planning/assignments/list',
+        method: 'GET',
+        success: function(assignments) {
+            const assignment = assignments.find(item => item.AssignmentID == assignmentId);
+            if (assignment) {
+                $('#assignmentId').val(assignment.AssignmentID);
+                $('#productId').val(assignment.SourceID);
+                $('#qcOperationId').val(assignment.QCOperationID);
+                $('#workCenterId').val(assignment.WorkCenterID || '');
+                $('#operationSequence').val(assignment.OperationSequence);
+                $('#samplingSize').val(assignment.SamplingSize || '');
+                $('#samplingFrequency').val(assignment.SamplingFrequency || '');
+                
+                if (assignment.EffectiveDateFormatted) $('#effectiveDate').val(assignment.EffectiveDateFormatted);
+                else if (assignment.EffectiveDateKey) {
+                    let d = assignment.EffectiveDateKey.toString();
+                    $('#effectiveDate').val(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`);
+                }
+                
+                $('#isCritical').prop('checked', assignment.IsCritical == 1);
+                $('#isActive').prop('checked', assignment.IsActive == 1);
+                
+                $('#assignmentModal').modal('show');
+            } else {
+                showToast('Error', 'Assignment not found', 'error');
+            }
+        },
+        error: function() { showToast('Error', 'Failed to load assignment', 'error'); }
+    });
+}
+
+function saveAssignment() {
+    if (!$('#assignmentForm')[0].checkValidity()) {
+        $('#assignmentForm')[0].reportValidity();
+        return;
+    }
+    
+    const data = {
+        QCOperationID: $('#qcOperationId').val(),
+        SourceType: 'Product',
+        SourceID: $('#productId').val(),
+        WorkCenterID: $('#workCenterId').val() || null,
+        OperationSequence: parseInt($('#operationSequence').val()),
+        IsRequired: true,
+        IsCritical: $('#isCritical').is(':checked'),
+        SamplingSize: $('#samplingSize').val() ? parseInt($('#samplingSize').val()) : 1,
+        SamplingFrequency: $('#samplingFrequency').val() || null,
+        IsActive: $('#isActive').is(':checked'),
+        WorkflowStatus: 'Approved',
+        ApprovalRequired: false
+    };
+    
+    if ($('#effectiveDate').val()) {
+        data.EffectiveDateKey = parseInt($('#effectiveDate').val().replace(/-/g, ''));
+    }
+    
+    const assignmentId = $('#assignmentId').val();
+    const method = assignmentId ? 'PUT' : 'POST';
+    const url = assignmentId ? `/api/quality/planning/assignments/${assignmentId}` : '/api/quality/planning/assignments';
+    
+    $.ajax({
+        url: url,
+        method: method,
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                $('#assignmentModal').modal('hide');
+                showToast('Success', response.message, 'success');
+                loadData();
+            } else {
+                showToast('Error', response.error, 'error');
+            }
+        },
+        error: function(xhr) { showToast('Error', xhr.responseJSON?.error || 'Unknown error', 'error'); }
+    });
+}
+
+function deleteAssignment(assignmentId) {
+    if (!confirm(trans.confirm_delete)) return;
+    $.ajax({
+        url: `/api/quality/planning/assignments/${assignmentId}`,
+        method: 'DELETE',
+        success: function(response) {
+            if (response.success) {
+                showToast('Success', response.message, 'success');
+                loadData();
+            } else {
+                showToast('Error', response.error, 'error');
+            }
+        }
+    });
+}
+
+function activateAssignment(assignmentId) {
+    $.ajax({
+        url: `/api/quality/planning/assignments/${assignmentId}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ IsActive: true }),
+        success: function(response) {
+            if (response.success) {
+                showToast('Success', 'Assignment activated', 'success');
+                loadData();
+            } else {
+                showToast('Error', response.error, 'error');
+            }
+        }
+    });
+}
+
+function showTemplateModal() {
+    $('#templateForm')[0].reset();
+    const currentProduct = $('#productFilter').val();
+    if (currentProduct) {
+        $('#templateProductId').val(currentProduct);
+    }
+    $('#templateModal').modal('show');
+}
+
+function applyTemplate() {
+    if (!$('#templateForm')[0].checkValidity()) {
+        $('#templateForm')[0].reportValidity();
+        return;
+    }
+    
+    const data = {
+        template_id: $('#templateId').val(),
+        source_type: 'Product',
+        source_id: $('#templateProductId').val(),
+        project_id: null,
+        sampling_size: 1,
+        sampling_frequency: 'Each Batch'
+    };
+    
+    $.ajax({
+        url: '/api/quality/planning/apply_template',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                $('#templateModal').modal('hide');
+                showToast('Success', response.message, 'success');
+                loadData();
+            } else {
+                showToast('Error', response.error, 'error');
+            }
+        }
+    });
+}
+
+function showEcoHistory(assignmentId) {
+    $('#ecoModalBody').html('<p>' + trans.qlt_loading_eco + '</p>');
+    $('#ecoModal').modal('show');
+    
+    $.ajax({
+        url: `/api/quality/planning/assignments/${assignmentId}/eco-history`,
+        method: 'GET',
+        success: function(data) {
+            if (data.length > 0) {
+                let html = '<ul class="list-group">';
+                data.forEach(eco => {
+                    html += `<li class="list-group-item"><strong>${escapeHtml(eco.eco_number)}</strong> - ${escapeHtml(eco.description)}<br><small>Status: ${escapeHtml(eco.status)} | Date: ${escapeHtml(eco.date)}</small></li>`;
+                });
+                html += '</ul>';
+                $('#ecoModalBody').html(html);
+            } else {
+                $('#ecoModalBody').html('<p>{{ get_translation("auto.qlt_no_eco_changes", "No ECO changes for this assignment.") }}</p>');
+            }
+        },
+        error: function() {
+            $('#ecoModalBody').html('<p>' + trans.qlt_eco_error + '</p>');
+        }
+    });
+}
+
+// UI Helper Functions
+function showLoadingState() { $('#loadingState').show(); $('#emptyState').hide(); $('#tableContainer').hide(); }
+function hideLoadingState() { $('#loadingState').hide(); }
+function showTable() { $('#emptyState').hide(); $('#tableContainer').show(); }
+function showEmptyState() { $('#tableContainer').hide(); $('#emptyState').show(); }
+
+function showErrorState(message) {
+    $('#loadingState').hide();
+    $('#tableContainer').hide();
+    $('#emptyState').show();
+    $('#emptyState').html(`
+        <i class="fas fa-exclamation-triangle fa-3x mb-3 text-danger"></i>
+        <h5>Error loading data</h5>
+        <p>${escapeHtml(message)}</p>
+        <button class="btn btn-sm btn-primary mt-2" onclick="loadData()"><i class="fas fa-sync-alt me-1"></i> Retry</button>
+    `);
+}
+
+function updateRecordCount(count) {
+    $('#recordCount').text(`${count} assignments found`);
+    $('#tableCount').text(`${count} assignments`);
+}
+
+function showToast(title, message, type) {
+    const toastId = 'toast-' + Date.now();
+    const toastHtml = `<div class="toast align-items-center text-bg-${type} border-0" id="${toastId}" role="alert"><div class="d-flex"><div class="toast-body"><strong>${escapeHtml(title)}:</strong> ${escapeHtml(message)}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+    if ($('.toast-container').length === 0) $('body').append('<div class="toast-container position-fixed bottom-0 end-0 p-3"></div>');
+    $('.toast-container').append(toastHtml);
+    const toast = new bootstrap.Toast(document.getElementById(toastId));
+    toast.show();
+    document.getElementById(toastId).addEventListener('hidden.bs.toast', function() { this.remove(); });
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
+    return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+</script>
+{% endblock %}

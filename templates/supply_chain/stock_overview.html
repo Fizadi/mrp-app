@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}Stock Overview{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.576321db', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.c1fa4748', 'Stock Overview') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.5f95d7ce', 'Stock Overview') }}</h2>
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.24bf7cb7', 'Warehouse') }}</label>
+<select class="form-select" id="filterWarehouse">
+<option value="">{{ get_translation('auto.044332dc', 'All Warehouses') }}</option>
+<!-- Dynamically loaded -->
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.cd7ce89f', 'Product Search') }}</label>
+<input class="form-control" id="filterCategory" placeholder="Product ID or Name" type="text"/>
+</div>
+<div class="col-md-2">
+<label> </label><br/>
+<div class="form-check">
+<input class="form-check-input" id="filterLowStock" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.38423a01', 'Low Stock Only') }}</label>
+</div>
+</div>
+<div class="col-md-2 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.e5db3feb', 'Refresh') }}</button>
+</div>
+<div class="col-md-2 d-flex align-items-end">
+<a class="btn btn-info w-100" href="#" id="exportBtn">{{ get_translation('auto.09c96feb', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.a774f506', 'Total Quantity On Hand') }}</h6><h3 id="kpiTotalItems">{{ get_translation('auto.663a605a', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.af944950', 'Total Inventory Value') }}</h6><h3 id="kpiTotalValue">{{ get_translation('auto.706dacc6', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-danger"><div class="card-body"><h6>{{ get_translation('auto.1782527d', 'Low Stock Products') }}</h6><h3 id="kpiLowStock">{{ get_translation('auto.2b156a09', '0') }}</h3></div></div></div>
+</div>
+<!-- Main Card -->
+<div class="card">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('auto.9b3982e6', 'Stock Records') }}</span>
+<div>
+<button class="btn btn-sm btn-warning me-2" id="adjustStockBtn">{{ get_translation('auto.f4fee19b', 'Adjust Stock') }}</button>
+<button class="btn btn-sm btn-secondary" id="transferStockBtn">{{ get_translation('auto.cc0162db', 'Transfer Stock') }}</button>
+</div>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover" id="stockTable">
+<thead>
+<tr><th>{{ get_translation('auto.62a59b5a', 'Product') }}</th><th>{{ get_translation('auto.a19468d5', 'Warehouse') }}</th><th>{{ get_translation('auto.513047c3', 'On Hand') }}</th><th>{{ get_translation('auto.fd3d3c93', 'Reserved') }}</th><th>{{ get_translation('auto.ac3ed41b', 'Available') }}</th><th>{{ get_translation('auto.0faaedf4', 'Unit Cost') }}</th><th>{{ get_translation('auto.ec4aa7e7', 'Currency') }}</th><th>{{ get_translation('auto.111fd7d2', 'Status') }}</th></tr>
+</thead>
+<tbody id="stockBody">
+<tr><td class="text-center" colspan="8">{{ get_translation('auto.4c61cec3', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Adjust Stock Modal -->
+<div class="modal fade" id="adjustModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.6553e254', 'Adjust Stock') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-3"><label>{{ get_translation('auto.294a99b3', 'Product *') }}</label><select class="form-select" id="adjProduct" required=""></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.9f92a257', 'Warehouse *') }}</label><select class="form-select" id="adjWarehouse" required=""></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.675d1696', 'Quantity (+ increase, - decrease) *') }}</label><input class="form-control" id="adjQty" required="" step="any" type="number"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.3a668973', 'Unit Cost (for positive adjustment, optional)') }}</label><input class="form-control" id="adjCost" step="any" type="number"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.a4eee7a3', 'Currency') }}</label><input class="form-control" id="adjCurrency" type="text" value="USD"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.cbcdc373', 'Reason *') }}</label><textarea class="form-control" id="adjReason" required="" rows="2"></textarea></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="confirmAdjust" type="button">{{ get_translation('auto.7f2fc742', 'Apply Adjustment') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Transfer Stock Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.7a9f0103', 'Transfer Stock') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-3"><label>{{ get_translation('auto.6a16cd70', 'Product *') }}</label><select class="form-select" id="xferProduct" required=""></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.b5751e76', 'From Warehouse *') }}</label><select class="form-select" id="xferFrom" required=""></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.d6a9cd19', 'To Warehouse *') }}</label><select class="form-select" id="xferTo" required=""></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.9cbf6816', 'Quantity *') }}</label><input class="form-control" id="xferQty" required="" step="any" type="number"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.ef488b21', 'Reason *') }}</label><textarea class="form-control" id="xferReason" required="" rows="2"></textarea></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="confirmTransfer" type="button">{{ get_translation('auto.caf531db', 'Transfer') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Helper to get URL parameters
+    function getUrlParameter(name) {
+        let urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    // Helper: unwrap API responses that may be either a plain array
+    // or a {kpi, items} envelope. Returns an array either way.
+    function asArray(data) {
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.items)) return data.items;
+        return [];
+    }
+
+    // Helper to load warehouses for dropdowns
+    function loadWarehouses(selectElement, selectedValue = '') {
+        // ✅ Fixed: /api/warehouses/list → /api/supply-chain/warehouses/dropdown
+        $.get('/api/supply-chain/warehouses/dropdown', function(data) {
+            var list = asArray(data);
+            var options = '<option value="">Select Warehouse</option>';
+            $.each(list, function(i, wh) {
+                options += `<option value="${wh.id}" ${wh.id === selectedValue ? 'selected' : ''}>${wh.name}</option>`;
+            });
+            selectElement.html(options);
+        });
+    }
+
+    // Load products for dropdowns
+    function loadProducts(selectElement, selectedValue = '') {
+        // ✅ Fixed: /api/products/list → /api/supply-chain/products/dropdown
+        $.get('/api/supply-chain/products/dropdown', function(data) {
+            var list = asArray(data);
+            var options = '<option value="">Select Product</option>';
+            $.each(list, function(i, p) {
+                options += `<option value="${p.id}" ${p.id === selectedValue ? 'selected' : ''}>${p.id} - ${p.desc}</option>`;
+            });
+            selectElement.html(options);
+        });
+    }
+
+    // Load KPI
+    function loadKPI() {
+        // ✅ Fixed: /api/stock/kpi → /api/supply-chain/stock/kpi
+        $.get('/api/supply-chain/stock/kpi', function(data) {
+            $('#kpiTotalItems').text(data.total_items);
+            $('#kpiTotalValue').text((data.total_value || 0).toLocaleString());
+            $('#kpiLowStock').text(data.low_stock);
+        });
+    }
+
+    // Load stock table
+    function loadStock() {
+        var params = {};
+        var wh = $('#filterWarehouse').val();
+        var cat = $('#filterCategory').val();
+        var low = $('#filterLowStock').is(':checked');
+        if (wh) params.warehouse = wh;
+        if (cat) params.category = cat;
+        if (low) params.low_stock = 'true';
+        // ✅ Fixed: /api/stock/list → /api/supply-chain/stock/list
+        $.get('/api/supply-chain/stock/list', params, function(data) {
+            var list = asArray(data);
+            var tbody = $('#stockBody');
+            if (!list.length) {
+                tbody.html('<tr><td colspan="8" class="text-center">No stock records found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(list, function(i, s) {
+                var statusBadge = s.lowStock ? '<span class="badge bg-danger">Low Stock</span>' : '<span class="badge bg-success">OK</span>';
+                rows += `<tr>
+                    <td><a href="#" class="product-link" data-id="${s.productId}">${s.productId}</a><br><small>${s.productName}</small></td>
+                    <td>${s.warehouseName || s.warehouseId}</td>
+                    <td>${s.onHand}</td>
+                    <td>${s.reserved}</td>
+                    <td>${s.available}</td>
+                    <td>${s.unitCost}</td>
+                    <td>${s.currency}</td>
+                    <td>${statusBadge}</td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    // Refresh everything
+    function refreshAll() {
+        loadKPI();
+        loadStock();
+    }
+
+    // Load warehouse filter dropdown
+    function loadWarehouseFilter() {
+        // ✅ Fixed: /api/warehouses/list → /api/supply-chain/warehouses/dropdown
+        $.get('/api/supply-chain/warehouses/dropdown', function(data) {
+            var list = asArray(data);
+            var select = $('#filterWarehouse');
+            select.empty();
+            select.append('<option value="">All Warehouses</option>');
+            $.each(list, function(i, wh) {
+                select.append(`<option value="${wh.id}">${wh.name}</option>`);
+            });
+        });
+    }
+
+    // Adjust stock modal
+    $('#adjustStockBtn').click(function() {
+        loadProducts($('#adjProduct'));
+        loadWarehouses($('#adjWarehouse'));
+        $('#adjQty').val('');
+        $('#adjCost').val('');
+        $('#adjCurrency').val('USD');
+        $('#adjReason').val('');
+        $('#adjustModal').modal('show');
+    });
+    $('#confirmAdjust').click(function() {
+        var product = $('#adjProduct').val();
+        var warehouse = $('#adjWarehouse').val();
+        var qty = $('#adjQty').val();
+        var reason = $('#adjReason').val();
+        if (!product || !warehouse || qty === '' || !reason) {
+            alert('Please fill all required fields');
+            return;
+        }
+        $.ajax({
+            // ✅ Fixed: /api/stock/adjust → /api/supply-chain/stock/adjust
+            url: '/api/supply-chain/stock/adjust',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                productId: product,
+                warehouseId: warehouse,
+                quantity: parseFloat(qty),
+                unitCost: $('#adjCost').val() ? parseFloat($('#adjCost').val()) : null,
+                currency: $('#adjCurrency').val(),
+                reason: reason
+            }),
+            success: function() {
+                $('#adjustModal').modal('hide');
+                refreshAll();
+            },
+            error: function(xhr) { alert(xhr.responseJSON.error); }
+        });
+    });
+
+    // Transfer stock modal
+    $('#transferStockBtn').click(function() {
+        loadProducts($('#xferProduct'));
+        loadWarehouses($('#xferFrom'));
+        loadWarehouses($('#xferTo'));
+        $('#xferQty').val('');
+        $('#xferReason').val('');
+        $('#transferModal').modal('show');
+    });
+    $('#confirmTransfer').click(function() {
+        var product = $('#xferProduct').val();
+        var fromWh = $('#xferFrom').val();
+        var toWh = $('#xferTo').val();
+        var qty = $('#xferQty').val();
+        var reason = $('#xferReason').val();
+        if (!product || !fromWh || !toWh || !qty || !reason) {
+            alert('All fields required');
+            return;
+        }
+        if (fromWh === toWh) {
+            alert('Source and destination warehouses must be different');
+            return;
+        }
+        $.ajax({
+            // ✅ Fixed: /api/stock/transfer → /api/supply-chain/stock/transfer
+            url: '/api/supply-chain/stock/transfer',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                productId: product,
+                fromWarehouse: fromWh,
+                toWarehouse: toWh,
+                quantity: parseFloat(qty),
+                reason: reason
+            }),
+            success: function() {
+                $('#transferModal').modal('hide');
+                refreshAll();
+            },
+            error: function(xhr) { alert(xhr.responseJSON.error); }
+        });
+    });
+
+    // Export CSV
+    $('#exportBtn').click(function(e) {
+        e.preventDefault();
+        var params = $.param({
+            warehouse: $('#filterWarehouse').val(),
+            category: $('#filterCategory').val()
+        });
+        // ✅ Fixed: /api/stock/export → /api/supply-chain/stock/export
+        window.location.href = '/api/supply-chain/stock/export?' + params;
+    });
+
+    // Filter button
+    $('#refreshBtn').click(refreshAll);
+
+    // Load warehouse filter first
+    loadWarehouseFilter();
+
+    // Check for product_id in URL and apply filter
+    var productIdFromUrl = getUrlParameter('product_id');
+    if (productIdFromUrl) {
+        $('#filterCategory').val(productIdFromUrl);
+        refreshAll();
+    } else {
+        refreshAll();
+    }
+});
+</script>
+{% endblock %}

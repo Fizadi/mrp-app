@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.dashboard.title', 'Sales Dashboard') }}{% endblock %}
+
+{% block styles %}
+<style>
+    .kpi-card { transition: transform 0.2s; cursor: pointer; }
+    .kpi-card:hover { transform: translateY(-5px); }
+    .chart-container { position: relative; height: 300px; margin-bottom: 20px; }
+    .clickable { cursor: pointer; }
+    .clickable:hover { text-decoration: underline; opacity: 0.8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-chart-line me-2"></i>{{ get_translation('crm.dashboard.title', 'Sales Dashboard') }}
+        </h2>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+            <button class="btn btn-outline-secondary" id="printBtn">
+                <i class="fas fa-print me-1"></i>{{ get_translation('global.print', 'Print') }}
+            </button>
+            <button class="btn btn-outline-info" id="pipelineBtn">
+                <i class="fas fa-chart-simple me-1"></i>{{ get_translation('crm.dashboard.view_pipeline', 'View Pipeline') }}
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3 mb-2">
+            <div class="card border-primary kpi-card" id="kpiPipelineCard">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">{{ get_translation('crm.dashboard.pipeline_value', 'Pipeline Value') }}</h5>
+                    <p class="card-text display-6" id="kpiPipelineValue">$0</p>
+                    <small class="text-muted">{{ get_translation('crm.dashboard.open_opportunities', 'Open Opportunities') }}: <span id="kpiOpenCount">0</span></small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card border-success kpi-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-success">{{ get_translation('crm.dashboard.weighted_pipeline', 'Weighted Pipeline') }}</h5>
+                    <p class="card-text display-6" id="kpiWeightedPipeline">$0</p>
+                    <small class="text-muted">{{ get_translation('crm.dashboard.probability_adjusted', 'Probability adjusted') }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card border-info kpi-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-info">{{ get_translation('crm.dashboard.win_rate', 'Win Rate') }}</h5>
+                    <p class="card-text display-6" id="kpiWinRate">0%</p>
+                    <small class="text-muted">{{ get_translation('crm.dashboard.won_vs_lost', 'Won / Lost') }}: <span id="kpiWonLost">0 / 0</span></small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card border-warning kpi-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-warning">{{ get_translation('crm.dashboard.total_revenue', 'Total Revenue') }}</h5>
+                    <p class="card-text display-6" id="kpiTotalRevenue">$0</p>
+                    <small class="text-muted">{{ get_translation('crm.dashboard.confirmed_orders', 'Confirmed Orders') }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header"><h5>{{ get_translation('crm.dashboard.pipeline_by_stage', 'Pipeline by Stage') }}</h5></div>
+                <div class="card-body"><canvas id="stageChart" height="250"></canvas></div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header"><h5>{{ get_translation('crm.dashboard.sales_trend', 'Sales Trend (Last 6 Months)') }}</h5></div>
+                <div class="card-body"><canvas id="trendChart" height="250"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header"><h5>{{ get_translation('crm.dashboard.top_customers', 'Top 5 Customers by Revenue') }}</h5></div>
+                <div class="card-body"><canvas id="topCustomersChart" height="250"></canvas></div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header"><h5>{{ get_translation('crm.dashboard.top_products', 'Top 5 Products by Quantity') }}</h5></div>
+                <div class="card-body"><canvas id="topProductsChart" height="250"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>{{ get_translation('crm.dashboard.sales_forecast', 'Sales Forecast') }}</h5></div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <h6>{{ get_translation('crm.dashboard.next_30_days', 'Next 30 Days') }}</h6>
+                        <h3 class="text-primary" id="forecast30">$0</h3>
+                        <small class="text-muted">{{ get_translation('crm.dashboard.based_on_open_opportunities', 'Based on open opportunities') }}</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <h6>{{ get_translation('crm.dashboard.next_60_days', 'Next 60 Days') }}</h6>
+                        <h3 class="text-info" id="forecast60">$0</h3>
+                        <small class="text-muted">{{ get_translation('crm.dashboard.based_on_open_opportunities', 'Based on open opportunities') }}</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <h6>{{ get_translation('crm.dashboard.next_90_days', 'Next 90 Days') }}</h6>
+                        <h3 class="text-success" id="forecast90">$0</h3>
+                        <small class="text-muted">{{ get_translation('crm.dashboard.based_on_open_opportunities', 'Based on open opportunities') }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js — local, self-hosted. Load AFTER base.html's scripts. -->
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+// ============================================================================
+// 1. STATE — TOP LEVEL
+// ============================================================================
+var stageChart = null;
+var trendChart = null;
+var topCustomersChart = null;
+var topProductsChart = null;
+
+var chartColors = {
+    blue:   { bg: 'rgba(54, 162, 235, 0.7)',  border: 'rgba(54, 162, 235, 1)'  },
+    teal:   { bg: 'rgba(75, 192, 192, 0.2)',  border: 'rgba(75, 192, 192, 1)'  },
+    purple: { bg: 'rgba(153, 102, 255, 0.7)', border: 'rgba(153, 102, 255, 1)' },
+    orange: { bg: 'rgba(255, 159, 64, 0.7)',  border: 'rgba(255, 159, 64, 1)'  }
+};
+
+// ============================================================================
+// 2. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function el(id) { return document.getElementById(id); }
+
+function fmtMoney(n) { return '$' + Number(n || 0).toLocaleString(); }
+
+function showToast(message, type) {
+    type = type || 'success';
+    var bg = type === 'error' ? 'bg-danger' : (type === 'warning' ? 'bg-warning text-dark' : 'bg-success');
+    var node = document.createElement('div');
+    node.className = 'toast align-items-center ' + bg + ' text-white border-0 position-fixed top-0 end-0 m-3';
+    node.style.zIndex = '9999';
+    node.innerHTML = '<div class="d-flex"><div class="toast-body">' + escapeHtml(message) +
+        '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    document.body.appendChild(node);
+    new bootstrap.Toast(node, { delay: 3500 }).show();
+    setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 4000);
+}
+
+// Chart.js availability check — if chart.umd.min.js 404'd, this returns false
+function chartsAvailable() {
+    return typeof window.Chart !== 'undefined';
+}
+
+// ============================================================================
+// 3. LOADERS — TOP LEVEL, fetch() only
+// ============================================================================
+function loadKPIs() {
+    fetch('/api/crm/dashboard/stats', { credentials: 'same-origin' })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function (data) {
+            var a = el('kpiPipelineValue');    if (a) a.textContent = fmtMoney(data.pipeline_value);
+            var b = el('kpiWeightedPipeline'); if (b) b.textContent = fmtMoney(data.weighted_pipeline);
+            var c = el('kpiWinRate');          if (c) c.textContent = (data.win_rate || 0) + '%';
+            var d = el('kpiOpenCount');        if (d) d.textContent = data.open_opportunities || 0;
+            var e = el('kpiTotalRevenue');     if (e) e.textContent = fmtMoney(data.total_revenue);
+            var f = el('kpiWonLost');          if (f) f.textContent = (data.won_count || 0) + ' / ' + (data.lost_count || 0);
+        })
+        .catch(function (err) {
+            console.warn('KPI API not available:', err);
+            var a = el('kpiPipelineValue');    if (a) a.textContent = '$0';
+            var b = el('kpiWeightedPipeline'); if (b) b.textContent = '$0';
+            var c = el('kpiWinRate');          if (c) c.textContent = '0%';
+            var d = el('kpiOpenCount');        if (d) d.textContent = '0';
+            var e = el('kpiTotalRevenue');     if (e) e.textContent = '$0';
+            var f = el('kpiWonLost');          if (f) f.textContent = '0 / 0';
+        });
+}
+
+function loadCharts() {
+    if (!chartsAvailable()) {
+        console.warn('Chart.js not loaded — skipping charts');
+        return;
+    }
+    fetch('/api/crm/dashboard/charts', { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            // ---- Pipeline by Stage (Bar) ----
+            var stageCtxEl = el('stageChart');
+            if (stageCtxEl) {
+                if (stageChart) { stageChart.destroy(); stageChart = null; }
+                stageChart = new Chart(stageCtxEl.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.stages || [],
+                        datasets: [{
+                            label: t('crm.dashboard.pipeline_value', 'Pipeline Value') + ' ($)',
+                            data: data.stage_values || [],
+                            backgroundColor: chartColors.blue.bg,
+                            borderColor: chartColors.blue.border,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) { return fmtMoney(ctx.raw); }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ---- Sales Trend (Line) ----
+            var trendCtxEl = el('trendChart');
+            if (trendCtxEl) {
+                if (trendChart) { trendChart.destroy(); trendChart = null; }
+                trendChart = new Chart(trendCtxEl.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: data.months || [],
+                        datasets: [{
+                            label: t('crm.dashboard.total_revenue', 'Revenue') + ' ($)',
+                            data: data.revenues || [],
+                            backgroundColor: chartColors.teal.bg,
+                            borderColor: chartColors.teal.border,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) { return fmtMoney(ctx.raw); }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        })
+        .catch(function (err) { console.warn('Charts API not available:', err); });
+}
+
+function loadTopCustomers() {
+    if (!chartsAvailable()) return;
+    fetch('/api/crm/dashboard/top-customers', { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            var ctxEl = el('topCustomersChart');
+            if (!ctxEl) return;
+            if (topCustomersChart) { topCustomersChart.destroy(); topCustomersChart = null; }
+            topCustomersChart = new Chart(ctxEl.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: data.customers || [],
+                    datasets: [{
+                        label: t('crm.dashboard.total_revenue', 'Revenue') + ' ($)',
+                        data: data.revenues || [],
+                        backgroundColor: chartColors.purple.bg,
+                        borderColor: chartColors.purple.border,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y',
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) { return fmtMoney(ctx.raw); }
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(function (err) { console.warn('Top customers API not available:', err); });
+}
+
+function loadTopProducts() {
+    if (!chartsAvailable()) return;
+    fetch('/api/crm/dashboard/top-products', { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            var ctxEl = el('topProductsChart');
+            if (!ctxEl) return;
+            if (topProductsChart) { topProductsChart.destroy(); topProductsChart = null; }
+            topProductsChart = new Chart(ctxEl.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: data.products || [],
+                    datasets: [{
+                        label: t('crm.dashboard.top_products', 'Quantity Sold'),
+                        data: data.quantities || [],
+                        backgroundColor: chartColors.orange.bg,
+                        borderColor: chartColors.orange.border,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y'
+                }
+            });
+        })
+        .catch(function (err) { console.warn('Top products API not available:', err); });
+}
+
+function loadForecast() {
+    fetch('/api/crm/forecast', { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            var a = el('forecast30');
+            var b = el('forecast60');
+            var c = el('forecast90');
+            if (a) a.textContent = fmtMoney((data.next_30_days || {}).total);
+            if (b) b.textContent = fmtMoney((data.next_60_days || {}).total);
+            if (c) c.textContent = fmtMoney((data.next_90_days || {}).total);
+        })
+        .catch(function (err) {
+            console.warn('Forecast API not available:', err);
+            var a = el('forecast30'); if (a) a.textContent = '$0';
+            var b = el('forecast60'); if (b) b.textContent = '$0';
+            var c = el('forecast90'); if (c) c.textContent = '$0';
+        });
+}
+
+function refreshAll() {
+    loadKPIs();
+    loadCharts();
+    loadTopCustomers();
+    loadTopProducts();
+    loadForecast();
+}
+
+// ============================================================================
+// 4. INIT — ONLY init + event binding
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('CRM sales dashboard loaded | lang:', window.currentLanguage,
+                '| Chart.js:', chartsAvailable() ? 'OK' : 'MISSING');
+
+    // KPI card click → pipeline page
+    var kpiCard = el('kpiPipelineCard');
+    if (kpiCard) kpiCard.addEventListener('click', function () {
+        window.location.href = '/crm/opportunities';
+    });
+
+    var rb = el('refreshBtn');
+    if (rb) rb.addEventListener('click', refreshAll);
+
+    var pb = el('printBtn');
+    if (pb) pb.addEventListener('click', function () { window.print(); });
+
+    var pipeBtn = el('pipelineBtn');
+    if (pipeBtn) pipeBtn.addEventListener('click', function () {
+        window.location.href = '/crm/opportunities';
+    });
+
+    refreshAll();
+
+    // Auto-refresh every 5 minutes
+    setInterval(refreshAll, 300000);
+});
+</script>
+{% endblock %}

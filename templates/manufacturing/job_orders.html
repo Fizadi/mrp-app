@@ -1,0 +1,3053 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.job_orders.title', 'Job Orders') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.job_orders.breadcrumb', 'Job Orders') }}</li>
+        </ol>
+    </nav>
+
+    <!-- DEBUG: Show industry variables -->
+    <div class="alert alert-info mt-2" style="font-size: 12px;">
+        <strong>Debug Industry:</strong><br>
+        demo_industry: {{ demo_industry }}<br>
+        industry_display: {{ industry_display }}<br>
+        industry_icon: {{ industry_icon }}<br>
+        industries: {{ industries|length }} items<br>
+        {% for ind in industries %}
+            - {{ ind.code }}: {{ ind.name }}<br>
+        {% endfor %}
+    </div>
+
+    <!-- INDUSTRY SWITCHER -->
+    <div class="row g-2 mb-3">
+        <div class="col-md-12">
+            <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-outline-danger" onclick="switchIndustry('valve')">
+                    <i class="fas fa-industry"></i> Valve (ETO)
+                </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="switchIndustry('furniture')">
+                    <i class="fas fa-chair"></i> Furniture (CTO)
+                </button>
+                <button class="btn btn-sm btn-outline-info" onclick="switchIndustry('jobshop')">
+                    <i class="fas fa-tools"></i> Job Shop (MTO)
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="switchIndustry('gauge')">
+                    <i class="fas fa-ruler"></i> Gauge (MTS)
+                </button>
+            </div>
+            <span id="sessionTest" class="ms-2 badge bg-secondary">Current: {{ demo_industry }}</span>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.job_orders.title', 'Job Orders') }}</h2>
+        <div>
+            <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#createOrderModal">
+                <i class="fas fa-plus"></i> {{ get_translation('manufacturing.job_orders.new_order', 'New Job Order') }}
+            </button>
+            <button class="btn btn-secondary me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="fas fa-upload"></i> {{ get_translation('global.import_csv', 'Import CSV') }}
+            </button>
+            <a href="{{ url_for('manufacturing_api.export_csv_legacy') }}" class="btn btn-info">
+                <i class="fas fa-download"></i> {{ get_translation('global.export_csv', 'Export CSV') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-secondary"><div class="card-body"><h6>{{ get_translation('manufacturing.job_orders.kpi.draft', 'Draft') }}</h6><h3 id="kpiDraft">0</h3></div></div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('manufacturing.job_orders.kpi.released', 'Released') }}</h6><h3 id="kpiReleased">0</h3></div></div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('manufacturing.job_orders.kpi.in_progress', 'In Progress') }}</h6><h3 id="kpiInProgress">0</h3></div></div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('manufacturing.job_orders.kpi.completed', 'Completed') }}</h6><h3 id="kpiCompleted">0</h3></div></div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-dark"><div class="card-body"><h6>{{ get_translation('manufacturing.job_orders.kpi.closed', 'Closed') }}</h6><h3 id="kpiClosed">0</h3></div></div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('manufacturing.job_orders.kpi.hold', 'Hold') }}</h6><h3 id="kpiHold">0</h3></div></div>
+        </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-2">
+                    <label>{{ get_translation('manufacturing.job_orders.filters.search', 'Search') }}</label>
+                    <input type="text" class="form-control" id="filterSearch" 
+                           placeholder="{{ get_translation('manufacturing.job_orders.filters.search_placeholder', 'Search by ID, Product, Project...') }}">
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('manufacturing.job_orders.filters.status', 'Status') }}</label>
+                    <select class="form-select" id="filterStatus">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option>Draft</option><option>Released</option><option>InProgress</option>
+                        <option>Completed</option><option>Closed</option><option>Hold</option>
+                        <option>Blocked</option><option>Canceled</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('manufacturing.job_orders.filters.product', 'Product') }}</label>
+                    <select class="form-select" id="filterProduct"><option value="">{{ get_translation('global.all', 'All') }}</option></select>
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('manufacturing.job_orders.filters.project', 'Project') }}</label>
+                    <select class="form-select" id="filterProject"><option value="">{{ get_translation('global.all', 'All') }}</option></select>
+                </div>
+                <div class="col-md-1">
+                    <label>{{ get_translation('manufacturing.job_orders.filters.due_from', 'From') }}</label>
+                    <input class="form-control" id="filterDateFrom" type="date"/>
+                    {% if session.get('calendar') == 'persian' %}
+                    <small class="text-muted persian-preview" data-for="filterDateFrom"></small>
+                    {% endif %}
+                </div>
+                <div class="col-md-1">
+                    <label>{{ get_translation('manufacturing.job_orders.filters.due_to', 'To') }}</label>
+                    <input class="form-control" id="filterDateTo" type="date"/>
+                    {% if session.get('calendar') == 'persian' %}
+                    <small class="text-muted persian-preview" data-for="filterDateTo"></small>
+                    {% endif %}
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORDERS TABLE -->
+    <div class="card">
+        <div class="card-body table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.job_id', 'Job ID') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.product', 'Product') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.type', 'Type') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.quantity', 'Qty') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.workflow', 'Workflow') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.due_date', 'Due Date') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.project', 'Project') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.eco_warning', 'ECO') }}</th>
+                        <th>{{ get_translation('manufacturing.job_orders.table.eng_version', 'Eng Ver') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                    <tr><td colspan="12" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== MODALS ======================== -->
+
+<!-- CREATE/EDIT ORDER MODAL -->
+<div class="modal fade" id="createOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">{{ get_translation('manufacturing.job_orders.create_modal.title', 'Create Job Order') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="orderForm">
+                    <input type="hidden" id="editOrderId">
+                    
+                    <!-- WORKFLOW STATUS BAR -->
+                    <div id="workflowStatusBar" style="display:none;" class="mb-3">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+                                <span><i class="fas fa-tasks me-2"></i> <span id="workflowName">Workflow</span></span>
+                                <span>
+                                    <span class="badge bg-light text-dark me-2" id="workflowProgress">0%</span>
+                                    <span class="badge bg-light text-dark" id="workflowStatusBadge">Pending</span>
+                                </span>
+                            </div>
+                            <div class="card-body py-2">
+                                <div class="d-flex align-items-center justify-content-between" id="workflowStepsContainer"></div>
+                            </div>
+                            <div class="card-footer bg-light py-2">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <small><strong>{{ get_translation('workflow.current_step', 'Current Step') }}:</strong> <span id="currentStepName">-</span></small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small><strong>{{ get_translation('workflow.assigned_to', 'Assigned To') }}:</strong> <span id="workflowAssignedTo">-</span></small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small><strong>{{ get_translation('workflow.due_date', 'Due Date') }}:</strong> <span id="workflowDueDate">-</span></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TABS -->
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabGeneral">{{ get_translation('manufacturing.job_orders.create_modal.general', 'General') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabDates">{{ get_translation('manufacturing.job_orders.create_modal.dates', 'Dates') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabMaterials">{{ get_translation('manufacturing.job_orders.create_modal.materials', 'Materials') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabOperations">{{ get_translation('manufacturing.job_orders.create_modal.operations', 'Operations') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabQuality">{{ get_translation('manufacturing.job_orders.create_modal.quality', 'Quality') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabDocuments">{{ get_translation('manufacturing.job_orders.create_modal.documents', 'Documents') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCosting">{{ get_translation('manufacturing.job_orders.create_modal.costing', 'Costing') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabWorkflow"><i class="fas fa-tasks"></i> {{ get_translation('workflow.tab_title', 'Workflow') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabHierarchy"><i class="fas fa-sitemap"></i> {{ get_translation('hierarchy.tab_title', 'Hierarchy') }}</a></li>
+                    </ul>
+                    
+                    <div class="tab-content mt-3">
+                        <!-- Tab 1: General -->
+                        <div class="tab-pane fade show active" id="tabGeneral">
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.job_id', 'Job Order #') }}</label>
+                                    <input type="text" class="form-control" id="orderId" readonly>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.type', 'Type') }} *</label>
+                                    <select class="form-select" id="orderType">
+                                        <option value="Manufacturing">{{ get_translation('global.manufacturing', 'Manufacturing') }}</option>
+                                        <option value="Subcontract">{{ get_translation('global.subcontract', 'Subcontract') }}</option>
+                                        <option value="Repair">{{ get_translation('global.repair', 'Repair') }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.quantity', 'Quantity') }}</label>
+                                    <input type="number" class="form-control" id="orderQuantity" min="1" step="1" required>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.status', 'Status') }}</label>
+                                    <input type="text" class="form-control" id="orderStatus" value="Draft" readonly>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.product', 'Product') }} *</label>
+                                    <select class="form-select" id="productSelect">
+                                        <option value="">{{ get_translation('global.select', 'Select a product...') }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.product_desc', 'Product Description') }}</label>
+                                    <input type="text" class="form-control" id="productDesc" readonly>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.bom_version', 'BOM Version') }}</label>
+                                    <input type="text" class="form-control" id="bomVersion" readonly>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.routing_version', 'Routing Version') }}</label>
+                                    <input type="text" class="form-control" id="routingVersion" readonly>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.eng_version', 'Eng Version') }}</label>
+                                    <input type="text" class="form-control" id="engVersion" readonly>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.priority', 'Priority') }}</label>
+                                    <select class="form-select" id="priority">
+                                        <option value="1">{{ get_translation('manufacturing.job_orders.priority.low', 'Low') }}</option>
+                                        <option value="2" selected>{{ get_translation('manufacturing.job_orders.priority.medium', 'Medium') }}</option>
+                                        <option value="3">{{ get_translation('manufacturing.job_orders.priority.high', 'High') }}</option>
+                                        <option value="4">{{ get_translation('manufacturing.job_orders.priority.critical', 'Critical') }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.sales_order', 'Sales Order Reference') }}</label>
+                                    <select class="form-select" id="salesOrderSelect">
+                                        <option value="">{{ get_translation('global.none', 'None') }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.customer', 'Customer') }}</label>
+                                    <select class="form-select" id="customerSelect">
+                                        <option value="">{{ get_translation('global.none', 'None') }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.project', 'Project') }}</label>
+                                    <select class="form-select" id="projectSelect">
+                                        <option value="">{{ get_translation('global.none', 'None') }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.customer_ref', 'Customer Reference (optional)') }}</label>
+                                    <input type="text" class="form-control" id="customerReference" placeholder="{{ get_translation('manufacturing.job_orders.create_modal.customer_ref_placeholder', 'Enter customer reference number...') }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Dates -->
+                        <div class="tab-pane fade" id="tabDates">
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.sched_start', 'Scheduled Start') }}</label>
+                                    <input type="date" class="form-control" id="scheduleStart">
+                                    {% if session.get('calendar') == 'persian' %}
+                                    <small class="text-muted persian-preview" data-for="scheduleStart"></small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.sched_end', 'Scheduled End') }}</label>
+                                    <input type="date" class="form-control" id="scheduleEnd">
+                                    {% if session.get('calendar') == 'persian' %}
+                                    <small class="text-muted persian-preview" data-for="scheduleEnd"></small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.required_date', 'Required Date') }}</label>
+                                    <input type="date" class="form-control" id="dueDate">
+                                    {% if session.get('calendar') == 'persian' %}
+                                    <small class="text-muted persian-preview" data-for="dueDate"></small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.actual_start', 'Actual Start') }}</label>
+                                    <input type="date" class="form-control" id="actualStart" readonly>
+                                    {% if session.get('calendar') == 'persian' %}
+                                    <small class="text-muted persian-preview" data-for="actualStart"></small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.actual_end', 'Actual End') }}</label>
+                                    <input type="date" class="form-control" id="actualEnd" readonly>
+                                    {% if session.get('calendar') == 'persian' %}
+                                    <small class="text-muted persian-preview" data-for="actualEnd"></small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.lead_time', 'Lead Time (days)') }}</label>
+                                    <input type="number" class="form-control" id="leadTime" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: Materials -->
+                        <div class="tab-pane fade" id="tabMaterials">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.component', 'Component') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.description', 'Description') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.required', 'Required') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.available', 'Available') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.issued', 'Issued') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.shortage', 'Shortage') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.status', 'Status') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="materialsBody">
+                                        <tr><td colspan="7">{{ get_translation('manufacturing.job_orders.create_modal.no_materials', 'No materials loaded') }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab 4: Operations -->
+                        <div class="tab-pane fade" id="tabOperations">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.seq', 'Seq') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.work_center', 'Work Center') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.setup', 'Setup (hrs)') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.run', 'Run (hrs/unit)') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.total', 'Total (hrs)') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="operationsBody">
+                                        <tr><td colspan="5">{{ get_translation('manufacturing.job_orders.create_modal.no_operations', 'No operations loaded') }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab 5: Quality -->
+                        <div class="tab-pane fade" id="tabQuality">
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.quality_status', 'Quality Status') }}</label>
+                                    <input type="text" class="form-control" id="qualityStatus" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 6: Documents -->
+                        <div class="tab-pane fade" id="tabDocuments">
+                            <div class="row mb-2">
+                                <div class="col-md-6">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.doc_type', 'Document Type') }}</label>
+                                    <select class="form-select" id="docType">
+                                        <option>Drawing</option>
+                                        <option>Spec</option>
+                                        <option>WorkInstruction</option>
+                                        <option>CustomerPO</option>
+                                        <option>Certificate</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.is_mandatory', 'Is Mandatory') }}</label>
+                                    <input type="checkbox" class="form-check-input mt-2" id="docMandatory">
+                                </div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-md-12">
+                                    <label>{{ get_translation('manufacturing.job_orders.create_modal.doc_desc', 'Description') }}</label>
+                                    <input type="text" class="form-control" id="docDescription">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" id="addDocBtn">
+                                <i class="fas fa-plus"></i> {{ get_translation('manufacturing.job_orders.create_modal.add_doc', 'Add Document') }}
+                            </button>
+                            <div class="table-responsive mt-2">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.doc_type', 'Type') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.doc_desc', 'Description') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.is_mandatory', 'Mandatory') }}</th>
+                                            <th>{{ get_translation('manufacturing.job_orders.create_modal.uploaded', 'Uploaded') }}</th>
+                                            <th>{{ get_translation('global.actions', 'Action') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="documentsBody">
+                                        <tr><td colspan="5">{{ get_translation('manufacturing.job_orders.create_modal.no_docs', 'No documents attached') }}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab 7: Costing -->
+                        <div class="tab-pane fade" id="tabCosting">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>{{ get_translation('manufacturing.job_orders.create_modal.estimated', 'Estimated') }}</h6>
+                                    <table class="table table-sm">
+                                        <tr><td>{{ get_translation('manufacturing.job_orders.create_modal.material', 'Material') }}</td><td id="estMaterial">0</td></tr>
+                                        <tr><td>{{ get_translation('manufacturing.job_orders.create_modal.labor', 'Labor') }}</td><td id="estLabor">0</td></tr>
+                                        <tr><td>{{ get_translation('manufacturing.job_orders.create_modal.overhead', 'Overhead') }}</td><td id="estOverhead">0</td></tr>
+                                        <tr><td><strong>{{ get_translation('manufacturing.job_orders.create_modal.total', 'Total') }}</strong></td><td><strong id="estTotal">0</strong></td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>{{ get_translation('manufacturing.job_orders.create_modal.actual', 'Actual') }}</h6>
+                                    <table class="table table-sm">
+                                        <tr><td>{{ get_translation('manufacturing.job_orders.create_modal.material', 'Material') }}</td><td id="actMaterial">0</td></tr>
+                                        <tr><td>{{ get_translation('manufacturing.job_orders.create_modal.labor', 'Labor') }}</td><td id="actLabor">0</td></tr>
+                                        <tr><td>{{ get_translation('manufacturing.job_orders.create_modal.overhead', 'Overhead') }}</td><td id="actOverhead">0</td></tr>
+                                        <tr><td><strong>{{ get_translation('manufacturing.job_orders.create_modal.total', 'Total') }}</strong></td><td><strong id="actTotal">0</strong></td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                {{ get_translation('manufacturing.job_orders.create_modal.variance', 'Variance') }}: <strong id="costVariance">0</strong>
+                            </div>
+                        </div>
+
+                        <!-- Tab 8: Workflow -->
+                        <div class="tab-pane fade" id="tabWorkflow">
+                            <div id="workflowLoading" class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                <p class="mt-2">{{ get_translation('global.loading', 'Loading workflow details...') }}</p>
+                            </div>
+                            <div id="workflowDetails" style="display:none;">
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6>{{ get_translation('workflow.timeline', 'Workflow Timeline') }}</h6>
+                                            <span>
+                                                <span class="badge" id="wfStatusBadge">Pending</span>
+                                                <span class="badge bg-secondary ms-1" id="wfCompletionBadge">0/0 Steps</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="timeline" id="workflowTimeline"></div>
+                                <div id="workflowActions" style="display:none;" class="mt-3 p-3 bg-light border rounded">
+                                    <h6>{{ get_translation('workflow.approve_reject', 'Approve / Reject Current Step') }}</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-2">
+                                                <label>{{ get_translation('workflow.comment', 'Comment') }}</label>
+                                                <textarea class="form-control" id="workflowComment" rows="2" 
+                                                          placeholder="{{ get_translation('workflow.comment_placeholder', 'Add a comment (optional)') }}"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 d-flex align-items-end">
+                                            <div class="btn-group w-100">
+                                                <button class="btn btn-success" id="workflowApproveBtn">
+                                                    <i class="fas fa-check"></i> {{ get_translation('workflow.approve', 'Approve') }}
+                                                </button>
+                                                <button class="btn btn-danger" id="workflowRejectBtn">
+                                                    <i class="fas fa-times"></i> {{ get_translation('workflow.reject', 'Reject') }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="workflowActionMessage" class="mt-2"></div>
+                                </div>
+                                <div id="noWorkflowMessage" style="display:none;" class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> {{ get_translation('workflow.no_workflow', 'No workflow is associated with this order.') }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 9: Hierarchy -->
+                        <div class="tab-pane fade" id="tabHierarchy">
+                            <!-- Hierarchy Legend -->
+                            <div class="hierarchy-legend">
+                                <!-- Row 1: Category -->
+                                <div class="legend-row">
+                                    <span class="legend-label">{{ get_translation('hierarchy.legend.category', 'Category:') }}</span>
+                                    <span class="legend-item">
+                                        <span class="dot category" style="background:#2563eb;"></span>
+                                        {{ get_translation('hierarchy.category.assembly', 'Assembly') }}
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="dot category" style="background:#059669;"></span>
+                                        {{ get_translation('hierarchy.category.component', 'Component') }}
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="dot category" style="background:#6b7280;"></span>
+                                        {{ get_translation('hierarchy.category.planned', 'Planned') }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Row 2: Status -->
+                                <div class="legend-row">
+                                    <span class="legend-label">{{ get_translation('hierarchy.legend.status', 'Status:') }}</span>
+                                    <span class="legend-item">
+                                        <span class="dot status" style="background:#e5e7eb;"></span>
+                                        {{ get_translation('hierarchy.status.draft', 'Draft') }}
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="dot status" style="background:#fef3c7;"></span>
+                                        {{ get_translation('hierarchy.status.hold', 'Hold') }}
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="dot status" style="background:#dbeafe;"></span>
+                                        {{ get_translation('hierarchy.status.released', 'Released') }}
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="dot status" style="background:#d1fae5;"></span>
+                                        {{ get_translation('hierarchy.status.in_progress', 'In Progress') }} / {{ get_translation('hierarchy.status.completed', 'Completed') }}
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="dot status" style="background:#e5e7eb;"></span>
+                                        {{ get_translation('hierarchy.status.planned', 'Planned') }}
+                                    </span>
+                                </div>
+                                
+                                <!-- Row 3: Sourcing -->
+                                <div class="legend-row">
+                                    <span class="legend-label">{{ get_translation('hierarchy.legend.sourcing', 'Sourcing:') }}</span>
+                                    <span class="legend-item">🏭 {{ get_translation('hierarchy.sourcing.make', 'Make') }}</span>
+                                    <span class="legend-item">📦 {{ get_translation('hierarchy.sourcing.buy', 'Buy') }}</span>
+                                    <span class="legend-item">🔧 {{ get_translation('hierarchy.sourcing.outsource', 'Outsource') }}</span>
+                                    <span class="legend-item">⏳ {{ get_translation('hierarchy.sourcing.planned', 'Planned') }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Hierarchy Tree -->
+                            <div id="hierarchyContainer" class="mt-3">
+                                <div id="hierarchyLoading" class="text-center py-4">
+                                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                    <p class="mt-2">{{ get_translation('hierarchy.loading', 'Loading hierarchy...') }}</p>
+                                </div>
+                                <div id="hierarchyTree" style="display:none;" class="hierarchy-tree"></div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="saveOrderBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ISSUE MATERIALS MODAL -->
+<div class="modal fade" id="issueMaterialsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('manufacturing.job_orders.issue_materials.title', 'Issue Materials') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="issueOrderId">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{{ get_translation('manufacturing.job_orders.issue_materials.component', 'Component') }}</th>
+                                <th>{{ get_translation('manufacturing.job_orders.issue_materials.required', 'Required') }}</th>
+                                <th>{{ get_translation('manufacturing.job_orders.issue_materials.issued', 'Issued') }}</th>
+                                <th>{{ get_translation('manufacturing.job_orders.issue_materials.to_issue', 'To Issue') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="componentsList">
+                            <tr><td colspan="4">{{ get_translation('global.loading', 'Loading components...') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmIssueBtn">{{ get_translation('global.confirm', 'Confirm Issue') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- REPORT COMPLETION MODAL -->
+<div class="modal fade" id="reportCompletionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('manufacturing.job_orders.completion.title', 'Report Completion') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="compOrderId">
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_orders.completion.quantity', 'Completed Quantity') }}</label>
+                    <input type="number" class="form-control" id="completedQty" min="1" step="1" required>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_orders.completion.scrap', 'Scrap Quantity') }}</label>
+                    <input type="number" class="form-control" id="scrapQty" min="0" step="1" value="0">
+                </div>
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" id="generateSerials">
+                    <label>{{ get_translation('manufacturing.job_orders.completion.generate_serials', 'Generate serial numbers') }}</label>
+                </div>
+                <div id="serialPrefixDiv" style="display:none;">
+                    <label>{{ get_translation('manufacturing.job_orders.completion.serial_prefix', 'Serial Number Prefix') }}</label>
+                    <input type="text" class="form-control" id="serialPrefix" placeholder="e.g., VALVE-">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmCompleteBtn">{{ get_translation('global.record', 'Record Completion') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ISSUE TO SUPPLIER MODAL -->
+<div class="modal fade" id="issueToSupplierModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.job_orders.issue_to_supplier.title', 'Issue to Supplier') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="subcontractOrderId">
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_orders.issue_to_supplier.supplier', 'Supplier ID') }}</label>
+                    <input type="text" class="form-control" id="supplierId" placeholder="e.g., SUPP-001">
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_orders.issue_to_supplier.po_number', 'Purchase Order Number (optional)') }}</label>
+                    <input type="text" class="form-control" id="poNumber">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-warning" id="confirmIssueSupplierBtn">{{ get_translation('manufacturing.job_orders.issue_to_supplier.issue', 'Issue') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RECEIVE FROM SUPPLIER MODAL -->
+<div class="modal fade" id="receiveFromSupplierModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.job_orders.receive_from_supplier.title', 'Receive from Supplier') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="receiveOrderId">
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_orders.receive_from_supplier.po_id', 'Purchase Order ID') }}</label>
+                    <input type="text" class="form-control" id="receivePoId" placeholder="PO ID from supplier">
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_orders.receive_from_supplier.quantity', 'Received Quantity') }}</label>
+                    <input type="number" class="form-control" id="receivedQty" min="1" step="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmReceiveBtn">{{ get_translation('manufacturing.job_orders.receive_from_supplier.receive', 'Receive') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('global.import_csv', 'Import CSV') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" class="form-control" id="csvFile" accept=".csv">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="importBtn">{{ get_translation('global.upload', 'Upload') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- WORKFLOW CONFIRM MODAL -->
+<div class="modal fade" id="workflowConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="workflowConfirmTitle">{{ get_translation('workflow.confirm_action', 'Confirm Action') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="workflowConfirmMessage">{{ get_translation('workflow.confirm_approve', 'Are you sure you want to approve this step?') }}</p>
+                <div class="mb-2">
+                    <label>{{ get_translation('workflow.comment', 'Comment') }}</label>
+                    <textarea class="form-control" id="workflowConfirmComment" rows="2" 
+                              placeholder="{{ get_translation('workflow.comment_placeholder', 'Add a comment (optional)') }}"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="workflowConfirmActionBtn">{{ get_translation('global.confirm', 'Confirm') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== JAVASCRIPT ======================== -->
+<script>
+// ============================================================================
+// TRANSLATIONS - DYNAMIC (Uses current language from window.i18n)
+// ============================================================================
+
+// Helper function to get translation from window.i18n
+function getTrans(key, defaultText) {
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, defaultText);
+    }
+    return defaultText || key;
+}
+
+// Build trans object dynamically
+var trans = {
+    // General actions
+    edit: getTrans('global.edit', 'Edit'),
+    release: getTrans('global.release', 'Release'),
+    start: getTrans('global.start', 'Start'),
+    issue: getTrans('global.issue', 'Issue'),
+    hold: getTrans('global.hold', 'Hold'),
+    resume: getTrans('global.resume', 'Resume'),
+    complete: getTrans('global.complete', 'Complete'),
+    close: getTrans('global.close_order', 'Close'),
+    to_supplier: getTrans('global.to_supplier', 'To Supplier'),
+    receive: getTrans('global.receive', 'Receive'),
+    quality: getTrans('global.quality', 'Quality'),
+    qty: getTrans('global.qty', 'Qty'),
+    view: getTrans('global.view', 'View'),
+    
+    // Save/Cancel/Confirm
+    save: getTrans('global.save', 'Save'),
+    cancel: getTrans('global.cancel', 'Cancel'),
+    confirm: getTrans('global.confirm', 'Confirm'),
+    record: getTrans('global.record', 'Record'),
+    upload: getTrans('global.upload', 'Upload'),
+    apply: getTrans('global.apply', 'Apply'),
+    
+    // Status messages
+    loading: getTrans('global.loading', 'Loading...'),
+    no_data: getTrans('global.no_data', 'No data available'),
+    error_loading: getTrans('global.error_loading', 'Error loading data'),
+    success: getTrans('global.success', 'successfully'),
+    error: getTrans('global.error', 'Operation failed'),
+    reason_prompt: getTrans('global.reason_prompt', 'Please enter the reason:'),
+    finalize_costing: getTrans('global.finalize_costing', 'This will finalize costing.'),
+    
+    // UI elements
+    all: getTrans('global.all', 'All'),
+    select: getTrans('global.select', 'Select a product...'),
+    none: getTrans('global.none', 'None'),
+    remove: getTrans('global.remove', 'Remove'),
+    
+    // Order types
+    manufacturing: getTrans('global.manufacturing', 'Manufacturing'),
+    subcontract: getTrans('global.subcontract', 'Subcontract'),
+    repair: getTrans('global.repair', 'Repair'),
+    
+    // Statuses
+    draft: getTrans('global.draft', 'Draft'),
+    released: getTrans('global.released', 'Released'),
+    in_progress: getTrans('global.in_progress', 'In Progress'),
+    completed: getTrans('global.completed', 'Completed'),
+    closed: getTrans('global.closed', 'Closed'),
+    blocked: getTrans('global.blocked', 'Blocked'),
+    canceled: getTrans('global.canceled', 'Canceled'),
+    
+    // Workflow translations
+    workflow_tab_title: getTrans('workflow.tab_title', 'Workflow'),
+    workflow_timeline: getTrans('workflow.timeline', 'Workflow Timeline'),
+    workflow_current_step: getTrans('workflow.current_step', 'Current Step'),
+    workflow_assigned_to: getTrans('workflow.assigned_to', 'Assigned To'),
+    workflow_due_date: getTrans('workflow.due_date', 'Due Date'),
+    workflow_status: getTrans('workflow.status', 'Status'),
+    workflow_no_workflow: getTrans('workflow.no_workflow', 'No workflow is associated with this order.'),
+    workflow_no_steps: getTrans('workflow.no_steps', 'No workflow steps defined'),
+    workflow_approve_reject: getTrans('workflow.approve_reject', 'Approve / Reject Current Step'),
+    workflow_comment: getTrans('workflow.comment', 'Comment'),
+    workflow_comment_placeholder: getTrans('workflow.comment_placeholder', 'Add a comment (optional)'),
+    workflow_confirm_action: getTrans('workflow.confirm_action', 'Confirm Action'),
+    workflow_confirm_approve: getTrans('workflow.confirm_approve', 'Are you sure you want to approve this step?'),
+    workflow_confirm_reject: getTrans('workflow.confirm_reject', 'Are you sure you want to reject this step?'),
+    workflow_pending: getTrans('workflow.pending', 'Pending'),
+    workflow_approved: getTrans('workflow.approved', 'Approved'),
+    workflow_rejected: getTrans('workflow.rejected', 'Rejected'),
+    workflow_in_progress: getTrans('workflow.in_progress', 'In Progress'),
+    workflow_completed: getTrans('workflow.completed', 'Completed'),
+    workflow_escalated: getTrans('workflow.escalated', 'Escalated'),
+    workflow_not_started: getTrans('workflow.not_started', 'Not Started'),
+    workflow_approve: getTrans('workflow.approve', 'Approve'),
+    workflow_reject: getTrans('workflow.reject', 'Reject'),
+    workflow_step: getTrans('workflow.step', 'Step'),
+    workflow_current: getTrans('workflow.current', 'current'),
+    workflow_steps: getTrans('workflow.steps', 'Steps'),
+    workflow_already_processed: getTrans('workflow.already_processed', 'This step has already been processed.'),
+    workflow_no_permission: getTrans('workflow.no_permission', 'You do not have permission to approve this step.'),
+    workflow_approve_success: getTrans('workflow.approve_success', 'Step approved successfully'),
+    workflow_reject_success: getTrans('workflow.reject_success', 'Step rejected successfully'),
+    workflow_release_blocked: getTrans('workflow.release_blocked', 'Cannot release order until workflow is complete'),
+    workflow_not_complete: getTrans('workflow.not_complete', 'Workflow not complete'),
+    workflow_approval_required: getTrans('workflow.approval_required', 'Workflow approval required'),
+    
+    // Workflow step translations
+    'workflow.eto.step1': getTrans('workflow.eto.step1', 'Engineering Review'),
+    'workflow.eto.step2': getTrans('workflow.eto.step2', 'Production Planning'),
+    'workflow.eto.step3': getTrans('workflow.eto.step3', 'Quality Review'),
+    'workflow.eto.step4': getTrans('workflow.eto.step4', 'Final Approval'),
+    'workflow.cto.step1': getTrans('workflow.cto.step1', 'Sales Review'),
+    'workflow.cto.step2': getTrans('workflow.cto.step2', 'Configuration Check'),
+    'workflow.cto.step3': getTrans('workflow.cto.step3', 'Production Approval'),
+    'workflow.mto.step1': getTrans('workflow.mto.step1', 'Job Intake'),
+    'workflow.mto.step2': getTrans('workflow.mto.step2', 'Technician Assignment'),
+    'workflow.mts.step1': getTrans('workflow.mts.step1', 'MPS Review'),
+    'workflow.mts.step2': getTrans('workflow.mts.step2', 'Batch Release'),
+    'workflow.mts.step3': getTrans('workflow.mts.step3', 'Quality Approval'),
+    'workflow.eto.name': getTrans('workflow.eto.name', 'ETO Job Order Approval'),
+    'workflow.cto.name': getTrans('workflow.cto.name', 'CTO Job Order Approval'),
+    'workflow.mto.name': getTrans('workflow.mto.name', 'MTO Repair Order Approval'),
+    'workflow.mts.name': getTrans('workflow.mts.name', 'MTS Batch Order Approval'),
+    
+    // Hierarchy translations
+    'hierarchy.tab_title': getTrans('hierarchy.tab_title', 'Hierarchy'),
+    'hierarchy.loading': getTrans('hierarchy.loading', 'Loading hierarchy...'),
+    'hierarchy.qty': getTrans('hierarchy.qty', 'Qty:'),
+    'hierarchy.view_order': getTrans('hierarchy.view_order', 'View Order'),
+    'hierarchy.no_data': getTrans('hierarchy.no_data', 'No hierarchy data available'),
+    'hierarchy.legend.category': getTrans('hierarchy.legend.category', 'Category:'),
+    'hierarchy.legend.status': getTrans('hierarchy.legend.status', 'Status:'),
+    'hierarchy.legend.sourcing': getTrans('hierarchy.legend.sourcing', 'Sourcing:'),
+    'hierarchy.category.assembly': getTrans('hierarchy.category.assembly', 'Assembly'),
+    'hierarchy.category.component': getTrans('hierarchy.category.component', 'Component'),
+    'hierarchy.category.planned': getTrans('hierarchy.category.planned', 'Planned'),
+    'hierarchy.status.draft': getTrans('hierarchy.status.draft', 'Draft'),
+    'hierarchy.status.hold': getTrans('hierarchy.status.hold', 'Hold'),
+    'hierarchy.status.released': getTrans('hierarchy.status.released', 'Released'),
+    'hierarchy.status.in_progress': getTrans('hierarchy.status.in_progress', 'In Progress'),
+    'hierarchy.status.completed': getTrans('hierarchy.status.completed', 'Completed'),
+    'hierarchy.status.closed': getTrans('hierarchy.status.closed', 'Closed'),
+    'hierarchy.status.planned': getTrans('hierarchy.status.planned', 'Planned'),
+    'hierarchy.sourcing.make': getTrans('hierarchy.sourcing.make', 'Make'),
+    'hierarchy.sourcing.buy': getTrans('hierarchy.sourcing.buy', 'Buy'),
+    'hierarchy.sourcing.outsource': getTrans('hierarchy.sourcing.outsource', 'Outsource'),
+    'hierarchy.sourcing.planned': getTrans('hierarchy.sourcing.planned', 'Planned'),
+    'hierarchy.sourcing.phantom': getTrans('hierarchy.sourcing.phantom', 'Phantom')
+};
+
+console.log('✅ Translations loaded:', Object.keys(trans).length, 'keys');
+console.log('🔍 Sample translations:', {
+    'edit': trans.edit,
+    'release': trans.release,
+    'manufacturing': trans.manufacturing,
+    'subcontract': trans.subcontract,
+    'repair': trans.repair,
+    'draft': trans.draft,
+    'completed': trans.completed
+});
+
+// ============================================================================
+// Translation function - uses trans object with fallback to window.i18n
+// ============================================================================
+function t(key, defaultText) {
+    // Try trans object first (exact match)
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    // Try window.i18n
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, defaultText);
+    }
+    // If the key doesn't have a prefix, try adding 'global.' prefix
+    if (key && !key.startsWith('global.') && !key.startsWith('workflow.') && !key.startsWith('manufacturing.') && !key.startsWith('hierarchy.')) {
+        var prefixedKey = 'global.' + key;
+        if (trans[prefixedKey] !== undefined && trans[prefixedKey] !== '' && trans[prefixedKey] !== prefixedKey) {
+            return trans[prefixedKey];
+        }
+        if (window.i18n && window.i18n.translations && window.i18n.translations[prefixedKey]) {
+            return window.i18n.translations[prefixedKey];
+        }
+    }
+    return defaultText || key;
+}
+
+// ============================================================================
+// Status color mapping
+// ============================================================================
+function getStatusColor(status) {
+    var colors = {
+        'Draft': 'secondary', 
+        'Released': 'primary', 
+        'InProgress': 'info',
+        'Completed': 'success', 
+        'Closed': 'dark', 
+        'Hold': 'warning',
+        'Blocked': 'danger', 
+        'Canceled': 'secondary'
+    };
+    return colors[status] || 'secondary';
+}
+
+// ============================================================================
+// Status to translation key mapping - MUST match database keys
+// ============================================================================
+var statusKeys = {
+    'Draft': 'global.draft',
+    'Released': 'global.released',
+    'InProgress': 'global.in_progress',
+    'Completed': 'global.completed',
+    'Closed': 'global.closed',
+    'Hold': 'global.hold',
+    'Blocked': 'global.blocked',
+    'Canceled': 'global.canceled'
+};
+
+// ============================================================================
+// Workflow helper functions
+// ============================================================================
+function getWorkflowStepTranslation(workflowCode, stepNumber) {
+    console.log('🔍 getWorkflowStepTranslation called with:', workflowCode, stepNumber);
+    
+    var prefixMap = {
+        'ETO_JOB_ORDER': 'workflow.eto.step',
+        'CTO_JOB_ORDER': 'workflow.cto.step',
+        'MTO_JOB_ORDER': 'workflow.mto.step',
+        'MTS_JOB_ORDER': 'workflow.mts.step'
+    };
+    
+    var prefix = prefixMap[workflowCode] || 'workflow.step';
+    var key = prefix + stepNumber;
+    var defaultText = 'Step ' + stepNumber;
+    
+    console.log('🔍 Looking for translation key:', key);
+    var translated = t(key, defaultText);
+    console.log('🔍 Translation result:', translated);
+    
+    return translated;
+}
+
+function getWorkflowNameTranslation(workflowCode) {
+    console.log('🔍 getWorkflowNameTranslation called with:', workflowCode);
+    
+    var nameMap = {
+        'ETO_JOB_ORDER': 'workflow.eto.name',
+        'CTO_JOB_ORDER': 'workflow.cto.name',
+        'MTO_JOB_ORDER': 'workflow.mto.name',
+        'MTS_JOB_ORDER': 'workflow.mts.name'
+    };
+    
+    var key = nameMap[workflowCode] || 'workflow.name';
+    var defaultText = workflowCode || 'Workflow';
+    
+    var translated = t(key, defaultText);
+    console.log('🔍 Translation result:', translated);
+    
+    return translated;
+}
+
+function getWorkflowStatusColor(status) {
+    var colors = {
+        'Pending': 'warning',
+        'Approved': 'success',
+        'Rejected': 'danger',
+        'Completed': 'success',
+        'InProgress': 'info',
+        'In Progress': 'info',
+        'Escalated': 'danger',
+        'NotStarted': 'secondary',
+        'Not Started': 'secondary'
+    };
+    return colors[status] || 'secondary';
+}
+
+// ============================================================================
+// FIX: Correct API endpoint for product search
+// ============================================================================
+
+// Override the product search function to use the correct endpoint
+function loadProducts() {
+    // Use the correct URL with /api/manufacturing prefix
+    fetch('/api/manufacturing/production-orders/products-search?q=')
+        .then(function(r) { return r.json(); })
+        .then(function(products) {
+            var select = getEl('filterProduct');
+            if (!select) return;
+            var opts = '<option value="">' + trans.all + '</option>';
+            if (Array.isArray(products)) {
+                products.forEach(function(p) {
+                    var name = p.name || p.descEnglish || p.id;
+                    var id = p.id || p.productId || p.ProductID;
+                    opts += '<option value="' + id + '">' + id + ' - ' + name + '</option>';
+                });
+            }
+            select.innerHTML = opts;
+        })
+        .catch(function(err) {
+            console.error('Products error:', err);
+        });
+}
+
+function loadProductDropdown() {
+    var select = getEl('productSelect');
+    if (!select) return;
+    
+    fetch('/api/manufacturing/production-orders/products-search?q=')
+        .then(function(r) {
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(products) {
+            var opts = '<option value="">' + trans.select + '</option>';
+            if (Array.isArray(products)) {
+                products.forEach(function(p) {
+                    var name = p.name || p.descEnglish || p.productName || p.id;
+                    var id = p.id || p.productId || p.ProductID;
+                    opts += '<option value="' + id + '" data-desc="' + name + '">' + id + ' - ' + name + '</option>';
+                });
+            }
+            select.innerHTML = opts;
+        })
+        .catch(function(err) {
+            console.error('Products error:', err);
+            select.innerHTML = '<option value="">' + trans.select + '</option>';
+        });
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+function getEl(id) { 
+    var el = document.getElementById(id);
+    if (!el) console.warn('⚠️ Element not found:', id);
+    return el; 
+}
+
+function keyToDate(key) {
+    if (!key) return '';
+    var s = key.toString();
+    return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+}
+
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+function debounce(func, wait) {
+    var timeout;
+    return function() {
+        var context = this, args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(function() { func.apply(context, args); }, wait);
+    };
+}
+
+// ============================================================================
+// INDUSTRY SWITCHER
+// ============================================================================
+window.switchIndustry = function(industry) {
+    console.log('🔄 Switching to industry:', industry);
+    fetch('/api/set-demo-industry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ industry: industry })
+    })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            window.location.href = window.location.pathname + '?t=' + Date.now();
+        }
+    })
+    .catch(function(error) {
+        console.error('Error switching industry:', error);
+        alert('Failed to switch industry. Please try again.');
+    });
+};
+
+// ============================================================================
+// RENDER ORDERS TABLE - WITH WORKFLOW DATA
+// ============================================================================
+function renderOrders(orders) {
+    console.log('📊 renderOrders called with', orders ? orders.length : 0, 'orders');
+    var tbody = getEl('ordersTableBody');
+    if (!tbody) {
+        console.error('❌ ordersTableBody not found!');
+        return;
+    }
+    
+    if (!orders || orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center">' + t('global.no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+    
+    // ============================================================
+    // STEP 4: Enhanced debug logging for workflow data
+    // ============================================================
+    if (orders.length > 0) {
+        console.log('🔍 First order workflow data:', {
+            id: orders[0].id,
+            workflowId: orders[0].workflowId,
+            workflowState: orders[0].workflowState,
+            workflowStepDisplay: orders[0].workflowStepDisplay,
+            workflowStatus: orders[0].workflowStatus
+        });
+        // Also log all orders with workflowId
+        var ordersWithWorkflow = orders.filter(function(o) { return o.workflowId; });
+        console.log('🔍 Orders with workflow:', ordersWithWorkflow.length);
+        if (ordersWithWorkflow.length > 0) {
+            ordersWithWorkflow.forEach(function(o) {
+                console.log('  - ' + o.id + ': ' + o.workflowState + ' - ' + o.workflowStepDisplay);
+            });
+        } else {
+            console.log('⚠️ No orders with workflowId found in the data');
+        }
+    }
+    
+    var html = '';
+    orders.forEach(function(o, index) {
+        var rowNumber = index + 1;
+        // CHANGE A: Prefer API-formatted date (server-side localized) over client fallback
+        var dueDate = o.dueDateFormatted 
+            || (o.dueDateKey ? keyToDate(o.dueDateKey) : '-');
+        
+        // FIX: Use full translation keys (global.xxx)
+        var statusKey = statusKeys[o.status] || 'global.' + (o.status ? o.status.toLowerCase() : 'unknown');
+        var statusDisplay = t(statusKey, o.status);
+        var statusBadge = '<span class="badge bg-' + getStatusColor(o.status) + '">' + statusDisplay + '</span>';
+        
+        // ============================================================
+        // FIXED: WORKFLOW DISPLAY - Use workflowStepDisplay from API
+        // ============================================================
+        var workflowDisplay = '-';
+        if (o.workflowId) {
+            var wfState = o.workflowState || 'Pending';
+            var wfColor = getWorkflowStatusColor(wfState);
+            
+            // Use the workflowStepDisplay from the API (already formatted)
+            var wfDisplay = o.workflowStepDisplay || wfState;
+            
+            // If workflowStepDisplay is "Not Started" or empty, use the state
+            if (wfDisplay === 'Not Started' || wfDisplay === '' || wfDisplay === null) {
+                wfDisplay = wfState;
+            }
+            
+            // Add emoji indicators based on state
+            if (wfState === 'Completed') {
+                wfDisplay = '✅ ' + wfDisplay;
+                wfColor = 'success';
+            } else if (wfState === 'Rejected') {
+                wfDisplay = '❌ ' + wfDisplay;
+                wfColor = 'danger';
+            } else if (wfState === 'Pending') {
+                wfColor = 'warning';
+            }
+            
+            workflowDisplay = '<span class="badge bg-' + wfColor + '" title="' + wfDisplay + '">' + wfDisplay + '</span>';
+        } else if (o.workflowStatus === 'NotStarted' || o.workflowStatus === 'Not Started') {
+            var notStartedText = t('workflow.not_started', 'Not Started');
+            workflowDisplay = '<span class="badge bg-secondary">' + notStartedText + '</span>';
+        }
+        
+        var ecoIcon = o.ecoWarning ? '<i class="fas fa-exclamation-triangle text-warning"></i>' : '<i class="fas fa-check-circle text-success"></i>';
+        var engLink = o.engVersion !== 'N/A' && o.engVersion !== undefined ? 
+            '<a href="/engineering/workbench?product=' + (o.productId || '') + '" target="_blank">' + o.engVersion + '</a>' : 
+            (o.engVersion || 'N/A');
+        
+        // FIX: Use full translation keys for action buttons
+        var actions = '';
+        actions += '<button class="btn btn-outline-secondary btn-sm view-order me-1" data-id="' + o.id + '">' + t('global.view', 'View') + '</button> ';
+        
+        if (o.status === 'Draft') {
+            actions += '<button class="btn btn-warning btn-sm edit-order me-1" data-id="' + o.id + '">' + t('global.edit', 'Edit') + '</button> ';
+            actions += '<button class="btn btn-primary btn-sm release-order me-1" data-id="' + o.id + '">' + t('global.release', 'Release') + '</button> ';
+        }
+        if (o.status === 'Released') {
+            actions += '<button class="btn btn-success btn-sm start-order me-1" data-id="' + o.id + '">' + t('global.start', 'Start') + '</button> ';
+            actions += '<button class="btn btn-secondary btn-sm issue-materials me-1" data-id="' + o.id + '">' + t('global.issue', 'Issue') + '</button> ';
+            actions += '<button class="btn btn-warning btn-sm hold-order me-1" data-id="' + o.id + '">' + t('global.hold', 'Hold') + '</button> ';
+        }
+        if (o.status === 'InProgress') {
+            actions += '<button class="btn btn-secondary btn-sm issue-materials me-1" data-id="' + o.id + '">' + t('global.issue', 'Issue') + '</button> ';
+            actions += '<button class="btn btn-primary btn-sm report-qty me-1" data-id="' + o.id + '">' + t('global.qty', 'Qty') + '</button> ';
+            actions += '<button class="btn btn-success btn-sm complete-order me-1" data-id="' + o.id + '">' + t('global.complete', 'Complete') + '</button> ';
+            actions += '<button class="btn btn-warning btn-sm hold-order me-1" data-id="' + o.id + '">' + t('global.hold', 'Hold') + '</button> ';
+        }
+        if (o.status === 'Completed') {
+            actions += '<button class="btn btn-dark btn-sm close-order me-1" data-id="' + o.id + '">' + t('global.close_order', 'Close') + '</button> ';
+        }
+        if (o.status === 'Hold') {
+            actions += '<button class="btn btn-success btn-sm resume-order me-1" data-id="' + o.id + '">' + t('global.resume', 'Resume') + '</button> ';
+        }
+        if (o.orderType === 'Subcontract' && o.status !== 'Completed' && o.status !== 'Closed') {
+            actions += '<button class="btn btn-warning btn-sm issue-to-supplier me-1" data-id="' + o.id + '">' + t('global.to_supplier', 'To Supplier') + '</button> ';
+            actions += '<button class="btn btn-info btn-sm receive-from-supplier me-1" data-id="' + o.id + '">' + t('global.receive', 'Receive') + '</button> ';
+        }
+        actions += '<button class="btn btn-outline-info btn-sm view-quality me-1" data-id="' + o.id + '">' + t('global.quality', 'Quality') + '</button> ';
+        
+        var productName = o.productName || o.productId;
+        
+        // FIX: Use full translation keys for order type
+        var orderTypeKey = 'global.' + (o.orderType ? o.orderType.toLowerCase() : 'manufacturing');
+        var orderTypeDisplay = t(orderTypeKey, o.orderType || 'Manufacturing');
+        
+        html += '<tr>' +
+            '<td class="text-center text-muted">' + rowNumber + '</td>' +
+            '<td><a href="/manufacturing/job-orders/' + o.id + '">' + o.id + '</a></td>' +
+            '<td><a href="/engineering/products/' + (o.productId || '') + '" target="_blank">' + productName + '</a></td>' +
+            '<td>' + orderTypeDisplay + '</td>' +
+            '<td>' + (o.quantity || 0) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + workflowDisplay + '</td>' +
+            '<td>' + dueDate + '</td>' +
+            '<td>' + (o.projectName || '-') + '</td>' +
+            '<td class="text-center">' + ecoIcon + '</td>' +
+            '<td>' + engLink + '</td>' +
+            '<td>' + actions + '</td>' +
+        '</tr>';
+    });
+    
+    tbody.innerHTML = html;
+    console.log('✅ Rendered', orders.length, 'orders');
+}
+
+// ============================================================================
+// FETCH AND RENDER ORDERS
+// ============================================================================
+function filterAndRenderOrders() {
+    console.log('🔍 filterAndRenderOrders called');
+    
+    var tbody = getEl('ordersTableBody');
+    if (!tbody) {
+        console.error('❌ ordersTableBody not found!');
+        return;
+    }
+    
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">' + t('global.loading', 'Loading...') + '</td></tr>';
+    
+    var params = new URLSearchParams();
+    var statusFilter = getEl('filterStatus');
+    var productFilter = getEl('filterProduct');
+    var projectFilter = getEl('filterProject');
+    var dateFrom = getEl('filterDateFrom');
+    var dateTo = getEl('filterDateTo');
+    
+    if (statusFilter && statusFilter.value) params.set('status', statusFilter.value);
+    if (productFilter && productFilter.value) params.set('product_id', productFilter.value);
+    if (projectFilter && projectFilter.value) params.set('project_id', projectFilter.value);
+    if (dateFrom && dateFrom.value) params.set('date_from', dateFrom.value);
+    if (dateTo && dateTo.value) params.set('date_to', dateTo.value);
+    
+    var url = '/api/manufacturing/orders' + (params.toString() ? '?' + params.toString() : '');
+    console.log('📡 Fetching from URL:', url);
+    
+    fetch(url)
+        .then(function(r) {
+            console.log('📊 API response status:', r.status);
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(orders) {
+            console.log('📦 Orders received:', orders ? orders.length : 0);
+            // Log the first order's workflow data for debugging
+            if (orders && orders.length > 0) {
+                var firstWithWorkflow = orders.find(function(o) { return o.workflowId; });
+                if (firstWithWorkflow) {
+                    console.log('🔍 First order with workflow:', {
+                        id: firstWithWorkflow.id,
+                        workflowId: firstWithWorkflow.workflowId,
+                        workflowState: firstWithWorkflow.workflowState,
+                        workflowStepDisplay: firstWithWorkflow.workflowStepDisplay
+                    });
+                } else {
+                    console.log('⚠️ No orders with workflowId found in API response');
+                }
+            }
+            renderOrders(orders);
+        })
+        .catch(function(err) {
+            console.error('❌ Orders error:', err);
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger">' + t('global.error_loading', 'Error loading data') + ': ' + err.message + '</td></tr>';
+        });
+}
+
+// ============================================================================
+// LOAD KPI
+// ============================================================================
+function loadKPIs() {
+    console.log('📊 loadKPIs called');
+    
+    var params = new URLSearchParams();
+    var statusFilter = getEl('filterStatus');
+    var productFilter = getEl('filterProduct');
+    var projectFilter = getEl('filterProject');
+    var dateFrom = getEl('filterDateFrom');
+    var dateTo = getEl('filterDateTo');
+    
+    if (statusFilter && statusFilter.value) params.set('status', statusFilter.value);
+    if (productFilter && productFilter.value) params.set('product_id', productFilter.value);
+    if (projectFilter && projectFilter.value) params.set('project_id', projectFilter.value);
+    if (dateFrom && dateFrom.value) params.set('date_from', dateFrom.value);
+    if (dateTo && dateTo.value) params.set('date_to', dateTo.value);
+    
+    var url = '/api/manufacturing/orders/stats' + (params.toString() ? '?' + params.toString() : '');
+    
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            console.log('📊 KPI data:', res);
+            var map = {
+                'kpiDraft': 'Draft',
+                'kpiReleased': 'Released',
+                'kpiInProgress': 'InProgress',
+                'kpiCompleted': 'Completed',
+                'kpiClosed': 'Closed',
+                'kpiHold': 'Hold'
+            };
+            for (var key in map) {
+                var el = getEl(key);
+                if (el) {
+                    var val = res[map[key]] || 0;
+                    el.textContent = val;
+                }
+            }
+        })
+        .catch(function(err) {
+            console.error('KPI error:', err);
+        });
+}
+
+// ============================================================================
+// LOAD DROPDOWNS - CORRECT API ENDPOINTS
+// ============================================================================
+function loadDropdowns() {
+    console.log('📋 Loading dropdowns...');
+    
+    // Load products for filter - from Manufacturing module
+    fetch('/api/manufacturing/production-orders/products-search?q=')
+        .then(function(r) { 
+            console.log('📊 Products API status:', r.status);
+            if (!r.ok) throw new Error('Status: ' + r.status);
+            return r.json(); 
+        })
+        .then(function(products) {
+            console.log('📦 Products received:', products ? products.length : 0);
+            var select = getEl('filterProduct');
+            if (select && Array.isArray(products)) {
+                var opts = '<option value="">' + t('global.all', 'All') + '</option>';
+                products.forEach(function(p) {
+                    var name = p.name || p.descEnglish || p.id;
+                    opts += '<option value="' + p.id + '">' + p.id + ' - ' + name + '</option>';
+                });
+                select.innerHTML = opts;
+                console.log('✅ Filter products loaded:', products.length);
+            }
+        })
+        .catch(function(err) { 
+            console.error('❌ Products error:', err); 
+        });
+    
+    // Load products for create modal - from Manufacturing module
+    var productSelect = getEl('productSelect');
+    if (productSelect) {
+        fetch('/api/manufacturing/production-orders/products-search?q=')
+            .then(function(r) { 
+                if (!r.ok) throw new Error('Status: ' + r.status);
+                return r.json(); 
+            })
+            .then(function(products) {
+                console.log('📦 Product dropdown products:', products ? products.length : 0);
+                var opts = '<option value="">' + t('global.select', 'Select a product...') + '</option>';
+                if (Array.isArray(products) && products.length > 0) {
+                    products.forEach(function(p) {
+                        var name = p.name || p.descEnglish || p.id;
+                        opts += '<option value="' + p.id + '" data-desc="' + name + '">' + p.id + ' - ' + name + '</option>';
+                    });
+                    console.log('✅ Product dropdown loaded with', products.length, 'products');
+                } else {
+                    opts += '<option value="" disabled>No products available</option>';
+                }
+                productSelect.innerHTML = opts;
+            })
+            .catch(function(err) { 
+                console.error('❌ Product dropdown error:', err);
+                productSelect.innerHTML = '<option value="">Error loading products</option>';
+            });
+    }
+    
+    // Projects for filter - from Projects module (no /manufacturing prefix)
+    fetch('/api/projects/list')
+        .then(function(r) { return r.json(); })
+        .then(function(projects) {
+            var select = getEl('filterProject');
+            if (select && Array.isArray(projects)) {
+                var opts = '<option value="">' + t('global.all', 'All') + '</option>';
+                projects.forEach(function(p) {
+                    opts += '<option value="' + p.ProjectID + '">' + p.ProjectName + '</option>';
+                });
+                select.innerHTML = opts;
+                console.log('✅ Projects loaded:', projects.length);
+            }
+        })
+        .catch(function(err) { console.error('Projects error:', err); });
+    
+    // Customers - from CRM module
+    fetch('/api/crm/customers/list')
+        .then(function(r) { return r.json(); })
+        .then(function(customers) {
+            var select = getEl('customerSelect');
+            if (select && Array.isArray(customers)) {
+                var opts = '<option value="">' + t('global.none', 'None') + '</option>';
+                customers.forEach(function(c) {
+                    opts += '<option value="' + c.CustomerID + '">' + c.CustomerName + '</option>';
+                });
+                select.innerHTML = opts;
+                console.log('✅ Customers loaded:', customers ? customers.length : 0);
+            }
+        })
+        .catch(function(err) { console.error('Customers error:', err); });
+    
+    // Sales Orders - from CRM module
+    fetch('/api/crm/orders/list')
+        .then(function(r) { return r.json(); })
+        .then(function(orders) {
+            var select = getEl('salesOrderSelect');
+            if (select && Array.isArray(orders)) {
+                var opts = '<option value="">' + t('global.none', 'None') + '</option>';
+                orders.forEach(function(o) {
+                    opts += '<option value="' + o.id + '">' + o.id + ' - ' + (o.customerId || '') + '</option>';
+                });
+                select.innerHTML = opts;
+                console.log('✅ Sales orders loaded:', orders ? orders.length : 0);
+            }
+        })
+        .catch(function(err) { console.error('Sales orders error:', err); });
+    
+    // Projects for create modal - from Projects module
+    fetch('/api/projects/list')
+        .then(function(r) { return r.json(); })
+        .then(function(projects) {
+            var select = getEl('projectSelect');
+            if (select && Array.isArray(projects)) {
+                var opts = '<option value="">' + t('global.none', 'None') + '</option>';
+                projects.forEach(function(p) {
+                    opts += '<option value="' + p.ProjectID + '">' + p.ProjectName + '</option>';
+                });
+                select.innerHTML = opts;
+                console.log('✅ Projects loaded:', projects.length);
+            }
+        })
+        .catch(function(err) { console.error('Projects error:', err); });
+}
+
+// ============================================================================
+// REFRESH ALL
+// ============================================================================
+function refreshAll() {
+    console.log('🔄 refreshAll called');
+    loadKPIs();
+    filterAndRenderOrders();
+}
+
+// ============================================================================
+// OPEN ORDER IN MODAL
+// ============================================================================
+
+function openOrder(orderId, mode) {
+    console.log('📂 Opening order:', orderId, 'Mode:', mode);
+    
+    var title = getEl('modalTitle');
+    if (title) title.textContent = t('global.loading', 'Loading...');
+    
+    // Clear previous hierarchy data
+    var hierarchyTree = getEl('hierarchyTree');
+    var hierarchyLoading = getEl('hierarchyLoading');
+    
+    if (hierarchyTree) {
+        hierarchyTree.style.display = 'none';
+        hierarchyTree.innerHTML = '';
+    }
+    if (hierarchyLoading) {
+        hierarchyLoading.style.display = 'block';
+        hierarchyLoading.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">' + t('hierarchy.loading', 'Loading hierarchy...') + '</p>';
+    }
+    
+    // Clear workflow data
+    var wfDetails = getEl('workflowDetails');
+    var wfLoading = getEl('workflowLoading');
+    var noWfMsg = getEl('noWorkflowMessage');
+    if (wfDetails) wfDetails.style.display = 'none';
+    if (wfLoading) wfLoading.style.display = 'block';
+    if (noWfMsg) noWfMsg.style.display = 'none';
+    
+    fetch('/api/manufacturing/orders/' + orderId)
+        .then(function(r) {
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(order) {
+            console.log('📦 Order data received:', order);
+            console.log('📦 Order workflowId:', order.workflowId);
+            
+            var isReadOnly = false;
+            if (mode === 'view') {
+                isReadOnly = true;
+            } else if (order.status !== 'Draft') {
+                isReadOnly = true;
+            }
+            
+            var title = getEl('modalTitle');
+            if (title) {
+                if (isReadOnly) {
+                    title.textContent = t('global.view', 'View') + ' ' + t('manufacturing.job_orders.title', 'Job Order') + ': ' + orderId;
+                } else {
+                    title.textContent = t('global.edit', 'Edit') + ' ' + t('manufacturing.job_orders.title', 'Job Order') + ': ' + orderId;
+                }
+            }
+            
+            var editId = getEl('editOrderId');
+            if (editId) editId.value = orderId;
+            
+            populateOrderFields(order);
+            setReadOnlyMode(isReadOnly);
+            
+            // Load hierarchy immediately
+            if (orderId) {
+                setTimeout(function() {
+                    loadOrderHierarchy(orderId);
+                }, 100);
+            }
+            
+            // ============================================================
+            // CRITICAL: Load workflow data if available
+            // ============================================================
+            console.log('🔍 Checking workflow for order:', orderId, 'WorkflowId:', order.workflowId);
+            if (order.workflowId) {
+                console.log('✅ WorkflowId found, loading workflow...');
+                loadWorkflowForOrder(orderId);
+            } else {
+                console.log('ℹ️ No workflowId for this order, showing "No workflow" message');
+                // Show no workflow message
+                var wfLoading = getEl('workflowLoading');
+                var wfDetails = getEl('workflowDetails');
+                var noWfMsg = getEl('noWorkflowMessage');
+                if (wfLoading) wfLoading.style.display = 'none';
+                if (wfDetails) wfDetails.style.display = 'block';
+                if (noWfMsg) noWfMsg.style.display = 'block';
+            }
+            
+            var modal = new bootstrap.Modal(document.getElementById('createOrderModal'));
+            modal.show();
+            
+            // CHANGE B: Re-init date pickers inside the modal after it's shown
+            modal._element.addEventListener('shown.bs.modal', function () {
+                if (typeof window.reinitDatePickers === 'function') {
+                    window.reinitDatePickers();
+                }
+                // Refresh Persian previews after modal renders
+                if (typeof window.refreshPersianPreviews === 'function') {
+                    window.refreshPersianPreviews();
+                }
+            }, { once: true });
+        })
+        .catch(function(err) {
+            console.error('❌ Error loading order:', err);
+            alert(t('global.error', 'Error') + ': ' + t('manufacturing.job_orders.error_load', 'Failed to load order details'));
+        });
+}
+
+// ============================================================================
+// POPULATE ORDER FIELDS
+// ============================================================================
+function populateOrderFields(order) {
+    var oid = getEl('orderId');
+    if (oid) oid.value = order.id || '';
+    
+    var otype = getEl('orderType');
+    if (otype) otype.value = order.orderType || 'Manufacturing';
+    
+    var ostatus = getEl('orderStatus');
+    if (ostatus) ostatus.value = order.status || 'Draft';
+    
+    var productSelect = getEl('productSelect');
+    if (productSelect && order.productId) {
+        productSelect.value = order.productId;
+    }
+    
+    var pdesc = getEl('productDesc');
+    if (pdesc) pdesc.value = order.productName || '';
+    
+    var bomv = getEl('bomVersion');
+    if (bomv) bomv.value = order.bomVersion || '1';
+    
+    var routev = getEl('routingVersion');
+    if (routev) routev.value = order.routingVersion || '1';
+    
+    var engv = getEl('engVersion');
+    if (engv) engv.value = order.engineeringVersion || '1';
+    
+    var prio = getEl('priority');
+    if (prio) prio.value = order.priority || 2;
+    
+    var salesSelect = getEl('salesOrderSelect');
+    if (salesSelect && order.salesOrderId) {
+        salesSelect.value = order.salesOrderId;
+    }
+    
+    var customerSelect = getEl('customerSelect');
+    if (customerSelect && order.customerId) {
+        customerSelect.value = order.customerId;
+    }
+    
+    var cref = getEl('customerReference');
+    if (cref) cref.value = order.customerReference || '';
+    
+    var projectSelect = getEl('projectSelect');
+    if (projectSelect && order.projectId) {
+        projectSelect.value = order.projectId;
+    }
+    
+    var orderQty = getEl('orderQuantity');
+    if (orderQty) orderQty.value = order.quantity || '';
+    
+    var schedStart = getEl('scheduleStart');
+    if (schedStart) schedStart.value = order.scheduleStartDateKey ? keyToDate(order.scheduleStartDateKey) : '';
+    
+    var schedEnd = getEl('scheduleEnd');
+    if (schedEnd) schedEnd.value = order.scheduleEndDateKey ? keyToDate(order.scheduleEndDateKey) : '';
+    
+    var dueDate = getEl('dueDate');
+    if (dueDate) dueDate.value = order.dueDateKey ? keyToDate(order.dueDateKey) : '';
+    
+    var actStart = getEl('actualStart');
+    if (actStart) actStart.value = order.actualStartDateKey ? keyToDate(order.actualStartDateKey) : '';
+    
+    var actEnd = getEl('actualEnd');
+    if (actEnd) actEnd.value = order.actualEndDateKey ? keyToDate(order.actualEndDateKey) : '';
+    
+    var leadTime = getEl('leadTime');
+    if (leadTime) leadTime.value = order.leadTime || 0;
+    
+    // Materials
+    var matBody = getEl('materialsBody');
+    if (matBody && order.components && order.components.length > 0) {
+        var mhtml = '';
+        order.components.forEach(function(c) {
+            var statusBadge = c.status === 'Shortage' ? 
+                '<span class="badge bg-danger">' + t('manufacturing.job_orders.create_modal.shortage', 'Shortage') + '</span>' : 
+                '<span class="badge bg-success">' + t('manufacturing.job_orders.create_modal.available', 'Available') + '</span>';
+            mhtml += '<tr>' +
+                '<td>' + c.componentId + '</td>' +
+                '<td>' + (c.description || '') + '</td>' +
+                '<td>' + c.required + '</td>' +
+                '<td>' + c.available + '</td>' +
+                '<td>' + c.issued + '</td>' +
+                '<td>' + c.shortage + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+            '</tr>';
+        });
+        matBody.innerHTML = mhtml;
+    }
+    
+    // Operations
+    var opBody = getEl('operationsBody');
+    if (opBody && order.operations && order.operations.length > 0) {
+        var ohtml = '';
+        order.operations.forEach(function(op) {
+            ohtml += '<tr>' +
+                '<td>' + (op.sequence || 0) + '</td>' +
+                '<td>' + (op.workCenterName || op.workCenter || '') + '</td>' +
+                '<td>' + (op.setupTime || 0) + '</td>' +
+                '<td>' + (op.runTime || 0) + '</td>' +
+                '<td>' + (op.totalTime || 0) + '</td>' +
+            '</tr>';
+        });
+        opBody.innerHTML = ohtml;
+    }
+    
+    // Quality
+    var qStatus = getEl('qualityStatus');
+    if (qStatus) qStatus.value = order.qualityStatus || 'Pending';
+    
+    // Costing
+    var estMat = getEl('estMaterial');
+    if (estMat) estMat.textContent = order.estimatedMaterialCost || 0;
+    var estLab = getEl('estLabor');
+    if (estLab) estLab.textContent = order.estimatedLaborCost || 0;
+    var estOh = getEl('estOverhead');
+    if (estOh) estOh.textContent = order.estimatedOverheadCost || 0;
+    var estTot = getEl('estTotal');
+    if (estTot) estTot.textContent = order.estimatedTotalCost || 0;
+    var actMat = getEl('actMaterial');
+    if (actMat) actMat.textContent = order.actualMaterialCost || 0;
+    var actLab = getEl('actLabor');
+    if (actLab) actLab.textContent = order.actualLaborCost || 0;
+    var actOh = getEl('actOverhead');
+    if (actOh) actOh.textContent = order.actualOverheadCost || 0;
+    var actTot = getEl('actTotal');
+    if (actTot) actTot.textContent = order.actualTotalCost || 0;
+    var varCost = getEl('costVariance');
+    if (varCost) varCost.textContent = order.costVariance || 0;
+}
+
+// ============================================================================
+// SET READ-ONLY MODE
+// ============================================================================
+function setReadOnlyMode(isReadOnly) {
+    var form = document.getElementById('orderForm');
+    if (!form) return;
+    
+    var inputs = form.querySelectorAll('input:not([type="hidden"]), select, textarea');
+    inputs.forEach(function(inp) {
+        if (inp.id !== 'editOrderId') {
+            inp.disabled = isReadOnly;
+        }
+    });
+    
+    var saveBtn = getEl('saveOrderBtn');
+    if (saveBtn) {
+        saveBtn.style.display = isReadOnly ? 'none' : 'block';
+        saveBtn.disabled = isReadOnly;
+    }
+    
+    var modalBody = document.querySelector('#createOrderModal .modal-body');
+    if (modalBody) {
+        var existingIndicator = modalBody.querySelector('.read-only-indicator');
+        if (existingIndicator) existingIndicator.remove();
+        
+        if (isReadOnly) {
+            var indicator = document.createElement('div');
+            indicator.className = 'read-only-indicator alert alert-info mb-3';
+            indicator.innerHTML = '<i class="fas fa-info-circle"></i> ' + 
+                t('manufacturing.job_orders.view_mode', 'This order is in read-only mode. Only Draft orders can be edited.');
+            modalBody.prepend(indicator);
+        }
+    }
+}
+
+// ============================================================================
+// WORKFLOW FUNCTIONS
+// ============================================================================
+
+
+
+function loadWorkflowForOrder(orderId) {
+    console.log('🔄 loadWorkflowForOrder called for order:', orderId);
+    
+    var wfLoading = getEl('workflowLoading');
+    var wfDetails = getEl('workflowDetails');
+    var wfStatusBar = getEl('workflowStatusBar');
+    var noWfMsg = getEl('noWorkflowMessage');
+    
+    if (wfLoading) wfLoading.style.display = 'block';
+    if (wfDetails) wfDetails.style.display = 'none';
+    if (wfStatusBar) wfStatusBar.style.display = 'none';
+    if (noWfMsg) noWfMsg.style.display = 'none';
+    
+    var url = '/api/manufacturing/orders/' + orderId + '/workflow';
+    console.log('📡 Fetching workflow from URL:', url);
+    
+    fetch(url)
+        .then(function(response) {
+            console.log('📊 Workflow API response status:', response.status);
+            if (response.status === 404) {
+                throw new Error('Workflow not found (404)');
+            }
+            if (!response.ok) throw new Error('API returned ' + response.status);
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('📋 Workflow data received:', data);
+            console.log('📋 has_workflow:', data.has_workflow);
+            
+            if (!data || !data.has_workflow) {
+                console.log('ℹ️ No workflow data found for this order');
+                if (wfLoading) wfLoading.style.display = 'none';
+                if (wfDetails) wfDetails.style.display = 'block';
+                if (noWfMsg) noWfMsg.style.display = 'block';
+                if (wfStatusBar) wfStatusBar.style.display = 'none';
+                return;
+            }
+            
+            var workflow = data.workflow || data;
+            console.log('📋 Workflow object:', workflow);
+            console.log('📋 Steps count:', workflow.steps ? workflow.steps.length : 0);
+            
+            // Make sure workflow_code is set for step translations
+            if (!workflow.workflow_code && workflow.workflowCode) {
+                workflow.workflow_code = workflow.workflowCode;
+            }
+            
+            renderWorkflow(workflow);
+            
+            // Show the workflow content
+            if (wfLoading) wfLoading.style.display = 'none';
+            if (wfDetails) wfDetails.style.display = 'block';
+            if (wfStatusBar) wfStatusBar.style.display = 'block';
+            if (noWfMsg) noWfMsg.style.display = 'none';
+        })
+        .catch(function(error) {
+            console.error('❌ Error loading workflow:', error);
+            if (wfLoading) wfLoading.style.display = 'none';
+            if (wfDetails) {
+                wfDetails.style.display = 'block';
+                var noWfMsg = getEl('noWorkflowMessage');
+                if (noWfMsg) noWfMsg.style.display = 'block';
+            }
+            if (wfStatusBar) wfStatusBar.style.display = 'none';
+        });
+}
+
+function renderWorkflow(workflow) {
+    console.log('📋 renderWorkflow called with workflow:', workflow);
+    console.log('📋 workflow.workflow_code:', workflow.workflow_code);
+    console.log('📋 workflow.steps:', workflow.steps);
+    
+    if (!workflow.steps || workflow.steps.length === 0) {
+        console.log('⚠️ Workflow has no steps defined');
+        var wfLoading = getEl('workflowLoading');
+        var wfDetails = getEl('workflowDetails');
+        var wfStatusBar = getEl('workflowStatusBar');
+        var noWfMsg = getEl('noWorkflowMessage');
+        
+        if (wfLoading) wfLoading.style.display = 'none';
+        if (wfDetails) wfDetails.style.display = 'block';
+        if (noWfMsg) noWfMsg.style.display = 'block';
+        if (wfStatusBar) wfStatusBar.style.display = 'none';
+        return;
+    }
+    
+    console.log('✅ Rendering workflow with', workflow.steps.length, 'steps');
+    renderWorkflowStatusBar(workflow);
+    renderWorkflowTimeline(workflow);
+    showWorkflowActions(workflow);
+    
+    var wfLoading = getEl('workflowLoading');
+    var wfDetails = getEl('workflowDetails');
+    var wfStatusBar = getEl('workflowStatusBar');
+    var noWfMsg = getEl('noWorkflowMessage');
+    
+    if (wfLoading) wfLoading.style.display = 'none';
+    if (wfDetails) wfDetails.style.display = 'block';
+    if (wfStatusBar) wfStatusBar.style.display = 'block';
+    if (noWfMsg) noWfMsg.style.display = 'none';
+    
+    console.log('✅ Workflow rendered successfully');
+}
+
+// ============================================================================
+// LOAD ORDER HIERARCHY
+// ============================================================================
+function loadOrderHierarchy(orderId) {
+    console.log('🌳 Loading order hierarchy for:', orderId);
+    
+    var container = getEl('hierarchyTree');
+    var loading = getEl('hierarchyLoading');
+    
+    if (loading) {
+        loading.style.display = 'block';
+        loading.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">' + t('hierarchy.loading', 'Loading hierarchy...') + '</p>';
+    }
+    if (container) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+    }
+    
+    fetch('/api/manufacturing/orders/' + orderId + '/hierarchy')
+        .then(function(r) {
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            console.log('📊 Hierarchy data received:', data);
+            if (loading) loading.style.display = 'none';
+            if (container) {
+                container.style.display = 'block';
+                if (data && data.product_id) {
+                    container.innerHTML = renderHierarchyTree(data);
+                } else {
+                    container.innerHTML = '<p class="text-muted text-center">' + t('hierarchy.no_data', 'No hierarchy data available') + '</p>';
+                }
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading hierarchy:', err);
+            if (loading) loading.style.display = 'none';
+            if (container) {
+                container.style.display = 'block';
+                container.innerHTML = '<p class="text-danger text-center">' + t('error_loading', 'Error loading hierarchy') + '</p>';
+            }
+        });
+}
+
+// ============================================================================
+// RENDER HIERARCHY TREE
+// ============================================================================
+function renderHierarchyTree(node, level) {
+    level = level || 0;
+    var indent = level * 20;
+    var html = '';
+    
+    var iconMap = {
+        'Assembly': 'fa-cubes',
+        'Component': 'fa-cube',
+        'Make': 'fa-industry',
+        'Buy': 'fa-shopping-cart',
+        'Outsource': 'fa-truck',
+        'Phantom': 'fa-ghost',
+        'Planned': 'fa-clock'
+    };
+    
+    var colorMap = {
+        'Assembly': '#2563eb',
+        'Component': '#059669',
+        'Make': '#059669',
+        'Buy': '#d97706',
+        'Outsource': '#7c3aed',
+        'Phantom': '#6b7280',
+        'Planned': '#6b7280'
+    };
+    
+    var icon = iconMap[node.sourcing_type] || iconMap[node.category] || 'fa-circle';
+    var color = colorMap[node.sourcing_type] || colorMap[node.category] || '#6b7280';
+    
+    var displayName = node.product_name || node.product_id || node.order_id || 'Unknown';
+    if (displayName.length > 35) {
+        displayName = displayName.substring(0, 32) + '...';
+    }
+    
+    var category = node.category || node.sourcing_type || 'Unknown';
+    var categoryKey = 'hierarchy.category.' + category.toLowerCase();
+    var categoryDisplay = t(categoryKey, category);
+    var categoryClass = category.toLowerCase();
+    
+    var status = node.status || 'Unknown';
+    var statusKey = 'hierarchy.status.' + status.toLowerCase().replace(/ /g, '_');
+    var statusDisplay = t(statusKey, status);
+    var statusClass = status.toLowerCase();
+    
+    var sourcingIcons = {
+        'Make': '🏭',
+        'Buy': '📦',
+        'Outsource': '🔧',
+        'Planned': '⏳',
+        'Phantom': '👻'
+    };
+    var sourcingIcon = sourcingIcons[node.sourcing_type] || '';
+    
+    html += '<div class="hierarchy-node level-' + level + '">';
+    html += '<div class="node-content">';
+    
+    html += '<div class="node-icon ' + categoryClass + '">';
+    html += '<i class="fas ' + icon + '"></i>';
+    html += '</div>';
+    
+    html += '<span class="product-name">' + displayName + '</span>';
+    html += '<span class="category-badge ' + categoryClass + '">' + categoryDisplay + '</span>';
+    html += '<span class="status-badge ' + statusClass + '">' + statusDisplay + '</span>';
+    
+    if (sourcingIcon) {
+        html += '<span class="sourcing-icon">' + sourcingIcon + '</span>';
+    }
+    
+    html += '<span class="quantity">' + t('hierarchy.qty', 'Qty:') + ' ' + (node.quantity || 1) + '</span>';
+    
+    if (node.order_id) {
+        html += '<a href="/manufacturing/job-orders/' + node.order_id + '" class="order-link" target="_blank">';
+        html += '<i class="fas fa-external-link-alt"></i> ' + t('hierarchy.view_order', 'View Order');
+        html += '</a>';
+    }
+    
+    html += '</div>';
+    
+    if (node.children && node.children.length > 0) {
+        html += '<div class="children-container">';
+        node.children.forEach(function(child) {
+            html += renderHierarchyTree(child, level + 1);
+        });
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    
+    return html;
+}
+
+// ============================================================================
+// WORKFLOW STATUS BAR
+// ============================================================================
+function renderWorkflowStatusBar(workflow) {
+    var container = getEl('workflowStepsContainer');
+    if (!container) {
+        console.warn('workflowStepsContainer not found');
+        return;
+    }
+    
+    console.log('Rendering workflow status bar with data:', workflow);
+    
+    var progress = 0;
+    var totalSteps = workflow.steps ? workflow.steps.length : 0;
+    var completedSteps = workflow.steps ? workflow.steps.filter(function(s) { 
+        return s.status === 'Approved' || s.status === 'Completed';
+    }).length : 0;
+    progress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+    
+    var progressBadge = getEl('workflowProgress');
+    if (progressBadge) progressBadge.textContent = progress + '%';
+    
+    var statusBadge = getEl('workflowStatusBadge');
+    if (statusBadge) {
+        var status = workflow.status || 'Pending';
+        var displayStatus = t('workflow_' + status.toLowerCase(), status);
+        statusBadge.textContent = displayStatus;
+        statusBadge.className = 'badge bg-' + getWorkflowStatusColor(status);
+    }
+    
+    var wfName = getEl('workflowName');
+    if (wfName) {
+        var translatedName = getWorkflowNameTranslation(workflow.workflow_code);
+        wfName.textContent = translatedName;
+    }
+    
+    var currentStepName = getEl('currentStepName');
+    if (currentStepName) {
+        var step = workflow.steps ? workflow.steps.find(function(s) { return s.step === workflow.current_step; }) : null;
+        if (step) {
+            var translatedStep = getWorkflowStepTranslation(workflow.workflow_code, step.step);
+            currentStepName.textContent = translatedStep;
+        } else {
+            currentStepName.textContent = '-';
+        }
+    }
+    
+    var assignedTo = getEl('workflowAssignedTo');
+    if (assignedTo) {
+        var assign = workflow.assignments ? workflow.assignments.find(function(a) { 
+            return a.step === workflow.current_step; 
+        }) : null;
+        assignedTo.textContent = assign ? assign.full_name || assign.user || '-' : '-';
+    }
+    
+    // CHANGE C: Prefer formatted workflow due date from API
+    var dueDate = getEl('workflowDueDate');
+    if (dueDate) {
+        var wfDue = workflow.dueDateFormatted 
+            || (workflow.dueDateKey ? keyToDate(workflow.dueDateKey) : (workflow.due_date || '-'));
+        dueDate.textContent = wfDue;
+    }
+    
+    var html = '';
+    if (workflow.steps && workflow.steps.length > 0) {
+        workflow.steps.forEach(function(step, index) {
+            var isCurrent = step.step === workflow.current_step;
+            var isComplete = step.status === 'Approved' || step.status === 'Completed';
+            var isRejectedStep = step.status === 'Rejected' || (workflow.status === 'Rejected' && step.step === workflow.current_step);
+            
+            var iconClass = 'fas fa-circle';
+            var bgColor = 'secondary';
+            var textColor = 'text-secondary';
+            
+            if (isComplete) {
+                iconClass = 'fas fa-check-circle';
+                bgColor = 'success';
+                textColor = 'text-success';
+            } else if (isRejectedStep) {
+                iconClass = 'fas fa-times-circle';
+                bgColor = 'danger';
+                textColor = 'text-danger';
+            } else if (isCurrent) {
+                iconClass = 'fas fa-spinner fa-pulse';
+                bgColor = 'primary';
+                textColor = 'text-primary';
+            }
+            
+            var stepName = getWorkflowStepTranslation(workflow.workflow_code, step.step);
+            var stepBadge = '<span class="badge bg-' + bgColor + ' me-1">' + (index + 1) + '</span>';
+            
+            html += '<div class="text-center flex-grow-1 position-relative">' +
+                '<div class="' + textColor + '" style="font-size: 1.2rem;">' +
+                '<i class="' + iconClass + ' fa-lg"></i>' +
+                '</div>' +
+                '<div class="mt-1">' +
+                '<small class="d-block text-truncate" style="max-width:80px;" title="' + stepName + '">' + stepBadge + ' ' + stepName + '</small>' +
+                (isCurrent && !isRejectedStep ? '<span class="badge bg-primary rounded-pill" style="font-size:8px;">' + t('workflow.current', 'current') + '</span>' : '') +
+                (isComplete ? '<span class="badge bg-success rounded-pill" style="font-size:8px;">✓</span>' : '') +
+                (isRejectedStep ? '<span class="badge bg-danger rounded-pill" style="font-size:8px;">✗</span>' : '') +
+                '</div>' +
+                '</div>';
+                
+            if (index < workflow.steps.length - 1) {
+                var lineColor = isComplete ? '#28a745' : '#dee2e6';
+                html += '<div class="flex-grow-1" style="height:2px; background:' + lineColor + '; margin: 0 4px; align-self: flex-start; margin-top: 12px;"></div>';
+            }
+        });
+    }
+    container.innerHTML = html;
+    console.log('✅ Workflow status bar rendered');
+}
+
+// ============================================================================
+// WORKFLOW TIMELINE
+// ============================================================================
+function renderWorkflowTimeline(workflow) {
+    var timeline = getEl('workflowTimeline');
+    if (!timeline) {
+        console.warn('workflowTimeline element not found');
+        return;
+    }
+    
+    console.log('Rendering workflow timeline with data:', workflow);
+    
+    if (!workflow.steps || workflow.steps.length === 0) {
+        timeline.innerHTML = '<p class="text-muted text-center">' + t('workflow.no_steps', 'No workflow steps defined') + '</p>';
+        return;
+    }
+    
+    var html = '';
+    var totalSteps = workflow.steps.length;
+    var completedCount = workflow.steps.filter(function(s) { 
+        return s.status === 'Approved' || s.status === 'Completed';
+    }).length;
+    
+    var completionBadge = getEl('wfCompletionBadge');
+    if (completionBadge) {
+        completionBadge.textContent = completedCount + '/' + totalSteps + ' ' + t('workflow.steps', 'Steps');
+    }
+    
+    var statusBadge = getEl('wfStatusBadge');
+    if (statusBadge) {
+        var status = workflow.status || 'Pending';
+        var displayStatus = t('workflow_' + status.toLowerCase(), status);
+        statusBadge.textContent = displayStatus;
+        statusBadge.className = 'badge bg-' + getWorkflowStatusColor(status);
+    }
+    
+    var isRejected = workflow.status === 'Rejected';
+    
+    workflow.steps.forEach(function(step, index) {
+        var isCurrent = step.step === workflow.current_step;
+        var isComplete = step.status === 'Approved' || step.status === 'Completed';
+        var isRejectedStep = step.status === 'Rejected';
+        
+        var stepStatus = step.status;
+        if (isRejected && !isComplete && !isRejectedStep) {
+            if (step.step < workflow.current_step) {
+                stepStatus = 'Approved';
+            } else if (step.step === workflow.current_step) {
+                stepStatus = 'Rejected';
+            }
+        }
+        
+        var iconClass = 'fas fa-circle';
+        var bgColor = 'secondary';
+        var iconBg = 'bg-secondary';
+        var textColor = 'text-secondary';
+        var statusText = t('workflow_pending', 'Pending');
+        
+        if (stepStatus === 'Approved' || stepStatus === 'Completed') {
+            iconClass = 'fas fa-check-circle';
+            bgColor = 'success';
+            iconBg = 'bg-success';
+            textColor = 'text-success';
+            statusText = t('workflow_approved', 'Approved');
+        } else if (stepStatus === 'Rejected') {
+            iconClass = 'fas fa-times-circle';
+            bgColor = 'danger';
+            iconBg = 'bg-danger';
+            textColor = 'text-danger';
+            statusText = t('workflow_rejected', 'Rejected');
+        } else if (isCurrent && !isRejected) {
+            iconClass = 'fas fa-spinner fa-pulse';
+            bgColor = 'primary';
+            iconBg = 'bg-primary';
+            textColor = 'text-primary';
+            statusText = t('workflow_in_progress', 'In Progress');
+        }
+        
+        var stepName = getWorkflowStepTranslation(workflow.workflow_code, step.step);
+        var stepLabel = t('workflow.step', 'Step') + ' ' + (index + 1) + ': ' + stepName;
+        
+        html += '<div class="row mb-2">' +
+            '<div class="col-md-1 text-center">' +
+            '<div class="rounded-circle ' + iconBg + ' text-white d-inline-flex align-items-center justify-content-center" style="width:32px;height:32px;">' +
+            '<i class="' + iconClass + '"></i>' +
+            '</div>' +
+            '</div>' +
+            '<div class="col-md-7">' +
+            '<strong class="' + textColor + '">' + stepLabel + '</strong>' +
+            '</div>' +
+            '<div class="col-md-4 text-end">' +
+            '<span class="badge bg-' + bgColor + '">' + statusText + '</span>' +
+            (isCurrent && !isRejected ? ' <span class="badge bg-primary">' + t('workflow.current', 'current') + '</span>' : '') +
+            '</div>' +
+            '</div>';
+            
+        if (index < workflow.steps.length - 1) {
+            var lineColor = (stepStatus === 'Approved' || stepStatus === 'Completed') ? '#28a745' : '#dee2e6';
+            html += '<div class="row"><div class="col-md-1 text-center"><div style="width:2px;height:20px;background:' + 
+                lineColor + ';margin:0 auto;"></div></div></div>';
+        }
+    });
+    timeline.innerHTML = html;
+    console.log('✅ Workflow timeline rendered');
+}
+
+function showWorkflowActions(workflow) {
+    var actionsDiv = getEl('workflowActions');
+    if (!actionsDiv) return;
+    
+    var canAct = false;
+    var currentStep = workflow.current_step;
+    var step = workflow.steps ? workflow.steps.find(function(s) { return s.step === currentStep; }) : null;
+    
+    if (step && step.status === 'InProgress' && workflow.status === 'Pending') {
+        canAct = true;
+    }
+    
+    actionsDiv.style.display = canAct ? 'block' : 'none';
+    
+    var msgDiv = getEl('workflowActionMessage');
+    if (msgDiv) {
+        if (workflow.status === 'Completed') {
+            msgDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ' + 
+                t('workflow.completed', 'Workflow is complete.') + '</div>';
+        } else if (workflow.status === 'Rejected') {
+            msgDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle"></i> ' + 
+                t('workflow.rejected', 'Workflow has been rejected at step: ') + 
+                (step ? step.name : '') + '</div>';
+        } else if (step && step.status !== 'InProgress') {
+            msgDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle"></i> ' + 
+                t('workflow.already_processed', 'This step has already been processed.') + '</div>';
+        } else if (!canAct) {
+            msgDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-lock"></i> ' + 
+                t('workflow.no_permission', 'You do not have permission to approve this step.') + '</div>';
+        } else {
+            msgDiv.innerHTML = '';
+        }
+    }
+}
+
+// ============================================================================
+// WORKFLOW API CALLS
+// ============================================================================
+function approveWorkflowStep(orderId, workflowId, comment) {
+    return new Promise(function(resolve, reject) {
+        var data = {
+            user_id: {{ current_user.id if current_user else 1 }},
+            comment: comment || '',
+            entity_type: 'ProductionOrder',
+            entity_id: orderId
+        };
+        
+        fetch('/api/workflow/' + workflowId + '/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.json().then(function(err) {
+                    throw new Error(err.error || 'API returned ' + response.status);
+                });
+            }
+            return response.json();
+        })
+        .then(function(result) {
+            resolve(result);
+        })
+        .catch(function(error) {
+            reject(error);
+        });
+    });
+}
+
+function rejectWorkflowStep(orderId, workflowId, comment) {
+    return new Promise(function(resolve, reject) {
+        var data = {
+            user_id: {{ current_user.id if current_user else 1 }},
+            comment: comment || '',
+            entity_type: 'ProductionOrder',
+            entity_id: orderId
+        };
+        
+        fetch('/api/workflow/' + workflowId + '/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.json().then(function(err) {
+                    throw new Error(err.error || 'API returned ' + response.status);
+                });
+            }
+            return response.json();
+        })
+        .then(function(result) {
+            resolve(result);
+        })
+        .catch(function(error) {
+            reject(error);
+        });
+    });
+}
+
+function checkWorkflowBeforeRelease(orderId) {
+    return new Promise(function(resolve, reject) {
+        fetch('/api/workflow/check/ProductionOrder/' + orderId)
+            .then(function(response) {
+                if (response.status === 404) {
+                    resolve({ complete: true, hasWorkflow: false });
+                    return null;
+                }
+                if (!response.ok) throw new Error('API returned ' + response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                if (data === null) return;
+                resolve({ complete: data.complete, hasWorkflow: true, data: data });
+            })
+            .catch(function(error) {
+                reject(error);
+            });
+    });
+}
+
+function releaseOrderWithWorkflowCheck(orderId) {
+    console.log('🔍 Checking workflow before release for:', orderId);
+    
+    var releaseBtn = document.querySelector('.release-order[data-id="' + orderId + '"]');
+    if (releaseBtn) {
+        releaseBtn.disabled = true;
+        releaseBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+    }
+    
+    checkWorkflowBeforeRelease(orderId)
+        .then(function(result) {
+            if (!result.hasWorkflow || result.complete) {
+                return performRelease(orderId);
+            } else {
+                var msg = t('workflow.release_blocked', 'Cannot release order until workflow is complete') + 
+                    '. ' + t('workflow.current_step', 'Current step') + ': ' + 
+                    (result.data ? result.data.current_step_name : '');
+                showToast(msg, 'warning');
+                if (releaseBtn) {
+                    releaseBtn.disabled = false;
+                    releaseBtn.innerHTML = t('global.release', 'Release');
+                }
+                return Promise.reject(new Error('Workflow not complete'));
+            }
+        })
+        .catch(function(error) {
+            if (error.message !== 'Workflow not complete') {
+                console.error('Error checking workflow:', error);
+                showToast(t('global.error', 'Error') + ': ' + error.message, 'error');
+            }
+            if (releaseBtn) {
+                releaseBtn.disabled = false;
+                releaseBtn.innerHTML = t('global.release', 'Release');
+            }
+        });
+}
+
+function performRelease(orderId) {
+    console.log('🚀 Releasing order:', orderId);
+    
+    var releaseBtn = document.querySelector('.release-order[data-id="' + orderId + '"]');
+    if (releaseBtn) {
+        releaseBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Releasing...';
+    }
+    
+    return fetch('/api/manufacturing/orders/' + orderId + '/release', { 
+        method: 'POST' 
+    })
+    .then(function(r) {
+        if (!r.ok) throw new Error('API returned ' + r.status);
+        return r.json();
+    })
+    .then(function(result) {
+        refreshAll();
+        showToast(t('global.release', 'Release') + ' ' + t('global.success', 'successfully'), 'success');
+        return result;
+    })
+    .catch(function(error) {
+        console.error('Release error:', error);
+        showToast(t('global.error', 'Error') + ': ' + error.message, 'error');
+        if (releaseBtn) {
+            releaseBtn.disabled = false;
+            releaseBtn.innerHTML = t('global.release', 'Release');
+        }
+        throw error;
+    });
+}
+
+// ============================================================================
+// BUTTON ACTION HANDLERS
+// ============================================================================
+function handleReportQuantity(orderId) {
+    console.log('📊 Reporting quantity for order:', orderId);
+    var compOrderId = getEl('compOrderId');
+    if (compOrderId) compOrderId.value = orderId;
+    
+    var completedQty = getEl('completedQty');
+    if (completedQty) completedQty.value = '';
+    var scrapQty = getEl('scrapQty');
+    if (scrapQty) scrapQty.value = '0';
+    var generateSerials = getEl('generateSerials');
+    if (generateSerials) generateSerials.checked = false;
+    var serialPrefixDiv = getEl('serialPrefixDiv');
+    if (serialPrefixDiv) serialPrefixDiv.style.display = 'none';
+    
+    var modal = new bootstrap.Modal(document.getElementById('reportCompletionModal'));
+    modal.show();
+}
+
+function handleIssueMaterials(orderId) {
+    console.log('📦 Issuing materials for order:', orderId);
+    var issueOrderId = getEl('issueOrderId');
+    if (issueOrderId) issueOrderId.value = orderId;
+    
+    var modal = document.getElementById('issueMaterialsModal');
+    if (modal) modal.setAttribute('data-order-id', orderId);
+    
+    var componentsList = getEl('componentsList');
+    if (componentsList) componentsList.innerHTML = '<tr><td colspan="4">' + t('global.loading', 'Loading components...') + '</td></tr>';
+    
+    fetch('/api/manufacturing/orders/' + orderId + '/components')
+        .then(function(r) { return r.json(); })
+        .then(function(components) {
+            var list = getEl('componentsList');
+            if (!list) return;
+            var html = '';
+            if (!components || components.length === 0) {
+                html = '<tr><td colspan="4" class="text-center">' + t('global.no_data', 'No components found') + '</td></tr>';
+            } else {
+                components.forEach(function(c) {
+                    html += '<tr><td>' + c.componentId + '</td><td>' + c.requiredQuantity + '</td><td>' + c.issuedQuantity + '</td><td><input type="number" class="form-control issue-qty" data-comp="' + c.componentId + '" placeholder="Qty" min="0" step="any"></td></tr>';
+                });
+            }
+            list.innerHTML = html;
+            var modalInstance = new bootstrap.Modal(document.getElementById('issueMaterialsModal'));
+            modalInstance.show();
+        })
+        .catch(function(err) { 
+            console.error('Error loading components:', err);
+            showToast(t('global.error', 'Error') + ': Failed to load components', 'error');
+        });
+}
+
+function handleIssueToSupplier(orderId) {
+    console.log('📦 Issuing to supplier for order:', orderId);
+    var subId = getEl('subcontractOrderId');
+    if (subId) subId.value = orderId;
+    var modalInstance = new bootstrap.Modal(document.getElementById('issueToSupplierModal'));
+    modalInstance.show();
+}
+
+function handleReceiveFromSupplier(orderId) {
+    console.log('📦 Receiving from supplier for order:', orderId);
+    var recId = getEl('receiveOrderId');
+    if (recId) recId.value = orderId;
+    var modalInstance = new bootstrap.Modal(document.getElementById('receiveFromSupplierModal'));
+    modalInstance.show();
+}
+
+function handleViewQuality(orderId) {
+    console.log('🔍 Viewing quality for order:', orderId);
+    window.open('/quality/inspection-workbench?productionOrderId=' + orderId, '_blank');
+}
+
+function handleConfirmIssue() {
+    var modal = document.getElementById('issueMaterialsModal');
+    var orderId = modal ? modal.getAttribute('data-order-id') : null;
+    if (!orderId) { 
+        showToast('No order ID found', 'error');
+        return; 
+    }
+    
+    var items = [];
+    document.querySelectorAll('.issue-qty').forEach(function(input) {
+        var qty = parseFloat(input.value);
+        if (qty > 0) {
+            items.push({ componentProductId: input.getAttribute('data-comp'), issuedQuantity: qty });
+        }
+    });
+    
+    if (items.length === 0) { 
+        showToast('No items to issue', 'warning');
+        return; 
+    }
+    
+    fetch('/api/manufacturing/orders/' + orderId + '/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: orderId, items: items })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+        var modalInstance = bootstrap.Modal.getInstance(document.getElementById('issueMaterialsModal'));
+        if (modalInstance) modalInstance.hide();
+        refreshAll();
+        showToast(t('global.issue', 'Issue') + ' ' + t('global.success', 'successfully'), 'success');
+    })
+    .catch(function(err) { 
+        console.error('Issue error:', err);
+        showToast(t('global.error', 'Error') + ': Failed to issue materials', 'error'); 
+    });
+}
+
+function handleConfirmComplete() {
+    var modal = document.getElementById('reportCompletionModal');
+    var orderId = modal ? modal.getAttribute('data-order-id') : null;
+    if (!orderId) { 
+        showToast('No order ID found', 'error');
+        return; 
+    }
+    
+    var qty = parseInt(getEl('completedQty') ? getEl('completedQty').value : 0);
+    if (isNaN(qty) || qty <= 0) { 
+        showToast('Enter valid quantity', 'warning');
+        return; 
+    }
+    
+    var data = {
+        completedQuantity: qty,
+        scrapQuantity: parseInt(getEl('scrapQty') ? getEl('scrapQty').value : 0),
+        generateSerials: getEl('generateSerials') ? getEl('generateSerials').checked : false,
+        serialPrefix: getEl('serialPrefix') ? getEl('serialPrefix').value : ''
+    };
+    
+    fetch('/api/manufacturing/orders/' + orderId + '/quantity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+        var modalInstance = bootstrap.Modal.getInstance(document.getElementById('reportCompletionModal'));
+        if (modalInstance) modalInstance.hide();
+        refreshAll();
+        showToast(t('global.qty', 'Quantity') + ' reported ' + t('global.success', 'successfully'), 'success');
+    })
+    .catch(function(err) { 
+        console.error('Quantity report error:', err);
+        showToast(t('global.error', 'Error') + ': Failed to report quantity', 'error'); 
+    });
+}
+
+function handleConfirmIssueSupplier() {
+    var orderId = getEl('subcontractOrderId') ? getEl('subcontractOrderId').value : '';
+    var supplierId = getEl('supplierId') ? getEl('supplierId').value : '';
+    
+    if (!supplierId) { 
+        showToast('Supplier ID required', 'warning');
+        return; 
+    }
+    
+    fetch('/api/manufacturing/orders/' + orderId + '/to-supplier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            orderId: orderId, 
+            supplierId: supplierId, 
+            poNumber: getEl('poNumber') ? getEl('poNumber').value : '' 
+        })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+        var modalInstance = bootstrap.Modal.getInstance(document.getElementById('issueToSupplierModal'));
+        if (modalInstance) modalInstance.hide();
+        refreshAll();
+        showToast(t('global.to_supplier', 'Issued to supplier'), 'success');
+    })
+    .catch(function(err) { 
+        console.error('Issue to supplier error:', err);
+        showToast(t('global.error', 'Error') + ': Failed to issue to supplier', 'error'); 
+    });
+}
+
+function handleConfirmReceive() {
+    var orderId = getEl('receiveOrderId') ? getEl('receiveOrderId').value : '';
+    var poId = getEl('receivePoId') ? getEl('receivePoId').value : '';
+    var qty = parseInt(getEl('receivedQty') ? getEl('receivedQty').value : 0);
+    
+    if (!poId || isNaN(qty) || qty <= 0) { 
+        showToast('PO ID and quantity required', 'warning');
+        return; 
+    }
+    
+    fetch('/api/manufacturing/orders/' + orderId + '/receive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            orderId: orderId, 
+            purchaseOrderId: poId, 
+            receivedQuantity: qty 
+        })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+        var modalInstance = bootstrap.Modal.getInstance(document.getElementById('receiveFromSupplierModal'));
+        if (modalInstance) modalInstance.hide();
+        refreshAll();
+        showToast(t('global.receive', 'Supplier material received'), 'success');
+    })
+    .catch(function(err) { 
+        console.error('Receive error:', err);
+        showToast(t('global.error', 'Error') + ': Failed to receive from supplier', 'error'); 
+    });
+}
+
+// ============================================================================
+// SAVE ORDER FUNCTION
+// ============================================================================
+function saveOrder() {
+    console.log('💾 saveOrder function called');
+    
+    var productSelect = getEl('productSelect');
+    var orderQuantity = getEl('orderQuantity');
+    var dueDate = getEl('dueDate');
+    var orderType = getEl('orderType');
+    var projectSelect = getEl('projectSelect');
+    var priority = getEl('priority');
+    var salesOrderSelect = getEl('salesOrderSelect');
+    var customerSelect = getEl('customerSelect');
+    var customerReference = getEl('customerReference');
+    var scheduleStart = getEl('scheduleStart');
+    var scheduleEnd = getEl('scheduleEnd');
+    var editOrderId = getEl('editOrderId');
+    
+    if (!productSelect || !productSelect.value) {
+        showToast('Please select a product', 'warning');
+        return;
+    }
+    
+    if (!orderQuantity || !orderQuantity.value || parseInt(orderQuantity.value) <= 0) {
+        showToast('Please enter a valid quantity', 'warning');
+        return;
+    }
+    
+    var data = {
+        productId: productSelect.value,
+        quantity: parseInt(orderQuantity.value),
+        dueDate: dueDate ? dueDate.value : '',
+        orderType: orderType ? orderType.value : 'Manufacturing',
+        projectId: projectSelect ? projectSelect.value : '',
+        priority: priority ? parseInt(priority.value) : 2,
+        salesOrderId: salesOrderSelect ? salesOrderSelect.value : '',
+        customerId: customerSelect ? customerSelect.value : '',
+        customerReference: customerReference ? customerReference.value : '',
+        scheduleStart: scheduleStart ? scheduleStart.value : '',
+        scheduleEnd: scheduleEnd ? scheduleEnd.value : '',
+        orderSource: 'Manual',
+        companyProjectId: projectSelect ? projectSelect.value : '',
+        explodeBOM: true
+    };
+    
+    var isEdit = editOrderId && editOrderId.value;
+    var url = isEdit ? '/api/manufacturing/orders/' + editOrderId.value : '/api/manufacturing/orders';
+    var method = isEdit ? 'PUT' : 'POST';
+    
+    console.log('📤 Sending data:', data);
+    console.log('📤 URL:', url, 'Method:', method);
+    
+    var saveBtn = getEl('saveOrderBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('global.loading', 'Saving...');
+    }
+    
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(response) {
+        console.log('📊 Response status:', response.status);
+        if (!response.ok) {
+            return response.json().then(function(err) {
+                throw new Error(err.error || err.message || 'API returned ' + response.status);
+            });
+        }
+        return response.json();
+    })
+    .then(function(result) {
+        console.log('✅ Order saved:', result);
+        showToast(t('global.success', 'Order saved successfully'), 'success');
+        
+        var modal = bootstrap.Modal.getInstance(document.getElementById('createOrderModal'));
+        if (modal) modal.hide();
+        
+        refreshAll();
+    })
+    .catch(function(error) {
+        console.error('❌ Save error:', error);
+        showToast(t('global.error', 'Error') + ': ' + error.message, 'error');
+    })
+    .finally(function() {
+        var saveBtn = getEl('saveOrderBtn');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = t('global.save', 'Save');
+        }
+    });
+}
+
+// ============================================================================
+// PERSIAN DATE PREVIEW (client-side hint — server is source of truth)
+// ============================================================================
+window.refreshPersianPreviews = function() {
+    if (typeof window.currentCalendar === 'undefined' || window.currentCalendar !== 'persian') return;
+    document.querySelectorAll('.persian-preview').forEach(function (el) {
+        var targetId = el.getAttribute('data-for');
+        var input = document.getElementById(targetId);
+        if (!input) return;
+        
+        // Remove existing listener by cloning approach (simple) then re-add
+        var handler = function () {
+            var key = window.toDateKey ? window.toDateKey(input.value) : null;
+            if (!key) { el.textContent = ''; return; }
+            // Client-side rough fallback — server is still source of truth
+            var formatted = window.fromDateKey ? window.fromDateKey(key) : key;
+            el.textContent = '~ ' + formatted + ' (Jalali)';
+        };
+        
+        input.addEventListener('change', handler);
+        
+        // Show current value if present
+        if (input.value) {
+            var key = window.toDateKey ? window.toDateKey(input.value) : null;
+            if (key && window.fromDateKey) {
+                el.textContent = '~ ' + window.fromDateKey(key) + ' (Jalali)';
+            }
+        }
+    });
+};
+
+// ============================================================================
+// DOM READY - INITIALIZATION
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Job Orders page loaded');
+    console.log('Industry switcher available:', typeof window.switchIndustry);
+    
+    loadDropdowns();
+    refreshAll();
+    
+    // Initialize Persian preview listeners on page load
+    if (typeof window.refreshPersianPreviews === 'function') {
+        window.refreshPersianPreviews();
+    }
+    
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            filterAndRenderOrders();
+        });
+    }
+    
+    var searchInput = getEl('filterSearch');
+    if (searchInput) {
+        var debouncedSearch = debounce(function() {
+            filterAndRenderOrders();
+        }, 300);
+        searchInput.addEventListener('input', debouncedSearch);
+    }
+    
+    var statusFilter = getEl('filterStatus');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            filterAndRenderOrders();
+        });
+    }
+    
+    var confirmIssueBtn = getEl('confirmIssueBtn');
+    if (confirmIssueBtn) {
+        confirmIssueBtn.addEventListener('click', handleConfirmIssue);
+    }
+    
+    var confirmCompleteBtn = getEl('confirmCompleteBtn');
+    if (confirmCompleteBtn) {
+        confirmCompleteBtn.addEventListener('click', handleConfirmComplete);
+    }
+    
+    var generateSerials = getEl('generateSerials');
+    if (generateSerials) {
+        generateSerials.addEventListener('change', function() {
+            var prefixDiv = getEl('serialPrefixDiv');
+            if (prefixDiv) {
+                prefixDiv.style.display = this.checked ? 'block' : 'none';
+            }
+        });
+    }
+    
+    var confirmIssueSupplierBtn = getEl('confirmIssueSupplierBtn');
+    if (confirmIssueSupplierBtn) {
+        confirmIssueSupplierBtn.addEventListener('click', handleConfirmIssueSupplier);
+    }
+    
+    var confirmReceiveBtn = getEl('confirmReceiveBtn');
+    if (confirmReceiveBtn) {
+        confirmReceiveBtn.addEventListener('click', handleConfirmReceive);
+    }
+    
+    var saveOrderBtn = getEl('saveOrderBtn');
+    if (saveOrderBtn) {
+        saveOrderBtn.addEventListener('click', function() {
+            console.log('💾 Save button clicked');
+            saveOrder();
+        });
+    }
+    
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        var tabLink = target.closest('a[data-bs-toggle="tab"]');
+        if (!tabLink) return;
+        
+        var href = tabLink.getAttribute('href');
+        if (href === '#tabHierarchy') {
+            var orderId = getEl('editOrderId').value;
+            var hierarchyTree = getEl('hierarchyTree');
+            
+            if (orderId) {
+                var hasContent = hierarchyTree && hierarchyTree.innerHTML && hierarchyTree.innerHTML.trim() !== '';
+                if (!hasContent) {
+                    loadOrderHierarchy(orderId);
+                }
+            }
+        }
+    });
+    
+    var createOrderModal = document.getElementById('createOrderModal');
+    if (createOrderModal) {
+        createOrderModal.addEventListener('hidden.bs.modal', function() {
+            var hierarchyTree = getEl('hierarchyTree');
+            var hierarchyLoading = getEl('hierarchyLoading');
+            
+            if (hierarchyTree) {
+                hierarchyTree.style.display = 'none';
+                hierarchyTree.innerHTML = '';
+            }
+            if (hierarchyLoading) {
+                hierarchyLoading.style.display = 'block';
+                hierarchyLoading.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">' + t('hierarchy.loading', 'Loading hierarchy...') + '</p>';
+            }
+            console.log('🧹 Hierarchy cleared on modal close');
+        });
+        
+        // Also re-init date pickers when "New Job Order" button opens the modal
+        createOrderModal.addEventListener('shown.bs.modal', function() {
+            if (typeof window.reinitDatePickers === 'function') {
+                window.reinitDatePickers();
+            }
+            if (typeof window.refreshPersianPreviews === 'function') {
+                window.refreshPersianPreviews();
+            }
+        });
+    }
+    
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        var btn = target.closest('button');
+        if (!btn) return;
+        
+        if (btn.classList.contains('view-order')) {
+            var orderId = btn.getAttribute('data-id');
+            openOrder(orderId, 'view');
+            return;
+        }
+        
+        if (btn.classList.contains('edit-order')) {
+            var orderId = btn.getAttribute('data-id');
+            openOrder(orderId, 'edit');
+            return;
+        }
+        
+        if (btn.classList.contains('release-order')) {
+            var orderId = btn.getAttribute('data-id');
+            var msg = t('global.release', 'Release') + ' ' + orderId + '?';
+            if (confirm(msg)) {
+                releaseOrderWithWorkflowCheck(orderId);
+            }
+            return;
+        }
+        
+        if (btn.classList.contains('start-order')) {
+            var id = btn.getAttribute('data-id');
+            if (confirm(t('global.start', 'Start') + ' ' + id + '?')) {
+                fetch('/api/manufacturing/orders/' + id + '/start', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function() { refreshAll(); showToast(t('global.start', 'Start') + ' ' + t('global.success', 'successfully'), 'success'); })
+                    .catch(function() { showToast(t('global.error', 'Operation failed'), 'error'); });
+            }
+            return;
+        }
+        
+        if (btn.classList.contains('hold-order')) {
+            var id = btn.getAttribute('data-id');
+            var reason = prompt(t('global.hold', 'Hold') + ' ' + id + '? ' + t('global.reason_prompt', 'Please enter the reason:'));
+            if (reason !== null) {
+                fetch('/api/manufacturing/orders/' + id + '/hold', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function() { refreshAll(); showToast(t('global.hold', 'Hold') + ' ' + t('global.success', 'successfully'), 'warning'); })
+                .catch(function() { showToast(t('global.error', 'Operation failed'), 'error'); });
+            }
+            return;
+        }
+        
+        if (btn.classList.contains('resume-order')) {
+            var id = btn.getAttribute('data-id');
+            if (confirm(t('global.resume', 'Resume') + ' ' + id + '?')) {
+                fetch('/api/manufacturing/orders/' + id + '/resume', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function() { refreshAll(); showToast(t('global.resume', 'Resume') + ' ' + t('global.success', 'successfully'), 'success'); })
+                    .catch(function() { showToast(t('global.error', 'Operation failed'), 'error'); });
+            }
+            return;
+        }
+        
+        if (btn.classList.contains('complete-order')) {
+            var id = btn.getAttribute('data-id');
+            if (confirm(t('global.complete', 'Complete') + ' ' + id + '?')) {
+                fetch('/api/manufacturing/orders/' + id + '/complete', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function() { refreshAll(); showToast(t('global.complete', 'Complete') + ' ' + t('global.success', 'successfully'), 'success'); })
+                    .catch(function() { showToast(t('global.error', 'Operation failed'), 'error'); });
+            }
+            return;
+        }
+        
+        if (btn.classList.contains('close-order')) {
+            var id = btn.getAttribute('data-id');
+            if (confirm(t('global.close_order', 'Close') + ' ' + id + '? ' + t('global.finalize_costing', 'This will finalize costing.'))) {
+                fetch('/api/manufacturing/orders/' + id + '/close', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function() { refreshAll(); showToast(t('global.close_order', 'Close') + ' ' + t('global.success', 'successfully'), 'success'); })
+                    .catch(function() { showToast(t('global.error', 'Operation failed'), 'error'); });
+            }
+            return;
+        }
+        
+        if (btn.classList.contains('report-qty')) {
+            var orderId = btn.getAttribute('data-id');
+            handleReportQuantity(orderId);
+            return;
+        }
+        
+        if (btn.classList.contains('issue-materials')) {
+            var orderId = btn.getAttribute('data-id');
+            handleIssueMaterials(orderId);
+            return;
+        }
+        
+        if (btn.classList.contains('issue-to-supplier')) {
+            var orderId = btn.getAttribute('data-id');
+            handleIssueToSupplier(orderId);
+            return;
+        }
+        
+        if (btn.classList.contains('receive-from-supplier')) {
+            var orderId = btn.getAttribute('data-id');
+            handleReceiveFromSupplier(orderId);
+            return;
+        }
+        
+        if (btn.classList.contains('view-quality')) {
+            var orderId = btn.getAttribute('data-id');
+            handleViewQuality(orderId);
+            return;
+        }
+    });
+    
+    setInterval(refreshAll, 60000);
+});
+</script>
+{% endblock %}

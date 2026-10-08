@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Work Center Master{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('auto.ba6edebf', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.2a9bcba4', 'Work Centers') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.9e15dfd9', 'Work Centers') }}</h2>
+<div>
+<button class="btn btn-success me-2" data-bs-target="#workCenterModal" data-bs-toggle="modal" onclick="clearModal()"><i class="fas fa-plus"></i>{{ get_translation('auto.5fd67995', 'Add Work Center') }}</button>
+<button class="btn btn-secondary me-2" data-bs-target="#importModal" data-bs-toggle="modal"><i class="fas fa-upload"></i>{{ get_translation('auto.aca01d11', 'Import CSV') }}</button>
+<a class="btn btn-info" href="#" id="exportBtn"><i class="fas fa-download"></i>{{ get_translation('auto.672d3b88', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4 g-3">
+<div class="col-md-3"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.d2430471', 'Total Work Centers') }}</h6><h3 id="kpiTotal">{{ get_translation('auto.797e7406', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.a8982b49', 'Internal') }}</h6><h3 id="kpiInternal">{{ get_translation('auto.9be35cc7', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('auto.fcceec4c', 'External') }}</h6><h3 id="kpiExternal">{{ get_translation('auto.d83b5df0', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('auto.22a73f88', 'Pending ECOs') }}</h6><h3 id="kpiEcos">{{ get_translation('auto.8b87da60', '0') }}</h3></div></div></div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body row g-2 align-items-end">
+<div class="col-md-2"><label>{{ get_translation('auto.7f2b0cb1', 'Type') }}</label><select class="form-select" id="typeFilter"><option value="">{{ get_translation('auto.f0d9ca15', 'All') }}</option><option>{{ get_translation('auto.1c3b7c24', 'Internal') }}</option><option>{{ get_translation('auto.9870d9f4', 'External') }}</option></select></div>
+<div class="col-md-2 form-check mt-4"><input class="form-check-input" id="activeOnly" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.b1dc86de', 'Active Only') }}</label></div>
+<div class="col-md-4"><label>{{ get_translation('auto.8c9e64dd', 'Search (code or name)') }}</label><input class="form-control" id="searchInput" placeholder="Enter code or name" type="text"/></div>
+<div class="col-md-4 d-flex justify-content-end"><button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.d0d0c25c', 'Refresh') }}</button></div>
+</div>
+</div>
+<!-- Work Centers Table -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.a6234d3d', 'Work Center List') }}</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead class="table-light">
+<tr><th>{{ get_translation('auto.f3264334', 'Code') }}</th><th>{{ get_translation('auto.4226d1aa', 'Name') }}</th><th>{{ get_translation('auto.539ac647', 'Type') }}</th><th>{{ get_translation('auto.6ee820ce', 'Location') }}</th><th>{{ get_translation('auto.87f2ad93', 'Capacity (hrs/day)') }}</th><th>{{ get_translation('auto.d5f175bb', 'Hourly Rate') }}</th><th>{{ get_translation('auto.f795a425', 'Status') }}</th><th>{{ get_translation('auto.771fe685', 'Actions') }}</th></tr>
+</thead>
+<tbody id="workCentersBody">
+<tr><td class="text-center" colspan="8">{{ get_translation('auto.1b97f286', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Modals (simplified – keep only Add/Edit, we'll add others later) -->
+<div class="modal fade" id="workCenterModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5 id="modalTitle">{{ get_translation('auto.9fdf6346', 'Add Work Center') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="workCenterForm">
+<input id="editId" type="hidden"/>
+<div class="mb-2"><label>{{ get_translation('auto.654765d9', 'Code *') }}</label><input class="form-control" id="wcCode" required="" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.a8531ed4', 'Name *') }}</label><input class="form-control" id="wcName" required="" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.eb5604c6', 'Type') }}</label><select class="form-select" id="wcType"><option>{{ get_translation('auto.0fb4c6b9', 'Internal') }}</option><option>{{ get_translation('auto.7c8272e6', 'External') }}</option></select></div>
+<div class="mb-2"><label>{{ get_translation('auto.9492096b', 'Location') }}</label><input class="form-control" id="wcLocation" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.d5e96c81', 'Capacity Hours per Day') }}</label><input class="form-control" id="wcCapacity" step="0.5" type="number"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.235a36ad', 'Max Concurrent Jobs') }}</label><input class="form-control" id="wcMaxJobs" type="number" value="1"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.eb1775f1', 'Hourly Rate') }}</label><input class="form-control" id="wcRate" step="0.01" type="number"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.3e6008a5', 'Currency Code') }}</label><input class="form-control" id="wcCurrency" type="text" value="USD"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.9e5bae31', 'Description') }}</label><textarea class="form-control" id="wcDesc" rows="2"></textarea></div>
+<div class="form-check"><input checked="" class="form-check-input" id="wcActive" type="checkbox"/><label>{{ get_translation('auto.cacf8db6', 'Is Active') }}</label></div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.c821905d', 'Cancel') }}</button><button class="btn btn-primary" id="saveWorkCenterBtn">{{ get_translation('auto.48cf8cf5', 'Save') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Import Modal (placeholder) -->
+<div class="modal fade" id="importModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.7742fc87', 'Import Work Centers CSV') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input accept=".csv" class="form-control" id="csvFile" type="file"/></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.acd89e28', 'Cancel') }}</button><button class="btn btn-primary" id="importBtn">{{ get_translation('auto.cbc1b9fa', 'Upload') }}</button></div></div></div></div>
+<script>
+// Ensure DOM is fully loaded before running
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM ready');
+    // Check if tbody exists
+    const tbody = document.getElementById('workCentersBody');
+    if (!tbody) {
+        console.error('workCentersBody not found!');
+        return;
+    }
+    // Function to load stats
+    function loadStats() {
+        fetch('/api/work-centers/stats')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('kpiTotal').innerText = data.total || 0;
+                document.getElementById('kpiInternal').innerText = data.internal || 0;
+                document.getElementById('kpiExternal').innerText = data.external || 0;
+                document.getElementById('kpiEcos').innerText = data.pendingEcos || 0;
+            })
+            .catch(err => console.error('Stats error:', err));
+    }
+    // Function to load table
+    function loadTable() {
+        const type = document.getElementById('typeFilter').value;
+        const activeOnly = document.getElementById('activeOnly').checked;
+        const search = document.getElementById('searchInput').value;
+        let url = `/api/work-centers?type=${encodeURIComponent(type)}&active_only=${activeOnly}&search=${encodeURIComponent(search)}`;
+        fetch(url)
+            .then(r => r.json())
+            .then(items => {
+                const tbody = document.getElementById('workCentersBody');
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="8">No work centers found<\/td><\/tr>';
+                    return;
+                }
+                let html = '';
+                items.forEach(wc => {
+                    const activeBadge = wc.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                    html += `<tr>
+                        <td>${escapeHtml(wc.id)}</td>
+                        <td>${escapeHtml(wc.name)}</td>
+                        <td>${escapeHtml(wc.type)}</td>
+                        <td>${escapeHtml(wc.location || '-')}</td>
+                        <td>${wc.capacityHours || '-'}</td>
+                        <td>${wc.hourlyRate ? wc.hourlyRate : '-'}</td>
+                        <td>${activeBadge}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-wc" data-id="${wc.id}">Edit</button>
+                            <button class="btn btn-sm btn-danger archive-wc" data-id="${wc.id}">Archive</button>
+                            <button class="btn btn-sm btn-info routing-wc" data-id="${wc.id}">View Routing</button>
+                          </td>
+                    </td>`;
+                });
+                tbody.innerHTML = html;
+                attachEvents();
+            })
+            .catch(err => console.error('Table error:', err));
+    }
+    function attachEvents() {
+        document.querySelectorAll('.edit-wc').forEach(btn => {
+            btn.onclick = () => editWorkCenter(btn.getAttribute('data-id'));
+        });
+        document.querySelectorAll('.archive-wc').forEach(btn => {
+            btn.onclick = () => alert('Archive not implemented yet');
+        });
+        document.querySelectorAll('.routing-wc').forEach(btn => {
+            btn.onclick = () => window.location.href = `/manufacturing/work-center-routing?work_center_id=${btn.getAttribute('data-id')}`;
+        });
+    }
+    function editWorkCenter(id) {
+        fetch(`/api/work-centers/${id}`).then(r => r.json()).then(data => {
+            document.getElementById('modalTitle').innerText = 'Edit Work Center';
+            document.getElementById('editId').value = id;
+            document.getElementById('wcCode').value = data.WorkCenterID;
+            document.getElementById('wcCode').disabled = true;
+            document.getElementById('wcName').value = data.Name;
+            document.getElementById('wcType').value = data.Type || 'Internal';
+            document.getElementById('wcLocation').value = data.Location || '';
+            document.getElementById('wcCapacity').value = data.CapacityHours || '';
+            document.getElementById('wcMaxJobs').value = data.MaxConcurrentJobs || 1;
+            document.getElementById('wcRate').value = data.HourlyRate || '';
+            document.getElementById('wcCurrency').value = data.CurrencyCode || 'USD';
+            document.getElementById('wcDesc').value = data.Description || '';
+            document.getElementById('wcActive').checked = data.IsActive == 1;
+            new bootstrap.Modal(document.getElementById('workCenterModal')).show();
+        });
+    }
+    function clearModal() {
+        document.getElementById('modalTitle').innerText = 'Add Work Center';
+        document.getElementById('editId').value = '';
+        document.getElementById('wcCode').disabled = false;
+        document.getElementById('wcCode').value = '';
+        document.getElementById('wcName').value = '';
+        document.getElementById('wcType').value = 'Internal';
+        document.getElementById('wcLocation').value = '';
+        document.getElementById('wcCapacity').value = '';
+        document.getElementById('wcMaxJobs').value = '1';
+        document.getElementById('wcRate').value = '';
+        document.getElementById('wcCurrency').value = 'USD';
+        document.getElementById('wcDesc').value = '';
+        document.getElementById('wcActive').checked = true;
+    }
+    function saveWorkCenter() {
+        const id = document.getElementById('editId').value;
+        const payload = {
+            workCenterId: document.getElementById('wcCode').value,
+            name: document.getElementById('wcName').value,
+            type: document.getElementById('wcType').value,
+            location: document.getElementById('wcLocation').value,
+            description: document.getElementById('wcDesc').value,
+            capacityHours: parseFloat(document.getElementById('wcCapacity').value) || null,
+            maxConcurrentJobs: parseInt(document.getElementById('wcMaxJobs').value) || 1,
+            hourlyRate: parseFloat(document.getElementById('wcRate').value) || null,
+            currencyCode: document.getElementById('wcCurrency').value,
+            isActive: document.getElementById('wcActive').checked
+        };
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/work-centers/${id}` : '/api/work-centers';
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(r => r.json()).then(() => {
+            bootstrap.Modal.getInstance(document.getElementById('workCenterModal')).hide();
+            refreshAll();
+        }).catch(() => alert('Save failed'));
+    }
+    function refreshAll() { loadStats(); loadTable(); }
+    function exportCSV() {
+        let url = '/api/work-centers/export-csv?';
+        url += `type=${encodeURIComponent(document.getElementById('typeFilter').value)}&active_only=${document.getElementById('activeOnly').checked}&search=${encodeURIComponent(document.getElementById('searchInput').value)}`;
+        window.location.href = url;
+    }
+    function importCSV() {
+        const file = document.getElementById('csvFile').files[0];
+        if (!file) { alert('Select a file'); return; }
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/api/work-centers/import-csv', { method: 'POST', body: formData })
+            .then(() => {
+                bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+                refreshAll();
+            });
+    }
+    // Bind events
+    document.getElementById('refreshBtn').onclick = refreshAll;
+    document.getElementById('exportBtn').onclick = (e) => { e.preventDefault(); exportCSV(); };
+    document.getElementById('saveWorkCenterBtn').onclick = saveWorkCenter;
+    document.getElementById('importBtn').onclick = importCSV;
+    document.getElementById('typeFilter').onchange = refreshAll;
+    document.getElementById('activeOnly').onchange = refreshAll;
+    document.getElementById('searchInput').oninput = refreshAll;
+    // Initial load
+    refreshAll();
+});
+function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, function(m) { if (m==='&') return '&amp;'; if (m==='<') return '&lt;'; if (m==='>') return '&gt;'; return m; }); }
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+Unifications among all pages:
+
+decide on how currency should be set
+
+
+The page title which is apeared at the top of the tab: the page name- in engineerig module it is :MRP system
+
+The status cadre and the action buttons: list of all in all modules and make unified size, color and sequence
+The icon before any page : 🏭 Customer Projects
+
+The address of the page : Manufacturing > Job Orders (it has a term I cannot remember) should be unified
+
+Export CSV, Import CSV , Create New all should have the same size, color and position
+
+The color sequence of top KPI s at the top of each page
+
+Page/data table filtering based on industry and project
+
+Preparing sample data- especially technical drawings for all industries
+
+Header, columns and the coloring of the pages
+
+
+keeping the ctrl and then clicking a link >>> opening the link in a new tab
+
+there are many entities like product desc, project desc.. that are needed to be replaced with Farsi/English when the language switching is cliked.. list all them and propose a unified manner for them
+
+updating page config, project contex with similar format accross all modules
+
+CREATING an executive file as soon as possible
+
+Check all Modals in all page also get translated
+
+
+Add all opportunities
+all pages should be bilingual
+The developing pla
+
+
+
+removing the redundant data in t_Translations table
+
+
+
+Here are the bugs in each page
+
+CRM and Sale:
+
+http://localhost:5001/crm/opportunities
+filter: assigned to: nothing in the drop down.
+
+In the search box after entering some characters, if I click enter the rows get filterred. Actually it should have Apply button.. if it is Filter-as-You-Type, no need for a button
+
+
+
+
+

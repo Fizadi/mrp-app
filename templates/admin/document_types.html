@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block title %}Document Types{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+<h1 class="h3"><i class="fas fa-file-alt me-2"></i>{{ get_translation('auto.eec37bb5', 'Document Types') }}</h1>
+<div>
+<button class="btn btn-outline-success me-2" id="exportBtn"><i class="fas fa-file-export"></i>{{ get_translation('auto.057a481e', 'Export CSV') }}</button>
+<button class="btn btn-outline-primary me-2" id="importBtn"><i class="fas fa-upload"></i>{{ get_translation('auto.aa4b9dff', 'Import CSV') }}</button>
+<button class="btn btn-primary" id="addDocTypeBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.ff665c75', 'Add Document Type') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+<div class="col-md-4">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<div class="d-flex justify-content-between">
+<div><h6>{{ get_translation('auto.26a933f0', 'Active Document Types') }}</h6><h2 class="mb-0" id="kpiActive">{{ get_translation('auto.5df98e90', '0') }}</h2></div>
+<i class="fas fa-check-circle fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="col-md-8">
+<div class="card">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.2a4bdcd6', 'By Category') }}</h6>
+<div class="d-flex flex-wrap gap-2" id="kpiCategories"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-4">
+<div class="card-body row g-3 align-items-end">
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.9324875d', 'Category') }}</label>
+<select class="form-select" id="filterCategory">
+<option value="">{{ get_translation('auto.64970d2d', 'All categories') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<div class="form-check mt-4">
+<input class="form-check-input" id="filterActiveOnly" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.5633d100', 'Active only') }}</label>
+</div>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.3a53c041', 'Search (Code/Name)') }}</label>
+<input class="form-control" id="filterSearch" placeholder="e.g., GA Drawing" type="text"/>
+</div>
+<div class="col-md-3">
+<button class="btn btn-secondary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i>{{ get_translation('auto.ded1b32e', 'Apply') }}</button>
+</div>
+</div>
+<div class="card-footer text-end">
+<button class="btn btn-link btn-sm" id="clearFiltersBtn">{{ get_translation('auto.5616d29d', 'Clear Filters') }}</button>
+</div>
+</div>
+<!-- Document Types Table -->
+<div class="card">
+<div class="card-header bg-light">{{ get_translation('auto.27397302', 'Document Types') }}</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+<thead class="table-light">
+<tr><th>{{ get_translation('auto.69874c4d', 'Code') }}</th><th>{{ get_translation('auto.7db24db4', 'Name') }}</th><th>{{ get_translation('auto.a4794437', 'Category') }}</th><th>{{ get_translation('auto.0c467e10', 'Status') }}</th><th>{{ get_translation('auto.b2e53a7c', 'Last Modified') }}</th><th style="width:120px">{{ get_translation('auto.778df507', 'Actions') }}</th></tr>
+</thead>
+<tbody id="docTypesTableBody">
+<tr><td class="text-center py-4" colspan="6">{{ get_translation('auto.721a02d5', 'Loading...') }}<td><tr>
+</tr></td></td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="docTypeModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header bg-primary text-white">
+<h5 class="modal-title" id="modalTitle">{{ get_translation('auto.2953640f', 'Add Document Type') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="docTypeForm">
+<input id="docTypeId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.2df2206f', 'Code *') }}</label>
+<input class="form-control" id="code" required="" type="text"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.ad398e1e', 'Name *') }}</label>
+<input class="form-control" id="name" required="" type="text"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.6a542057', 'Category') }}</label>
+<input class="form-control" id="category" placeholder="e.g., Engineering" type="text"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.08e5ac2c', 'Description') }}</label>
+<textarea class="form-control" id="description" rows="3"></textarea>
+</div>
+<div class="form-check">
+<input checked="" class="form-check-input" id="isActive" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.9fd5b3b5', 'Active') }}</label>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.43930f21', 'Cancel') }}</button>
+<button class="btn btn-danger" id="archiveBtn" style="display:none;" type="button">{{ get_translation('auto.748da47e', 'Archive') }}</button>
+<button class="btn btn-primary" id="saveBtn" type="button">{{ get_translation('auto.253bf5c3', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.99f00ff6', 'Import Document Types CSV') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.2c58865e', 'CSV columns:') }}<code>{{ get_translation('auto.7b373716', 'Code, Name, Category, Description, IsActive') }}</code></p>
+<input accept=".csv" class="form-control" id="importFile" type="file"/>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.ac671ae4', 'Cancel') }}</button><button class="btn btn-primary" id="doImportBtn">{{ get_translation('auto.6d7d01cc', 'Import') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentFilters = { category: '', active_only: false, search: '' };
+let allDocTypes = [];
+
+function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+
+async function loadCategories() {
+    const res = await fetch('/api/admin/document-types/categories');
+    const cats = await res.json();
+    const select = document.getElementById('filterCategory');
+    select.innerHTML = '<option value="">All categories</option>';
+    cats.forEach(c => { select.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`; });
+}
+
+async function loadDocTypes() {
+    const params = new URLSearchParams();
+    if (currentFilters.category) params.append('category', currentFilters.category);
+    if (currentFilters.active_only) params.append('active_only', 'true');
+    if (currentFilters.search) params.append('search', currentFilters.search);
+    const res = await fetch(`/api/admin/document-types?${params.toString()}`);
+    const data = await res.json();
+    allDocTypes = data.documentTypes;
+    updateKPIs(data.kpi);
+    renderTable();
+}
+
+function updateKPIs(kpi) {
+    document.getElementById('kpiActive').innerText = kpi.total_active;
+    const catContainer = document.getElementById('kpiCategories');
+    if (kpi.by_category.length) {
+        catContainer.innerHTML = kpi.by_category.map(c => `<span class="badge bg-secondary p-2">${escapeHtml(c.category)}: ${c.count}</span>`).join('');
+    } else {
+        catContainer.innerHTML = '<span class="text-muted">No categories</span>';
+    }
+}
+
+function renderTable() {
+    const tbody = document.getElementById('docTypesTableBody');
+    if (!allDocTypes.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No document types found<\/td><\/tr>';
+        return;
+    }
+    let html = '';
+    allDocTypes.forEach(dt => {
+        const statusBadge = dt.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+        const rowClass = dt.isActive ? '' : 'text-muted';
+        html += `<tr class="${rowClass}">
+            <td><a href="/admin/document-types/${dt.id}" class="text-decoration-none">${escapeHtml(dt.code)}</a><\/td>
+            <td><strong>${escapeHtml(dt.name)}</strong><\/td>
+            <td>${escapeHtml(dt.category || '-')}<\/td>
+            <td>${statusBadge}<\/td>
+            <td>${dt.modifiedDateKey || '-'}<\/td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${dt.id}"><i class="fas fa-edit"><\/i> Edit<\/button>
+                <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="${escapeHtml(dt.code)}" data-name="${escapeHtml(dt.name)}" data-category="${escapeHtml(dt.category || '')}" data-desc="${escapeHtml(dt.description || '')}"><i class="fas fa-copy"><\/i> Copy<\/button>
+            <\/td>
+        <\/tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+// Filters
+document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+    currentFilters.category = document.getElementById('filterCategory').value;
+    currentFilters.active_only = document.getElementById('filterActiveOnly').checked;
+    currentFilters.search = document.getElementById('filterSearch').value;
+    loadDocTypes();
+});
+document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+    document.getElementById('filterCategory').value = '';
+    document.getElementById('filterActiveOnly').checked = false;
+    document.getElementById('filterSearch').value = '';
+    currentFilters = { category: '', active_only: false, search: '' };
+    loadDocTypes();
+});
+
+// Modal handling
+let docTypeModal, importModal;
+document.addEventListener('DOMContentLoaded', () => {
+    docTypeModal = new bootstrap.Modal(document.getElementById('docTypeModal'));
+    importModal = new bootstrap.Modal(document.getElementById('importModal'));
+
+    document.getElementById('addDocTypeBtn').addEventListener('click', () => {
+        document.getElementById('modalTitle').innerText = 'Add Document Type';
+        document.getElementById('docTypeId').value = '';
+        document.getElementById('code').value = '';
+        document.getElementById('name').value = '';
+        document.getElementById('category').value = '';
+        document.getElementById('description').value = '';
+        document.getElementById('isActive').checked = true;
+        document.getElementById('archiveBtn').style.display = 'none';
+        docTypeModal.show();
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const id = document.getElementById('docTypeId').value;
+        const payload = {
+            code: document.getElementById('code').value.trim(),
+            name: document.getElementById('name').value.trim(),
+            category: document.getElementById('category').value.trim(),
+            description: document.getElementById('description').value,
+            isActive: document.getElementById('isActive').checked ? 1 : 0
+        };
+        if (!payload.code || !payload.name) { alert('Code and Name are required'); return; }
+        const url = id ? `/api/admin/document-types/${id}` : '/api/admin/document-types';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+            docTypeModal.hide();
+            loadDocTypes();
+            loadCategories(); // refresh category filter
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Error saving');
+        }
+    });
+
+    document.getElementById('archiveBtn').addEventListener('click', async () => {
+        const id = document.getElementById('docTypeId').value;
+        if (!id) return;
+        if (!confirm('Archive this document type? It will be set to inactive.')) return;
+        const res = await fetch(`/api/admin/document-types/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            docTypeModal.hide();
+            loadDocTypes();
+            loadCategories();
+        } else alert('Archive failed');
+    });
+
+    // Edit button (delegation)
+    document.getElementById('docTypesTableBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.edit-btn');
+        if (btn) {
+            const id = btn.dataset.id;
+            const res = await fetch(`/api/admin/document-types/${id}`);
+            const dt = await res.json();
+            document.getElementById('modalTitle').innerText = 'Edit Document Type';
+            document.getElementById('docTypeId').value = dt.id;
+            document.getElementById('code').value = dt.code;
+            document.getElementById('name').value = dt.name;
+            document.getElementById('category').value = dt.category || '';
+            document.getElementById('description').value = dt.description || '';
+            document.getElementById('isActive').checked = dt.isActive;
+            document.getElementById('archiveBtn').style.display = 'inline-block';
+            docTypeModal.show();
+        }
+        // Copy button
+        const copyBtn = e.target.closest('.copy-btn');
+        if (copyBtn) {
+            const code = copyBtn.dataset.code;
+            const name = copyBtn.dataset.name;
+            const category = copyBtn.dataset.category;
+            const desc = copyBtn.dataset.desc;
+            document.getElementById('modalTitle').innerText = 'Copy Document Type';
+            document.getElementById('docTypeId').value = '';
+            document.getElementById('code').value = code + '_COPY';
+            document.getElementById('name').value = name + ' (Copy)';
+            document.getElementById('category').value = category;
+            document.getElementById('description').value = desc;
+            document.getElementById('isActive').checked = true;
+            document.getElementById('archiveBtn').style.display = 'none';
+            docTypeModal.show();
+        }
+    });
+
+    // Export
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        const params = new URLSearchParams();
+        if (currentFilters.category) params.append('category', currentFilters.category);
+        if (currentFilters.active_only) params.append('active_only', 'true');
+        if (currentFilters.search) params.append('search', currentFilters.search);
+        window.location.href = `/api/admin/document-types/export?${params.toString()}`;
+    });
+
+    // Import
+    document.getElementById('importBtn').addEventListener('click', () => { importModal.show(); });
+    document.getElementById('doImportBtn').addEventListener('click', async () => {
+        const file = document.getElementById('importFile').files[0];
+        if (!file) { alert('Select a CSV file'); return; }
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/admin/document-types/import', { method: 'POST', body: formData });
+        if (res.ok) {
+            const data = await res.json();
+            alert(data.message + (data.errors?.length ? '\nErrors:\n' + data.errors.join('\n') : ''));
+            importModal.hide();
+            loadDocTypes();
+            loadCategories();
+        } else {
+            alert('Import failed');
+        }
+    });
+});
+
+loadCategories();
+loadDocTypes();
+</script>
+{% endblock %}

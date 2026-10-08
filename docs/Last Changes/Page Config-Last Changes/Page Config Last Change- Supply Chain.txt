@@ -1,0 +1,182 @@
+PART B: Page Configuration – Supply Chain Module
+Date: 2026-09-16
+Module root: /supply-chain
+API root: /api
+Blueprint: supply_chain_bp + supply_chain_api_bp
+Templates folder: templates/supply_chain/
+
+B.1 Purchase Orders
+Element	Value
+URL	/supply-chain/purchase-orders
+Route fn	purchase_orders()
+Template	templates/supply_chain/purchase_orders.html
+Purpose	Manage all purchase orders (multi-line)
+KPI Cards	Draft / Sent / Partially Received / Closed / Overdue
+Table Columns	PO#, Supplier, Order Date, Expected Delivery, Status, Products, Total Amount, Actions
+Filters	Supplier, Status, Order Date from/to, Project ID
+Actions	Create PO, Receive (per line), Files (attachments), Export CSV
+Modals	Create PO (dynamic multi-line), Receive Goods (per-line quantities), Attachments (upload + list)
+API	/api/purchase-orders/list, /api/purchase-orders/<id>, /api/purchase-orders POST, /api/purchase-orders/<id>/receive, /api/purchase-orders/<id>/attachments GET/POST, /api/purchase-orders/export
+Tables	t_PurchaseOrder, t_PurchaseOrderDetail, t_Suppliers, t_Product, t_InventoryTransactions, t_EngineeringDocument
+Notes	Uses date_to_key() for date filters. Line receive: partial allowed, updates header status automatically.
+B.2 Subcontract POs
+Element	Value
+URL	/supply-chain/subcontract-orders
+Route fn	subcontract_orders()
+Template	templates/supply_chain/subcontract_orders.html
+Purpose	Subcontract POs linked to production orders
+KPI Cards	Draft / Sent / Partially Received / Closed / Overdue
+Table Columns	PO#, Production Order, Supplier, Operation, Status, Due Date, Actions
+Filters	Supplier, Production Order, Status, Date from/to
+Actions	Create from Production Order, Receive, Files, Export CSV
+Modals	Create from Production Order (prod order + unit price), Receive, Attachments
+API	/api/subcontract/list, /api/subcontract/create-from-production, /api/subcontract/linked-production-orders, /api/subcontract/export
+Tables	t_PurchaseOrder, t_ProductionOrderPurchaseOrder, t_ProductionOrder, t_Suppliers, t_WorkCenterRouting
+Notes	Operation column derives from t_WorkCenterRouting.WorkCenterID (no OperationDescription column exists). Use COALESCE(wcr.WorkCenterID, 'Subcontract'). Duplicate route in manufacturing/api.py must be removed or renamed.
+B.3 Receiving
+Element	Value
+URL	/supply-chain/receiving
+Route fn	receiving()
+Template	templates/supply_chain/receiving.html
+Purpose	Streamlined goods receipt against POs
+KPI Cards	Expected Today / Overdue Receipts / Pending Inspection
+Table Columns	PO#, Supplier, Expected Date, Outstanding Qty, Status, Actions
+Filters	Supplier (live), Date from/to (live), PO# (live)
+Actions	Receive (opens modal), upload attachment, optional Quality Inspection batch
+Modals	Receive Against PO — lines with remaining quantity, warehouse, notes, "Create Quality Inspection Batch" checkbox, file upload
+API	/api/receiving/kpi, /api/receiving/expected-list, /api/receiving/po-details/<po_id>, /api/receiving/receive, /api/receiving/upload-attachment
+Tables	t_PurchaseOrder, t_PurchaseOrderDetail, t_InventoryTransactions, t_QualityInspectionBatch, t_EngineeringDocument
+Notes	Live filtering via input/change events on filter fields. expected-list only returns POs with unreceived lines (ReceivedQuantity < Quantity).
+B.4 Supplier Management
+Element	Value
+URL	/supply-chain/suppliers
+Route fn	suppliers()
+Template	templates/supply_chain/suppliers.html
+Purpose	Supplier master data + portal access + shared docs
+KPI Cards	Total Suppliers / Active Portal Users / Average Rating
+Table Columns	Code, Name, Category, Overall Rating (badge), Status, Actions
+Filters	Category (text), Rating min/max, Status
+Actions	Add Supplier, Create Portal User, Share Document, Details (placeholder)
+Modals	Add Supplier (full form), Portal User (prompts), Share Document (file input)
+API	/api/suppliers/list (KPI+items), /api/suppliers POST, /api/suppliers/<id>, /api/suppliers/<id>/portal-user, /api/suppliers/<id>/share-document, /api/suppliers/<id>/documents, /api/suppliers/<id>/price-history, /api/suppliers/<id>/audit-log
+Tables	t_Suppliers, t_Users, t_EngineeringDocument, t_Prices, t_AuditLog
+Notes	Portal user password hashed via werkzeug.security.generate_password_hash. Requires t_Users.PasswordHash column. Rating colour: ≥80 success, 60–79 warning, <60 danger.
+B.5 Stock Overview
+Element	Value
+URL	/supply-chain/stock-overview (accepts ?product_id=<ID>)
+Route fn	stock_overview()
+Template	templates/supply_chain/stock_overview.html
+Purpose	Real-time inventory view (quantities + value)
+KPI Cards	Total Quantity On Hand / Total Inventory Value / Low Stock Products
+Table Columns	Product, Warehouse, On Hand, Reserved, Available, Unit Cost, Currency, Status
+Filters	Warehouse (select), Product Search (text), Low Stock Only (checkbox)
+Actions	Adjust Stock, Transfer Stock, Export CSV
+Modals	Adjust Stock (product, warehouse, qty ±, unit cost, currency, reason), Transfer Stock (product, from, to, qty, reason)
+API	/api/stock/kpi, /api/stock/list, /api/stock/adjust, /api/stock/transfer, /api/stock/export
+Tables	t_InventoryOnHand, t_Product, t_Warehouses, t_InventoryTransactions
+Notes	Reserved is always 0 (no reservation table). Available = On Hand. ?product_id= URL param pre-fills search and auto-refreshes. Warehouse filter dropdown uses /api/warehouses/list.
+B.6 Warehouse Management
+Element	Value
+URL	/supply-chain/warehouses
+Route fn	warehouses()
+Template	templates/supply_chain/warehouses.html
+Purpose	Warehouse master data + capacity + utilisation
+KPI Cards	Total Warehouses / Total Capacity / Avg Utilisation %
+Table Columns	Code, Name, Type, Capacity, Utilisation %, Status, Actions
+Filters	Type (select), Status (Active/Inactive)
+Actions	Add Warehouse, Edit, Deactivate, Configure Bins (placeholder), Export CSV, Import CSV
+Modals	Add/Edit Warehouse (full form), Configure Bins (placeholder message)
+API	/api/warehouses/list (dropdown: id+name), /api/warehouses (KPI+items), /api/warehouses POST, /api/warehouses/<id> GET/PUT/DELETE, /api/warehouses/export, /api/warehouses/import
+Tables	t_Warehouses, t_InventoryOnHand
+Notes	Utilisation = Σ Qty in t_InventoryOnHand / Capacity × 100. Two separate endpoints: /warehouses/list (simple) vs /warehouses (full) — avoid endpoint name conflict. Soft delete only if stock exists.
+B.7 Stock Movements
+Element	Value
+URL	/supply-chain/stock-movements
+Route fn	stock_movements()
+Template	templates/supply_chain/stock_movements.html
+Purpose	Transaction audit trail
+KPI Cards	Today's Transactions + dynamic breakdown by type
+Table Columns	Date (Key), Product, Type, Reference, Quantity, Unit Cost, Currency, Warehouse, Details
+Filters	Date from/to, Product (id or name), Transaction Type
+Actions	View (detail modal placeholder), Export CSV
+Modals	Transaction Details (placeholder)
+API	/api/stock-movements/kpi, /api/stock-movements/list, /api/stock-movements/export
+Tables	t_InventoryTransactions, t_Product, t_Warehouses
+Notes	List limited to 1000 most recent. Details column shows From → To for transfers, else Notes.
+B.8 Inventory Valuation
+Element	Value
+URL	/supply-chain/inventory-valuation
+Route fn	inventory_valuation()
+Template	templates/supply_chain/inventory_valuation.html
+Purpose	Financial valuation of on-hand inventory
+KPI Cards	Total Inventory Value / Value by Warehouse / Top Categories
+Table Columns	Product, Warehouse, Quantity, Unit Cost, Total Value
+Filters	Valuation Method (Weighted Average / Standard Cost), Product Search, Valuation Date (currently ignored)
+Actions	Run Valuation, Adjust Standard Cost, Export CSV
+Modals	Adjust Standard Cost (product dropdown, new cost)
+API	/api/valuation/kpi, /api/valuation/report, /api/valuation/update-standard-cost, /api/valuation/export
+Tables	t_InventoryOnHand, t_Product, t_Warehouses
+Notes	Standard cost updates t_Product.StandardCost. Valuation date not honoured (no snapshots). Category = first 15 chars of product name.
+B.9 Shipping
+Element	Value
+URL	/supply-chain/shipping
+Route fn	shipping()
+Template	templates/supply_chain/shipping.html
+Purpose	Outbound shipments to customers
+KPI Cards	Today's Shipments / Pending Shipments / By Carrier
+Table Columns	Shipment#, Sales Order, Customer, Date (Key), Status, Carrier, Tracking#, Actions
+Filters	Customer, Date from/to, Status
+Actions	Create Shipment, Update Status, Export CSV
+Modals	Create Shipment (SO dropdown → auto-lists open lines with remaining qty), Update Status (status + tracking number)
+API	/api/shipping/kpi, /api/shipping/list, /api/shipping/sales-orders-for-picking, /api/shipping/create, /api/shipping/update-status/<id>, /api/shipping/export
+Tables	t_Shipments, t_ShipmentLines, t_SalesOrder, t_SalesOrderLine, t_Customer, t_InventoryTransactions
+Notes	Shipment creation validates remaining qty per SO line; updates t_SalesOrderLine.ShippedQuantity; negative Sales Issue transaction; SO status set to Shipped when fully shipped. Carrier is free-text.
+B.10 RFQ Management (placeholder)
+Element	Value
+URL	/supply-chain/rfq
+Route fn	rfq() — returns templates/supply_chain/placeholder.html
+Status	Not implemented
+Proposed Tables	t_RFQ, t_RFQLine, t_Quotes, t_QuoteLine
+B.11 Sidebar Links (Supply Chain group)
+Hardcoded paths (avoid url_for for missing routes):
+
+text
+Purchasing
+  Purchase Orders      → /supply-chain/purchase-orders
+  Subcontract POs      → /supply-chain/subcontract-orders
+  RFQ Management       → #  (placeholder)
+  Supplier Management  → /supply-chain/suppliers
+
+Inventory
+  Stock Overview       → /supply-chain/stock-overview
+  Warehouse Management → /supply-chain/warehouses
+  Stock Movements      → /supply-chain/stock-movements
+  Inventory Valuation  → /supply-chain/inventory-valuation
+
+Logistics
+  Receiving            → /supply-chain/receiving
+  Shipping             → /supply-chain/shipping
+Translation keys: sidebar.supply_chain.title, .purchasing, .purchase_orders, .subcontract_pos, .rfq, .supplier_management, .inventory, .stock_overview, .warehouse, .stock_movements, .inventory_valuation, .logistics, .receiving, .shipping.
+
+B.12 Templates Folder
+text
+templates/supply_chain/
+├── purchase_orders.html
+├── subcontract_orders.html
+├── receiving.html
+├── suppliers.html
+├── stock_overview.html
+├── warehouses.html
+├── stock_movements.html
+├── inventory_valuation.html
+├── shipping.html
+└── placeholder.html       # for RFQ and future pages
+B.13 Required Imports (top of api.py)
+python
+from . import api_bp
+from flask import request, jsonify, current_app
+from flask_login import login_required, current_user
+from sqlalchemy.sql import text
+from datetime import datetime
+import os, csv
+from io import StringIO

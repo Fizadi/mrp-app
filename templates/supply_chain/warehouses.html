@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Warehouse Management{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.8c8c34eb', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.f3236d7c', 'Warehouses') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.56506ed5', 'Warehouse Management') }}</h2>
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.b96e5631', 'Type') }}</label>
+<select class="form-select" id="filterType">
+<option value="">{{ get_translation('auto.58c8a504', 'All Types') }}</option>
+<option>{{ get_translation('auto.705b8a4f', 'Raw Material') }}</option>
+<option>{{ get_translation('auto.bb435134', 'WIP') }}</option>
+<option>{{ get_translation('auto.9090b148', 'Finished Goods') }}</option>
+<option>{{ get_translation('auto.eb5c81c8', 'Other') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.6fc044ca', 'Status') }}</label>
+<select class="form-select" id="filterActive">
+<option value="">{{ get_translation('auto.c6a20907', 'All') }}</option>
+<option value="1">{{ get_translation('auto.280716d8', 'Active') }}</option>
+<option value="0">{{ get_translation('auto.3fd21e2e', 'Inactive') }}</option>
+</select>
+</div>
+<div class="col-md-2 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.e9e472f8', 'Refresh') }}</button>
+</div>
+<div class="col-md-2 d-flex align-items-end">
+<a class="btn btn-info w-100" href="#" id="exportBtn">{{ get_translation('auto.e9dfaffb', 'Export CSV') }}</a>
+</div>
+<div class="col-md-3 d-flex align-items-end">
+<input accept=".csv" id="importFile" style="display:none" type="file"/>
+<button class="btn btn-secondary w-100" id="importBtn">{{ get_translation('auto.50bdd127', 'Import CSV') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.30ee05e1', 'Total Warehouses') }}</h6><h3 id="kpiTotal">{{ get_translation('auto.3fc4a7a1', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.05d4371e', 'Total Capacity') }}</h6><h3 id="kpiCapacity">{{ get_translation('auto.adc44f65', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('auto.25acce89', 'Avg. Utilisation') }}</h6><h3 id="kpiUtil">{{ get_translation('auto.3be2bf14', '0%') }}</h3></div></div></div>
+</div>
+<!-- Main Card -->
+<div class="card">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('auto.7ddcbc41', 'Warehouses') }}</span>
+<button class="btn btn-sm btn-success" id="addWarehouseBtn">{{ get_translation('auto.597c06b9', '+ Add Warehouse') }}</button>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr><th>{{ get_translation('auto.9102d372', 'Code') }}</th><th>{{ get_translation('auto.c27c7592', 'Name') }}</th><th>{{ get_translation('auto.360ef97e', 'Type') }}</th><th>{{ get_translation('auto.bd8c6c05', 'Capacity') }}</th><th>{{ get_translation('auto.8a91fe84', 'Utilisation') }}</th><th>{{ get_translation('auto.c09548c6', 'Status') }}</th><th>{{ get_translation('auto.b17ff9aa', 'Actions') }}</th></tr>
+</thead>
+<tbody id="warehousesBody">
+<tr><td class="text-center" colspan="7">{{ get_translation('auto.d20a4e6d', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="warehouseModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5 id="modalTitle">{{ get_translation('auto.9af5463c', 'Add Warehouse') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="warehouseForm">
+<input id="editMode" type="hidden" value="0"/>
+<div class="row mb-3">
+<div class="col-md-4"><label>{{ get_translation('auto.1c87d886', 'Warehouse Code *') }}</label><input class="form-control" id="whId" required="" type="text"/></div>
+<div class="col-md-8"><label>{{ get_translation('auto.729265d4', 'Name *') }}</label><input class="form-control" id="whName" required="" type="text"/></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-4"><label>{{ get_translation('auto.6f4e58b2', 'Type *') }}</label><select class="form-select" id="whType" required=""><option>{{ get_translation('auto.515bd81c', 'Raw Material') }}</option><option>{{ get_translation('auto.8ea20902', 'WIP') }}</option><option>{{ get_translation('auto.ac0a1ebb', 'Finished Goods') }}</option><option>{{ get_translation('auto.d408f93d', 'Other') }}</option></select></div>
+<div class="col-md-4"><label>{{ get_translation('auto.4cbea198', 'Capacity (units)') }}</label><input class="form-control" id="whCapacity" step="any" type="number"/></div>
+<div class="col-md-4"><label>{{ get_translation('auto.9f1e440e', 'Active') }}</label><input class="form-check-input" id="whActive" style="margin-top: 2rem;" type="checkbox"/></div>
+</div>
+<div class="mb-3"><label>{{ get_translation('auto.3607c460', 'Location') }}</label><input class="form-control" id="whLocation" type="text"/></div>
+<div class="row mb-3">
+<div class="col-md-6"><label>{{ get_translation('auto.19c9fea4', 'Contact Person') }}</label><input class="form-control" id="whContact" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.5df0025b', 'Phone') }}</label><input class="form-control" id="whPhone" type="text"/></div>
+</div>
+<div class="mb-3"><label>{{ get_translation('auto.9cb06d36', 'Address') }}</label><textarea class="form-control" id="whAddress" rows="2"></textarea></div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="saveWarehouseBtn" type="button">{{ get_translation('auto.136f9779', 'Save') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Bin Configuration Modal (placeholder) -->
+<div class="modal fade" id="binsModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.c23efe56', 'Configure Bins') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.a485594d', 'Bin configuration is not yet implemented in this version.') }}</p>
+<p>{{ get_translation('auto.61a30d03', 'Please contact system administrator for future enhancement.') }}</p>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.1bb18137', 'Close') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Load warehouses
+    function loadWarehouses() {
+        var params = {};
+        var type = $('#filterType').val();
+        var active = $('#filterActive').val();
+        if (type) params.type = type;
+        if (active !== '') params.status = active;
+
+        // ✅ Fixed: /api/warehouses → /api/supply-chain/warehouses/list
+        $.get('/api/supply-chain/warehouses/list', params, function(data) {
+            $('#kpiTotal').text(data.kpi.total);
+            $('#kpiCapacity').text((data.kpi.total_capacity || 0).toLocaleString());
+            $('#kpiUtil').text((data.kpi.avg_utilisation || 0) + '%');
+            var tbody = $('#warehousesBody');
+            if (!data.items.length) {
+                tbody.html('<tr><td colspan="7" class="text-center">No warehouses found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(data.items, function(i, wh) {
+                var statusBadge = wh.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                rows += `<tr>
+                    <td><a href="#" class="wh-link" data-id="${wh.id}">${wh.id}</a></td>
+                    <td>${wh.name}</td>
+                    <td>${wh.type}</td>
+                    <td>${wh.capacity}</td>
+                    <td>${wh.utilisation}%</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary edit-wh" data-id="${wh.id}">Edit</button>
+                        <button class="btn btn-sm btn-secondary bins-wh" data-id="${wh.id}">Configure Bins</button>
+                        ${wh.isActive ? `<button class="btn btn-sm btn-danger delete-wh" data-id="${wh.id}">Deactivate</button>` : ''}
+                    </td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    // Add/Edit logic
+    $('#addWarehouseBtn').click(function() {
+        $('#modalTitle').text('Add Warehouse');
+        $('#editMode').val('0');
+        $('#warehouseForm')[0].reset();
+        $('#whActive').prop('checked', true);
+        $('#whId').prop('readonly', false);
+        $('#warehouseModal').modal('show');
+    });
+    $(document).on('click', '.edit-wh', function() {
+        var id = $(this).data('id');
+        // ✅ Fixed: /api/warehouses/ → /api/supply-chain/warehouses/
+        $.get('/api/supply-chain/warehouses/' + id, function(data) {
+            $('#modalTitle').text('Edit Warehouse');
+            $('#editMode').val('1');
+            $('#whId').val(data.id).prop('readonly', true);
+            $('#whName').val(data.name);
+            $('#whType').val(data.type);
+            $('#whCapacity').val(data.capacity);
+            $('#whActive').prop('checked', data.isActive);
+            $('#whLocation').val(data.location || '');
+            $('#whContact').val(data.contactPerson || '');
+            $('#whPhone').val(data.phone || '');
+            $('#whAddress').val(data.address || '');
+            $('#warehouseModal').modal('show');
+        });
+    });
+    $('#saveWarehouseBtn').click(function() {
+        var whId = $('#whId').val().trim();
+        var name = $('#whName').val().trim();
+        var type = $('#whType').val();
+        if (!whId || !name || !type) {
+            alert('Warehouse Code, Name and Type are required');
+            return;
+        }
+        var payload = {
+            warehouseId: whId,
+            name: name,
+            type: type,
+            location: $('#whLocation').val(),
+            capacity: parseFloat($('#whCapacity').val()) || 0,
+            isActive: $('#whActive').is(':checked'),
+            contactPerson: $('#whContact').val(),
+            phone: $('#whPhone').val(),
+            address: $('#whAddress').val()
+        };
+        var method = 'POST';
+        // ✅ Fixed: /api/warehouses → /api/supply-chain/warehouses
+        var url = '/api/supply-chain/warehouses';
+        if ($('#editMode').val() === '1') {
+            method = 'PUT';
+            // ✅ Fixed: /api/warehouses/ → /api/supply-chain/warehouses/
+            url = '/api/supply-chain/warehouses/' + whId;
+        }
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function() {
+                $('#warehouseModal').modal('hide');
+                loadWarehouses();
+            },
+            error: function(xhr) { alert(xhr.responseJSON ? xhr.responseJSON.error : 'Save failed'); }
+        });
+    });
+
+    // Deactivate
+    $(document).on('click', '.delete-wh', function() {
+        var id = $(this).data('id');
+        if (confirm('Deactivate warehouse ' + id + '? This will set it to inactive. Stock records remain.')) {
+            $.ajax({
+                // ✅ Fixed: /api/warehouses/ → /api/supply-chain/warehouses/
+                url: '/api/supply-chain/warehouses/' + id,
+                method: 'DELETE',
+                success: function() { loadWarehouses(); },
+                error: function(xhr) { alert(xhr.responseJSON ? xhr.responseJSON.error : 'Delete failed'); }
+            });
+        }
+    });
+
+    // Configure Bins placeholder
+    $(document).on('click', '.bins-wh', function() {
+        $('#binsModal').modal('show');
+    });
+
+    // Export CSV
+    $('#exportBtn').click(function(e) {
+        e.preventDefault();
+        // ✅ Fixed: /api/warehouses/export → /api/supply-chain/warehouses/export
+        window.location.href = '/api/supply-chain/warehouses/export';
+    });
+
+    // Import CSV
+    $('#importBtn').click(function() {
+        $('#importFile').click();
+    });
+    $('#importFile').change(function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var formData = new FormData();
+        formData.append('file', file);
+        $.ajax({
+            // ✅ Fixed: /api/warehouses/import → /api/supply-chain/warehouses/import
+            url: '/api/supply-chain/warehouses/import',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(resp) {
+                alert(`Import completed: ${resp.success} rows imported. Errors: ${resp.errors.length}`);
+                if (resp.errors.length) console.log(resp.errors);
+                loadWarehouses();
+            },
+            error: function(xhr) {
+                // Backend returns 501 Not Implemented with {'error': 'Not implemented'}
+                var msg = xhr.responseJSON ? xhr.responseJSON.error : 'Import failed';
+                alert(msg);
+            }
+        });
+        $(this).val('');
+    });
+
+    $('#refreshBtn').click(loadWarehouses);
+    loadWarehouses();
+});
+</script>
+{% endblock %}

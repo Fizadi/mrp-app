@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Shop Floor Control{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('auto.11ca43cb', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.46b9fe25', 'Shop Floor Control') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.e9a69c06', 'Shop Floor Workbench') }}</h2>
+<!-- KPI Cards -->
+<div class="row mb-4 g-3">
+<div class="col-md-4">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<h5 class="card-title"><i class="fas fa-play-circle"></i>{{ get_translation('auto.9b9ef726', 'Active Jobs') }}</h5>
+<h3 id="kpiActive">{{ get_translation('auto.b15a80d0', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-4">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h5 class="card-title"><i class="fas fa-check-circle"></i>{{ get_translation('auto.ae851e0a', 'Completed Today') }}</h5>
+<h3 id="kpiCompleted">{{ get_translation('auto.bef91ea9', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-4">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<h5 class="card-title"><i class="fas fa-stop-circle"></i>{{ get_translation('auto.5f14d876', 'Downtime Today') }}</h5>
+<h3 id="kpiDowntime">{{ get_translation('auto.7baf7239', '0') }}</h3>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body row g-2">
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.b7129922', 'Work Center') }}</label>
+<select class="form-select" id="filterWorkCenter">
+<option value="">{{ get_translation('auto.3b832132', 'All') }}</option>
+</select>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.f17ef68e', 'Shift') }}</label>
+<select class="form-select" id="filterShift">
+<option value="">{{ get_translation('auto.fb0440ca', 'All') }}</option>
+<option>{{ get_translation('auto.c672a0f0', 'Morning') }}</option>
+<option>{{ get_translation('auto.9c081e10', 'Afternoon') }}</option>
+<option>{{ get_translation('auto.902e24b6', 'Night') }}</option>
+</select>
+</div>
+<div class="col-md-4 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.6f5469b9', 'Refresh') }}</button>
+</div>
+</div>
+</div>
+<!-- Assigned Jobs Table -->
+<div class="card">
+<div class="card-header">
+<h5>{{ get_translation('auto.a1d6707b', 'Assigned Jobs') }}</h5>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead class="table-light">
+<tr>
+<th>{{ get_translation('auto.2662bb9b', 'Order ID') }}</th><th>{{ get_translation('auto.ecd39392', 'Product') }}</th><th>{{ get_translation('auto.5c75e2f2', 'Operation') }}</th><th>{{ get_translation('auto.43d7d2ce', 'Work Center') }}</th>
+<th>{{ get_translation('auto.c61a7b17', 'Status') }}</th><th>{{ get_translation('auto.3ca72081', 'Start Time') }}</th><th>{{ get_translation('auto.e026664e', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="jobsTableBody">
+<tr><td class="text-center" colspan="7">{{ get_translation('auto.0c9154ed', 'Loading jobs...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Modals -->
+<!-- Start Job Modal -->
+<div class="modal fade" id="startJobModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.9ef010f0', 'Start Job') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="startOrderId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.a79f23c2', 'Work Center') }}</label>
+<select class="form-select" id="startWorkCenter" required=""></select>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.75db77ab', 'Operation Code') }}</label>
+<input class="form-control" id="startOperation" placeholder="e.g., ASSEMBLY-01" type="text"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.821a5a0d', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmStartBtn">{{ get_translation('auto.9528d825', 'Start') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Report Quantity Modal -->
+<div class="modal fade" id="reportQtyModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.92d4fe86', 'Report Quantity') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="qtyTransactionId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.13928842', 'Quantity Produced') }}</label>
+<input class="form-control" id="producedQty" min="1" required="" step="1" type="number"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.f3532af4', 'Cancel') }}</button>
+<button class="btn btn-success" id="confirmQtyBtn">{{ get_translation('auto.a609fba0', 'Report') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Downtime Modal -->
+<div class="modal fade" id="downtimeModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.515b3988', 'Report Downtime') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="downtimeTransactionId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.de6f40b3', 'Reason') }}</label>
+<textarea class="form-control" id="downtimeReason" required="" rows="2"></textarea>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.adddf060', 'Duration (minutes)') }}</label>
+<input class="form-control" id="downtimeDuration" min="0" step="1" type="number"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.4e493b65', 'Cancel') }}</button>
+<button class="btn btn-warning" id="confirmDowntimeBtn">{{ get_translation('auto.740e81f8', 'Record Downtime') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Self Check Modal -->
+<div class="modal fade" id="selfCheckModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.53a7cbeb', 'Self Inspection') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="checkTransactionId" type="hidden"/>
+<div id="checkParameters">
+<div class="mb-2"><label>{{ get_translation('auto.82d04c3b', 'Dimension A (mm)') }}</label><input class="form-control param" data-param="dim_a" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.b86ccdaa', 'Surface Finish') }}</label><input class="form-control param" data-param="surface" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.6bd2f4ce', 'Visual OK?') }}</label><select class="form-select param" data-param="visual"><option>{{ get_translation('auto.8148466c', 'Yes') }}</option><option>{{ get_translation('auto.e38ce843', 'No') }}</option></select></div>
+</div>
+<button class="btn btn-sm btn-secondary" id="addParamBtn" type="button">{{ get_translation('auto.63c3c233', '+ Add Parameter') }}</button>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.cf59f473', 'Cancel') }}</button>
+<button class="btn btn-info" id="confirmCheckBtn">{{ get_translation('auto.1dfe3cb8', 'Submit Inspection') }}</button>
+</div>
+</div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    loadKPI();
+    loadJobs();
+    loadWorkCenters();
+
+    $('#refreshBtn').click(function() { loadJobs(); loadKPI(); });
+
+    function loadKPI() {
+        $.get('/api/shop-floor/kpi', function(res) {
+            $('#kpiActive').text(res.activeJobs);
+            $('#kpiCompleted').text(res.completedToday);
+            $('#kpiDowntime').text(res.downtimeToday);
+        });
+    }
+
+    function loadWorkCenters() {
+        $.get('/api/shop-floor/work-centers', function(centers) {
+            let opts = '<option value="">All</option>';
+            centers.forEach(c => opts += `<option value="${c.id}">${c.name}</option>`);
+            $('#filterWorkCenter').html(opts);
+            $('#startWorkCenter').html(opts);
+        });
+    }
+
+    function loadJobs() {
+        let params = {
+            work_center: $('#filterWorkCenter').val(),
+            shift: $('#filterShift').val()
+        };
+        $.get('/api/shop-floor/assigned-jobs', params, function(jobs) {
+            let html = '';
+            for (let j of jobs) {
+                let startTime = j.startTime ? new Date(j.startTime).toLocaleString() : '';
+                let actions = '';
+                if (j.isActive) {
+                    actions = `
+                        <button class="btn btn-sm btn-success report-qty" data-id="${j.id}"><i class="fas fa-clipboard-list"></i> Qty</button>
+                        <button class="btn btn-sm btn-warning downtime" data-id="${j.id}"><i class="fas fa-stop"></i> Downtime</button>
+                        <button class="btn btn-sm btn-info self-check" data-id="${j.id}"><i class="fas fa-check-double"></i> Check</button>
+                    `;
+                } else {
+                    actions = `<button class="btn btn-sm btn-primary start-job" data-id="${j.orderId}"><i class="fas fa-play"></i> Start Job</button>`;
+                }
+                html += `<tr>
+                    <td><a href="/production/production-orders">${j.orderNumber || j.orderId}</a></td>
+                    <td>${j.productId}</td>
+                    <td>${j.operation}</td>
+                    <td>${j.workCenter || '-'}</td>
+                    <td><span class="badge ${j.isActive ? 'bg-success' : 'bg-secondary'}">${j.status}</span></td>
+                    <td>${startTime}</td>
+                    <td>${actions}</td>
+                </tr>`;
+            }
+            $('#jobsTableBody').html(html || '<tr><td colspan="7">No jobs assigned</td></tr>');
+        });
+    }
+
+    // Start job
+    $(document).on('click', '.start-job', function() {
+        let orderId = $(this).data('id');
+        $('#startOrderId').val(orderId);
+        $('#startJobModal').modal('show');
+    });
+    $('#confirmStartBtn').click(function() {
+        let orderId = $('#startOrderId').val();
+        let workCenter = $('#startWorkCenter').val();
+        let operation = $('#startOperation').val();
+        $.ajax({
+            url: '/api/shop-floor/start-job',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ orderId: orderId, workCenter: workCenter, operation: operation }),
+            success: function() { $('#startJobModal').modal('hide'); loadJobs(); loadKPI(); },
+            error: function(err) { alert('Error: ' + err.responseJSON?.error); }
+        });
+    });
+
+    // Report quantity
+    $(document).on('click', '.report-qty', function() {
+        let tid = $(this).data('id');
+        $('#qtyTransactionId').val(tid);
+        $('#reportQtyModal').modal('show');
+    });
+    $('#confirmQtyBtn').click(function() {
+        let tid = $('#qtyTransactionId').val();
+        let qty = $('#producedQty').val();
+        if (!qty || qty <= 0) { alert('Enter valid quantity'); return; }
+        $.ajax({
+            url: '/api/shop-floor/report-quantity',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ transactionId: tid, quantity: qty }),
+            success: function() { $('#reportQtyModal').modal('hide'); loadJobs(); loadKPI(); },
+            error: function(err) { alert('Error: ' + err.responseJSON?.error); }
+        });
+    });
+
+    // Downtime
+    $(document).on('click', '.downtime', function() {
+        let tid = $(this).data('id');
+        $('#downtimeTransactionId').val(tid);
+        $('#downtimeModal').modal('show');
+    });
+    $('#confirmDowntimeBtn').click(function() {
+        let tid = $('#downtimeTransactionId').val();
+        let reason = $('#downtimeReason').val();
+        let duration = $('#downtimeDuration').val();
+        $.ajax({
+            url: '/api/shop-floor/downtime',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ transactionId: tid, reason: reason, durationMinutes: duration }),
+            success: function() { $('#downtimeModal').modal('hide'); loadJobs(); loadKPI(); },
+            error: function(err) { alert('Error: ' + err.responseJSON?.error); }
+        });
+    });
+
+    // Self check - dynamic parameters
+    $(document).on('click', '.self-check', function() {
+        let tid = $(this).data('id');
+        $('#checkTransactionId').val(tid);
+        // reset parameters to default list
+        $('#checkParameters').html(`
+            <div class="mb-2"><label>Dimension A (mm)</label><input type="text" class="form-control param" data-param="dim_a"></div>
+            <div class="mb-2"><label>Surface Finish</label><input type="text" class="form-control param" data-param="surface"></div>
+            <div class="mb-2"><label>Visual OK?</label><select class="form-select param" data-param="visual"><option>Yes</option><option>No</option></select></div>
+        `);
+        $('#selfCheckModal').modal('show');
+    });
+    $('#addParamBtn').click(function() {
+        let newParam = prompt('Enter parameter name:');
+        if (newParam) {
+            $('#checkParameters').append(`<div class="mb-2"><label>${newParam}</label><input type="text" class="form-control param" data-param="${newParam.replace(/\s/g, '_')}"></div>`);
+        }
+    });
+    $('#confirmCheckBtn').click(function() {
+        let tid = $('#checkTransactionId').val();
+        let results = {};
+        $('.param').each(function() {
+            let paramName = $(this).data('param');
+            let value = $(this).val();
+            if (value) results[paramName] = value;
+        });
+        $.ajax({
+            url: '/api/shop-floor/self-check',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ transactionId: tid, results: results }),
+            success: function() { $('#selfCheckModal').modal('hide'); loadJobs(); },
+            error: function(err) { alert('Error: ' + err.responseJSON?.error); }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('global.home', 'Home') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('project.projects', 'Projects') }}</li>
+            <li class="breadcrumb-item active">{{ get_translation('project.portfolio.breadcrumb', 'Project Portfolio') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('project.portfolio.title', '📊 Project Portfolio') }}</h2>
+        <button class="btn btn-primary" data-bs-target="#createProjectModal" data-bs-toggle="modal">
+            {{ get_translation('project.portfolio.btn.create', '+ Create Project') }}
+        </button>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-2 mb-4">
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('project.portfolio.kpi.active', 'Active') }}</h6><h3 id="kpi-active">0</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('project.portfolio.kpi.on_hold', 'On Hold') }}</h6><h3 id="kpi-onhold">0</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-success text-white"><h6>{{ get_translation('project.portfolio.kpi.completed', 'Completed') }}</h6><h3 id="kpi-completed">0</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('project.portfolio.kpi.total_value', 'Total Value') }}</h6><h3 id="kpi-value">0</h3></div></div>
+        <div class="col-6 col-md-2"><div class="card text-center p-2 bg-danger text-white"><h6>{{ get_translation('project.portfolio.kpi.lost', 'Lost') }}</h6><h3 id="kpi-lost">0</h3></div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3 p-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label>{{ get_translation('project.portfolio.filter.status', 'Status') }}</label>
+                <select class="form-select" id="filter-status">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label>{{ get_translation('project.portfolio.filter.pm', 'Project Manager') }}</label>
+                <select class="form-select" id="filter-pm">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label>{{ get_translation('project.portfolio.filter.type', 'Project Type') }}</label>
+                <select class="form-select" id="filter-type">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label>{{ get_translation('project.portfolio.filter.wonlost', 'Won/Lost') }}</label>
+                <select class="form-select" id="filter-wonlost">
+                    <option value="all">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="won">{{ get_translation('project.portfolio.won', 'Won') }}</option>
+                    <option value="lost">{{ get_translation('project.portfolio.lost', 'Lost') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" id="apply-filters" class="btn btn-secondary w-100">
+                    {{ get_translation('global.apply', 'Apply') }}
+                </button>
+            </div>
+        </div>
+        <div class="mt-2">
+            <input class="form-control" id="searchProjects"
+                   placeholder="{{ get_translation('project.portfolio.search_placeholder', '🔍 Search by Project ID, Name, or Customer...') }}"
+                   type="text"/>
+        </div>
+    </div>
+
+    <!-- Projects Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover" id="projects-table">
+            <thead class="table-dark">
+                <tr>
+                    <th>{{ get_translation('project.portfolio.col.project_id', 'Project ID') }}</th>
+                    <th>{{ get_translation('project.portfolio.col.customer', 'Customer') }}</th>
+                    <th>{{ get_translation('project.portfolio.col.value', 'Value') }}</th>
+                    <th>{{ get_translation('project.portfolio.col.percent', '% Complete') }}</th>
+                    <th>{{ get_translation('project.portfolio.col.status', 'Status') }}</th>
+                    <th>{{ get_translation('project.portfolio.col.winloss', 'Win/Loss Reason') }}</th>
+                    <th>{{ get_translation('project.portfolio.col.created_by', 'Created By') }}</th>
+                    <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                </tr>
+            </thead>
+            <tbody id="portfolio-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Project Modal (kept from your original, unchanged except translations) -->
+<div class="modal fade" id="createProjectModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('project.portfolio.modal.new', 'New Project') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-md-6"><label>{{ get_translation('project.portfolio.field.project_id', 'Project ID *') }}</label>
+                        <input class="form-control" id="new-proj-id" required type="text"/></div>
+                    <div class="col-md-6"><label>{{ get_translation('project.portfolio.field.project_name', 'Project Name *') }}</label>
+                        <input class="form-control" id="new-proj-name" required type="text"/></div>
+                    <div class="col-md-4"><label>{{ get_translation('project.portfolio.field.company_id', 'Company ID *') }}</label>
+                        <input class="form-control" id="new-company-id" required type="text"/></div>
+                    <div class="col-md-4"><label>{{ get_translation('global.status', 'Status') }}</label>
+                        <select class="form-select" id="new-status">
+                            <option>Active</option>
+                            <option>On Hold</option>
+                            <option>Completed</option>
+                            <option>Lost</option>
+                        </select></div>
+                    <div class="col-md-4"><label>{{ get_translation('project.portfolio.field.pm', 'Project Manager') }}</label>
+                        <input class="form-control" id="new-pmgr" type="text"/></div>
+                    <div class="col-md-4"><label>{{ get_translation('project.portfolio.field.type', 'Project Type') }}</label>
+                        <input class="form-control" id="new-ptype" type="text"/></div>
+                    <div class="col-md-4"><label>{{ get_translation('project.portfolio.field.percent', '% Complete') }}</label>
+                        <input class="form-control" id="new-pct" type="number" value="0"/></div>
+                    <div class="col-md-4"><label>{{ get_translation('project.portfolio.field.budget', 'Budget') }}</label>
+                        <input class="form-control" id="new-budget" type="number" step="0.01"/></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="save-new-project" type="button">
+                    {{ get_translation('global.save', 'Save') }}
+                </button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">
+                    {{ get_translation('global.cancel', 'Cancel') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// Server-injected translations (top-level, like working pages)
+// ============================================================
+var trans = {
+    edit:             {{ get_translation('global.edit', 'Edit')|tojson }},
+    save:             {{ get_translation('global.save', 'Save')|tojson }},
+    cancel:           {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    all:              {{ get_translation('global.all', 'All')|tojson }},
+    no_data:          {{ get_translation('project.portfolio.msg.no_data', 'No matching data.')|tojson }},
+    load_failed:      {{ get_translation('project.portfolio.msg.load_failed', 'Failed to load project data.')|tojson }},
+    name_required:    {{ get_translation('project.portfolio.msg.name_required', 'Project Name required')|tojson }},
+    id_required:      {{ get_translation('project.portfolio.msg.id_required', 'Project ID required for new project')|tojson }},
+    save_failed:      {{ get_translation('project.portfolio.msg.save_failed', 'Request failed')|tojson }}
+};
+
+// Current project from session (rendered by Jinja)
+var currentProjectId = "{{ session.get('current_project_id', 'All') }}";
+
+// ============================================================
+// Data loading
+// ============================================================
+function loadPortfolio() {
+    var params = new URLSearchParams({
+        project_id: currentProjectId,
+        status: document.getElementById('filter-status').value || '',
+        project_manager: document.getElementById('filter-pm').value || '',
+        project_type: document.getElementById('filter-type').value || '',
+        won_lost: document.getElementById('filter-wonlost').value || 'all',
+        _: new Date().getTime()
+    });
+
+    fetch('/api/project/data?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            // KPI cards
+            document.getElementById('kpi-active').innerText = data.kpis.active;
+            document.getElementById('kpi-onhold').innerText = data.kpis.on_hold;
+            document.getElementById('kpi-completed').innerText = data.kpis.completed;
+            document.getElementById('kpi-value').innerText = Number(data.kpis.total_value).toLocaleString();
+            document.getElementById('kpi-lost').innerText = data.kpis.lost_count;
+
+            // Table rows
+            var tbody = document.getElementById('portfolio-tbody');
+            tbody.innerHTML = '';
+
+            if (!data.projects || data.projects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">' + trans.no_data + '</td></tr>';
+                return;
+            }
+
+            data.projects.forEach(function(p) {
+                var row = tbody.insertRow();
+                var percent = (p.percent_complete !== undefined && p.percent_complete !== null) ? p.percent_complete : 0;
+                var rowClass = (p.winloss_reason || p.status === 'Lost') ? 'table-danger' : '';
+                if (rowClass) row.className = rowClass;
+
+                // Project ID link to dashboard
+                row.insertCell(0).innerHTML = '<a href="/project/dashboard/' + p.project_id + '">' + p.project_id + '</a>';
+                row.insertCell(1).innerText = p.customer || '-';
+                row.insertCell(2).innerText = Number(p.value || 0).toLocaleString();
+                row.insertCell(3).innerHTML = '<div class="progress" style="height:20px;">' +
+                    '<div class="progress-bar" style="width:' + percent + '%;background-color:#007bff;color:white;line-height:20px;">' +
+                    percent + '%</div></div>';
+                row.insertCell(4).innerText = p.status || '-';
+                row.insertCell(5).innerText = p.winloss_reason || '-';
+                row.insertCell(6).innerText = p.created_by || '-';
+                row.insertCell(7).innerHTML = '<button class="btn btn-sm btn-primary edit-project" data-id="' + p.project_id + '">' + trans.edit + '</button>';
+            });
+        })
+        .catch(function(err) {
+            console.error('Load portfolio failed:', err);
+            alert(trans.load_failed);
+        });
+}
+
+function loadFilterOptions() {
+    fetch('/api/project/filter-options')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var statusSel = document.getElementById('filter-status');
+            statusSel.innerHTML = '<option value="">' + trans.all + '</option>' +
+                data.statuses.map(function(s) { return '<option>' + s + '</option>'; }).join('');
+
+            var pmSel = document.getElementById('filter-pm');
+            pmSel.innerHTML = '<option value="">' + trans.all + '</option>' +
+                data.project_managers.map(function(pm) { return '<option>' + pm + '</option>'; }).join('');
+
+            var typeSel = document.getElementById('filter-type');
+            typeSel.innerHTML = '<option value="">' + trans.all + '</option>' +
+                data.project_types.map(function(t) { return '<option>' + t + '</option>'; }).join('');
+        })
+        .catch(function(err) { console.error('Filter options failed:', err); });
+}
+
+// ============================================================
+// Search filter (client-side)
+// ============================================================
+function applySearchFilter() {
+    var term = document.getElementById('searchProjects').value.toLowerCase();
+    var rows = document.querySelectorAll('#portfolio-tbody tr');
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        row.style.display = (!term || text.indexOf(term) > -1) ? '' : 'none';
+    });
+}
+
+// ============================================================
+// Create Project
+// ============================================================
+function saveNewProject() {
+    var projId = document.getElementById('new-proj-id').value.trim();
+    var projName = document.getElementById('new-proj-name').value.trim();
+
+    if (!projId) { alert(trans.id_required); return; }
+    if (!projName) { alert(trans.name_required); return; }
+
+    var payload = {
+        project_id: projId,
+        project_name: projName,
+        company_id: document.getElementById('new-company-id').value || '',
+        status: document.getElementById('new-status').value || 'Active',
+        project_manager: document.getElementById('new-pmgr').value || '',
+        project_type: document.getElementById('new-ptype').value || '',
+        percent_complete: document.getElementById('new-pct').value || 0,
+        budget: document.getElementById('new-budget').value || 0,
+        actual_cost: 0,
+        committed_cost: 0,
+        currency: 'USD',
+        required_documents: [],
+        additional_attrs: {}
+    };
+
+    fetch('/api/project/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            window.location.reload();
+        } else {
+            alert('Error: ' + (res.error || res.message || 'Unknown'));
+        }
+    })
+    .catch(function(err) {
+        console.error('Save failed:', err);
+        alert(trans.save_failed);
+    });
+}
+
+// ============================================================
+// Edit Project (placeholder — opens dashboard)
+// ============================================================
+function onEditProject(projectId) {
+    // You can expand this to open an edit modal later.
+    // For now, navigate to the project dashboard where editing is available.
+    window.location.href = '/project/dashboard/' + projectId;
+}
+
+// ============================================================
+// Init — matching the working page's pattern exactly
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadPortfolio();
+    loadFilterOptions();
+
+    document.getElementById('apply-filters').addEventListener('click', loadPortfolio);
+    document.getElementById('searchProjects').addEventListener('keyup', applySearchFilter);
+    document.getElementById('save-new-project').addEventListener('click', saveNewProject);
+
+    // Event delegation for edit buttons
+    document.getElementById('portfolio-tbody').addEventListener('click', function(e) {
+        if (e.target.classList.contains('edit-project')) {
+            onEditProject(e.target.getAttribute('data-id'));
+        }
+    });
+});
+</script>
+{% endblock %}

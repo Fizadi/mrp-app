@@ -1,0 +1,1021 @@
+{% extends "base.html" %}
+{% block title %}{{ get_translation("admin.users.title", "Users & Roles") }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3"><i class="fas fa-users-cog me-2"></i>{{ get_translation("admin.users.title", "Users & Roles") }}</h1>
+        <div>
+            <button class="btn btn-outline-success me-2" id="importBtn"><i class="fas fa-upload"></i>{{ get_translation("admin.users.import", "Import") }}</button>
+            <button class="btn btn-outline-info me-2" id="exportBtn"><i class="fas fa-download"></i>{{ get_translation("admin.users.export", "Export") }}</button>
+            <button class="btn btn-primary" id="createUserBtn"><i class="fas fa-plus"></i>{{ get_translation("admin.users.create", "Create User") }}</button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation("admin.users.total_users", "Total Users") }}</h6><h2 class="mb-0" id="kpiTotal">0</h2></div>
+                        <i class="fas fa-users fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation("admin.users.active", "Active") }}</h6><h2 class="mb-0" id="kpiActive">0</h2></div>
+                        <i class="fas fa-user-check fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation("admin.users.inactive", "Inactive") }}</h6><h2 class="mb-0" id="kpiInactive">0</h2></div>
+                        <i class="fas fa-user-slash fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation("admin.users.roles", "Roles") }}</h6><h2 class="mb-0" id="kpiRoles">0</h2></div>
+                        <i class="fas fa-user-tag fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation("admin.users.search", "Search") }}</label>
+                <input class="form-control" id="searchInput" placeholder="{{ get_translation('admin.users.search_placeholder', 'Search by name, username, email...') }}" type="text"/>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation("admin.users.status", "Status") }}</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">{{ get_translation("admin.users.all", "All") }}</option>
+                    <option value="Active">{{ get_translation("admin.users.active", "Active") }}</option>
+                    <option value="Inactive">{{ get_translation("admin.users.inactive", "Inactive") }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation("admin.users.role", "Role") }}</label>
+                <select class="form-select" id="filterRole">
+                    <option value="">{{ get_translation("admin.users.all", "All") }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation("admin.users.department", "Department") }}</label>
+                <select class="form-select" id="filterDepartment">
+                    <option value="">{{ get_translation("admin.users.all", "All") }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation("admin.users.user_type", "User Type") }}</label>
+                <select class="form-select" id="filterUserType">
+                    <option value="">{{ get_translation("admin.users.all", "All") }}</option>
+                    <option value="Internal">{{ get_translation("admin.users.internal", "Internal") }}</option>
+                    <option value="External">{{ get_translation("admin.users.external", "External") }}</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-primary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <i class="fas fa-list me-2"></i>{{ get_translation("admin.users.user_list", "User List") }}
+            <span class="badge bg-secondary ms-2" id="userCount">0</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-sticky table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:50px;">#</th>
+                            <th>{{ get_translation("admin.users.username", "Username") }}</th>
+                            <th>{{ get_translation("admin.users.full_name", "Full Name") }}</th>
+                            <th>{{ get_translation("admin.users.email", "Email") }}</th>
+                            <th>{{ get_translation("admin.users.department", "Department") }}</th>
+                            <th>{{ get_translation("admin.users.roles", "Roles") }}</th>
+                            <th>{{ get_translation("admin.users.status", "Status") }}</th>
+                            <th style="width:180px;">{{ get_translation("admin.users.actions", "Actions") }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr><td class="text-center py-4" colspan="8">{{ get_translation("global.loading", "Loading...") }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <span id="paginationInfo">{{ get_translation("admin.users.showing", "Showing") }} 0-0 {{ get_translation("admin.users.of", "of") }} 0</span>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" id="prevPageBtn" disabled><i class="fas fa-chevron-left"></i></button>
+                <span class="mx-2" id="pageInfo">1</span>
+                <button class="btn btn-sm btn-outline-secondary" id="nextPageBtn" disabled><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== USER MODAL ==================== -->
+<div class="modal fade" id="userModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="userModalTitle">{{ get_translation("admin.users.create", "Create User") }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input id="userId" type="hidden" value=""/>
+                    
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="userTabs" role="tablist">
+                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabGeneral">{{ get_translation("admin.users.general", "General") }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabRoles">{{ get_translation("admin.users.roles", "Roles") }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabPassword">{{ get_translation("admin.users.password", "Password") }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabPermissions">{{ get_translation("admin.users.permissions", "Permissions") }}</a></li>
+                    </ul>
+                    
+                    <div class="tab-content">
+                        <!-- Tab 1: General -->
+                        <div class="tab-pane active" id="tabGeneral">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ get_translation("admin.users.username", "Username") }} *</label>
+                                    <input class="form-control" id="userUsername" required type="text"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ get_translation("admin.users.full_name", "Full Name") }} *</label>
+                                    <input class="form-control" id="userFullName" required type="text"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ get_translation("admin.users.full_name_local", "Full Name (Farsi)") }}</label>
+                                    <input class="form-control" id="userFullNameLocal" type="text" dir="rtl"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ get_translation("admin.users.email", "Email") }} *</label>
+                                    <input class="form-control" id="userEmail" required type="email"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">{{ get_translation("admin.users.department", "Department") }}</label>
+                                    <select class="form-select" id="userDepartment">
+                                        <option value="">{{ get_translation("admin.users.select", "Select") }}</option>
+                                        <option value="Administration">Administration</option>
+                                        <option value="Engineering">Engineering</option>
+                                        <option value="Quality">Quality</option>
+                                        <option value="Production">Production</option>
+                                        <option value="Supply Chain">Supply Chain</option>
+                                        <option value="Sales">Sales</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="HR">HR</option>
+                                        <option value="IT">IT</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">{{ get_translation("admin.users.position", "Position") }}</label>
+                                    <input class="form-control" id="userPosition" type="text"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">{{ get_translation("admin.users.user_type", "User Type") }}</label>
+                                    <select class="form-select" id="userUserType">
+                                        <option value="Internal">{{ get_translation("admin.users.internal", "Internal") }}</option>
+                                        <option value="External">{{ get_translation("admin.users.external", "External") }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" id="userIsActive" type="checkbox" checked/>
+                                        <label class="form-check-label">{{ get_translation("admin.users.is_active", "Active") }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 2: Roles -->
+                        <div class="tab-pane" id="tabRoles">
+                            <div class="mb-3">
+                                <label class="form-label">{{ get_translation("admin.users.assign_roles", "Assign Roles") }}</label>
+                                <select class="form-select" id="userRolesSelect" multiple style="height: 150px;">
+                                </select>
+                                <small class="text-muted">{{ get_translation("admin.users.roles_hint", "Hold Ctrl to select multiple roles") }}</small>
+                            </div>
+                            <div id="userCurrentRoles">
+                                <label class="form-label">{{ get_translation("admin.users.assigned_roles", "Assigned Roles") }}</label>
+                                <div id="userRoleBadges"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 3: Password -->
+                        <div class="tab-pane" id="tabPassword">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ get_translation("admin.users.new_password", "New Password") }}</label>
+                                    <input class="form-control" id="userPassword" type="password" placeholder="{{ get_translation('admin.users.password_hint', 'Min 8 characters') }}"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ get_translation("admin.users.confirm_password", "Confirm Password") }}</label>
+                                    <input class="form-control" id="userConfirmPassword" type="password"/>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" id="userMustChangePassword" type="checkbox"/>
+                                        <label class="form-check-label">{{ get_translation("admin.users.must_change_password", "Force password change on next login") }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 4: Permissions -->
+                        <div class="tab-pane" id="tabPermissions">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> {{ get_translation("admin.users.permissions_hint", "Permissions are inherited from roles. Override only for exceptions.") }}
+                            </div>
+                            <div id="permissionsTree">
+                                <!-- Will be populated dynamically -->
+                                <p class="text-muted">{{ get_translation("global.loading", "Loading...") }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation("global.cancel", "Cancel") }}</button>
+                <button class="btn btn-primary" id="saveUserBtn" type="button">{{ get_translation("global.save", "Save") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== ROLE MODAL ==================== -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">{{ get_translation("admin.roles.title", "Role Management") }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm">
+                    <input id="roleId" type="hidden"/>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation("admin.roles.code", "Role Code") }} *</label>
+                            <input class="form-control" id="roleCode" required type="text" placeholder="ADMIN"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation("admin.roles.name", "Role Name") }} *</label>
+                            <input class="form-control" id="roleName" required type="text"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation("admin.roles.name_local", "Role Name (Farsi)") }}</label>
+                            <input class="form-control" id="roleNameLocal" type="text" dir="rtl"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation("admin.roles.is_system", "System Role") }}</label>
+                            <select class="form-select" id="roleIsSystem">
+                                <option value="0">{{ get_translation("global.no", "No") }}</option>
+                                <option value="1">{{ get_translation("global.yes", "Yes") }}</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">{{ get_translation("admin.roles.description", "Description") }}</label>
+                            <textarea class="form-control" id="roleDescription" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">{{ get_translation("admin.roles.permissions", "Permissions") }}</label>
+                            <div id="rolePermissionsCheckboxes" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                                <p class="text-muted">{{ get_translation("global.loading", "Loading...") }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation("global.cancel", "Cancel") }}</button>
+                <button class="btn btn-primary" id="saveRoleBtn" type="button">{{ get_translation("global.save", "Save") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== IMPORT MODAL ==================== -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation("admin.users.import_users", "Import Users") }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ get_translation("admin.users.import_hint", "Upload CSV file with columns: Username, Email, FullName, Department, Roles (pipe-separated), IsActive") }}</p>
+                <input class="form-control" id="importFile" type="file" accept=".csv"/>
+                <a href="#" class="btn btn-sm btn-link" id="downloadTemplateBtn">{{ get_translation("admin.users.download_template", "Download Template") }}</a>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation("global.cancel", "Cancel") }}</button>
+                <button class="btn btn-primary" id="doImportBtn" type="button">{{ get_translation("admin.users.import", "Import") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== TOAST CONTAINER ==================== -->
+<div id="toastContainer" style="position: fixed; top: 70px; right: 20px; z-index: 9999;"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// GLOBALS
+// ============================================================
+let users = [];
+let roles = [];
+let allPermissions = {};
+let currentPage = 1;
+let pageSize = 20;
+let totalUsers = 0;
+let filters = { status: '', role: '', department: '', userType: '', search: '' };
+let isEditMode = false;
+
+// ============================================================
+// TRANSLATION HELPERS
+// ============================================================
+const trans = {
+    // Add translations as needed
+};
+
+function t(key, defaultText) {
+    if (trans[key] && trans[key] !== '') return trans[key];
+    return defaultText || key;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        if (m === '"') return '&quot;';
+        return m;
+    });
+}
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const colors = { success: 'bg-success', error: 'bg-danger', warning: 'bg-warning', info: 'bg-info' };
+    const toast = document.createElement('div');
+    toast.className = `alert ${colors[type] || 'bg-primary'} text-white alert-dismissible fade show`;
+    toast.role = 'alert';
+    toast.innerHTML = `${message} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 5000);
+}
+
+// ============================================================
+// LOAD DATA
+// ============================================================
+async function loadUsers() {
+    try {
+        const params = new URLSearchParams();
+        if (filters.search) params.append('search', filters.search);
+        if (filters.status) params.append('status', filters.status);
+        if (filters.role) params.append('role', filters.role);
+        if (filters.department) params.append('department', filters.department);
+        if (filters.userType) params.append('user_type', filters.userType);
+        params.append('limit', pageSize);
+        params.append('offset', (currentPage - 1) * pageSize);
+
+        const res = await fetch(`/api/admin/users?${params.toString()}`);
+        const data = await res.json();
+        
+        if (data.success === false) {
+            showToast(data.error || 'Error loading users', 'error');
+            return;
+        }
+        
+        if (data.users) {
+            users = data.users;
+            totalUsers = data.total || users.length;
+        } else if (data.data && Array.isArray(data.data)) {
+            users = data.data;
+            totalUsers = data.total || users.length;
+        } else if (Array.isArray(data)) {
+            users = data;
+            totalUsers = users.length;
+        } else {
+            users = [];
+            totalUsers = 0;
+        }
+        
+        renderUsers();
+        updatePagination();
+        updateKPIs();
+    } catch (err) {
+        console.error('Error loading users:', err);
+        showToast('Error loading users', 'error');
+    }
+}
+
+async function loadRoles() {
+    try {
+        const res = await fetch('/api/admin/roles');
+        const data = await res.json();
+        if (data.success) {
+            roles = data.data || [];
+        } else {
+            roles = Array.isArray(data) ? data : [];
+        }
+        
+        const filterRole = document.getElementById('filterRole');
+        filterRole.innerHTML = '<option value="">{{ get_translation("admin.users.all", "All") }}</option>';
+        roles.forEach(r => {
+            const roleName = r.RoleName || r.name || r.role || r;
+            const roleCode = r.RoleCode || r.code || r.role_code || roleName;
+            filterRole.innerHTML += `<option value="${roleCode}">${roleName}</option>`;
+        });
+        
+        const roleSelect = document.getElementById('userRolesSelect');
+        roleSelect.innerHTML = '';
+        roles.forEach(r => {
+            const roleName = r.RoleName || r.name || r.role || r;
+            const roleCode = r.RoleCode || r.code || r.role_code || roleName;
+            roleSelect.innerHTML += `<option value="${roleCode}">${roleName}</option>`;
+        });
+    } catch (err) {
+        console.error('Error loading roles:', err);
+    }
+}
+
+async function loadDepartments() {
+    try {
+        const res = await fetch('/api/admin/users/departments');
+        const data = await res.json();
+        if (data.success) {
+            const filterDept = document.getElementById('filterDepartment');
+            filterDept.innerHTML = '<option value="">{{ get_translation("admin.users.all", "All") }}</option>';
+            data.data.forEach(d => {
+                filterDept.innerHTML += `<option value="${d}">${d}</option>`;
+            });
+        }
+    } catch (err) {
+        console.log('Using static department list');
+    }
+}
+
+async function loadPermissions() {
+    try {
+        const res = await fetch('/api/admin/permissions');
+        const data = await res.json();
+        allPermissions = data.success ? data.data : data;
+        renderPermissionsTree();
+    } catch (err) {
+        console.error('Error loading permissions:', err);
+    }
+}
+
+// ============================================================
+// RENDER FUNCTIONS
+// ============================================================
+function renderUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!users || !users.length) {
+        tbody.innerHTML = `<tr><td class="text-center py-4" colspan="8">${t('admin.users.no_users', 'No users found')}</td></tr>`;
+        return;
+    }
+    
+    let html = '';
+    users.forEach((u, idx) => {
+        const rowNum = (currentPage - 1) * pageSize + idx + 1;
+        const isActive = u.IsActive === true || u.IsActive === '1' || u.IsActive === 1 || u.is_active === true || u.is_active === '1' || u.is_active === 1;
+        const statusBadge = isActive 
+            ? `<span class="badge bg-success">${t('admin.users.active', 'Active')}</span>` 
+            : `<span class="badge bg-secondary">${t('admin.users.inactive', 'Inactive')}</span>`;
+        
+        let userRoles = u.Roles || u.UserRoles || u.roles || u.user_roles || [];
+        if (typeof userRoles === 'string') {
+            try { userRoles = JSON.parse(userRoles); } catch(e) { userRoles = []; }
+        }
+        if (!Array.isArray(userRoles)) {
+            userRoles = [];
+        }
+        
+        const roleBadges = userRoles.map(r => {
+            const roleName = typeof r === 'string' ? r : (r.RoleName || r.RoleCode || r.name || r);
+            return `<span class="badge bg-info me-1">${escapeHtml(roleName)}</span>`;
+        }).join('');
+        
+        const displayName = u.FullName || u.full_name || u.fullName || '';
+        const email = u.Email || u.email || '';
+        const username = u.Username || u.username || '';
+        const department = u.Department || u.department || '';
+        const userId = u.UserID || u.user_id || u.id || '';
+        
+        html += `<tr>
+            <td>${rowNum}</td>
+            <td><code>${escapeHtml(username)}</code></td>
+            <td>${escapeHtml(displayName)}</td>
+            <td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td>
+            <td>${escapeHtml(department || '-')}</td>
+            <td>${roleBadges || '-'}</td>
+            <td>${statusBadge}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary view-user" data-id="${userId}"><i class="fas fa-eye"></i></button>
+                <button class="btn btn-sm btn-outline-secondary edit-user" data-id="${userId}"><i class="fas fa-edit"></i></button>
+                ${isActive 
+                    ? `<button class="btn btn-sm btn-outline-warning deactivate-user" data-id="${userId}"><i class="fas fa-user-slash"></i></button>` 
+                    : `<button class="btn btn-sm btn-outline-success activate-user" data-id="${userId}"><i class="fas fa-user-check"></i></button>`}
+                <button class="btn btn-sm btn-outline-danger delete-user" data-id="${userId}"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+    document.getElementById('userCount').textContent = totalUsers || users.length;
+}
+
+function updatePagination() {
+    const totalPages = Math.ceil(totalUsers / pageSize);
+    document.getElementById('pageInfo').textContent = currentPage;
+    document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+    document.getElementById('nextPageBtn').disabled = currentPage >= totalPages || totalPages === 0;
+    const start = totalUsers > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+    const end = Math.min(currentPage * pageSize, totalUsers);
+    document.getElementById('paginationInfo').textContent = 
+        `${t('admin.users.showing', 'Showing')} ${start}-${end} ${t('admin.users.of', 'of')} ${totalUsers}`;
+}
+
+function updateKPIs() {
+    fetch('/api/admin/users/stats')
+        .then(r => r.json())
+        .then(data => {
+            const stats = data.success ? data.data : data;
+            document.getElementById('kpiTotal').textContent = stats.total_users || stats.total || 0;
+            document.getElementById('kpiActive').textContent = stats.active_users || stats.active || 0;
+            document.getElementById('kpiInactive').textContent = stats.inactive_users || stats.inactive || 0;
+            document.getElementById('kpiRoles').textContent = stats.total_roles || stats.roles || 0;
+        })
+        .catch(err => console.error('Error loading KPIs:', err));
+}
+
+function renderPermissionsTree() {
+    const container = document.getElementById('permissionsTree');
+    if (!allPermissions || Object.keys(allPermissions).length === 0) {
+        container.innerHTML = '<p class="text-muted">No permissions available</p>';
+        return;
+    }
+    let html = '';
+    for (const [module, perms] of Object.entries(allPermissions)) {
+        html += `<div class="mb-2"><strong>${module}</strong>`;
+        perms.forEach(p => {
+            const permCode = p.code || p.PermissionCode || p.perm_code || p;
+            const permName = p.name || p.PermissionName || p.perm_name || permCode;
+            html += `<div class="form-check ms-3">
+                <input class="form-check-input permission-check" type="checkbox" value="${permCode}" id="perm_${permCode}"/>
+                <label class="form-check-label" for="perm_${permCode}">${permName}</label>
+            </div>`;
+        });
+        html += '</div>';
+    }
+    container.innerHTML = html;
+}
+
+// ============================================================
+// ============================================================
+// USER CRUD OPERATIONS - FIXED FOR STRING IDs WITH ERROR HANDLING
+// ============================================================
+
+// Use event delegation for all action buttons
+$(document).on('click', '.edit-user', async function() {
+    const id = $(this).data('id');
+    console.log('Edit user ID:', id);
+    await loadUserForEdit(id);
+});
+
+$(document).on('click', '.view-user', async function() {
+    const id = $(this).data('id');
+    console.log('View user ID:', id);
+    await loadUserForView(id);
+});
+
+$(document).on('click', '.deactivate-user', async function() {
+    const id = $(this).data('id');
+    if (confirm('Deactivate this user?')) {
+        await toggleUserStatus(id, false);
+    }
+});
+
+$(document).on('click', '.activate-user', async function() {
+    const id = $(this).data('id');
+    if (confirm('Activate this user?')) {
+        await toggleUserStatus(id, true);
+    }
+});
+
+$(document).on('click', '.delete-user', async function() {
+    const id = $(this).data('id');
+    if (confirm('Delete this user? This action cannot be undone.')) {
+        await deleteUser(id);
+    }
+});
+
+// ============================================================
+// USER LOAD FUNCTIONS - WITH IMPROVED ERROR HANDLING
+// ============================================================
+
+async function loadUserForEdit(id) {
+    try {
+        const res = await fetch(`/api/admin/users/${id}`);
+        
+        // Check if response is OK
+        if (!res.ok) {
+            const text = await res.text();
+            console.error('API Error:', res.status, text);
+            showToast(`Error ${res.status}: ${text}`, 'error');
+            return;
+        }
+        
+        const data = await res.json();
+        console.log('User data for edit:', data);
+        
+        if (!data.success) {
+            showToast(data.error || 'Error loading user', 'error');
+            return;
+        }
+        
+        const u = data.data;
+        if (!u) {
+            showToast('No user data returned', 'error');
+            return;
+        }
+        
+        populateUserModal(u, 'edit');
+    } catch (err) {
+        console.error('Error loading user:', err);
+        showToast('Error loading user: ' + err.message, 'error');
+    }
+}
+
+async function loadUserForView(id) {
+    try {
+        const res = await fetch(`/api/admin/users/${id}`);
+        
+        // Check if response is OK
+        if (!res.ok) {
+            const text = await res.text();
+            console.error('API Error:', res.status, text);
+            showToast(`Error ${res.status}: ${text}`, 'error');
+            return;
+        }
+        
+        const data = await res.json();
+        console.log('User data for view:', data);
+        
+        if (!data.success) {
+            showToast(data.error || 'Error loading user', 'error');
+            return;
+        }
+        
+        const u = data.data;
+        if (!u) {
+            showToast('No user data returned', 'error');
+            return;
+        }
+        
+        populateUserModal(u, 'view');
+    } catch (err) {
+        console.error('Error loading user:', err);
+        showToast('Error loading user: ' + err.message, 'error');
+    }
+}
+
+// ============================================================
+// POPULATE USER MODAL
+// ============================================================
+
+function populateUserModal(u, mode) {
+    isEditMode = (mode === 'edit');
+    const isView = (mode === 'view');
+    
+    document.getElementById('userId').value = u.UserID;
+    document.getElementById('userModalTitle').textContent = isView 
+        ? t('admin.users.view', 'View User') 
+        : (isEditMode ? t('admin.users.edit', 'Edit User') : t('admin.users.create', 'Create User'));
+    
+    document.getElementById('userUsername').value = u.Username || '';
+    document.getElementById('userUsername').disabled = isView || isEditMode;
+    
+    document.getElementById('userFullName').value = u.FullName || '';
+    document.getElementById('userFullName').disabled = isView;
+    
+    document.getElementById('userFullNameLocal').value = u.FullNameLocal || '';
+    document.getElementById('userFullNameLocal').disabled = isView;
+    
+    document.getElementById('userEmail').value = u.Email || '';
+    document.getElementById('userEmail').disabled = isView;
+    
+    document.getElementById('userDepartment').value = u.Department || '';
+    document.getElementById('userDepartment').disabled = isView;
+    
+    document.getElementById('userPosition').value = u.Position || '';
+    document.getElementById('userPosition').disabled = isView;
+    
+    document.getElementById('userUserType').value = u.UserType || 'Internal';
+    document.getElementById('userUserType').disabled = isView;
+    
+    document.getElementById('userIsActive').checked = u.IsActive === true || u.IsActive === '1' || u.IsActive === 1;
+    document.getElementById('userIsActive').disabled = isView;
+    
+    // Handle roles
+    let userRoles = u.Roles || u.UserRoles || [];
+    if (typeof userRoles === 'string') {
+        try { userRoles = JSON.parse(userRoles); } catch(e) { userRoles = []; }
+    }
+    if (Array.isArray(userRoles) && userRoles.length > 0 && typeof userRoles[0] === 'object') {
+        userRoles = userRoles.map(r => r.RoleCode || r.RoleName || r);
+    }
+    
+    // Select roles in dropdown
+    const roleSelect = document.getElementById('userRolesSelect');
+    Array.from(roleSelect.options).forEach(opt => {
+        opt.selected = userRoles.includes(opt.value);
+    });
+    roleSelect.disabled = isView;
+    
+    updateRoleBadges(userRoles);
+    
+    // Password fields
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userPassword').disabled = isView || isEditMode;
+    document.getElementById('userPassword').required = !isEditMode && !isView;
+    document.getElementById('userConfirmPassword').value = '';
+    document.getElementById('userConfirmPassword').disabled = isView || isEditMode;
+    document.getElementById('userConfirmPassword').required = !isEditMode && !isView;
+    document.getElementById('userMustChangePassword').checked = u.MustChangePassword === true || u.MustChangePassword === '1' || u.MustChangePassword === 1;
+    document.getElementById('userMustChangePassword').disabled = isView;
+    
+    // Permissions
+    if (u.Permissions) {
+        const perms = typeof u.Permissions === 'string' ? JSON.parse(u.Permissions) : u.Permissions;
+        document.querySelectorAll('.permission-check').forEach(cb => {
+            cb.checked = perms[cb.value] === true;
+        });
+    }
+    
+    // Show modal
+    $('#userModal').modal('show');
+}
+
+// ============================================================
+// USER STATUS TOGGLE
+// ============================================================
+
+async function toggleUserStatus(id, isActive) {
+    try {
+        const res = await fetch(`/api/admin/users/${id}/activate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: isActive })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`User ${isActive ? 'activated' : 'deactivated'} successfully`);
+            loadUsers();
+        } else {
+            showToast(data.error || 'Error updating user status', 'error');
+        }
+    } catch (err) {
+        console.error('Error updating user status:', err);
+        showToast('Error updating user status', 'error');
+    }
+}
+
+// ============================================================
+// DELETE USER
+// ============================================================
+
+async function deleteUser(id) {
+    try {
+        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('User deleted successfully');
+            loadUsers();
+        } else {
+            showToast(data.error || 'Error deleting user', 'error');
+        }
+    } catch (err) {
+        console.error('Error deleting user:', err);
+        showToast('Error deleting user', 'error');
+    }
+}
+
+// ============================================================
+// CREATE USER BUTTON
+// ============================================================
+document.getElementById('createUserBtn').addEventListener('click', () => {
+    isEditMode = false;
+    document.getElementById('userId').value = '';
+    document.getElementById('userModalTitle').textContent = t('admin.users.create', 'Create User');
+    document.getElementById('userForm').reset();
+    document.getElementById('userUsername').disabled = false;
+    document.getElementById('userFullName').disabled = false;
+    document.getElementById('userEmail').disabled = false;
+    document.getElementById('userDepartment').disabled = false;
+    document.getElementById('userPosition').disabled = false;
+    document.getElementById('userUserType').disabled = false;
+    document.getElementById('userIsActive').disabled = false;
+    document.getElementById('userRolesSelect').disabled = false;
+    document.getElementById('userRoleBadges').innerHTML = '';
+    document.getElementById('userRolesSelect').value = '';
+    document.getElementById('userPassword').disabled = false;
+    document.getElementById('userPassword').required = true;
+    document.getElementById('userConfirmPassword').disabled = false;
+    document.getElementById('userConfirmPassword').required = true;
+    $('#userModal').modal('show');
+});
+
+// ============================================================
+// SAVE USER BUTTON - FIXED
+// ============================================================
+document.getElementById('saveUserBtn').addEventListener('click', async () => {
+    const id = document.getElementById('userId').value;
+    const payload = {
+        username: document.getElementById('userUsername').value.trim(),
+        full_name: document.getElementById('userFullName').value.trim(),
+        full_name_local: document.getElementById('userFullNameLocal').value.trim(),
+        email: document.getElementById('userEmail').value.trim(),
+        department: document.getElementById('userDepartment').value,
+        position: document.getElementById('userPosition').value.trim(),
+        user_type: document.getElementById('userUserType').value,
+        is_active: document.getElementById('userIsActive').checked,
+        role_ids: Array.from(document.getElementById('userRolesSelect').selectedOptions).map(o => o.value)
+    };
+    
+    if (!payload.username || !payload.full_name || !payload.email) {
+        showToast('Please fill required fields', 'error');
+        return;
+    }
+    
+    // If creating new user, require password
+    if (!id) {
+        const pwd = document.getElementById('userPassword').value;
+        const confirm = document.getElementById('userConfirmPassword').value;
+        if (!pwd || pwd.length < 8) {
+            showToast('Password must be at least 8 characters', 'error');
+            return;
+        }
+        if (pwd !== confirm) {
+            showToast('Passwords do not match', 'error');
+            return;
+        }
+        payload.password = pwd;
+        payload.must_change_password = document.getElementById('userMustChangePassword').checked;
+    }
+    
+    // Get permissions
+    const permissions = {};
+    document.querySelectorAll('.permission-check:checked').forEach(cb => {
+        permissions[cb.value] = true;
+    });
+    payload.permissions = permissions;
+    
+    try {
+        let url = '/api/admin/users';
+        let method = 'POST';
+        if (id) {
+            url = `/api/admin/users/${id}`;
+            method = 'PUT';
+        }
+        const res = await fetch(url, { 
+            method, 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'User saved successfully');
+            $('#userModal').modal('hide');
+            loadUsers();
+        } else {
+            showToast(data.error || 'Error saving user', 'error');
+        }
+    } catch (err) {
+        showToast('Error saving user', 'error');
+        console.error(err);
+    }
+});
+
+// ============================================================
+// ROLE CRUD OPERATIONS
+// ============================================================
+$('#userRolesSelect').on('change', function() {
+    const selected = Array.from(this.selectedOptions).map(o => o.value);
+    updateRoleBadges(selected);
+});
+
+function updateRoleBadges(roleCodes) {
+    const container = document.getElementById('userRoleBadges');
+    if (!roleCodes || !roleCodes.length) {
+        container.innerHTML = '<span class="text-muted">No roles assigned</span>';
+        return;
+    }
+    let html = '';
+    roleCodes.forEach(code => {
+        const role = roles.find(r => (r.RoleCode || r.code || r) === code);
+        const roleName = role ? (role.RoleName || role.name || role) : code;
+        html += `<span class="badge bg-primary me-1">${escapeHtml(roleName)}</span>`;
+    });
+    container.innerHTML = html;
+}
+
+// ============================================================
+// FILTERS & PAGINATION
+// ============================================================
+document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+    filters.search = document.getElementById('searchInput').value.trim();
+    filters.status = document.getElementById('filterStatus').value;
+    filters.role = document.getElementById('filterRole').value;
+    filters.department = document.getElementById('filterDepartment').value;
+    filters.userType = document.getElementById('filterUserType').value;
+    currentPage = 1;
+    loadUsers();
+});
+
+// Debounced search
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        document.getElementById('applyFiltersBtn').click();
+    }, 300);
+});
+
+document.getElementById('prevPageBtn').addEventListener('click', () => {
+    if (currentPage > 1) { currentPage--; loadUsers(); }
+});
+document.getElementById('nextPageBtn').addEventListener('click', () => {
+    const totalPages = Math.ceil(totalUsers / pageSize);
+    if (currentPage < totalPages) { currentPage++; loadUsers(); }
+});
+
+// ============================================================
+// IMPORT/EXPORT
+// ============================================================
+document.getElementById('exportBtn').addEventListener('click', () => {
+    window.location.href = '/api/admin/users/export';
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+    $('#importModal').modal('show');
+});
+
+document.getElementById('doImportBtn').addEventListener('click', async () => {
+    const file = document.getElementById('importFile').files[0];
+    if (!file) { showToast('Please select a file', 'error'); return; }
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const res = await fetch('/api/admin/users/import', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Users imported successfully');
+            $('#importModal').modal('hide');
+            loadUsers();
+        } else {
+            showToast(data.error || 'Import failed', 'error');
+        }
+    } catch (err) {
+        showToast('Import failed', 'error');
+        console.error(err);
+    }
+});
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+loadRoles();
+loadDepartments();
+loadPermissions();
+loadUsers();
+</script>
+{% endblock %}

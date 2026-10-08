@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assembly Instructions - CHAIR-EXEC-01</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .page {
+            background-color: #fff;
+            width: 210mm; /* A4 width */
+            min-height: 297mm;
+            margin: 20px auto;
+            padding: 20mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            position: relative;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #2563EB;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .company-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563EB;
+        }
+        .doc-title {
+            text-align: right;
+        }
+        .doc-title h1 {
+            margin: 0;
+            font-size: 22px;
+            color: #333;
+        }
+        .doc-title p {
+            margin: 5px 0 0;
+            font-size: 12px;
+            color: #666;
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        .section h2 {
+            font-size: 16px;
+            color: #2563EB;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #555;
+        }
+        .product-info {
+            display: flex;
+            gap: 20px;
+        }
+        .product-info .details {
+            flex: 2;
+        }
+        .product-info .image {
+            flex: 1;
+            border: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #aaa;
+            font-style: italic;
+            min-height: 150px;
+        }
+        .bilingual {
+            font-size: 11px;
+            color: #555;
+            direction: rtl;
+            text-align: right;
+            display: block;
+            margin-top: 4px;
+        }
+        .instruction-step {
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fafafa;
+        }
+        .instruction-step h3 {
+            margin-top: 0;
+            font-size: 14px;
+            color: #1a202c;
+        }
+        .instruction-step p {
+            font-size: 12px;
+            margin: 5px 0;
+        }
+        .instruction-step .label {
+            font-weight: bold;
+            color: #4a5568;
+        }
+        .instruction-step .bilingual-text {
+            direction: rtl;
+            text-align: right;
+            font-size: 12px;
+            color: #555;
+            margin: 5px 0;
+        }
+        .safety-box {
+            background-color: #fffaf0;
+            border-left: 5px solid #dd6b20;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .safety-box h3 {
+            margin-top: 0;
+            color: #dd6b20;
+            font-size: 14px;
+        }
+        .safety-box ul {
+            margin: 5px 0;
+            padding-left: 20px;
+            font-size: 12px;
+        }
+        .footer {
+            position: absolute;
+            bottom: 20mm;
+            left: 20mm;
+            right: 20mm;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+            font-size: 10px;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+        }
+        @media print {
+            body { background-color: #fff; }
+            .page { margin: 0; box-shadow: none; width: 100%; min-height: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="company-logo">
+                <!-- Placeholder for logo -->
+                Modern Furniture MFR
+            </div>
+            <div class="doc-title">
+                <h1>Assembly Instructions &amp; Cutting List</h1>
+                <p>Doc No: AI-CHAIR-EXEC-01-Rev1 | Date: 2026-09-12</p>
+            </div>
+        </div>
+
+        <!-- PRODUCT INFORMATION -->
+        <div class="section">
+            <h2>Product Information</h2>
+            <div class="product-info">
+                <div class="details">
+                    <table>
+                        <tr>
+                            <th style="width: 30%;">Product ID</th>
+                            <td>CHAIR-EXEC-01</td>
+                        </tr>
+                        <tr>
+                            <th>Product Name</th>
+                            <td>
+                                Executive Office Chair
+                                <span class="bilingual">صندلی مدیریتی</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Description</th>
+                            <td>
+                                Premium ergonomic executive chair with lumbar support.
+                                <span class="bilingual">صندلی اداری ارگونومیک با پشتیبانی کمر.</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Standard Cost</th>
+                            <td>850.00 USD</td>
+                        </tr>
+                        <tr>
+                            <th>Unit of Measure</th>
+                            <td>EA (Each)</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="image">
+                    [ Product Image Placeholder ]
+                </div>
+            </div>
+        </div>
+
+        <!-- CUTTING LIST / BOM -->
+        <div class="section">
+            <h2>Cutting List / Bill of Materials</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Component ID</th>
+                        <th>Component Name</th>
+                        <th>Quantity</th>
+                        <th>UOM</th>
+                        <th>Material / Dimensions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>CHAIR-FRAME-01</td>
+                        <td>Chair Frame <span class="bilingual">بدنه صندلی</span></td>
+                        <td>1</td>
+                        <td>EA</td>
+                        <td>Solid Oak Wood, 50mm x 50mm profile</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>CHAIR-CUSHION-01</td>
+                        <td>Chair Cushion <span class="bilingual">کوسن صندلی</span></td>
+                        <td>1</td>
+                        <td>EA</td>
+                        <td>High-density foam, Black leather upholstery</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>CHAIR-ARMREST-01</td>
+                        <td>Chair Armrest <span class="bilingual">دسته صندلی</span></td>
+                        <td>2</td>
+                        <td>EA</td>
+                        <td>Molded plastic with soft-touch pad, Black</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>BOLT-M6-50</td>
+                        <td>M6x50mm Bolt <span class="bilingual">پیچ M6</span></td>
+                        <td>4</td>
+                        <td>EA</td>
+                        <td>Stainless Steel, Grade 304</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ROUTING / PROCESS FLOW -->
+        <div class="section">
+            <h2>Routing / Process Flow</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Step</th>
+                        <th>Work Center</th>
+                        <th>Operation</th>
+                        <th>Setup Time (hrs)</th>
+                        <th>Run Time (hrs/unit)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>10</td>
+                        <td>MACHINE-1 (CNC Machining Center 1)</td>
+                        <td>CNC Machining of Frame and Armrest Holes</td>
+                        <td>0.5</td>
+                        <td>0.3</td>
+                    </tr>
+                    <tr>
+                        <td>20</td>
+                        <td>ASSEMBLY (Assembly Line)</td>
+                        <td>Frame Assembly, Upholstery, and Final Inspection</td>
+                        <td>0.3</td>
+                        <td>0.2</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- DETAILED ASSEMBLY INSTRUCTIONS -->
+        <div class="section" style="page-break-before: always;">
+            <h2>Detailed Assembly Instructions</h2>
+
+            <!-- Step 10.1 -->
+            <div class="instruction-step">
+                <h3>Step 10.1: Load and Secure Chair Frame Blank</h3>
+                <p class="bilingual-text">مرحله ۱۰.۱: بارگیری و محکم کردن قطعه خام بدنه صندلی</p>
+                <p><span class="label">Setup:</span> Ensure the correct fixture (Fixture ID: FIX-CHAIR-FRAME-01) is installed and calibrated.</p>
+                <p><span class="label">Operation:</span></p>
+                <ol style="font-size: 12px; margin: 5px 0; padding-left: 20px;">
+                    <li>Place the wooden blank onto the fixture, aligning it with the locating pins.</li>
+                    <li>Activate the vacuum clamp and verify it is holding securely.</li>
+                    <li>Close the safety door and start program "CHAIR-FRAME-V2".</li>
+                    <li>Monitor the cutting process for any abnormal sounds or vibrations.</li>
+                </ol>
+                <p><span class="label">Quality Check:</span> Visually inspect the tenon joints after machining. They should be smooth and fit snugly without excessive force.</p>
+            </div>
+
+            <!-- Step 10.2 -->
+            <div class="instruction-step">
+                <h3>Step 10.2: Machine Armrest Mounting Holes</h3>
+                <p class="bilingual-text">مرحله ۱۰.۲: ماشین‌کاری سوراخ‌های اتصال دسته‌ها</p>
+                <p><span class="label">Setup:</span> Switch to the armrest drilling program. Verify drill bit size (8mm) and sharpness.</p>
+                <p><span class="label">Operation:</span></p>
+                <ol style="font-size: 12px; margin: 5px 0; padding-left: 20px;">
+                    <li>Load the frame into the second fixture.</li>
+                    <li>Run program "CHAIR-ARMREST-DRILL".</li>
+                    <li>Ensure the holes are drilled perpendicular to the frame surface.</li>
+                </ol>
+                <p><span class="label">Quality Check:</span> Check hole diameter with a go/no-go gauge. Check for any tear-out on the wood surface.</p>
+            </div>
+
+            <!-- Step 20.1 -->
+            <div class="instruction-step">
+                <h3>Step 20.1: Assemble Chair Frame and Armrests</h3>
+                <p class="bilingual-text">مرحله ۲۰.۱: مونتاژ بدنه صندلی و دسته‌ها</p>
+                <p><span class="label">Setup:</span> Gather all components: 1x Frame, 2x Armrests, 4x M6x50mm bolts, 4x M6 washers.</p>
+                <p><span class="label">Operation:</span></p>
+                <ol style="font-size: 12px; margin: 5px 0; padding-left: 20px;">
+                    <li>Attach each armrest to the frame using two M6 bolts and washers.</li>
+                    <li>Hand-tighten the bolts first, then use a torque wrench to tighten to 8 Nm.</li>
+                    <li>Verify the armrests are level and symmetrical.</li>
+                </ol>
+                <p><span class="label">Quality Check:</span> Check that the armrests are firmly attached and do not wobble. Visually inspect for any scratches during assembly.</p>
+            </div>
+
+            <!-- Step 20.2 -->
+            <div class="instruction-step">
+                <h3>Step 20.2: Install Seat and Backrest Cushions</h3>
+                <p class="bilingual-text">مرحله ۲۰.۲: نصب کوسن نشیمن و پشتی</p>
+                <p><span class="label">Setup:</span> Ensure the upholstery is clean and free of defects. Prepare the adhesive spray gun.</p>
+                <p><span class="label">Operation:</span></p>
+                <ol style="font-size: 12px; margin: 5px 0; padding-left: 20px;">
+                    <li>Apply a thin, even layer of industrial adhesive to the seat pan.</li>
+                    <li>Carefully align and press the seat cushion onto the pan.</li>
+                    <li>Repeat the process for the backrest cushion.</li>
+                    <li>Allow the adhesive to cure for 30 minutes before handling.</li>
+                </ol>
+                <p><span class="label">Quality Check:</span> Check for proper alignment. Ensure there are no wrinkles or loose edges on the fabric. Verify the cushion is firmly attached.</p>
+            </div>
+
+            <!-- Step 20.3 -->
+            <div class="instruction-step">
+                <h3>Step 20.3: Final Inspection and Packaging</h3>
+                <p class="bilingual-text">مرحله ۲۰.۳: بازرسی نهایی و بسته‌بندی</p>
+                <p><span class="label">Setup:</span> Prepare the final inspection checklist and packaging materials (box, foam, plastic wrap).</p>
+                <p><span class="label">Operation:</span></p>
+                <ol style="font-size: 12px; margin: 5px 0; padding-left: 20px;">
+                    <li>Perform a final visual inspection of the entire chair: check for scratches, loose threads, or misaligned parts.</li>
+                    <li>Test the height adjustment mechanism and swivel function.</li>
+                    <li>Wrap the chair in protective foam and plastic.</li>
+                    <li>Place it in the designated box and seal it.</li>
+                </ol>
+                <p><span class="label">Quality Check:</span> Verify the product matches the order specification. Check that the serial number label is correctly applied.</p>
+            </div>
+        </div>
+
+        <!-- SAFETY NOTES -->
+        <div class="section">
+            <h2>Safety Notes</h2>
+            <div class="safety-box">
+                <h3>⚠️ Important Safety Warnings</h3>
+                <ul>
+                    <li><strong>CNC Machining:</strong> Always wear safety glasses and hearing protection. Ensure the safety door is closed before starting any program. Do not reach into the machine while it is running.</li>
+                    <li><strong>Assembly &amp; Upholstery:</strong> Use gloves to prevent splinters and cuts. Adhesive is flammable and harmful if inhaled; use in a well-ventilated area and wear a respirator.</li>
+                    <li><strong>General:</strong> Keep the work area clean and free of debris. Use proper lifting techniques when moving heavy components.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <div>Modern Furniture MFR - Confidential</div>
+            <div>Page 1 of 1</div>
+        </div>
+
+    </div>
+
+</body>
+</html>

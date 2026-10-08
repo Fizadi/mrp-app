@@ -1,0 +1,474 @@
+"""
+Workflow Service - Core workflow orchestration logic
+This service handles workflow execution, status checking, and approvals.
+"""
+from flask import current_app
+from sqlalchemy.sql import text
+import json
+from datetime import datetime
+
+def get_engine():
+    """Get the database engine from Flask app."""
+    return current_app.extensions['sqlalchemy'].engine
+
+def date_to_key(date_str):
+    """Convert date string to integer key."""
+    if not date_str:
+        return None
+    if isinstance(date_str, int):
+        return date_str
+    return int(date_str.replace('-', ''))
+
+class WorkflowService:
+    """Service class for workflow operations."""
+    
+    @staticmethod
+    def get_workflow_definition(scenario):
+        """Get workflow definition based on scenario."""
+        scenario_mapping = {
+            'valve': 'ETO_JOB_ORDER',
+            'gauge': 'CTO_JOB_ORDER',
+            'furniture': 'CTO_JOB_ORDER',
+            'jobshop': 'MTO_JOB_ORDER'
+        }
+        
+        workflow_code = scenario_mapping.get(scenario)
+        if not workflow_code:
+            return None
+        
+        engine = get_engine()
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT WorkflowDefinitionID, Steps, WorkflowName
+                    FROM t_WorkflowDefinitions
+                    WHERE WorkflowCode = :code AND IsActive = 1
+                """),
+                {'code': workflow_code}
+            ).fetchone()
+            
+            if result:
+                return {
+                    'id': result[0],
+                    'steps': json.loads(result[1]) if isinstance(result[1], str) else result[1],
+                    'name': result[2]
+                }
+        return None
+    
+    @staticmethod
+    def trigger_workflow(data):
+        """Trigger a workflow for an entity."""
+        try:
+            entity_type = data.get('entity_type')
+            entity_id = data.get('entity_id')
+            scenario = data.get('scenario')
+            created_by = data.get('created_by', 1)
+            
+            if not entity_type or not entity_id:
+                return {'success': False, 'error': 'Missing entity_type or entity_id'}
+            
+            # Get workflow definition
+            wf_def = WorkflowService.get_workflow_definition(scenario)
+            if not wf_def:
+                return {'success': False, 'error': f'No workflow definition found for scenario: {scenario}'}
+            
+            today_key = int(datetime.now().strftime('%Y%m%d'))
+            engine = get_engine()
+            
+            with engine.begin() as conn:
+                # Check if workflow already exists
+                existing = conn.execute(
+                    text("""
+                        SELECT WorkflowID FROM t_Workflow
+                        WHERE EntityType = :etype AND EntityID = :eid
+                    """),
+                    {'etype': entity_type, 'eid': entity_id}
+                ).first()
+                
+                if existing:
+                    return {
+                        'success': True,
+                        'workflow_id': existing[0],
+                        'message': 'Workflow already exists'
+                    }
+                
+                # Create workflow instance
+                conn.execute(
+                    text("""
+                        INSERT INTO t_Workflow
+                        (WorkflowTemplateID, EntityType, EntityID, CurrentStep, Status, 
+                         CreatedDateKey, CreatedBy, IsActive)
+                        VALUES (:template_id, :etype, :eid, 1, 'Pending',
+                                :date_key, :user, 1)
+                    """),
+                    {
+                        'template_id': wf_def['id'],
+                        'etype': entity_type,
+                        'eid': entity_id,
+                        'date_key': today_key,
+                        'user': created_by
+                    }
+                )
+                
+                workflow_id = conn.execute(text("SELECT last_insert_rowid()")).scalar()
+                
+                # Create assignment
+                conn.execute(
+                    text("""
+                        INSERT INTO t_WorkflowAssignments
+                        (WorkflowID, EntityType, EntityID, IsActive, CreatedDate)
+                        VALUES (:wfid, :etype, :eid, 1, datetime('now'))
+                    """),
+                    {'wfid': workflow_id, 'etype': entity_type, 'eid': entity_id}
+                )
+                
+                # Update the entity with workflow ID
+                if entity_type == 'ProductionOrder':
+                    conn.execute(
+                        text("""
+                            UPDATE t_ProductionOrder
+                            SET WorkflowID = :wfid, WorkflowStatus = 'Pending'
+                            WHERE ProductionOrderId = :eid
+                        """),
+                        {'wfid': workflow_id, 'eid': entity_id}
+                    )
+                
+                return {
+                    'success': True,
+                    'workflow_id': workflow_id,
+                    'workflow_name': wf_def['name'],
+                    'message': 'Workflow triggered successfully'
+                }
+                
+        except Exception as e:
+            current_app.logger.error(f"Error triggering workflow: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    @staticmethod
+    def get_workflow_status(entity_type, entity_id):
+        """Get workflow status for an entity."""
+        try:
+            engine = get_engine()
+            with engine.connect() as conn:
+                workflow = conn.execute(
+                    text("""
+                        SELECT 
+                            w.WorkflowID,
+                            w.EntityType,
+                            w.EntityID,
+                            w.CurrentStep,
+                            w.Status,
+                            w.CreatedDateKey,
+                            w.StartedDateKey,
+                            w.CompletedDateKey,
+                            wf.WorkflowName,
+                            wf.WorkflowCode,
+                            wf.Steps as WorkflowSteps,
+                            wf.WorkflowDefinitionID
+                        FROM t_Workflow w
+                        JOIN t_WorkflowDefinitions wf ON w.WorkflowTemplateID = wf.WorkflowDefinitionID
+                        WHERE w.EntityType = :etype AND w.EntityID = :eid
+                    """),
+                    {'etype': entity_type, 'eid': entity_id}
+                ).fetchone()
+                
+                if not workflow:
+                    return None
+                
+                workflow_dict = dict(workflow._mapping)
+                
+                # Parse workflow steps
+                steps_data = workflow_dict.get('WorkflowSteps')
+                if isinstance(steps_data, str):
+                    steps = json.loads(steps_data)
+                else:
+                    steps = steps_data or []
+                
+                current_step = workflow_dict.get('CurrentStep', 1)
+                workflow_status = workflow_dict.get('Status', 'Pending')
+                
+                # Process steps with status
+                processed_steps = []
+                for step in steps:
+                    step_num = step.get('step', 0)
+                    if step_num < current_step and workflow_status != 'Rejected':
+                        step_status = 'Approved'
+                    elif step_num == current_step and workflow_status == 'Pending':
+                        step_status = 'InProgress'
+                    elif workflow_status == 'Rejected':
+                        step_status = 'Rejected'
+                    else:
+                        step_status = 'Pending'
+                    
+                    processed_steps.append({
+                        'step': step_num,
+                        'name': step.get('name', f'Step {step_num}'),
+                        'role': step.get('role', ''),
+                        'status': step_status
+                    })
+                
+                # Get current step name
+                current_step_name = ''
+                for step in steps:
+                    if step.get('step') == current_step:
+                        current_step_name = step.get('name', '')
+                        break
+                
+                return {
+                    'workflow_id': workflow_dict.get('WorkflowID'),
+                    'workflow_name': workflow_dict.get('WorkflowName'),
+                    'workflow_code': workflow_dict.get('WorkflowCode'),
+                    'status': workflow_status,
+                    'current_step': current_step,
+                    'current_step_name': current_step_name,
+                    'steps': processed_steps,
+                    'created_date': workflow_dict.get('CreatedDateKey'),
+                    'started_date': workflow_dict.get('StartedDateKey'),
+                    'completed_date': workflow_dict.get('CompletedDateKey'),
+                    'is_completed': workflow_status == 'Completed',
+                    'is_rejected': workflow_status == 'Rejected',
+                    'is_pending': workflow_status == 'Pending'
+                }
+        except Exception as e:
+            current_app.logger.error(f"Error getting workflow status: {str(e)}")
+            return None
+    
+    @staticmethod
+    def check_workflow_complete(entity_type, entity_id):
+        """Check if a workflow is complete."""
+        try:
+            status_data = WorkflowService.get_workflow_status(entity_type, entity_id)
+            if not status_data:
+                return {
+                    'complete': False,
+                    'has_workflow': False,
+                    'message': 'No workflow found'
+                }
+            
+            is_complete = status_data.get('is_completed', False)
+            
+            return {
+                'complete': is_complete,
+                'has_workflow': True,
+                'workflow_id': status_data.get('workflow_id'),
+                'workflow_name': status_data.get('workflow_name'),
+                'status': status_data.get('status'),
+                'current_step': status_data.get('current_step'),
+                'current_step_name': status_data.get('current_step_name'),
+                'message': 'Workflow complete' if is_complete else f'Workflow not complete. Current step: {status_data.get("current_step_name")}'
+            }
+        except Exception as e:
+            current_app.logger.error(f"Error checking workflow: {str(e)}")
+            return {
+                'complete': False,
+                'has_workflow': False,
+                'error': str(e)
+            }
+    
+    @staticmethod
+    def approve_step(workflow_id, user_id, comment=None, entity_type=None, entity_id=None):
+        """Approve the current step of a workflow."""
+        try:
+            engine = get_engine()
+            with engine.begin() as conn:
+                # Get workflow
+                workflow = conn.execute(
+                    text("""
+                        SELECT w.*, wf.Steps as WorkflowSteps, wf.WorkflowDefinitionID
+                        FROM t_Workflow w
+                        JOIN t_WorkflowDefinitions wf ON w.WorkflowTemplateID = wf.WorkflowDefinitionID
+                        WHERE w.WorkflowID = :wfid
+                    """),
+                    {'wfid': workflow_id}
+                ).first()
+                
+                if not workflow:
+                    return {'success': False, 'error': 'Workflow not found'}
+                
+                workflow_dict = dict(workflow._mapping)
+                
+                if workflow_dict.get('Status') == 'Completed':
+                    return {'success': False, 'error': 'Workflow already completed'}
+                
+                if workflow_dict.get('Status') == 'Rejected':
+                    return {'success': False, 'error': 'Workflow has been rejected'}
+                
+                # Parse steps
+                steps_data = workflow_dict.get('WorkflowSteps')
+                if isinstance(steps_data, str):
+                    steps = json.loads(steps_data)
+                else:
+                    steps = steps_data or []
+                
+                current_step = workflow_dict.get('CurrentStep', 1)
+                total_steps = len(steps)
+                
+                # Check if user has permission for this step
+                # Get user's roles
+                user_roles = conn.execute(
+                    text("SELECT UserRoles FROM t_Users WHERE UserID = :uid"),
+                    {'uid': user_id}
+                ).fetchone()
+                
+                user_roles_list = json.loads(user_roles[0]) if user_roles and user_roles[0] else []
+                
+                # Find current step role requirement
+                current_step_data = None
+                for step in steps:
+                    if step.get('step') == current_step:
+                        current_step_data = step
+                        break
+                
+                if current_step_data:
+                    required_role = current_step_data.get('role')
+                    if required_role and required_role not in user_roles_list:
+                        return {
+                            'success': False,
+                            'error': f'You do not have the required role ({required_role}) to approve this step'
+                        }
+                
+                # Move to next step or complete
+                if current_step >= total_steps:
+                    # Complete workflow
+                    conn.execute(
+                        text("""
+                            UPDATE t_Workflow
+                            SET Status = 'Completed',
+                                CompletedDateKey = :date_key
+                            WHERE WorkflowID = :wfid
+                        """),
+                        {
+                            'wfid': workflow_id,
+                            'date_key': int(datetime.now().strftime('%Y%m%d'))
+                        }
+                    )
+                    
+                    # Update entity status
+                    entity_type_val = workflow_dict.get('EntityType')
+                    entity_id_val = workflow_dict.get('EntityID')
+                    if entity_type_val == 'ProductionOrder':
+                        conn.execute(
+                            text("""
+                                UPDATE t_ProductionOrder
+                                SET WorkflowStatus = 'Approved'
+                                WHERE ProductionOrderId = :eid
+                            """),
+                            {'eid': entity_id_val}
+                        )
+                    
+                    return {
+                        'success': True,
+                        'message': 'All steps approved. Workflow complete.',
+                        'is_complete': True
+                    }
+                else:
+                    # Move to next step
+                    next_step = current_step + 1
+                    conn.execute(
+                        text("""
+                            UPDATE t_Workflow
+                            SET CurrentStep = :next_step,
+                                LastUpdatedDateKey = :date_key
+                            WHERE WorkflowID = :wfid
+                        """),
+                        {
+                            'wfid': workflow_id,
+                            'next_step': next_step,
+                            'date_key': int(datetime.now().strftime('%Y%m%d'))
+                        }
+                    )
+                    
+                    # Get next step name
+                    next_step_name = ''
+                    for step in steps:
+                        if step.get('step') == next_step:
+                            next_step_name = step.get('name', '')
+                            break
+                    
+                    return {
+                        'success': True,
+                        'message': f'Step approved. Next step: {next_step_name}',
+                        'next_step': next_step,
+                        'next_step_name': next_step_name,
+                        'is_complete': False
+                    }
+        except Exception as e:
+            current_app.logger.error(f"Error approving step: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    @staticmethod
+    def reject_step(workflow_id, user_id, comment=None, entity_type=None, entity_id=None):
+        """Reject the current step of a workflow."""
+        try:
+            engine = get_engine()
+            with engine.begin() as conn:
+                # Get workflow
+                workflow = conn.execute(
+                    text("""
+                        SELECT w.*, wf.Steps as WorkflowSteps
+                        FROM t_Workflow w
+                        JOIN t_WorkflowDefinitions wf ON w.WorkflowTemplateID = wf.WorkflowDefinitionID
+                        WHERE w.WorkflowID = :wfid
+                    """),
+                    {'wfid': workflow_id}
+                ).first()
+                
+                if not workflow:
+                    return {'success': False, 'error': 'Workflow not found'}
+                
+                workflow_dict = dict(workflow._mapping)
+                
+                if workflow_dict.get('Status') == 'Completed':
+                    return {'success': False, 'error': 'Workflow already completed'}
+                
+                # Reject the workflow
+                conn.execute(
+                    text("""
+                        UPDATE t_Workflow
+                        SET Status = 'Rejected',
+                            LastUpdatedDateKey = :date_key
+                        WHERE WorkflowID = :wfid
+                    """),
+                    {
+                        'wfid': workflow_id,
+                        'date_key': int(datetime.now().strftime('%Y%m%d'))
+                    }
+                )
+                
+                # Update entity status
+                entity_type_val = workflow_dict.get('EntityType')
+                entity_id_val = workflow_dict.get('EntityID')
+                if entity_type_val == 'ProductionOrder':
+                    conn.execute(
+                        text("""
+                            UPDATE t_ProductionOrder
+                            SET WorkflowStatus = 'Rejected'
+                            WHERE ProductionOrderId = :eid
+                        """),
+                        {'eid': entity_id_val}
+                    )
+                
+                # Get step name
+                steps_data = workflow_dict.get('WorkflowSteps')
+                if isinstance(steps_data, str):
+                    steps = json.loads(steps_data)
+                else:
+                    steps = steps_data or []
+                
+                current_step = workflow_dict.get('CurrentStep', 1)
+                step_name = ''
+                for step in steps:
+                    if step.get('step') == current_step:
+                        step_name = step.get('name', '')
+                        break
+                
+                return {
+                    'success': True,
+                    'message': f'Step rejected: {step_name}',
+                    'step': current_step,
+                    'step_name': step_name,
+                    'comment': comment
+                }
+        except Exception as e:
+            current_app.logger.error(f"Error rejecting step: {str(e)}")
+            return {'success': False, 'error': str(e)}

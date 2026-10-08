@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Document Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('engineering.documents') }}">Engineering Documents</a></li>
+            <li class="breadcrumb-item active">Document Detail</li>
+        </ol>
+    </nav>
+
+    <div id="docDetailContainer">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p>Loading document details...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var docId = {{ doc_id }};
+    
+    function loadDocumentDetail() {
+        $.get('/api/bom/documents/' + docId)
+            .done(function(doc) {
+                var html = `
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h3>${escapeHtml(doc.docNumber)} - ${escapeHtml(doc.title)}</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-bordered">
+                                        <tr><th style="width:40%">Document Number</th><td>${escapeHtml(doc.docNumber)}</td></tr>
+                                        <tr><th>Revision</th><td>${escapeHtml(doc.revision)}</td></tr>
+                                        <tr><th>Title</th><td>${escapeHtml(doc.title)}</td></tr>
+                                        <tr><th>Document Type</th><td>${escapeHtml(doc.docType)}</td></tr>
+                                        <tr><th>Status</th><td><span class="badge bg-${getStatusBadge(doc.status)}">${escapeHtml(doc.status)}</span></td></tr>
+                                        <tr><th>Project</th><td>${escapeHtml(doc.projectId) || '-'}</td></tr>
+                                        <tr><th>Checked Out By</th><td>${escapeHtml(doc.checkedOutBy) || '-'}</td></tr>
+                                        <tr><th>Checked Out Date</th><td>${escapeHtml(doc.checkedOutDate) || '-'}</td></tr>
+                                        <tr><th>Last Modified</th><td>${escapeHtml(doc.lastModified) || '-'}</td></tr>
+                                        <tr><th>Notes</th><td>${escapeHtml(doc.notes) || '-'}</td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">File Preview</div>
+                                        <div class="card-body">
+                                            ${doc.filePath ? 
+                                                `<iframe src="/${doc.filePath}" style="width:100%; height:500px;" frameborder="0"></iframe>
+                                                 <a href="/${doc.filePath}" class="btn btn-primary mt-2" download>Download File</a>`
+                                                : '<p class="text-muted">No file attached</p>'
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{{ url_for('engineering.documents') }}" class="btn btn-secondary">Back to Documents</a>
+                            ${doc.filePath ? `<a href="/${doc.filePath}" class="btn btn-success" download>Download</a>` : ''}
+                        </div>
+                    </div>
+                `;
+                $('#docDetailContainer').html(html);
+            })
+            .fail(function(err) {
+                $('#docDetailContainer').html('<div class="alert alert-danger">Failed to load document details. Document may not exist.</div>');
+                console.error(err);
+            });
+    }
+    
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+    
+    function getStatusBadge(status) {
+        switch(status) {
+            case 'Draft': return 'secondary';
+            case 'Under Review': return 'info';
+            case 'Approved': return 'success';
+            case 'Obsolete': return 'dark';
+            default: return 'light';
+        }
+    }
+    
+    loadDocumentDetail();
+});
+</script>
+{% endblock %}

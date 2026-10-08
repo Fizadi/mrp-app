@@ -1,0 +1,1060 @@
+{% extends "base.html" %}
+
+{% block title %}Job Order Detail - {{ order_id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.job_orders') }}">{{ get_translation('manufacturing.job_orders.breadcrumb', 'Job Orders') }}</a></li>
+            <li class="breadcrumb-item active">{{ order_id }}</li>
+        </ol>
+    </nav>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">{{ get_translation('global.loading', 'Loading...') }}</span>
+        </div>
+        <p class="mt-2">{{ get_translation('manufacturing.job_order_detail.loading', 'Loading job order details...') }}</p>
+    </div>
+
+    <!-- Main Content - Using detailContent (no conflict with base.html) -->
+    <div id="detailContent" style="display: none;">
+        
+        <!-- Header Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0"><i class="fas fa-clipboard-list me-2"></i> {{ get_translation('manufacturing.job_order_detail.title', 'Job Order Detail') }}</h4>
+                    <small id="headerOrderId" class="text-light">{{ order_id }}</small>
+                </div>
+                <div>
+                    <span id="headerStatus" class="badge bg-light text-dark me-2">{{ get_translation('global.loading', 'Loading...') }}</span>
+                    <span id="headerIndustry" class="badge bg-info">{{ get_translation('global.loading', 'Loading...') }}</span>
+                    <button class="btn btn-sm btn-light ms-2" onclick="window.location.href='/manufacturing/job-orders'">
+                        <i class="fas fa-arrow-left"></i> {{ get_translation('manufacturing.job_order_detail.back_to_list', 'Back to List') }}
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.product', 'Product') }}</label>
+                        <h6 id="headerProduct">-</h6>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.order_type', 'Order Type') }}</label>
+                        <h6 id="headerOrderType">-</h6>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.quantity', 'Quantity') }}</label>
+                        <h6 id="headerQuantity">-</h6>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.priority', 'Priority') }}</label>
+                        <h6 id="headerPriority">-</h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.due_date', 'Due Date') }}</label>
+                        <h6 id="headerDueDate">-</h6>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-4">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.project', 'Project') }}</label>
+                        <h6 id="headerProject">-</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.sales_order', 'Sales Order') }}</label>
+                        <h6 id="headerSalesOrder">-</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.customer_ref', 'Customer Reference') }}</label>
+                        <h6 id="headerCustomerRef">-</h6>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-3">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.eng_version', 'Eng Version') }}</label>
+                        <h6 id="headerEngVersion">-</h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.bom_version', 'BOM Version') }}</label>
+                        <h6 id="headerBOMVersion">-</h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.routing_version', 'Routing Version') }}</label>
+                        <h6 id="headerRoutingVersion">-</h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="text-muted small">{{ get_translation('manufacturing.job_order_detail.header.quality_status', 'Quality Status') }}</label>
+                        <h6 id="headerQualityStatus">-</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats Cards -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-2 col-sm-6">
+                <div class="card text-white bg-primary"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.job_order_detail.stats.planned_qty', 'Planned Qty') }}</h6><h3 id="statPlannedQty">0</h3></div></div>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <div class="card text-white bg-success"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.job_order_detail.stats.completed', 'Completed') }}</h6><h3 id="statCompletedQty">0</h3></div></div>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <div class="card text-white bg-warning"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.job_order_detail.stats.routing_progress', 'Routing Progress') }}</h6><h3 id="statRoutingProgress">0%</h3></div></div>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <div class="card text-white bg-info"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.job_order_detail.stats.quality_status', 'Quality Status') }}</h6><h3 id="statQualityStatus">-</h3></div></div>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <div class="card text-white bg-secondary"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.job_order_detail.stats.components', 'Components') }}</h6><h3 id="statComponents">0/0</h3></div></div>
+            </div>
+            <div class="col-md-2 col-sm-6">
+                <div class="card text-white bg-dark"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.job_order_detail.stats.serials', 'Serials') }}</h6><h3 id="statSerials">0/0</h3></div></div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" id="detailTabs" role="tablist">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabRouting"><i class="fas fa-route me-1"></i> {{ get_translation('manufacturing.job_order_detail.tabs.routing', 'Routing') }}</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabComponents"><i class="fas fa-cubes me-1"></i> {{ get_translation('manufacturing.job_order_detail.tabs.components', 'Components') }}</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabQuality"><i class="fas fa-clipboard-check me-1"></i> {{ get_translation('manufacturing.job_order_detail.tabs.quality', 'Quality') }}</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabSerials"><i class="fas fa-qrcode me-1"></i> {{ get_translation('manufacturing.job_order_detail.tabs.serials', 'Serial Numbers') }}</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabWorkflow"><i class="fas fa-flowchart me-1"></i> {{ get_translation('manufacturing.job_order_detail.tabs.workflow', 'Workflow') }}</a></li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content card-body bg-light">
+            
+            <!-- Tab 1: Routing -->
+            <div class="tab-pane fade show active" id="tabRouting">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle table-sticky">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:50px;">{{ get_translation('manufacturing.job_order_detail.routing.seq', 'Seq') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.work_center', 'Work Center') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.planned_setup', 'Planned Setup') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.planned_run', 'Planned Run') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.planned_total', 'Planned Total') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.actual_setup', 'Actual Setup') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.actual_run', 'Actual Run') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.actual_total', 'Actual Total') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.routing.variance', 'Variance') }}</th>
+                                <th style="width:100px;">{{ get_translation('manufacturing.job_order_detail.routing.status', 'Status') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="routingBody">
+                            <tr><td colspan="10" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 2: Components -->
+            <div class="tab-pane fade" id="tabComponents">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle table-sticky">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.id', 'Component ID') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.name', 'Component Name') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.required', 'Required') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.issued', 'Issued') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.available', 'Available') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.shortage', 'Shortage') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.stage', 'Stage') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.work_center', 'Work Center') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.components.status', 'Status') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="componentsBody">
+                            <tr><td colspan="9" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 3: Quality -->
+            <div class="tab-pane fade" id="tabQuality">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle table-sticky">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.operation', 'Operation') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.category', 'Category') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.required', 'Required') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.critical', 'Critical') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.spec', 'Spec') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.result', 'Result') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.inspected_by', 'Inspected By') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.quality.date', 'Date') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qualityBody">
+                            <tr><td colspan="8" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 4: Serial Numbers -->
+            <div class="tab-pane fade" id="tabSerials">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle table-sticky">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ get_translation('manufacturing.job_order_detail.serials.number', 'Serial Number') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.serials.status', 'Status') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.serials.inspection', 'Inspection Result') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.serials.location', 'Location') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.serials.work_center', 'Work Center') }}</th>
+                                <th>{{ get_translation('manufacturing.job_order_detail.serials.production_date', 'Production Date') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="serialsBody">
+                            <tr><td colspan="6" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 5: Workflow -->
+            <div class="tab-pane fade" id="tabWorkflow">
+                <div id="workflowContent">
+                    <div class="text-center py-3">{{ get_translation('global.loading', 'Loading workflow status...') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// TRANSLATIONS - Using server-injected trans object
+// ============================================================================
+
+var trans = {
+    // General
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error_loading: {{ get_translation('global.error_loading', 'Error loading data')|tojson }},
+    
+    // Tabs
+    tab_routing: {{ get_translation('manufacturing.job_order_detail.tabs.routing', 'Routing')|tojson }},
+    tab_components: {{ get_translation('manufacturing.job_order_detail.tabs.components', 'Components')|tojson }},
+    tab_quality: {{ get_translation('manufacturing.job_order_detail.tabs.quality', 'Quality')|tojson }},
+    tab_serials: {{ get_translation('manufacturing.job_order_detail.tabs.serials', 'Serial Numbers')|tojson }},
+    tab_workflow: {{ get_translation('manufacturing.job_order_detail.tabs.workflow', 'Workflow')|tojson }},
+    
+    // Stats
+    stat_planned_qty: {{ get_translation('manufacturing.job_order_detail.stats.planned_qty', 'Planned Qty')|tojson }},
+    stat_completed: {{ get_translation('manufacturing.job_order_detail.stats.completed', 'Completed')|tojson }},
+    stat_routing_progress: {{ get_translation('manufacturing.job_order_detail.stats.routing_progress', 'Routing Progress')|tojson }},
+    stat_quality_status: {{ get_translation('manufacturing.job_order_detail.stats.quality_status', 'Quality Status')|tojson }},
+    stat_components: {{ get_translation('manufacturing.job_order_detail.stats.components', 'Components')|tojson }},
+    stat_serials: {{ get_translation('manufacturing.job_order_detail.stats.serials', 'Serials')|tojson }},
+    
+    // Table headers - Routing
+    routing_seq: {{ get_translation('manufacturing.job_order_detail.routing.seq', 'Seq')|tojson }},
+    routing_workcenter: {{ get_translation('manufacturing.job_order_detail.routing.work_center', 'Work Center')|tojson }},
+    routing_planned_setup: {{ get_translation('manufacturing.job_order_detail.routing.planned_setup', 'Planned Setup')|tojson }},
+    routing_planned_run: {{ get_translation('manufacturing.job_order_detail.routing.planned_run', 'Planned Run')|tojson }},
+    routing_planned_total: {{ get_translation('manufacturing.job_order_detail.routing.planned_total', 'Planned Total')|tojson }},
+    routing_actual_setup: {{ get_translation('manufacturing.job_order_detail.routing.actual_setup', 'Actual Setup')|tojson }},
+    routing_actual_run: {{ get_translation('manufacturing.job_order_detail.routing.actual_run', 'Actual Run')|tojson }},
+    routing_actual_total: {{ get_translation('manufacturing.job_order_detail.routing.actual_total', 'Actual Total')|tojson }},
+    routing_variance: {{ get_translation('manufacturing.job_order_detail.routing.variance', 'Variance')|tojson }},
+    routing_status: {{ get_translation('manufacturing.job_order_detail.routing.status', 'Status')|tojson }},
+    
+    // Table headers - Components
+    comp_id: {{ get_translation('manufacturing.job_order_detail.components.id', 'Component ID')|tojson }},
+    comp_name: {{ get_translation('manufacturing.job_order_detail.components.name', 'Component Name')|tojson }},
+    comp_required: {{ get_translation('manufacturing.job_order_detail.components.required', 'Required')|tojson }},
+    comp_issued: {{ get_translation('manufacturing.job_order_detail.components.issued', 'Issued')|tojson }},
+    comp_available: {{ get_translation('manufacturing.job_order_detail.components.available', 'Available')|tojson }},
+    comp_shortage: {{ get_translation('manufacturing.job_order_detail.components.shortage', 'Shortage')|tojson }},
+    comp_stage: {{ get_translation('manufacturing.job_order_detail.components.stage', 'Stage')|tojson }},
+    comp_workcenter: {{ get_translation('manufacturing.job_order_detail.components.work_center', 'Work Center')|tojson }},
+    comp_status: {{ get_translation('manufacturing.job_order_detail.components.status', 'Status')|tojson }},
+    
+    // Table headers - Quality
+    quality_operation: {{ get_translation('manufacturing.job_order_detail.quality.operation', 'Operation')|tojson }},
+    quality_category: {{ get_translation('manufacturing.job_order_detail.quality.category', 'Category')|tojson }},
+    quality_required: {{ get_translation('manufacturing.job_order_detail.quality.required', 'Required')|tojson }},
+    quality_critical: {{ get_translation('manufacturing.job_order_detail.quality.critical', 'Critical')|tojson }},
+    quality_spec: {{ get_translation('manufacturing.job_order_detail.quality.spec', 'Spec')|tojson }},
+    quality_result: {{ get_translation('manufacturing.job_order_detail.quality.result', 'Result')|tojson }},
+    quality_inspected_by: {{ get_translation('manufacturing.job_order_detail.quality.inspected_by', 'Inspected By')|tojson }},
+    quality_date: {{ get_translation('manufacturing.job_order_detail.quality.date', 'Date')|tojson }},
+    
+    // Table headers - Serials
+    serial_number: {{ get_translation('manufacturing.job_order_detail.serials.number', 'Serial Number')|tojson }},
+    serial_status: {{ get_translation('manufacturing.job_order_detail.serials.status', 'Status')|tojson }},
+    serial_inspection: {{ get_translation('manufacturing.job_order_detail.serials.inspection', 'Inspection Result')|tojson }},
+    serial_location: {{ get_translation('manufacturing.job_order_detail.serials.location', 'Location')|tojson }},
+    serial_workcenter: {{ get_translation('manufacturing.job_order_detail.serials.work_center', 'Work Center')|tojson }},
+    serial_date: {{ get_translation('manufacturing.job_order_detail.serials.production_date', 'Production Date')|tojson }},
+    
+    // Header labels
+    label_product: {{ get_translation('manufacturing.job_order_detail.header.product', 'Product')|tojson }},
+    label_order_type: {{ get_translation('manufacturing.job_order_detail.header.order_type', 'Order Type')|tojson }},
+    label_quantity: {{ get_translation('manufacturing.job_order_detail.header.quantity', 'Quantity')|tojson }},
+    label_priority: {{ get_translation('manufacturing.job_order_detail.header.priority', 'Priority')|tojson }},
+    label_due_date: {{ get_translation('manufacturing.job_order_detail.header.due_date', 'Due Date')|tojson }},
+    label_project: {{ get_translation('manufacturing.job_order_detail.header.project', 'Project')|tojson }},
+    label_sales_order: {{ get_translation('manufacturing.job_order_detail.header.sales_order', 'Sales Order')|tojson }},
+    label_customer_ref: {{ get_translation('manufacturing.job_order_detail.header.customer_ref', 'Customer Reference')|tojson }},
+    label_eng_version: {{ get_translation('manufacturing.job_order_detail.header.eng_version', 'Eng Version')|tojson }},
+    label_bom_version: {{ get_translation('manufacturing.job_order_detail.header.bom_version', 'BOM Version')|tojson }},
+    label_routing_version: {{ get_translation('manufacturing.job_order_detail.header.routing_version', 'Routing Version')|tojson }},
+    label_quality_status: {{ get_translation('manufacturing.job_order_detail.header.quality_status', 'Quality Status')|tojson }},
+    
+    // Workflow
+    workflow_status: {{ get_translation('manufacturing.job_order_detail.workflow.status', 'Status')|tojson }},
+    workflow_current_step: {{ get_translation('manufacturing.job_order_detail.workflow.current_step', 'Current Step')|tojson }},
+    workflow_assigned_to: {{ get_translation('manufacturing.job_order_detail.workflow.assigned_to', 'Assigned To')|tojson }},
+    workflow_steps: {{ get_translation('manufacturing.job_order_detail.workflow.steps', 'Steps')|tojson }},
+    workflow_no_workflow: {{ get_translation('manufacturing.job_order_detail.workflow.no_workflow', 'No workflow associated with this order')|tojson }},
+    
+    // Statuses
+    status_draft: {{ get_translation('global.draft', 'Draft')|tojson }},
+    status_released: {{ get_translation('global.released', 'Released')|tojson }},
+    status_in_progress: {{ get_translation('global.in_progress', 'In Progress')|tojson }},
+    status_completed: {{ get_translation('global.completed', 'Completed')|tojson }},
+    status_closed: {{ get_translation('global.closed', 'Closed')|tojson }},
+    status_hold: {{ get_translation('global.hold', 'Hold')|tojson }},
+    status_blocked: {{ get_translation('global.blocked', 'Blocked')|tojson }},
+    status_pending: {{ get_translation('global.pending', 'Pending')|tojson }},
+    status_passed: {{ get_translation('global.passed', 'Passed')|tojson }},
+    status_failed: {{ get_translation('global.failed', 'Failed')|tojson }},
+    
+    // Buttons
+    back_to_list: {{ get_translation('manufacturing.job_order_detail.back_to_list', 'Back to List')|tojson }},
+    start: {{ get_translation('global.start', 'Start')|tojson }},
+    complete: {{ get_translation('global.complete', 'Complete')|tojson }},
+    record_quality: {{ get_translation('global.record_quality', 'Record Quality')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    submit: {{ get_translation('global.submit', 'Submit')|tojson }},
+    done: {{ get_translation('global.done', 'Done')|tojson }}
+};
+
+console.log('✅ Translations loaded:', Object.keys(trans).length, 'keys');
+
+// Translation function
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, defaultText);
+    }
+    return defaultText || key;
+}
+
+// ============================================================================
+// STATUS HELPERS (with translations)
+// ============================================================================
+
+function getStatusBadge(status) {
+    var statusMap = {
+        'Draft': { color: 'secondary', label: t('status_draft', 'Draft') },
+        'Released': { color: 'primary', label: t('status_released', 'Released') },
+        'InProgress': { color: 'info', label: t('status_in_progress', 'In Progress') },
+        'Completed': { color: 'success', label: t('status_completed', 'Completed') },
+        'Closed': { color: 'dark', label: t('status_closed', 'Closed') },
+        'Hold': { color: 'warning', label: t('status_hold', 'Hold') },
+        'Blocked': { color: 'danger', label: t('status_blocked', 'Blocked') },
+        'Canceled': { color: 'secondary', label: t('status_canceled', 'Canceled') },
+        'Pending': { color: 'secondary', label: t('global.pending', 'Pending') },
+        'Passed': { color: 'success', label: t('status_passed', 'Passed') },
+        'Failed': { color: 'danger', label: t('status_failed', 'Failed') }
+    };
+    var info = statusMap[status] || { color: 'secondary', label: status };
+    return '<span class="badge bg-' + info.color + '">' + info.label + '</span>';
+}
+
+function getPriorityBadge(priority) {
+    var colors = {1: 'success', 2: 'info', 3: 'warning', 4: 'danger'};
+    var labels = {1: t('priority_low', 'Low'), 2: t('priority_medium', 'Medium'), 3: t('priority_high', 'High'), 4: t('priority_critical', 'Critical')};
+    var color = colors[priority] || 'secondary';
+    return '<span class="badge bg-' + color + '">' + (labels[priority] || priority) + '</span>';
+}
+
+// ============================================================================
+// JOB ORDER DETAIL - FULL WORKING VERSION
+// ============================================================================
+
+console.log('🚀 Page loaded');
+var orderId = '{{ order_id }}';
+console.log('Order ID:', orderId);
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function getEl(id) {
+    var el = document.getElementById(id);
+    if (!el) console.warn('⚠️ Element not found:', id);
+    return el;
+}
+
+function keyToDate(key) {
+    if (!key) return '-';
+    var s = key.toString();
+    return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+}
+
+// ============================================================================
+// LOAD ORDER DETAIL
+// ============================================================================
+
+function loadOrderDetail() {
+    console.log('🔄 Loading order detail...');
+    
+    var loadingState = getEl('loadingState');
+    var mainContent = getEl('detailContent');
+    
+    if (!loadingState || !mainContent) {
+        console.error('Required elements not found');
+        return;
+    }
+    
+    var url = '/api/manufacturing/orders/' + orderId + '/detail';
+    console.log('📡 Fetching:', url);
+    
+    fetch(url)
+        .then(function(r) {
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            console.log('✅ Data loaded');
+            renderOrderDetail(data);
+            loadingState.style.display = 'none';
+            mainContent.style.display = 'block';
+        })
+        .catch(function(err) {
+            console.error('❌ Error:', err);
+            loadingState.innerHTML = '<div class="alert alert-danger">' + t('error_loading', 'Error loading data') + ': ' + err.message + '</div>';
+        });
+}
+
+// ============================================================================
+// RENDER ORDER DETAIL
+// ============================================================================
+
+function renderOrderDetail(data) {
+    console.log('📋 Rendering order detail');
+    
+    var order = data.order || {};
+    var routing = data.routing || [];
+    var components = data.components || [];
+    var quality = data.quality || [];
+    var serials = data.serials || [];
+    var workflow = data.workflow || { hasWorkflow: false };
+    var stats = data.stats || {};
+
+    // Header
+    getEl('headerStatus').innerHTML = getStatusBadge(order.status || 'Unknown');
+    getEl('headerIndustry').textContent = order.industry || 'valve';
+    getEl('headerProduct').textContent = order.productName || order.productId || '-';
+    getEl('headerOrderType').textContent = order.orderType || 'Manufacturing';
+    getEl('headerQuantity').textContent = order.quantity || 0;
+    getEl('headerPriority').innerHTML = getPriorityBadge(order.priority);
+    getEl('headerDueDate').textContent = order.endDateKey ? keyToDate(order.endDateKey) : '-';
+    getEl('headerProject').textContent = order.projectName || '-';
+    getEl('headerSalesOrder').textContent = order.salesOrderId || '-';
+    getEl('headerCustomerRef').textContent = order.customerReference || '-';
+    getEl('headerEngVersion').textContent = order.engineeringVersion || '-';
+    getEl('headerBOMVersion').textContent = order.bomVersion || '-';
+    getEl('headerRoutingVersion').textContent = order.routingVersion || '-';
+    getEl('headerQualityStatus').textContent = order.qualityStatus || 'Pending';
+
+    // Stats
+    var statsOrder = stats.order || {};
+    var statsRouting = stats.routing || {};
+    var statsComponents = stats.components || {};
+    var statsSerials = stats.serials || {};
+    
+    getEl('statPlannedQty').textContent = statsOrder.plannedQuantity || 0;
+    getEl('statCompletedQty').textContent = statsSerials.completed || 0;
+    getEl('statRoutingProgress').textContent = (statsRouting.progressPercent || 0) + '%';
+    getEl('statQualityStatus').textContent = order.qualityStatus || 'Pending';
+    getEl('statComponents').textContent = (statsComponents.fullyIssued || 0) + '/' + (statsComponents.totalComponents || 0);
+    getEl('statSerials').textContent = (statsSerials.completed || 0) + '/' + (statsSerials.total || 0);
+
+    // Render tabs
+    renderRouting(routing);
+    renderComponents(components);
+    renderQuality(quality);
+    renderSerials(serials);
+    renderWorkflow(workflow);
+}
+
+// ============================================================================
+// RENDER ROUTING
+// ============================================================================
+
+function renderRouting(routing) {
+    var tbody = getEl('routingBody');
+    if (!tbody) return;
+    
+    if (!routing || routing.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+
+    var html = '';
+    routing.forEach(function(r) {
+        var statusText = r.isCompleted ? t('status_completed', 'Completed') : (r.isInProgress ? t('status_in_progress', 'In Progress') : t('global.pending', 'Pending'));
+        var statusColor = r.isCompleted ? 'success' : (r.isInProgress ? 'warning' : 'secondary');
+        var varianceColor = r.varianceTotal > 0 ? 'text-danger' : (r.varianceTotal < 0 ? 'text-success' : 'text-muted');
+        
+        // Actions
+        var actions = '';
+        if (r.isPending) {
+            actions = '<button class="btn btn-sm btn-success start-operation" data-seq="' + r.sequence + '" data-workcenter="' + r.workCenterName + '">' + t('start', 'Start') + '</button>';
+        } else if (r.isInProgress) {
+            actions = '<button class="btn btn-sm btn-primary complete-operation" data-seq="' + r.sequence + '">' + t('complete', 'Complete') + '</button>';
+        } else {
+            actions = '<button class="btn btn-sm btn-outline-secondary" disabled>' + t('done', 'Done') + '</button>';
+        }
+        
+        html += '<tr>' +
+            '<td>' + r.sequence + '</td>' +
+            '<td>' + r.workCenterName + '</td>' +
+            '<td>' + (r.plannedSetup || 0).toFixed(1) + '</td>' +
+            '<td>' + (r.plannedRun || 0).toFixed(1) + '</td>' +
+            '<td>' + (r.plannedTotal || 0).toFixed(1) + '</td>' +
+            '<td>' + (r.actualSetup ? r.actualSetup.toFixed(1) : '-') + '</td>' +
+            '<td>' + (r.actualRun ? r.actualRun.toFixed(1) : '-') + '</td>' +
+            '<td>' + (r.actualTotal ? r.actualTotal.toFixed(1) : '-') + '</td>' +
+            '<td class="' + varianceColor + '">' + (r.varianceTotal ? r.varianceTotal.toFixed(1) : '-') + '</td>' +
+            '<td><span class="badge bg-' + statusColor + '">' + statusText + '</span></td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+// ============================================================================
+// RENDER COMPONENTS
+// ============================================================================
+
+function renderComponents(components) {
+    var tbody = getEl('componentsBody');
+    if (!tbody) return;
+    
+    if (!components || components.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+
+    var html = '';
+    components.forEach(function(c) {
+        var shortageBadge = c.isShortage ? '<span class="badge bg-danger">' + t('shortage', 'Shortage') + '</span>' : '<span class="badge bg-success">' + t('available', 'Available') + '</span>';
+        var statusBadge = c.isFullyIssued ? '<span class="badge bg-success">' + t('issued', 'Issued') + '</span>' : 
+                          (c.isPartiallyIssued ? '<span class="badge bg-warning">' + t('partial', 'Partial') + '</span>' : 
+                          '<span class="badge bg-secondary">' + t('global.pending', 'Pending') + '</span>');
+
+        html += '<tr>' +
+            '<td>' + c.componentId + '</td>' +
+            '<td>' + c.componentName + '</td>' +
+            '<td>' + (c.requiredQuantity || 0) + '</td>' +
+            '<td>' + (c.issuedQuantity || 0) + '</td>' +
+            '<td>' + (c.availableQuantity || 0) + '</td>' +
+            '<td>' + (c.shortageQuantity > 0 ? c.shortageQuantity : '-') + '</td>' +
+            '<td>' + (c.stage || t('not_started', 'Not Started')) + '</td>' +
+            '<td>' + (c.currentWorkCenter || '-') + '</td>' +
+            '<td>' + statusBadge + ' ' + shortageBadge + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+// ============================================================================
+// RENDER QUALITY - FIXED: Added 'global.' prefix for pending
+// ============================================================================
+
+function renderQuality(quality) {
+    var tbody = getEl('qualityBody');
+    if (!tbody) return;
+    
+    if (!quality || quality.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+
+    var html = '';
+    quality.forEach(function(q) {
+        var requiredBadge = q.isRequired ? '<span class="badge bg-danger">' + t('required', 'Required') + '</span>' : '<span class="badge bg-secondary">' + t('optional', 'Optional') + '</span>';
+        var criticalBadge = q.isCritical ? '<span class="badge bg-warning">' + t('critical', 'Critical') + '</span>' : '';
+        var resultBadge = q.passFail ? 
+            (q.passFail === 'PASS' ? '<span class="badge bg-success">' + t('pass', 'PASS') + '</span>' : '<span class="badge bg-danger">' + t('fail', 'FAIL') + '</span>') :
+            '<span class="badge bg-secondary">' + t('global.pending', 'Pending') + '</span>';
+        
+        var spec = '-';
+        if (q.specMin !== null && q.specMin !== undefined && q.specMax !== null && q.specMax !== undefined) {
+            spec = q.specMin + ' - ' + q.specMax + ' ' + (q.measurementUnit || '');
+        }
+
+        html += '<tr>' +
+            '<td>' + q.operationName + '</td>' +
+            '<td>' + (q.category || 'General') + '</td>' +
+            '<td>' + requiredBadge + '</td>' +
+            '<td>' + criticalBadge + '</td>' +
+            '<td>' + spec + '</td>' +
+            '<td>' + resultBadge + '</td>' +
+            '<td>' + (q.inspectorName || '-') + '</td>' +
+            '<td>' + (q.inspectionDateKey ? keyToDate(q.inspectionDateKey) : '-') + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+// ============================================================================
+// RENDER SERIALS - FIXED: Added 'global.' prefix for pending
+// ============================================================================
+
+function renderSerials(serials) {
+    var tbody = getEl('serialsBody');
+    if (!tbody) return;
+    
+    if (!serials || serials.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+
+    var html = '';
+    serials.forEach(function(s) {
+        var statusColors = {
+            'InProduction': 'warning', 'Completed': 'success',
+            'InStock': 'info', 'Shipped': 'primary'
+        };
+        var statusColor = statusColors[s.status] || 'secondary';
+        var resultBadge = s.inspectionResult === 'Passed' ? 
+            '<span class="badge bg-success">' + t('passed', 'Passed') + '</span>' : 
+            (s.inspectionResult === 'Failed' ? '<span class="badge bg-danger">' + t('failed', 'Failed') + '</span>' : 
+            '<span class="badge bg-secondary">' + t('global.pending', 'Pending') + '</span>');
+
+        html += '<tr>' +
+            '<td><code>' + s.serialNumber + '</code></td>' +
+            '<td><span class="badge bg-' + statusColor + '">' + (s.status || 'Unknown') + '</span></td>' +
+            '<td>' + resultBadge + '</td>' +
+            '<td>' + (s.currentLocation || '-') + '</td>' +
+            '<td>' + (s.workCenterName || '-') + '</td>' +
+            '<td>' + (s.productionDateKey ? keyToDate(s.productionDateKey) : '-') + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+// ============================================================================
+// RENDER WORKFLOW
+// ============================================================================
+
+function renderWorkflow(workflow) {
+    var container = getEl('workflowContent');
+    if (!container) return;
+    
+    if (!workflow || !workflow.hasWorkflow) {
+        container.innerHTML = '<div class="alert alert-info">' + t('workflow_no_workflow', 'No workflow associated with this order') + '.</div>';
+        return;
+    }
+
+    var html = '<div class="card">';
+    html += '<div class="card-header"><h6 class="mb-0">' + (workflow.workflowName || t('workflow', 'Workflow')) + '</h6></div>';
+    html += '<div class="card-body">';
+    html += '<p><strong>' + t('workflow_status', 'Status') + ':</strong> ' + getStatusBadge(workflow.status || 'Pending') + '</p>';
+    html += '<p><strong>' + t('workflow_current_step', 'Current Step') + ':</strong> ' + (workflow.currentStepName || 'Unknown') + '</p>';
+    html += '<p><strong>' + t('workflow_assigned_to', 'Assigned To') + ':</strong> ' + (workflow.assignedToName || 'Not Assigned') + '</p>';
+    
+    html += '<h6 class="mt-3">' + t('workflow_steps', 'Steps') + '</h6>';
+    html += '<div class="workflow-timeline">';
+    
+    var steps = workflow.steps || [];
+    var currentStep = workflow.currentStep || 1;
+    
+    if (steps.length > 0) {
+        steps.forEach(function(step, index) {
+            var isActive = (index === currentStep - 1);
+            var isCompleted = (index < currentStep - 1);
+            var icon = isCompleted ? 'fa-check-circle text-success' : 
+                      (isActive ? 'fa-spinner fa-spin text-warning' : 'fa-circle text-muted');
+            
+            html += '<div class="workflow-step' + (isActive ? ' active' : '') + '">';
+            html += '  <div class="d-flex align-items-start mb-2">';
+            html += '    <div class="workflow-icon me-2">';
+            html += '      <i class="fas ' + icon + '"></i>';
+            html += '    </div>';
+            html += '    <div class="workflow-content">';
+            html += '      <strong>' + (step.name || 'Step ' + (index + 1)) + '</strong>';
+            html += '      <br><small class="text-muted">' + t('role', 'Role') + ': ' + (step.role || 'N/A') + '</small>';
+            html += '      ' + (isActive ? '<span class="badge bg-warning ms-2">' + t('current', 'Current') + '</span>' : '');
+            html += '      ' + (isCompleted ? '<span class="badge bg-success ms-2">' + t('done', 'Done') + '</span>' : '');
+            html += '    </div>';
+            html += '  </div>';
+            html += '</div>';
+        });
+    } else {
+        html += '<p class="text-muted">' + t('no_steps', 'No steps defined') + '</p>';
+    }
+    
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+// ============================================================================
+// MODAL FUNCTIONS
+// ============================================================================
+
+// Quality Result Modal
+function openQualityModal(assignmentId, opName) {
+    getEl('qualityAssignmentId').value = assignmentId;
+    getEl('qualityOpNameDisplay').textContent = opName;
+    getEl('qualityPassFail').value = 'PASS';
+    getEl('qualityMeasuredValue').value = '';
+    getEl('qualityComment').value = '';
+    var modal = new bootstrap.Modal(getEl('qualityResultModal'));
+    modal.show();
+}
+
+// Start Operation Modal
+function openStartOperationModal(seq, workcenter) {
+    getEl('startSeq').value = seq;
+    getEl('startWorkCenter').value = workcenter;
+    getEl('startWorkCenterDisplay').textContent = workcenter;
+    var modal = new bootstrap.Modal(getEl('startOperationModal'));
+    modal.show();
+}
+
+// Complete Operation Modal
+function openCompleteOperationModal(seq) {
+    getEl('completeSeq').value = seq;
+    getEl('completeSetup').value = 0;
+    getEl('completeRun').value = 0;
+    getEl('completeQty').value = '';
+    getEl('completeYield').value = 0;
+    var modal = new bootstrap.Modal(getEl('completeOperationModal'));
+    modal.show();
+}
+
+// ============================================================================
+// EVENT HANDLERS
+// ============================================================================
+
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+
+    if (btn.classList.contains('start-operation')) {
+        var seq = btn.getAttribute('data-seq');
+        var workcenter = btn.getAttribute('data-workcenter');
+        openStartOperationModal(seq, workcenter);
+        return;
+    }
+
+    if (btn.classList.contains('complete-operation')) {
+        var seq = btn.getAttribute('data-seq');
+        openCompleteOperationModal(seq);
+        return;
+    }
+
+    if (btn.classList.contains('record-quality')) {
+        var assignmentId = btn.getAttribute('data-assignment');
+        var opName = btn.getAttribute('data-name');
+        openQualityModal(assignmentId, opName);
+        return;
+    }
+});
+
+// ============================================================================
+// SUBMIT QUALITY RESULT
+// ============================================================================
+
+var qualitySubmitBtn = getEl('submitQualityResult');
+if (qualitySubmitBtn) {
+    qualitySubmitBtn.addEventListener('click', function() {
+        var assignmentId = getEl('qualityAssignmentId').value;
+        var passFail = getEl('qualityPassFail').value;
+        var measuredValue = parseFloat(getEl('qualityMeasuredValue').value || 0);
+        var comment = getEl('qualityComment').value;
+
+        if (!assignmentId) {
+            showToast('No quality operation selected', 'error');
+            return;
+        }
+
+        var data = { passFail: passFail, measuredValue: measuredValue, comment: comment };
+
+        fetch('/api/manufacturing/orders/' + orderId + '/quality/' + assignmentId + '/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(result.message, 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('qualityResultModal'));
+            if (modal) modal.hide();
+            loadOrderDetail();
+        })
+        .catch(function(err) {
+            showToast('Error recording quality result', 'error');
+            console.error(err);
+        });
+    });
+}
+
+// ============================================================================
+// CONFIRM START OPERATION
+// ============================================================================
+
+var startBtn = getEl('confirmStartOperation');
+if (startBtn) {
+    startBtn.addEventListener('click', function() {
+        var seq = getEl('startSeq').value;
+        var machineId = getEl('startMachineId').value;
+
+        if (!machineId) {
+            showToast('Please select a machine', 'error');
+            return;
+        }
+
+        var data = { machineId: machineId, operatorId: getEl('startOperatorId').value || null };
+
+        fetch('/api/manufacturing/orders/' + orderId + '/routing/' + seq + '/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(result.message, 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('startOperationModal'));
+            if (modal) modal.hide();
+            loadOrderDetail();
+        })
+        .catch(function(err) {
+            showToast('Error starting operation', 'error');
+            console.error(err);
+        });
+    });
+}
+
+// ============================================================================
+// CONFIRM COMPLETE OPERATION
+// ============================================================================
+
+var completeBtn = getEl('confirmCompleteOperation');
+if (completeBtn) {
+    completeBtn.addEventListener('click', function() {
+        var seq = getEl('completeSeq').value;
+        var setup = parseFloat(getEl('completeSetup').value || 0);
+        var run = parseFloat(getEl('completeRun').value || 0);
+        var qty = parseFloat(getEl('completeQty').value);
+        var yield_loss = parseFloat(getEl('completeYield').value || 0);
+
+        if (!qty || qty <= 0) {
+            showToast('Please enter a valid quantity', 'error');
+            return;
+        }
+
+        var data = { actualSetup: setup, actualRun: run, actualQuantity: qty, yieldLoss: yield_loss };
+
+        fetch('/api/manufacturing/orders/' + orderId + '/routing/' + seq + '/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(result.message, 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('completeOperationModal'));
+            if (modal) modal.hide();
+            loadOrderDetail();
+        })
+        .catch(function(err) {
+            showToast('Error completing operation', 'error');
+            console.error(err);
+        });
+    });
+}
+
+// ============================================================================
+// TOAST NOTIFICATION
+// ============================================================================
+
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+// ============================================================================
+// INITIALIZE
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM ready');
+    loadOrderDetail();
+});
+</script>
+
+<!-- Quality Result Modal -->
+<div class="modal fade" id="qualityResultModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('manufacturing.job_order_detail.record_quality_title', 'Record Quality Result') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="qualityAssignmentId">
+                <input type="hidden" id="qualityOperationName">
+                <div class="mb-3">
+                    <label class="fw-bold">{{ get_translation('manufacturing.job_order_detail.operation_label', 'Operation') }}: <span id="qualityOpNameDisplay">-</span></label>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.result_label', 'Result') }}</label>
+                    <select class="form-select" id="qualityPassFail">
+                        <option value="PASS">{{ get_translation('global.pass', 'PASS') }}</option>
+                        <option value="FAIL">{{ get_translation('global.fail', 'FAIL') }}</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.measured_value_label', 'Measured Value') }}</label>
+                    <input type="number" class="form-control" id="qualityMeasuredValue" step="any">
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.comment_label', 'Comment') }}</label>
+                    <textarea class="form-control" id="qualityComment" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="submitQualityResult">{{ get_translation('global.submit', 'Submit') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Start Operation Modal -->
+<div class="modal fade" id="startOperationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('manufacturing.job_order_detail.start_operation_title', 'Start Operation') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="startSeq">
+                <input type="hidden" id="startWorkCenter">
+                <div class="mb-3">
+                    <label class="fw-bold">{{ get_translation('manufacturing.job_order_detail.work_center_label', 'Work Center') }}: <span id="startWorkCenterDisplay">-</span></label>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.machine_label', 'Machine') }}</label>
+                    <select class="form-select" id="startMachineId">
+                        <option value="">{{ get_translation('manufacturing.job_order_detail.select_machine', 'Select Machine...') }}</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.operator_label', 'Operator ID') }}</label>
+                    <input type="text" class="form-control" id="startOperatorId" placeholder="{{ get_translation('manufacturing.job_order_detail.operator_placeholder', 'Enter operator ID') }}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmStartOperation">{{ get_translation('global.start', 'Start Operation') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Operation Modal -->
+<div class="modal fade" id="completeOperationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('manufacturing.job_order_detail.complete_operation_title', 'Complete Operation') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="completeSeq">
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.actual_setup_label', 'Actual Setup Time (hours)') }}</label>
+                    <input type="number" class="form-control" id="completeSetup" step="0.1" value="0">
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.actual_run_label', 'Actual Run Time (hours)') }}</label>
+                    <input type="number" class="form-control" id="completeRun" step="0.1" value="0">
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.actual_qty_label', 'Actual Quantity') }}</label>
+                    <input type="number" class="form-control" id="completeQty" step="1" min="0">
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('manufacturing.job_order_detail.yield_loss_label', 'Yield Loss') }}</label>
+                    <input type="number" class="form-control" id="completeYield" step="1" min="0" value="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmCompleteOperation">{{ get_translation('global.complete', 'Complete Operation') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.workflow-timeline {
+    padding: 10px 0;
+}
+.workflow-step {
+    padding: 8px 0;
+    border-left: 3px solid #dee2e6;
+    padding-left: 15px;
+    margin-left: 10px;
+}
+.workflow-step.active {
+    border-left-color: #ffc107;
+}
+.workflow-step .workflow-icon {
+    width: 24px;
+    text-align: center;
+}
+.workflow-step .workflow-content {
+    flex: 1;
+}
+</style>
+{% endblock %}

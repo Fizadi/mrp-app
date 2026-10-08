@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Supplier Inspection Portal{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-truck me-2"></i>{{ get_translation('auto.3220130e', 'Supplier Inspection Portal') }}</h2>
+<button class="btn btn-success" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.e29db20f', 'Refresh') }}</button>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-primary h-100">
+<div class="card-body text-center">
+<h5 class="text-primary">{{ get_translation('auto.85fd36d2', 'Open Orders') }}</h5>
+<p class="display-6" id="kpiOpenOrders">{{ get_translation('auto.6ee55931', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.099df63f', 'Pending Submissions') }}</h5>
+<p class="display-6" id="kpiPending">{{ get_translation('auto.a9ee6fa0', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-danger h-100">
+<div class="card-body text-center">
+<h5 class="text-danger">{{ get_translation('auto.33005e25', 'Past Due') }}</h5>
+<p class="display-6" id="kpiPastDue">{{ get_translation('auto.e6454749', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.988079a0', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.04ab1462', 'All') }}</option>
+<option>{{ get_translation('auto.665657d1', 'Pending') }}</option>
+<option>{{ get_translation('auto.fe5add48', 'Completed') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.9aefdc0a', 'Due Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.9a4842f8', 'Due Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-3">
+<div class="form-check mt-4">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.5bf37eff', 'Apply Filters') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Orders Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-clipboard-list"></i>{{ get_translation('auto.5af029f3', 'Purchase Orders for Inspection') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="ordersTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.109ed7a6', 'PO #') }}</th>
+<th>{{ get_translation('auto.6f9ce48c', 'Product') }}</th>
+<th>{{ get_translation('auto.001cc410', 'Batch #') }}</th>
+<th>{{ get_translation('auto.a8450697', 'Quantity') }}</th>
+<th>{{ get_translation('auto.0e4be741', 'Due Date') }}</th>
+<th>{{ get_translation('auto.f4a2267b', 'Status') }}</th>
+<th>{{ get_translation('auto.d2e2a17b', 'Progress') }}</th>
+<th>{{ get_translation('auto.e691a529', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="ordersTableBody">
+<tr><td class="text-center py-4" colspan="8">{{ get_translation('auto.836801e4', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Submit Test Modal -->
+<div class="modal fade" id="submitModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.7c1ac420', 'Submit Inspection Results') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<input id="submitBatchId" type="hidden"/>
+<div id="operationsContainer"></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.767ff124', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveAllBtn" type="button">{{ get_translation('auto.98107b7c', 'Save All Results') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+<script>
+$(document).ready(function() {
+    let submitModal = new bootstrap.Modal(document.getElementById('submitModal'));
+    let currentBatchId = null;
+
+    // ----- KPI functions -----
+    function loadKPI() {
+        $.get('/api/quality/supplier-portal/kpi', function(data) {
+            $('#kpiOpenOrders').text(data.openOrders);
+            $('#kpiPending').text(data.pendingSubmissions);
+            $('#kpiPastDue').text(data.pastDue);
+        }).fail(function(xhr) { console.error('KPI error:', xhr); });
+    }
+
+    // ----- Orders loading with filters -----
+    function loadOrders() {
+        let params = {
+            status: $('#filterStatus').val(),
+            date_from: $('#filterDateFrom').val().replace(/-/g, ''),
+            date_to: $('#filterDateTo').val().replace(/-/g, '')
+        };
+        console.log('loadOrders called with params:', params);
+        $.get('/api/quality/supplier-portal/orders', params, function(orders) {
+            console.log('Received orders:', orders);
+            let tbody = $('#ordersTableBody').empty();
+            for (let o of orders) {
+                let dueDate = o.dueDateKey ? `${o.dueDateKey.toString().slice(0,4)}-${o.dueDateKey.toString().slice(4,6)}-${o.dueDateKey.toString().slice(6,8)}` : '';
+                let progress = `${o.completedOps}/${o.requiredOps}`;
+                let statusBadge = o.status === 'Completed' ? '<span class="badge bg-success">Completed</span>' : '<span class="badge bg-warning">Pending</span>';
+                let row = `<tr>
+                    <td>${o.poNumber}</td>
+                    <td>${o.productId}</td>
+                    <td>${o.batchNumber}</td>
+                    <td>${o.quantity}</td>
+                    <td>${dueDate}</td>
+                    <td>${statusBadge}</tr>
+                    <td>${progress}</td>
+                    <td><button class="btn btn-sm btn-primary submit-results" data-id="${o.batchId}">Submit Test</button></td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(function(xhr) { console.error('Orders error:', xhr); });
+    }
+
+    // ----- Modal submit handlers -----
+    $(document).on('click', '.submit-results', function() {
+        currentBatchId = $(this).data('id');
+        $.get(`/api/quality/supplier-portal/batch/${currentBatchId}`, function(data) {
+            let ops = data.operations;
+            let container = $('#operationsContainer').empty();
+            if (ops.length === 0) {
+                container.html('<div class="alert alert-warning">No operations defined for this product.</div>');
+            } else {
+                for (let op of ops) {
+                    let existing = data.results.find(r => r.QCOperationID === op.QCOperationID && r.IsExternalEntry === 1);
+                    let div = $(`
+                        <div class="card mb-2">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4"><strong>${op.Code} - ${op.Name}</strong></div>
+                                    <div class="col-md-3"><label>Measured Value</label><input type="text" class="form-control measured" data-op="${op.QCOperationID}" value="${existing ? existing.MeasuredValue : ''}"></div>
+                                    <div class="col-md-5"><label>Notes</label><input type="text" class="form-control notes" data-op="${op.QCOperationID}" value="${existing ? existing.InspectorNotes : ''}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    container.append(div);
+                }
+            }
+            submitModal.show();
+        }).fail(function(xhr) { console.error('Batch error:', xhr); alert('Could not load operations for this batch.'); });
+    });
+
+    $('#saveAllBtn').click(function() {
+        let promises = [];
+        $('#operationsContainer .card').each(function() {
+            let operationId = $(this).find('.measured').data('op');
+            let measuredValue = $(this).find('.measured').val();
+            let notes = $(this).find('.notes').val();
+            promises.push($.ajax({
+                url: '/api/quality/supplier-portal/submit',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    batchId: currentBatchId,
+                    operationId: operationId,
+                    measuredValue: measuredValue,
+                    notes: notes
+                })
+            }));
+        });
+        $.when.apply($, promises).then(function() {
+            submitModal.hide();
+            loadOrders();
+            loadKPI();
+        }).fail(function() { alert('Error submitting results'); });
+    });
+
+    // ----- Filter and refresh button bindings -----
+    $('#applyFiltersBtn').on('click', function(e) {
+        e.preventDefault();
+        console.log('Apply Filters clicked');
+        loadOrders();
+    });
+    $('#refreshBtn').on('click', function(e) {
+        e.preventDefault();
+        loadOrders();
+        loadKPI();
+    });
+
+    // Initial load
+    loadKPI();
+    loadOrders();
+});
+</script>
+{% endblock %}

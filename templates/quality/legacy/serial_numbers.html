@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Serial Numbers - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-barcode me-2"></i>{{ get_translation('auto.6bc6133b', 'Serial Numbers') }}</h2>
+<button class="btn btn-success" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.5f8a35a1', 'Refresh') }}</button>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2"><div class="card border-primary h-100"><div class="card-body text-center"><h5 class="text-primary">{{ get_translation('auto.b7796113', 'Total Serials') }}</h5><p class="display-6" id="kpiTotal">{{ get_translation('auto.dcf9dcbf', '-') }}</p></div></div></div>
+<div class="col-md-4 mb-2"><div class="card border-success h-100"><div class="card-body text-center"><h5 class="text-success">{{ get_translation('auto.c6335b79', 'Active Warranty') }}</h5><p class="display-6" id="kpiActive">{{ get_translation('auto.fa4ea006', '-') }}</p></div></div></div>
+<div class="col-md-4 mb-2"><div class="card border-danger h-100"><div class="card-body text-center"><h5 class="text-danger">{{ get_translation('auto.f18a9212', 'Expired Warranty') }}</h5><p class="display-6" id="kpiExpired">{{ get_translation('auto.407bb4da', '-') }}</p></div></div></div>
+</div>
+<!-- Filters -->
+<div class="card mb-3"><div class="card-body"><div class="row g-3">
+<div class="col-md-3"><label>{{ get_translation('auto.37e77b46', 'Product') }}</label><select class="form-select" id="filterProduct"><option value="">{{ get_translation('auto.0d06882e', 'All') }}</option>{% for p in products %}<option value="{{ p.ProductID }}">{{ p.ProductID }}</option>{% endfor %}</select></div>
+<div class="col-md-3"><label>{{ get_translation('auto.f68cdea4', 'Project') }}</label><select class="form-select" id="filterProject"><option value="">{{ get_translation('auto.bae0d2e6', 'All') }}</option>{% for p in projects %}<option value="{{ p.ProjectID }}">{{ p.ProjectID }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label>{{ get_translation('auto.dfc06229', 'Status') }}</label><select class="form-select" id="filterStatus"><option value="">{{ get_translation('auto.702a76ec', 'All') }}</option>{% for s in statuses %}<option value="{{ s.Status }}">{{ s.Status }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label>{{ get_translation('auto.69b8c8de', 'Warranty') }}</label><select class="form-select" id="filterWarranty"><option value="">{{ get_translation('auto.18ccb79b', 'All') }}</option><option value="active">{{ get_translation('auto.262804bc', 'Active') }}</option><option value="expired">{{ get_translation('auto.00f1f4f5', 'Expired') }}</option></select></div>
+<div class="col-md-2"><div class="form-check mt-4"><button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.7d2e43b3', 'Apply') }}</button></div></div>
+</div></div></div>
+<!-- Serials Table -->
+<div class="card"><div class="card-header"><h5 class="mb-0"><i class="fas fa-list"></i>{{ get_translation('auto.4ffa9b00', 'Serial Number Registry') }}</h5></div>
+<div class="card-body p-0"><div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="serialsTable">
+<thead class="table-dark"><tr>
+<th>{{ get_translation('auto.3daf4ea6', 'Serial Number') }}</th><th>{{ get_translation('auto.22250e57', 'Product') }}</th><th>{{ get_translation('auto.993484e5', 'Project') }}</th><th>{{ get_translation('auto.31caa10b', 'Status') }}</th><th>{{ get_translation('auto.f87c15ad', 'Location') }}</th><th>{{ get_translation('auto.e0f2c67b', 'Warranty End') }}</th><th>{{ get_translation('auto.704c4bf2', 'Warranty Status') }}</th><th>{{ get_translation('auto.833ed339', 'Actions') }}</th>
+</tr></thead>
+<tbody id="serialsTableBody"><tr><td class="text-center py-4" colspan="8">{{ get_translation('auto.fc628b10', 'Loading...') }}</td></tr></tbody>
+</table>
+</div></div></div>
+</div>
+<!-- History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.26502948', 'Serial History') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="historyModalBody">{{ get_translation('auto.33013a3a', 'Loading...') }}</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.e79acf98', 'Close') }}</button></div>
+</div></div></div>
+<!-- Warranty Modal -->
+<div class="modal fade" id="warrantyModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.f4b9d137', 'Warranty Details') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="warrantyModalBody">{{ get_translation('auto.fff49161', 'Loading...') }}</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.3dc067f8', 'Close') }}</button></div>
+</div></div></div>
+<!-- Service Orders Modal -->
+<div class="modal fade" id="serviceModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.5f956dd0', 'Service Orders') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="serviceModalBody">{{ get_translation('auto.53967572', 'Loading...') }}</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.2e9ff549', 'Close') }}</button></div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+    let warrantyModal = new bootstrap.Modal(document.getElementById('warrantyModal'));
+    let serviceModal = new bootstrap.Modal(document.getElementById('serviceModal'));
+
+    function loadKPI() {
+        $.get('/api/quality/serials/kpi', function(data) {
+            $('#kpiTotal').text(data.total);
+            $('#kpiActive').text(data.active);
+            $('#kpiExpired').text(data.expired);
+        });
+    }
+
+    function loadSerials() {
+        let params = {
+            product: $('#filterProduct').val(),
+            project: $('#filterProject').val(),
+            status: $('#filterStatus').val(),
+            warranty_status: $('#filterWarranty').val()
+        };
+        $.get('/api/quality/serials/list', params, function(serials) {
+            let tbody = $('#serialsTableBody').empty();
+            for (let s of serials) {
+                let warrantyEnd = s.WarrantyEndDateKey ? `${s.WarrantyEndDateKey.toString().slice(0,4)}-${s.WarrantyEndDateKey.toString().slice(4,6)}-${s.WarrantyEndDateKey.toString().slice(6,8)}` : '';
+                let today = parseInt(new Date().toISOString().slice(0,10).replace(/-/g,''));
+                let warrantyStatus = '';
+                if (!s.WarrantyEndDateKey) warrantyStatus = '<span class="badge bg-secondary">No Warranty</span>';
+                else if (s.WarrantyEndDateKey >= today) warrantyStatus = '<span class="badge bg-success">Active</span>';
+                else warrantyStatus = '<span class="badge bg-danger">Expired</span>';
+                let row = `<tr>
+                    <td><a href="#" class="serial-detail" data-id="${s.SerialNumberID}">${s.SerialNumber}</a></td>
+                    <td>${s.ProductID}</td><td>${s.ProjectID || ''}</td><td>${s.Status}</td>
+                    <td>${s.CurrentLocation || ''}</td><td>${warrantyEnd}</td><td>${warrantyStatus}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info history-btn" data-id="${s.SerialNumberID}">History</button>
+                        <button class="btn btn-sm btn-warning warranty-btn" data-id="${s.SerialNumberID}">Warranty</button>
+                        <button class="btn btn-sm btn-primary service-btn" data-id="${s.SerialNumberID}">Service</button>
+                        <button class="btn btn-sm btn-secondary print-btn" data-id="${s.SerialNumberID}">Print Label</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        });
+    }
+
+    // History
+    $(document).on('click', '.history-btn', function() {
+        let id = $(this).data('id');
+        $.get(`/api/quality/serials/${id}/history`, function(data) {
+            let html = '<h6>Inspection Results</h6><table class="table table-sm"><thead><tr><th>Operation</th><th>Value</th><th>Pass/Fail</th><th>Date</th></tr></thead><tbody>';
+            for (let r of data.inspections) {
+                let date = r.InspectedDateKey ? `${r.InspectedDateKey.toString().slice(0,4)}-${r.InspectedDateKey.toString().slice(4,6)}-${r.InspectedDateKey.toString().slice(6,8)}` : '';
+                html += `<tr><td>${r.Code}</td><td>${r.MeasuredValue || ''}</td><td>${r.PassFail ? 'Pass' : 'Fail'}</td><td>${date}</td></tr>`;
+            }
+            html += '</tbody></table><h6>Service Orders</h6><table class="table table-sm"><thead><tr><th>Order #</th><th>Issue</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+            for (let so of data.serviceOrders) {
+                let date = so.CreatedDateKey ? `${so.CreatedDateKey.toString().slice(0,4)}-${so.CreatedDateKey.toString().slice(4,6)}-${so.CreatedDateKey.toString().slice(6,8)}` : '';
+                html += `<tr><td>${so.ServiceOrderNumber}</td><td>${so.IssueDescription || ''}</td><td>${so.Status}</td><td>${date}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            $('#historyModalBody').html(html);
+            historyModal.show();
+        });
+    });
+
+    // Warranty
+    $(document).on('click', '.warranty-btn', function() {
+        let id = $(this).data('id');
+        $.get(`/api/quality/serials/${id}/warranty`, function(data) {
+            let w = data.warranty;
+            let html = `<p><strong>Serial:</strong> ${data.serial.SerialNumber}</p>`;
+            if (w) {
+                html += `<p><strong>Warranty Months:</strong> ${w.WarrantyMonths}</p><p><strong>Terms:</strong> ${w.Terms || ''}</p>`;
+            } else {
+                html += '<p>No warranty defined for this product/project.</p>';
+            }
+            $('#warrantyModalBody').html(html);
+            warrantyModal.show();
+        });
+    });
+
+    // Service Orders
+    $(document).on('click', '.service-btn', function() {
+        let id = $(this).data('id');
+        $.get(`/api/quality/serials/${id}/history`, function(data) {
+            let html = '<table class="table table-sm"><thead><tr><th>Order #</th><th>Issue</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+            for (let so of data.serviceOrders) {
+                let date = so.CreatedDateKey ? `${so.CreatedDateKey.toString().slice(0,4)}-${so.CreatedDateKey.toString().slice(4,6)}-${so.CreatedDateKey.toString().slice(6,8)}` : '';
+                html += `<tr><td>${so.ServiceOrderNumber}</td><td>${so.IssueDescription || ''}</td><td>${so.Status}</td><td>${date}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            $('#serviceModalBody').html(html);
+            serviceModal.show();
+        });
+    });
+
+    // Print Label
+    $(document).on('click', '.print-btn', function() {
+        let id = $(this).data('id');
+        window.open(`/api/quality/serials/${id}/label`, '_blank');
+    });
+
+    $('#applyFiltersBtn').click(() => loadSerials());
+    $('#refreshBtn').click(() => { loadSerials(); loadKPI(); });
+    loadKPI();
+    loadSerials();
+});
+</script>
+{% endblock %}

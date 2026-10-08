@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html dir="{{ 'rtl' if lang == 'fa' else 'ltr' }}" lang="{{ lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MRP System{% endblock %}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+
+    <!-- ================================================================
+         DATE PICKERS (all self-hosted, no CDN)
+         ================================================================ -->
+
+    <!-- Gregorian picker (English mode) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+
+    <!-- Persian picker (Persian mode) — MUST come AFTER bootstrap.min.css -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mds.bs.datetimepicker.style.css') }}">
+
+    <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
+    {% block styles %}{% endblock %}
+
+    <!-- ============================================================================
+         EARLY GLOBAL SETTINGS — must be set BEFORE any dependent script loads
+         ============================================================================ -->
+    <script>
+        window.currentLanguage = "{{ session.get('lang', 'en') }}";
+        window.currentCalendar = "{{ session.get('calendar', 'gregorian') }}";
+        console.log('🌐 [HEAD] Language:', window.currentLanguage, '| Calendar:', window.currentCalendar);
+    </script>
+
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --project-purple: #6f42c1;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            padding-top: 56px;
+        }
+        .main-content {
+            margin-left: 280px;
+            padding: 20px;
+            transition: margin-left .3s;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0 15px rgba(0,0,0,.05);
+            border-radius: 10px;
+            transition: transform .3s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 15px 20px;
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .status-draft { background: #e3f2fd; color: #1565c0; }
+        .status-pending { background: #fff3e0; color: #ef6c00; }
+        .status-approved { background: #e8f5e9; color: #2e7d32; }
+        .status-rejected { background: #ffebee; color: #c62828; }
+        .status-active { background: #e3f2fd; color: #1976d2; }
+        .status-completed { background: #e8f5e9; color: #388e3c; }
+        .project-context-badge {
+            background: linear-gradient(135deg, var(--project-purple), #6f42c1);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: .9em;
+            display: inline-flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+        .project-badge {
+            background: #e8f4fd;
+            color: #1a73e8;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: .85em;
+            display: inline-flex;
+            align-items: center;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: .5rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .page-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        .toast-container {
+            z-index: 9999;
+        }
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 15px;
+            }
+        }
+        [dir="rtl"] .main-content {
+            margin-left: 0;
+            margin-right: 280px;
+        }
+        @media (max-width: 768px) and (dir="rtl") {
+            .main-content {
+                margin-right: 0;
+            }
+        }
+        [dir="rtl"] .sidebar {
+            left: auto;
+            right: 0;
+        }
+        [dir="rtl"] .sidebar .nav-link .fa-chevron-right {
+            transform: rotate(180deg);
+        }
+        [dir="rtl"] .sidebar .nav-link i {
+            margin-right: 0;
+            margin-left: .5rem;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+{% include 'navbar.html' with context %}
+{% include 'sidebar.html' with context %}
+
+<div class="main-content" id="mainContent">
+    {% block content %}{% endblock %}
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+<!-- ================================================================
+     DATE PICKERS (all self-hosted, no CDN) — ORDER MATTERS
+     ================================================================ -->
+
+<script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
+<!-- Gregorian picker -->
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+
+<!-- Persian picker — MUST come AFTER bootstrap.bundle.min.js -->
+<script src="{{ url_for('static', filename='js/mds.bs.datetimepicker.js') }}"></script>
+
+<!-- Your wrapper: decides which picker to use based on session -->
+<script src="{{ url_for('static', filename='js/date-utils.js') }}"></script>
+
+<!-- ============================================================================
+     INJECT SERVER-SIDE TRANSLATIONS FOR JAVASCRIPT
+     ============================================================================ -->
+<script>
+    // ============================================================
+    // Load translations from server
+    // ============================================================
+    var serverTranslations = {{ js_translations | tojson }};
+    
+    console.log('📚 Server translations:', Object.keys(serverTranslations).length, 'keys');
+    
+    // ============================================================
+    // If no translations, use fallbacks
+    // ============================================================
+    if (Object.keys(serverTranslations).length === 0) {
+        console.log('⚠️ No translations from server, using fallbacks');
+        serverTranslations = {
+            'global.edit': 'Edit',
+            'global.save': 'Save',
+            'global.cancel': 'Cancel',
+            'global.view': 'View',
+            'global.release': 'Release',
+            'global.start': 'Start',
+            'global.hold': 'Hold',
+            'global.resume': 'Resume',
+            'global.complete': 'Complete',
+            'global.close_order': 'Close',
+            'global.issue': 'Issue',
+            'global.receive': 'Receive',
+            'global.quality': 'Quality',
+            'global.qty': 'Qty',
+            'global.confirm': 'Confirm',
+            'global.record': 'Record',
+            'global.upload': 'Upload',
+            'global.apply': 'Apply',
+            'global.all': 'All',
+            'global.select': 'Select',
+            'global.none': 'None',
+            'global.remove': 'Remove',
+            'global.loading': 'Loading...',
+            'global.no_data': 'No data available',
+            'global.error_loading': 'Error loading data',
+            'global.success': 'Success',
+            'global.error': 'Error',
+            'global.actions': 'Actions',
+            'global.status': 'Status',
+            'global.search': 'Search',
+            'global.draft': 'Draft',
+            'global.released': 'Released',
+            'global.in_progress': 'In Progress',
+            'global.completed': 'Completed',
+            'global.closed': 'Closed',
+            'global.blocked': 'Blocked',
+            'global.canceled': 'Canceled',
+            'global.manufacturing': 'Manufacturing',
+            'global.subcontract': 'Subcontract',
+            'global.repair': 'Repair',
+            'global.to_supplier': 'To Supplier',
+            'global.reason_prompt': 'Please enter the reason:',
+            'global.finalize_costing': 'This will finalize costing.',
+            'global.delete': 'Delete',
+            'global.refresh': 'Refresh',
+            'global.reset': 'Reset',
+            'global.print': 'Print',
+            'global.export': 'Export',
+            'global.import': 'Import',
+            'global.close': 'Close',
+            'global.add': 'Add'
+        };
+    }
+    
+    // ============================================================
+    // Build a lookup map with both exact and prefixed keys
+    // ============================================================
+    var translationMap = {};
+    
+    // Add all server translations as-is
+    for (var key in serverTranslations) {
+        if (serverTranslations.hasOwnProperty(key)) {
+            translationMap[key] = serverTranslations[key];
+        }
+    }
+    
+    // ============================================================
+    // Add shortcut versions (without prefixes) for common keys
+    // ============================================================
+    var prefixMap = {
+        'edit': 'global.edit',
+        'save': 'global.save',
+        'cancel': 'global.cancel',
+        'view': 'global.view',
+        'release': 'global.release',
+        'start': 'global.start',
+        'hold': 'global.hold',
+        'resume': 'global.resume',
+        'complete': 'global.complete',
+        'close_order': 'global.close_order',
+        'issue': 'global.issue',
+        'receive': 'global.receive',
+        'quality': 'global.quality',
+        'qty': 'global.qty',
+        'confirm': 'global.confirm',
+        'record': 'global.record',
+        'upload': 'global.upload',
+        'apply': 'global.apply',
+        'search': 'global.search',
+        'all': 'global.all',
+        'select': 'global.select',
+        'none': 'global.none',
+        'remove': 'global.remove',
+        'loading': 'global.loading',
+        'no_data': 'global.no_data',
+        'success': 'global.success',
+        'error': 'global.error',
+        'actions': 'global.actions',
+        'status': 'global.status',
+        'draft': 'global.draft',
+        'released': 'global.released',
+        'in_progress': 'global.in_progress',
+        'completed': 'global.completed',
+        'closed': 'global.closed',
+        'blocked': 'global.blocked',
+        'canceled': 'global.canceled',
+        'manufacturing': 'global.manufacturing',
+        'subcontract': 'global.subcontract',
+        'repair': 'global.repair',
+        'to_supplier': 'global.to_supplier',
+        'reason_prompt': 'global.reason_prompt',
+        'finalize_costing': 'global.finalize_costing',
+        'delete': 'global.delete',
+        'refresh': 'global.refresh',
+        'reset': 'global.reset',
+        'print': 'global.print',
+        'export': 'global.export',
+        'import': 'global.import',
+        'close': 'global.close',
+        'add': 'global.add'
+    };
+    
+    // Add shortcut mappings
+    for (var shortKey in prefixMap) {
+        if (prefixMap.hasOwnProperty(shortKey)) {
+            var fullKey = prefixMap[shortKey];
+            if (serverTranslations[fullKey] !== undefined && serverTranslations[fullKey] !== '') {
+                translationMap[shortKey] = serverTranslations[fullKey];
+            }
+        }
+    }
+    
+    // ============================================================
+    // Initialize window.i18n with the translation map
+    // ============================================================
+    window.i18n = {
+        currentLang: '{{ lang }}',
+        translations: translationMap,
+        t: function(key, defaultValue) {
+            if (this.translations[key] !== undefined && this.translations[key] !== '') {
+                return this.translations[key];
+            }
+            var globalKey = 'global.' + key;
+            if (this.translations[globalKey] !== undefined && this.translations[globalKey] !== '') {
+                return this.translations[globalKey];
+            }
+            return defaultValue || key;
+        }
+    };
+    
+    // ============================================================
+    // Debug logging
+    // ============================================================
+    console.log('✅ window.i18n initialized');
+    console.log('🔍 Current language:', window.i18n.currentLang);
+    console.log('🔍 Translation map keys:', Object.keys(window.i18n.translations).length);
+    console.log('🔍 Sample translations:', {
+        'edit': window.i18n.t('edit', 'Edit'),
+        'search': window.i18n.t('search', 'Search'),
+        'status': window.i18n.t('status', 'Status'),
+        'actions': window.i18n.t('actions', 'Actions'),
+        'draft': window.i18n.t('draft', 'Draft'),
+        'save': window.i18n.t('save', 'Save'),
+        'cancel': window.i18n.t('cancel', 'Cancel'),
+        'view': window.i18n.t('view', 'View')
+    });
+</script>
+
+<!-- Your other scripts -->
+<script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+
+<script>
+    window.showToast = function(message, type) {
+        var toastId = 'toast-' + Date.now();
+        var toastHtml = `
+            <div id="${toastId}" class="toast show" role="alert" style="background:white; border-left: 4px solid ${type === 'error' ? '#dc3545' : '#28a745'}; border-radius:0.375rem; margin-bottom:10px; box-shadow:0 0.125rem 0.25rem rgba(0,0,0,0.075);">
+                <div class="toast-header">
+                    <strong class="me-auto">Notification</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">${message}</div>
+            </div>
+        `;
+        $('#toastContainer').append(toastHtml);
+        setTimeout(function() { $('#' + toastId).remove(); }, 5000);
+    };
+    
+    function updateTime() {
+        var now = new Date();
+        var formatted = now.toLocaleString('en-GB', { hour12: false });
+        $('#currentTime').text(formatted);
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/api/current-user', { credentials: 'same-origin', redirect: 'manual' })
+            .then(function(r) {
+                if (!r.ok) throw new Error('not ok');
+                return r.json();
+            })
+            .then(function(data) {
+                var el = document.getElementById('userNameSpan');
+                if (el && data && data.name) el.textContent = data.name;
+            })
+            .catch(function() {
+                var el = document.getElementById('userNameSpan');
+                if (el) el.textContent = 'Guest';
+            });
+    });
+</script>
+
+
+<!-- ===== SIMPLE DRAGGABLE MODALS ===== -->
+<script>
+(function() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDraggable);
+    } else {
+        initDraggable();
+    }
+    
+    function initDraggable() {
+        console.log('Draggable modals initialized');
+        
+        document.addEventListener('mousedown', function(e) {
+            var header = e.target.closest('.modal-header');
+            if (!header) return;
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) return;
+            
+            var dialog = header.closest('.modal-dialog');
+            if (!dialog) return;
+            
+            var modal = dialog.closest('.modal');
+            if (!modal) return;
+            if (!modal.classList.contains('show')) return;
+            
+            // Get the actual width
+            var rect = dialog.getBoundingClientRect();
+            var startWidth = rect.width || 700;
+            var isDragging = false;
+            var offsetX, offsetY;
+            
+            function onMouseMove(e) {
+                if (!isDragging) return;
+                var x = e.clientX - offsetX;
+                var y = e.clientY - offsetY;
+                
+                var winWidth = window.innerWidth;
+                var winHeight = window.innerHeight;
+                var dialogWidth = startWidth || 700;
+                var dialogHeight = dialog.offsetHeight || 400;
+                
+                x = Math.max(10, Math.min(winWidth - dialogWidth - 10, x));
+                y = Math.max(10, Math.min(winHeight - dialogHeight - 10, y));
+                
+                // Use !important via style setProperty
+                dialog.style.setProperty('position', 'fixed', 'important');
+                dialog.style.setProperty('margin', '0', 'important');
+                dialog.style.setProperty('transform', 'none', 'important');
+                dialog.style.setProperty('left', x + 'px', 'important');
+                dialog.style.setProperty('top', y + 'px', 'important');
+                dialog.style.setProperty('width', startWidth + 'px', 'important');
+                dialog.style.setProperty('max-width', startWidth + 'px', 'important');
+            }
+            
+            function onMouseUp() {
+                if (isDragging) {
+                    isDragging = false;
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+            }
+            
+            isDragging = true;
+            var rect2 = dialog.getBoundingClientRect();
+            offsetX = e.clientX - rect2.left;
+            offsetY = e.clientY - rect2.top;
+            
+            dialog.style.setProperty('position', 'fixed', 'important');
+            dialog.style.setProperty('margin', '0', 'important');
+            dialog.style.setProperty('transform', 'none', 'important');
+            dialog.style.setProperty('left', rect2.left + 'px', 'important');
+            dialog.style.setProperty('top', rect2.top + 'px', 'important');
+            dialog.style.setProperty('width', startWidth + 'px', 'important');
+            dialog.style.setProperty('max-width', startWidth + 'px', 'important');
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            e.preventDefault();
+        });
+    }
+})();
+</script>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

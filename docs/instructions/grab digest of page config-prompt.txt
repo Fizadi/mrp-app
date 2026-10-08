@@ -1,0 +1,60 @@
+PROMPT — Page-Level Data Reference for a Module (v2)
+Context
+I am building a bilingual (English/Persian), dual-calendar (Gregorian/Jalali), SQL Server-backed ERP/SCM application using Flask, SQLAlchemy, Bootstrap 5 (self-hosted), and a custom translation system. I have already completed the CRM and Quality modules and now I want to produce the same Page-Level Data Reference for another module (here: "dashboard").
+
+What I want you to produce
+A single document titled:
+
+<MODULE NAME> — PAGE-LEVEL DATA REFERENCE (v1)
+
+For each page in the module, produce a table with exactly these 5 categories — no more, no less:
+
+#	What	Example
+1	URL	/module/page-name
+2	Main table columns	Real column names from the DB (verified), joined fields included where relevant
+3	Main action buttons	All buttons on the page — page-level and per-row
+4	KPI cards	The cards shown at the top of the page (name only)
+5	Sample rows	Shape only — the JSON-like payload structure of a row, plus the count of live rows available. Do NOT generate sample data unless I explicitly ask.
+Global rules to include at the top of the document (module-agnostic):
+All dates stored as DateKey INTEGER (YYYYMMDD, Gregorian); semantic type is a date key — even though DATA_TYPE shows nvarchar.
+
+Every *DateKey field renders in tables as <key>_formatted (server-side format_date()).
+
+Language switch = single route /switch_language/<lang> (sets both lang and calendar).
+
+All assets are local — no CDN.
+
+SQL Server: SELECT TOP N (not LIMIT); CAST(... AS DECIMAL(18,4)) on numeric nvarchar; DATEFROMPARTS for month grouping.
+
+What I will provide for each module
+Query A — Column list from INFORMATION_SCHEMA.COLUMNS for the module's tables.
+
+Query B — Row counts per table.
+
+The list of page URLs in the module (from routes.py).
+
+The list of API endpoints (optional — only if I want them included in the doc).
+
+What you should do
+Do NOT generate sample data. Sample-row category = shape only.
+
+Do NOT invent column names. Use only columns verified from Query A.
+
+Do NOT include implementation details (no API response examples, no SQL, no code). This is a data reference, not a spec.
+
+Flag data-type anomalies (e.g., numeric or DateKey columns declared as nvarchar) in the Open Items section — this is expected for my SQL Server migration (all columns are currently nvarchar).
+
+If a table is empty, mark its page as (empty — sample rows TBD).
+
+Preserve the CRM/Quality v1 format exactly: numbered sections (1, 2, 3, …), 5-row table per page, summary table, Open Items / Flags closing section.
+
+At the end of the document, include
+Summary Table — all pages, URLs, row sources, and live row counts.
+
+Open Items / Flags — anomalies, ambiguities, schema-cleanup items.
+
+Closing line
+End the document with:
+
+Ready for the next module — please share Query A, Query B, and the page URL list.
+

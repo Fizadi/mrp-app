@@ -1,0 +1,149 @@
+PART A: Project Context (v15) – Supply Chain Module Additions
+Date: 2026-09-16
+Supersedes: v14 (SCM App for Job Shop Manufacturing)
+
+1. Blueprint Organisation – Supply Chain Module
+Module path: app/modules/supply_chain/
+
+text
+app/modules/supply_chain/
+├── __init__.py      # supply_chain_bp (url_prefix='/supply-chain'), api_bp (url_prefix='/api')
+├── routes.py        # page routes
+└── api.py           # all API endpoints
+CRITICAL: Folder name must be supply_chain (underscore). URL prefix is /supply-chain (hyphen). Python module names cannot contain hyphens.
+
+Registration in app/__init__.py (use unique alias to avoid blueprint name clash):
+
+python
+from app.modules.supply_chain import supply_chain_bp, api_bp as supply_chain_api_bp
+app.register_blueprint(supply_chain_bp)
+app.register_blueprint(supply_chain_api_bp)
+Lesson learned: All API blueprints must use unique import aliases (project_api_bp, engineering_api_bp, admin_api_bp, manufacturing_api_bp, supply_chain_api_bp) because each module names its variable api_bp. Also: internal blueprint names must be unique (Blueprint('supply_chain_api', ...) — not 'api').
+
+2. Tables Created / Modified for Supply Chain
+Table	Purpose	Notes
+t_PurchaseOrderDetail	Multi-line POs	LineID PK, PurchaseOrderID, ProductID, Quantity REAL, UnitPrice DECIMAL(15,4), ReceivedQuantity REAL, ExpectedDeliveryDateKey INT
+t_Shipments	Outbound shipment header	ShipmentID PK, ShipmentNumber UNIQUE, SalesOrderID, ShipmentDateKey, Status (Draft/Packed/Shipped/Delivered/Cancelled), Carrier, TrackingNumber, CreatedDateKey, CreatedBy
+t_ShipmentLines	Shipment line items	LineID PK, ShipmentID, ProductID, QuantityShipped REAL, SerialNumbers TEXT
+t_SalesOrderLine	Multi-line sales orders	LineID PK, SalesOrderID, ProductID, Quantity REAL, UnitPrice DECIMAL, ShippedQuantity REAL DEFAULT 0, Notes
+t_EngineeringDocument (modified)	Attachment reuse	Added LinkedEntityType TEXT, LinkedEntityID TEXT — allows linking docs to any record (PO, Supplier, Shipment)
+t_RFQ, t_RFQLine, t_Quotes, t_QuoteLine	RFQ Management	Deferred — route exists as placeholder
+Migration scripts applied:
+
+Existing single-line POs migrated into t_PurchaseOrderDetail
+
+Existing single-line SalesOrders migrated into t_SalesOrderLine
+
+Use COALESCE() on nullable price/qty columns when migrating (avoid NOT NULL violations)
+
+3. API Endpoint Groups (Supply Chain)
+All under /api/ prefix.
+
+Group	Key Endpoints
+Purchase Orders	/purchase-orders/list, /purchase-orders/<id>, /purchase-orders POST, /purchase-orders/<id>/receive, /purchase-orders/<id>/attachments, /purchase-orders/export
+Subcontract	/subcontract/list, /subcontract/create-from-production, /subcontract/linked-production-orders, /subcontract/export
+Suppliers	/suppliers/list (full KPI+items), /suppliers POST, /suppliers/<id>, /suppliers/<id>/portal-user, /suppliers/<id>/share-document, /suppliers/<id>/documents, /suppliers/<id>/price-history, /suppliers/<id>/audit-log
+Stock	/stock/kpi, /stock/list, /stock/adjust, /stock/transfer, /stock/export
+Warehouses	/warehouses/list (simple dropdown: id+name), /warehouses (full KPI+items), /warehouses POST, /warehouses/<id> GET/PUT/DELETE, /warehouses/export, /warehouses/import
+Stock Movements	/stock-movements/kpi, /stock-movements/list, /stock-movements/export
+Inventory Valuation	/valuation/kpi, /valuation/report, /valuation/update-standard-cost, /valuation/export
+Receiving	/receiving/kpi, /receiving/expected-list, /receiving/po-details/<po_id>, /receiving/receive, /receiving/upload-attachment
+Shipping	/shipping/kpi, /shipping/list, /shipping/sales-orders-for-picking, /shipping/create, /shipping/update-status/<id>, /shipping/export
+Shared dropdowns	/products/list, /suppliers/list (referenced elsewhere — NOTE: /suppliers/list conflict fixed by renaming management endpoint)
+Route conflict lesson: Two endpoints cannot share the same function name inside one blueprint. Rename functions (e.g., warehouses_list for dropdown vs warehouses_full for KPI page). Same for /suppliers/list.
+
+4. URL Map (Sidebar Links)
+Use hardcoded paths (not url_for) in sidebar to avoid BuildError when a route is missing:
+
+Page	URL
+Purchase Orders	/supply-chain/purchase-orders
+Subcontract POs	/supply-chain/subcontract-orders
+RFQ Management	/supply-chain/rfq (placeholder)
+Supplier Management	/supply-chain/suppliers
+Stock Overview	/supply-chain/stock-overview
+Warehouse Management	/supply-chain/warehouses
+Stock Movements	/supply-chain/stock-movements
+Inventory Valuation	/supply-chain/inventory-valuation
+Receiving	/supply-chain/receiving
+Shipping	/supply-chain/shipping
+Lesson: url_for('supply_chain.rfq') throws BuildError if the route function does not exist. Options: use href="#", hardcode path, or create placeholder route rendering placeholder.html.
+
+5. Common Python Imports Required in api.py
+python
+from . import api_bp
+from flask import request, jsonify, current_app
+from flask_login import login_required, current_user
+from sqlalchemy.sql import text
+from datetime import datetime
+import os
+import csv
+from io import StringIO   # REQUIRED for CSV export — NameError otherwise
+Helper functions:
+
+python
+def get_engine():
+    return current_app.extensions['sqlalchemy'].engine
+
+def today_key():
+    return int(datetime.now().strftime('%Y%m%d'))
+
+def date_to_key(date_str):
+    return int(date_str.replace('-', '')) if date_str else None
+6. Frontend Conventions (Supply Chain)
+All pages extend base.html, use Bootstrap 5 + jQuery (local).
+
+Breadcrumb (manual, per page):
+
+html
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="#">Supply Chain</a></li>
+    <li class="breadcrumb-item active">Page Name</li>
+  </ol>
+</nav>
+Layout pattern: Filters row → KPI cards row → Main card with table + action buttons → Modals.
+
+KPI colours: primary (neutral), info (in progress), warning (partial), success (closed), danger (overdue).
+
+Date handling: filter inputs are HTML date (YYYY-MM-DD); convert to INT key before sending (parseInt(date.replace(/-/g,''))).
+
+URL parameter pre-filtering: pages read query params (e.g., ?product_id=X) via URLSearchParams, pre-fill the filter input, then auto-refresh.
+
+Live filtering: bind input (text) and change (date/select) events to the load function instead of relying only on a Refresh button.
+
+Dropdowns: /api/products/list and /api/warehouses/list return [{id, name/desc}].
+
+CSV export: window.location.href = '/api/.../export?' + params (server builds CSV with StringIO + csv.writer).
+
+7. Business Logic Lessons
+PO receiving: update t_PurchaseOrderDetail.ReceivedQuantity per line, insert into t_InventoryTransactions (type Purchase Receipt, positive Qty), then re-evaluate PO header status (Draft → Sent → Partially Received → Closed). Optional flag creates t_QualityInspectionBatch row (Status Pending, DueDateKey = today+7).
+
+Stock adjustment: positive → insert or increase t_InventoryOnHand row; negative → decrease or delete. Always create t_InventoryTransactions entry with type Adjustment.
+
+Stock transfer: decrease source warehouse, increase destination, record single Transfer transaction (FromWarehouseID/ToWarehouseID).
+
+Shipment creation: validates against t_SalesOrderLine.Quantity minus shipped; updates ShippedQuantity; creates negative Sales Issue inventory transaction; sets SO status to Shipped when fully shipped.
+
+Valuation methods: weighted_avg uses AVG(UnitCost) per product+warehouse; standard uses t_Product.StandardCost. Total value = Σ(Qty × cost).
+
+Warehouse utilisation: Σ(Qty from t_InventoryOnHand where WarehouseID) / t_Warehouses.Capacity × 100.
+
+Supplier portal users: insert into t_Users with UserType='External', PortalAccess=1, CompanyID=<SupplierID>. Store hashed password in PasswordHash (column added via migration).
+
+Audit logging: helper log_audit(action, table, record_id, old, new, user_id) writes into t_AuditLog with DateKey = today_key().
+
+8. Known Issues / TODO
+RFQ Management — not implemented; route is a placeholder. Tables t_RFQ, t_RFQLine, t_Quotes, t_QuoteLine are proposed but not created.
+
+Sales Order picking — no dedicated picking list; shipment lines populated directly from open SO lines.
+
+Bin / zone configuration — placeholder only; no t_WarehouseZones table.
+
+Shipping picking list / packing slip — not generated yet (only shipment record).
+
+Carrier integration — carrier is free-text; no external API.
+
+Valuation date filter — accepted but ignored (only current on-hand available).
+
+Sidebar translation keys — use get_translation('sidebar.supply_chain.*', 'Default'); add these keys to t_Translations with the chosen locale.
+

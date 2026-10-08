@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}{{ get_translation('reports.operational_title', 'Operational Reports') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="card">
+        <div class="card-header">
+            <h5>{{ get_translation('reports.operational_title', 'Operational Reports') }}</h5>
+        </div>
+        <div class="card-body">
+            <!-- Filters -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">{{ get_translation('reports.report_type', 'Report Type') }}</label>
+                    <select id="reportType" class="form-select">
+                        <option value="production">{{ get_translation('reports.production', 'Production Report') }}</option>
+                        <option value="inventory">{{ get_translation('reports.inventory', 'Inventory Report') }}</option>
+                        <option value="quality">{{ get_translation('reports.quality', 'Quality Report') }}</option>
+                        <option value="purchasing">{{ get_translation('reports.purchasing', 'Purchasing Report') }}</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{{ get_translation('reports.date_from', 'Date From') }}</label>
+                    <input type="date" id="dateFrom" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{{ get_translation('reports.date_to', 'Date To') }}</label>
+                    <input type="date" id="dateTo" class="form-control">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+    <button id="runReportBtn" class="btn btn-primary w-100 me-2">
+        <i class="fas fa-play"></i> {{ get_translation('reports.run_report', 'Run Report') }}
+    </button>
+    <button id="showChartBtn" class="btn btn-info w-100">
+        <i class="fas fa-chart-bar"></i> {{ get_translation('reports.show_chart', 'Show Chart') }}
+    </button>
+</div>
+            </div>
+
+            <!-- Report List Table (Predefined Reports) -->
+            <div class="table-responsive">
+                <table id="reportsTable" class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ get_translation('reports.report_name', 'Report Name') }}</th>
+                            <th>{{ get_translation('reports.description', 'Description') }}</th>
+                            <th>{{ get_translation('reports.actions', 'Actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody">
+                        <!-- filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Run Report Modal -->
+<div class="modal fade" id="runReportModal" tabindex="-1" aria-labelledby="runReportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="runReportModalLabel">{{ get_translation('reports.preview_title', 'Report Preview') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-end mb-3">
+                    <button id="exportExcelBtn" class="btn btn-success me-2">
+                        <i class="fas fa-file-excel"></i> {{ get_translation('reports.export_excel', 'Export to Excel') }}
+                    </button>
+                    <button id="exportPdfBtn" class="btn btn-danger">
+                        <i class="fas fa-file-pdf"></i> {{ get_translation('reports.export_pdf', 'Export to PDF') }}
+                    </button>
+                </div>
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-bordered" id="previewTable">
+                        <thead id="previewHeader"></thead>
+                        <tbody id="previewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.close', 'Close') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart Modal -->
+<div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chartModalLabel">{{ get_translation('reports.chart_title', 'Report Chart') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="reportChart" width="800" height="400"></canvas>
+                <div id="chartFallbackMsg" class="alert alert-warning d-none">
+                    {{ get_translation('reports.chart_unavailable', 'Chart library not loaded. Please ensure chart.umd.min.js is in static/js/') }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.close', 'Close') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}" onerror="console.error('Chart.js failed to load')"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM ready - initializing reports");
+        
+        // --------------------------------------------------------------
+        // Load report definitions (list of available reports)
+        // --------------------------------------------------------------
+        fetch('/api/reports/list')
+            .then(response => response.json())
+            .then(reports => {
+                const tbody = document.getElementById('reportsTableBody');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                reports.forEach(r => {
+                    const row = tbody.insertRow();
+                    const nameCell = row.insertCell(0);
+                    const descCell = row.insertCell(1);
+                    const actionCell = row.insertCell(2);
+                    
+                    nameCell.textContent = (window.i18n && window.i18n[r.name_key]) || r.name_key;
+                    descCell.textContent = (window.i18n && window.i18n[r.desc_key]) || r.desc_key;
+                    
+                    const runBtn = document.createElement('button');
+                    runBtn.className = 'btn btn-sm btn-primary';
+                    runBtn.innerHTML = '<i class="fas fa-chart-line"></i> ' + ((window.i18n && window.i18n['reports.run_report']) || 'Run');
+                    runBtn.addEventListener('click', () => {
+                        document.getElementById('reportType').value = r.id;
+                        document.getElementById('runReportBtn').click();
+                    });
+                    actionCell.appendChild(runBtn);
+                });
+            })
+            .catch(err => console.error('Error loading reports:', err));
+
+        // --------------------------------------------------------------
+        // Run report – show preview modal with translated column headers
+        // --------------------------------------------------------------
+        const runBtn = document.getElementById('runReportBtn');
+        const modal = new bootstrap.Modal(document.getElementById('runReportModal'));
+        
+        // Helper: get translation from window.i18n or fallback
+        function getTrans(key, fallback) {
+            return (window.i18n && window.i18n[key]) ? window.i18n[key] : fallback;
+        }
+        
+        // Map raw column name -> translation key
+        const colKeyMap = {
+            'ProductionOrderID': 'col.production_order_id',
+            'ProductID': 'col.product_id',
+            'ProductName': 'col.product_name',
+            'OrderQuantity': 'col.order_quantity',
+            'Status': 'col.status',
+            'StartDateKey': 'col.start_date_key',
+            'EndDateKey': 'col.end_date_key',
+            'ReleasedDateKey': 'col.released_date_key',
+            'CompletedQuantity': 'col.completed_quantity',
+            'UOM': 'col.uom',
+            'OnHand': 'col.on_hand',
+            'StandardCost': 'col.standard_cost',
+            'SafetyStock': 'col.safety_stock',
+            'NCRID': 'col.ncr_id',
+            'NCRNumber': 'col.ncr_number',
+            'Quantity': 'col.quantity',
+            'Severity': 'col.severity',
+            'DefectCode': 'col.defect_code',
+            'DefectDescription': 'col.defect_description',
+            'DateKey': 'col.date_key',
+            'PurchaseOrderID': 'col.purchase_order_id',
+            'SupplierName': 'col.supplier_name',
+            'OrderDateKey': 'col.order_date_key',
+            'ExpectedDeliveryDateKey': 'col.expected_delivery_date_key',
+            'TotalAmount': 'col.total_amount'
+        };
+        
+        function runReport() {
+            const reportType = document.getElementById('reportType').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            
+            fetch('/api/reports/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ report_type: reportType, date_from: dateFrom, date_to: dateTo })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                // Render preview table
+                const thead = document.getElementById('previewHeader');
+                const tbody = document.getElementById('previewBody');
+                thead.innerHTML = '';
+                tbody.innerHTML = '';
+                
+                if (data.columns && data.columns.length) {
+                    // Header row with translations
+                    const headerRow = thead.insertRow();
+                    data.columns.forEach(col => {
+                        const th = document.createElement('th');
+                        const transKey = colKeyMap[col];
+                        let displayText;
+                        if (transKey && window.i18n && window.i18n[transKey]) {
+                            displayText = window.i18n[transKey];
+                        } else {
+                            // fallback: clean column name
+                            displayText = col.replace('Key', '').replace('ID', ' ID');
+                        }
+                        th.textContent = displayText;
+                        headerRow.appendChild(th);
+                    });
+                    
+                    // Data rows
+                    data.data.forEach(row => {
+                        const tr = tbody.insertRow();
+                        data.columns.forEach(col => {
+                            const td = tr.insertCell();
+                            let val = row[col];
+                            if (col.endsWith('DateKey') && val && typeof val === 'number') {
+                                const str = val.toString();
+                                if (str.length === 8) {
+                                    val = `${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}`;
+                                }
+                            }
+                            td.textContent = (val !== undefined && val !== null) ? val : '';
+                        });
+                    });
+                }
+                modal.show();
+            })
+            .catch(err => console.error('Run report error:', err));
+        }
+        
+        if (runBtn) runBtn.addEventListener('click', runReport);
+        
+        // --------------------------------------------------------------
+        // Chart button logic
+        // --------------------------------------------------------------
+        const chartBtn = document.getElementById('showChartBtn');
+        let currentChart = null;
+        
+        function renderChart(reportData, reportType) {
+            const canvas = document.getElementById('reportChart');
+            if (!canvas) {
+                console.error("Canvas element #reportChart not found");
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            const data = reportData.data;
+            if (!data || data.length === 0) {
+                currentChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: [getTrans('reports.no_data', 'No data')], datasets: [{ label: getTrans('reports.no_records', 'No records'), data: [0] }] }
+                });
+                return;
+            }
+            
+            let labels = [];
+            let values = [];
+            
+            switch (reportType) {
+                case 'production':
+                    labels = data.map(row => row.ProductName || row.ProductID).slice(0, 10);
+                    values = data.map(row => row.OrderQuantity || 0).slice(0, 10);
+                    break;
+                case 'inventory':
+                    labels = data.map(row => row.ProductName || row.ProductID).slice(0, 10);
+                    values = data.map(row => row.OnHand || 0).slice(0, 10);
+                    break;
+                case 'quality':
+                    labels = data.map(row => row.NCRNumber || `NCR-${row.NCRID}`).slice(0, 10);
+                    values = data.map(row => row.Quantity || 0).slice(0, 10);
+                    break;
+                case 'purchasing':
+                    labels = data.map(row => row.PurchaseOrderID).slice(0, 10);
+                    values = data.map(row => row.TotalAmount || 0).slice(0, 10);
+                    break;
+                default:
+                    labels = data.map((_, i) => `Item ${i+1}`).slice(0, 10);
+                    values = data.map(row => Object.values(row)[0] || 0).slice(0, 10);
+            }
+            
+            // Translated dataset label
+            const labelKey = `reports.${reportType}`;
+            const chartLabel = (window.i18n && window.i18n[labelKey]) ? window.i18n[labelKey] : reportType;
+            
+            currentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: chartLabel,
+                        data: values,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { callbacks: { label: function(context) { return `${context.dataset.label}: ${context.raw}`; } } }
+                    }
+                }
+            });
+        }
+        
+        if (chartBtn) {
+            chartBtn.addEventListener('click', function() {
+                const reportType = document.getElementById('reportType').value;
+                const dateFrom = document.getElementById('dateFrom').value;
+                const dateTo = document.getElementById('dateTo').value;
+                
+                if (typeof Chart === 'undefined') {
+                    alert(getTrans('reports.chart_unavailable', 'Chart library not loaded. Please ensure chart.umd.min.js is in static/js/'));
+                    return;
+                }
+                
+                fetch('/api/reports/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ report_type: reportType, date_from: dateFrom, date_to: dateTo })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    renderChart(data, reportType);
+                    const chartModal = new bootstrap.Modal(document.getElementById('chartModal'));
+                    chartModal.show();
+                })
+                .catch(err => {
+                    console.error("Chart fetch error:", err);
+                    alert("Failed to load data for chart");
+                });
+            });
+        } else {
+            console.error("Show Chart button not found!");
+        }
+        
+        // --------------------------------------------------------------
+        // Export buttons
+        // --------------------------------------------------------------
+        const exportExcel = document.getElementById('exportExcelBtn');
+        const exportPdf = document.getElementById('exportPdfBtn');
+        if (exportExcel) exportExcel.addEventListener('click', () => window.location.href = '/api/reports/export/excel');
+        if (exportPdf) exportPdf.addEventListener('click', () => window.location.href = '/api/reports/export/pdf');
+    });
+</script>
+{% endblock %}

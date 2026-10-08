@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}MRP Run Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.83c13788', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.47215d1f', 'MRP Run Dashboard') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.1c1f0a29', 'Material Requirements Planning') }}</h2>
+<button class="btn btn-success" data-bs-target="#startRunModal" data-bs-toggle="modal">
+<i class="fas fa-play"></i>{{ get_translation('auto.3de29c0f', 'Start New Run') }}</button>
+</div>
+<!-- Progress bar (hidden initially) -->
+<div class="mb-3" id="runProgressContainer" style="display:none;">
+<div class="card">
+<div class="card-body">
+<h6>{{ get_translation('auto.db605be6', 'MRP Run in progress...') }}</h6>
+<div class="progress">
+<div class="progress-bar progress-bar-striped progress-bar-animated" id="runProgressBar" style="width:0%">{{ get_translation('auto.9d0106ea', '0%') }}</div>
+</div>
+<p class="mt-2 mb-0 text-muted" id="runProgressMsg"></p>
+</div>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4 g-3">
+<div class="col-md-4">
+<div class="card text-white bg-info">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.0c17f1be', 'Last Run Status') }}</h6>
+<h3 id="kpiLastStatus">{{ get_translation('auto.226ad63c', '-') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-4">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.80af3ec8', 'Total Runs') }}</h6>
+<h3 id="kpiTotalRuns">{{ get_translation('auto.14d60d2a', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-4">
+<div class="card text-white bg-secondary">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.11957e29', 'Avg Duration (sec)') }}</h6>
+<h3 id="kpiAvgDuration">{{ get_translation('auto.d04f01df', '0') }}</h3>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body row g-2 align-items-end">
+<div class="col-md-3">
+<label>{{ get_translation('auto.fbe787bc', 'Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.159cbdfd', 'Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.796669c7', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.8372edf2', 'All') }}</option>
+<option>{{ get_translation('auto.62c9ede3', 'Running') }}</option>
+<option>{{ get_translation('auto.7376aa79', 'Completed') }}</option>
+<option>{{ get_translation('auto.66ac0667', 'Failed') }}</option>
+<option>{{ get_translation('auto.dffa9ee4', 'Approved') }}</option>
+<option>{{ get_translation('auto.fe0702e0', 'Pending') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<button class="btn btn-primary w-100" id="refreshBtn"><i class="fas fa-sync"></i>{{ get_translation('auto.98f8b4d5', 'Refresh') }}</button>
+</div>
+</div>
+</div>
+<!-- Run History Table -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.0adcccc9', 'Run History') }}</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead class="table-light">
+<tr>
+<th>{{ get_translation('auto.d4d5e210', 'Run ID') }}</th><th>{{ get_translation('auto.8ba546aa', 'Run Date') }}</th><th>{{ get_translation('auto.26e580e0', 'Status') }}</th><th>{{ get_translation('auto.89a3895d', 'Duration (s)') }}</th><th>{{ get_translation('auto.2898932b', 'Created By') }}</th><th>{{ get_translation('auto.c396aaf6', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="runsTableBody">
+<tr><td class="text-center" colspan="6">{{ get_translation('auto.656657e2', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Start New Run Modal -->
+<div class="modal fade" id="startRunModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.d07e54ae', 'Start New MRP Run') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="startRunForm">
+<div class="mb-3">
+<label>{{ get_translation('auto.1c088fbb', 'Description') }}</label>
+<textarea class="form-control" id="runDesc" placeholder="Optional description" rows="2"></textarea>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.4953798f', 'Planning Horizon (days)') }}</label>
+<input class="form-control" id="runHorizon" type="number" value="90"/>
+</div>
+<div class="form-check mb-3">
+<input class="form-check-input" id="runSimulation" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.09330ee9', 'Simulation (no database changes)') }}</label>
+</div>
+<div class="form-check mb-3">
+<input class="form-check-input" id="runCapacityCheck" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.b7624109', 'Include capacity check') }}</label>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.5f1adf9d', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmStartRun">{{ get_translation('auto.f12d19e3', 'Start Run') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- View Log Modal -->
+<div class="modal fade" id="logModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.dc497c01', 'Run Logs') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<table class="table table-sm">
+<thead><tr><th>{{ get_translation('auto.fd874f96', 'Step') }}</th><th>{{ get_translation('auto.0edfb59e', 'Message') }}</th><th>{{ get_translation('auto.40432d15', 'Timestamp') }}</th></tr></thead>
+<tbody id="logTableBody"></tbody>
+</table>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.db08ff72', 'Close') }}</button></div>
+</div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function(){
+    let progressInterval = null;
+
+    function loadKPIs() {
+        $.get('/api/mrp/kpi', function(res) {
+            $('#kpiLastStatus').text(res.lastRunStatus);
+            $('#kpiTotalRuns').text(res.totalRuns);
+            $('#kpiAvgDuration').text(res.avgDurationSeconds);
+        });
+    }
+
+    function loadRuns() {
+        const params = {
+            date_from: $('#filterDateFrom').val(),
+            date_to: $('#filterDateTo').val(),
+            status: $('#filterStatus').val()
+        };
+        $.get('/api/mrp/runs', params, function(runs) {
+            let html = '';
+            for (let r of runs) {
+                let duration = r.durationSeconds !== null ? r.durationSeconds : '-';
+                let statusClass = r.status === 'Completed' ? 'success' : (r.status === 'Running' ? 'warning' : 'secondary');
+                html += `<tr>
+                    <td><a href="#" class="run-details-link" data-id="${r.planningNumber}">${r.planningNumber}</a></td>
+                    <td>${r.runDate}</td>
+                    <td><span class="badge bg-${statusClass}">${r.status}</span></td>
+                    <td>${duration}</td>
+                    <td>${r.createdBy || '-'}</td>
+                    <td><button class="btn btn-sm btn-info view-log" data-id="${r.planningNumber}"><i class="fas fa-list"></i> View Log</button></td>
+                </tr>`;
+            }
+            $('#runsTableBody').html(html || '<tr><td colspan="6">No runs found</td></tr>');
+        });
+    }
+
+    function refreshAll() { loadKPIs(); loadRuns(); }
+
+    $('#refreshBtn').click(refreshAll);
+
+    $('#confirmStartRun').on('click', function() {
+        var data = {
+            description: $('#runDesc').val(),
+            planningHorizonDays: parseInt($('#runHorizon').val()),
+            isSimulation: $('#runSimulation').is(':checked'),
+            includeCapacityCheck: $('#runCapacityCheck').is(':checked')
+        };
+        $.ajax({
+            url: '/api/mrp/start-run',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(res) {
+                $('#startRunModal').modal('hide');
+                // Show progress bar container
+                $('#runProgressContainer').show();
+                $('#runProgressBar').css('width', '0%').text('0%');
+                $('#runProgressMsg').text('MRP run started...');
+                const runId = res.planningNumber;
+                if (progressInterval) clearInterval(progressInterval);
+                progressInterval = setInterval(function() {
+                    $.get('/api/mrp/run-status/' + runId, function(statusRes) {
+                        $('#runProgressBar').css('width', statusRes.progress + '%').text(statusRes.progress + '%');
+                        $('#runProgressMsg').text(statusRes.lastMessage);
+                        if (statusRes.status !== 'Running') {
+                            clearInterval(progressInterval);
+                            progressInterval = null;
+                            setTimeout(function() {
+                                $('#runProgressContainer').hide();
+                                refreshAll();
+                            }, 2000);
+                        }
+                    }).fail(function() {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        $('#runProgressContainer').hide();
+                        alert('Error fetching run status');
+                    });
+                }, 2000);
+            },
+            error: function(xhr) {
+                alert('Failed to start MRP run: ' + (xhr.responseJSON?.error || xhr.responseText));
+            }
+        });
+    });
+
+    $(document).on('click', '.view-log', function() {
+        const id = $(this).data('id');
+        $.get('/api/mrp/run-log/' + id, function(logs) {
+            let html = '';
+            logs.forEach(l => html += `<tr><td>${l.step}</td><td>${l.message}</td><td>${l.timestamp}</td></tr>`);
+            $('#logTableBody').html(html);
+            $('#logModal').modal('show');
+        });
+    });
+
+    $(document).on('click', '.run-details-link', function(e) {
+        e.preventDefault();
+        const id = $(this).data('id');
+        alert(`Details for run ${id} - planned orders page coming soon`);
+    });
+
+    refreshAll();
+});
+</script>
+{% endblock %}

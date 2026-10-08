@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Technical Specification - TECH-SPEC-2001</title>
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; background: #eef1f5; color: #222; }
+    .page { background: #fff; width: 210mm; min-height: 297mm; margin: 15px auto; padding: 15mm; box-shadow: 0 2px 12px rgba(0,0,0,0.15); position: relative; }
+    .lang-switch { position: fixed; top: 10px; left: 10px; z-index: 100; background: #1e40af; color: #fff; border: 0; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e40af; padding-bottom: 10px; margin-bottom: 15px; }
+    .company { font-size: 18px; font-weight: 700; color: #1e40af; }
+    .company-sub { font-size: 11px; color: #666; margin-top: 2px; }
+    .doc-title { text-align: right; }
+    .doc-title h1 { margin: 0; font-size: 18px; color: #111; }
+    .doc-title .docnum { font-size: 13px; color: #444; margin-top: 4px; }
+    .meta-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 15px; }
+    .meta-table th { background: #f1f5f9; text-align: left; padding: 5px 8px; border: 1px solid #cbd5e1; width: 18%; color: #475569; font-weight: 600; }
+    .meta-table td { padding: 5px 8px; border: 1px solid #cbd5e1; }
+    .section { margin-bottom: 18px; }
+    .section h2 { font-size: 13px; color: #1e40af; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    table.data { width: 100%; border-collapse: collapse; font-size: 11px; }
+    table.data th, table.data td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+    table.data th { background: #1e40af; color: #fff; font-weight: 600; }
+    table.data tr:nth-child(even) { background: #f8fafc; }
+    .bilingual-fa { direction: rtl; text-align: right; font-family: 'Tahoma', sans-serif; font-size: 11px; color: #555; display: block; margin-top: 2px; }
+    .footer { position: absolute; bottom: 10mm; left: 15mm; right: 15mm; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 9px; color: #888; display: flex; justify-content: space-between; }
+    .lang-en, .lang-fa { display: none; }
+    .lang-en.active, .lang-fa.active { display: block; }
+    .lang-inline-en, .lang-inline-fa { display: none; }
+    .lang-inline-en.active, .lang-inline-fa.active { display: inline; }
+    .note { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 10px; font-size: 11px; margin: 10px 0; }
+    @media print { body { background: #fff; } .page { margin: 0; box-shadow: none; width: 100%; padding: 10mm; } .lang-switch { display: none; } }
+</style>
+</head>
+<body>
+
+<button class="lang-switch" onclick="toggleLang()">🌐 Switch / تغییر زبان</button>
+
+<div class="page">
+    <div class="header">
+        <div>
+            <div class="company lang-en active">Precision Valve Co.</div>
+            <div class="company lang-fa">شرکت شیرآلات دقیق</div>
+            <div class="company-sub lang-en active">Tehran, Iran | info@precisionvalve.com</div>
+            <div class="company-sub lang-fa">تهران، ایران | info@precisionvalve.com</div>
+        </div>
+        <div class="doc-title">
+            <h1 class="lang-en active">Technical Specification</h1>
+            <h1 class="lang-fa">مشخصات فنی</h1>
+            <div class="docnum">Doc No: <strong>TECH-SPEC-2001</strong> | Rev: <strong>1</strong></div>
+        </div>
+    </div>
+
+    <table class="meta-table">
+        <tr>
+            <th class="lang-en active">Project</th><th class="lang-fa">پروژه</th>
+            <td colspan="3">
+                <span class="lang-inline-en active">Gachsaran Oil Refinery Expansion</span>
+                <span class="lang-inline-fa">توسعه پالایشگاه گچساران</span>
+            </td>
+        </tr>
+        <tr>
+            <th class="lang-en active">Product</th><th class="lang-fa">محصول</th>
+            <td colspan="3"><strong>VALVE-500-CTRL</strong> — 
+                <span class="lang-inline-en active">500mm Control Valve</span>
+                <span class="lang-inline-fa">شیر کنترلی ۵۰۰ میلیمتر</span>
+            </td>
+        </tr>
+        <tr>
+            <th class="lang-en active">Date</th><th class="lang-fa">تاریخ</th>
+            <td>2026-09-12 / 1405/06/21</td>
+            <th class="lang-en active">Status</th><th class="lang-fa">وضعیت</th>
+            <td><span style="color:#059669;font-weight:600;">Approved</span></td>
+        </tr>
+    </table>
+
+    <div class="section">
+        <h2 class="lang-en active">1. Scope / دامنه کاربرد</h2>
+        <h2 class="lang-fa">۱. دامنه کاربرد / Scope</h2>
+        <p style="font-size:12px;">
+            <span class="lang-inline-en active">This specification defines the material, dimensional, and performance requirements for the 500mm control valve (VALVE-500-CTRL) used in the Gachsaran Oil Refinery Expansion Project, in accordance with ASME B16.34 and API 598.</span>
+            <span class="lang-inline-fa">این مشخصات، الزامات مواد، ابعاد و عملکرد شیر کنترلی ۵۰۰ میلیمتر (VALVE-500-CTRL) مورد استفاده در پروژه توسعه پالایشگاه گچساران را مطابق با استانداردهای ASME B16.34 و API 598 تعریف می‌کند.</span>
+        </p>
+    </div>
+
+    <div class="section">
+        <h2 class="lang-en active">2. Material Requirements / الزامات مواد</h2>
+        <h2 class="lang-fa">۲. الزامات مواد / Material Requirements</h2>
+        <table class="data">
+            <thead>
+                <tr>
+                    <th style="width:25%;">Component<br><span class="bilingual-fa">قطعه</span></th>
+                    <th style="width:30%;">Material<br><span class="bilingual-fa">جنس</span></th>
+                    <th>Standard<br><span class="bilingual-fa">استاندارد</span></th>
+                    <th>Remarks<br><span class="bilingual-fa">ملاحظات</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Valve Body <span class="bilingual-fa">بدنه شیر</span></td><td>Carbon Steel WCB</td><td>ASTM A216 WCB</td><td>Stainless steel overlay on seating surface <span class="bilingual-fa">روکش استیل ضدزنگ روی سطح نشیمنگاه</span></td></tr>
+                <tr><td>Stem <span class="bilingual-fa">میله</span></td><td>Stainless Steel 316</td><td>ASTM A276 Type 316</td><td>Ground and polished finish <span class="bilingual-fa">سنگ‌زده و پولیش شده</span></td></tr>
+                <tr><td>Seat Ring <span class="bilingual-fa">حلقه نشیمنگاه</span></td><td>Stainless Steel 316</td><td>ASTM A182 F316</td><td>Hard-faced with Stellite 6 <span class="bilingual-fa">روکش سخت با استلایت ۶</span></td></tr>
+                <tr><td>Bolting <span class="bilingual-fa">پیچ و مهره</span></td><td>Alloy Steel B7</td><td>ASTM A193 B7</td><td>Zinc-plated <span class="bilingual-fa">آبکاری شده با روی</span></td></tr>
+                <tr><td>Gasket <span class="bilingual-fa">واشر</span></td><td>Spiral Wound Graphite</td><td>ASME B16.20</td><td>SS316 inner & outer rings <span class="bilingual-fa">حلقه‌های داخلی و خارجی SS316</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2 class="lang-en active">3. Performance Requirements / الزامات عملکردی</h2>
+        <h2 class="lang-fa">۳. الزامات عملکردی / Performance Requirements</h2>
+        <table class="data">
+            <thead>
+                <tr><th style="width:40%;">Parameter<br><span class="bilingual-fa">پارامتر</span></th><th>Specification<br><span class="bilingual-fa">مشخصات</span></th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Design Pressure <span class="bilingual-fa">فشار طراحی</span></td><td>Class 300 (51 bar @ 38°C)</td></tr>
+                <tr><td>Design Temperature <span class="bilingual-fa">دمای طراحی</span></td><td>-29°C to +425°C</td></tr>
+                <tr><td>Leakage Class <span class="bilingual-fa">کلاس نشتی</span></td><td>ANSI/FCI 70-2 Class IV</td></tr>
+                <tr><td>End Connection <span class="bilingual-fa">اتصال انتهایی</span></td><td>Flanged, RF, ASME B16.5</td></tr>
+                <tr><td>Face-to-Face <span class="bilingual-fa">فاصله بین دو فلنج</span></td><td>500 mm (per ASME B16.10)</td></tr>
+                <tr><td>Actuator Type <span class="bilingual-fa">نوع اکچویتور</span></td><td>Electric, 24V DC, On/Off</td></tr>
+                <tr><td>Test Standard <span class="bilingual-fa">استاندارد تست</span></td><td>API 598</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2 class="lang-en active">4. Quality Assurance / تضمین کیفیت</h2>
+        <h2 class="lang-fa">۴. تضمین کیفیت / Quality Assurance</h2>
+        <p style="font-size:12px;">
+            <span class="lang-inline-en active">All valves shall be inspected and tested in accordance with the approved Inspection & Test Plan (ITP) and shall be accompanied by a Certificate of Conformance (CoC) and a Hydrostatic Test Report.</span>
+            <span class="lang-inline-fa">تمام شیرها باید مطابق با برنامه بازرسی و تست (ITP) تأیید شده، بازرسی و تست شوند و همراه با گواهی انطباق (CoC) و گزارش تست هیدرواستاتیک ارائه گردند.</span>
+        </p>
+    </div>
+
+    <div class="note lang-en active">
+        <strong>Note:</strong> Any deviation from this specification requires written approval from the Engineering Manager and must be documented in an Engineering Change Order (ECO).
+    </div>
+    <div class="note lang-fa">
+        <strong>توجه:</strong> هرگونه انحراف از این مشخصات نیازمند تأیید کتبی مدیر مهندسی بوده و باید در یک دستور تغییر مهندسی (ECO) مستند شود.
+    </div>
+
+    <div class="footer">
+        <div>Precision Valve Co. — Confidential / محرمانه</div>
+        <div>TECH-SPEC-2001 Rev 1 — Page 1 of 1</div>
+    </div>
+</div>
+
+<script>
+function toggleLang() {
+    document.querySelectorAll('.lang-en, .lang-inline-en').forEach(el => el.classList.toggle('active'));
+    document.querySelectorAll('.lang-fa, .lang-inline-fa').forEach(el => el.classList.toggle('active'));
+}
+</script>
+</body>
+</html>

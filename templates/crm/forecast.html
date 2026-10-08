@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.forecast.title', 'Sales Forecast') }}{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<style>
+    .forecast-card {
+        transition: transform 0.2s;
+        cursor: pointer;
+    }
+    .forecast-card:hover {
+        transform: translateY(-5px);
+    }
+    .probability-high { background-color: #28a745; color: white; }
+    .probability-medium { background-color: #ffc107; color: #333; }
+    .probability-low { background-color: #dc3545; color: white; }
+    .forecast-value {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-chart-line me-2"></i>{{ get_translation('crm.forecast.title', 'Sales Forecast') }}
+        </h2>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+            <button class="btn btn-outline-secondary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i>{{ get_translation('global.print', 'Print') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Forecast Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-2">
+            <div class="card border-primary forecast-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">{{ get_translation('crm.forecast.next_30_days', 'Next 30 Days') }}</h5>
+                    <p class="forecast-value text-primary" id="forecast30">$0</p>
+                    <small class="text-muted">{{ get_translation('crm.forecast.based_on_open_opportunities', 'Based on open opportunities') }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card border-info forecast-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-info">{{ get_translation('crm.forecast.next_60_days', 'Next 60 Days') }}</h5>
+                    <p class="forecast-value text-info" id="forecast60">$0</p>
+                    <small class="text-muted">{{ get_translation('crm.forecast.cumulative', 'Cumulative forecast') }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card border-success forecast-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-success">{{ get_translation('crm.forecast.next_90_days', 'Next 90 Days') }}</h5>
+                    <p class="forecast-value text-success" id="forecast90">$0</p>
+                    <small class="text-muted">{{ get_translation('crm.forecast.cumulative', 'Cumulative forecast') }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forecast Breakdown by Probability -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ get_translation('crm.forecast.by_probability', 'Forecast by Probability') }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="p-3 rounded probability-high">
+                                <h6>{{ get_translation('crm.forecast.high_confidence', 'High Confidence (≥70%)') }}</h6>
+                                <h3 id="highProb30">$0</h3>
+                                <small>Next 30 days</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded probability-medium">
+                                <h6>{{ get_translation('crm.forecast.medium_confidence', 'Medium Confidence (40-69%)') }}</h6>
+                                <h3 id="medProb30">$0</h3>
+                                <small>Next 30 days</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded probability-low">
+                                <h6>{{ get_translation('crm.forecast.low_confidence', 'Low Confidence (&lt;40%)') }}</h6>
+                                <h3 id="lowProb30">$0</h3>
+                                <small>Next 30 days</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Forecast Chart -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ get_translation('crm.forecast.monthly_forecast', 'Monthly Forecast') }}</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Opportunities Contributing to Forecast -->
+    <div class="card">
+        <div class="card-header">
+            <h5>{{ get_translation('crm.forecast.opportunities_contributing', 'Opportunities Contributing to Forecast') }}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>{{ get_translation('crm.opportunity', 'Opportunity') }}</th>
+                            <th>{{ get_translation('crm.quotes.customer', 'Customer') }}</th>
+                            <th>{{ get_translation('crm.quotes.total_amount', 'Value') }}</th>
+                            <th>{{ get_translation('crm.forecast.weighted_value', 'Weighted Value') }}</th>
+                            <th>{{ get_translation('crm.forecast.probability', 'Probability') }}</th>
+                            <th>{{ get_translation('crm.quotes.expected_close', 'Expected Close') }}</th>
+                            <th>{{ get_translation('crm.quotes.assigned_to', 'Assigned To') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecastTableBody">
+                        <tr><td class="text-center py-4" colspan="7">{{ get_translation('global.loading', 'Loading...') }}  </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var monthlyChart = null;
+
+function formatDate(dateKey) {
+    if (!dateKey) return 'N/A';
+    var s = String(dateKey);
+    return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+}
+
+function loadForecast() {
+    fetch('/api/crm/forecast')
+        .then(response => response.json())
+        .then(data => {
+            // Update KPI cards
+            document.getElementById('forecast30').innerHTML = '$' + (data.next_30_days?.total || 0).toLocaleString();
+            document.getElementById('forecast60').innerHTML = '$' + (data.next_60_days?.total || 0).toLocaleString();
+            document.getElementById('forecast90').innerHTML = '$' + (data.next_90_days?.total || 0).toLocaleString();
+            
+            // Update probability breakdown
+            document.getElementById('highProb30').innerHTML = '$' + (data.next_30_days?.high_probability || 0).toLocaleString();
+            document.getElementById('medProb30').innerHTML = '$' + (data.next_30_days?.medium_probability || 0).toLocaleString();
+            document.getElementById('lowProb30').innerHTML = '$' + (data.next_30_days?.low_probability || 0).toLocaleString();
+            
+            // Render monthly chart
+            if (monthlyChart) monthlyChart.destroy();
+            var ctx = document.getElementById('monthlyChart').getContext('2d');
+            var months = [];
+            var values = [];
+            
+            if (data.monthly_forecast && data.monthly_forecast.length > 0) {
+                for (var i = 0; i < data.monthly_forecast.length; i++) {
+                    months.push(data.monthly_forecast[i].month);
+                    values.push(data.monthly_forecast[i].value);
+                }
+            }
+            
+            monthlyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Forecast Value ($)',
+                        data: values,
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return '$' + context.raw.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading forecast:', error);
+            document.getElementById('forecast30').innerHTML = '$0';
+            document.getElementById('forecast60').innerHTML = '$0';
+            document.getElementById('forecast90').innerHTML = '$0';
+        });
+}
+
+function loadForecastOpportunities() {
+    var tbody = document.getElementById('forecastTableBody');
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading...  </td></tr>';
+    
+    // Get open opportunities with expected close date in next 90 days
+    var today = new Date();
+    var ninetyDaysLater = new Date();
+    ninetyDaysLater.setDate(today.getDate() + 90);
+    
+    var todayKey = parseInt(today.toISOString().slice(0,10).replace(/-/g, ''));
+    var ninetyKey = parseInt(ninetyDaysLater.toISOString().slice(0,10).replace(/-/g, ''));
+    
+    fetch('/api/crm/opportunities?status=Open')
+        .then(response => response.json())
+        .then(opportunities => {
+            var filtered = [];
+            for (var i = 0; i < opportunities.length; i++) {
+                var opp = opportunities[i];
+                if (opp.expected_close_date_key && opp.expected_close_date_key >= todayKey && opp.expected_close_date_key <= ninetyKey) {
+                    filtered.push(opp);
+                }
+            }
+            
+            // Sort by expected close date
+            filtered.sort(function(a, b) {
+                return (a.expected_close_date_key || 0) - (b.expected_close_date_key || 0);
+            });
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No opportunities expected to close in the next 90 days</td></tr>';
+                return;
+            }
+            
+            var html = '';
+            for (var i = 0; i < filtered.length; i++) {
+                var opp = filtered[i];
+                var weightedValue = (opp.value || 0) * (opp.probability || 0) / 100;
+                var probClass = '';
+                if (opp.probability >= 70) probClass = 'probability-high';
+                else if (opp.probability >= 40) probClass = 'probability-medium';
+                else probClass = 'probability-low';
+                
+                html += '<tr>' +
+                    '<td><a href="/crm/opportunity/' + opp.opportunity_id + '">' + escapeHtml(opp.name) + '</a></td>' +
+                    '<td>' + escapeHtml(opp.customer_name || '') + '</td>' +
+                    '<td>$' + (opp.value || 0).toLocaleString() + '</td>' +
+                    '<td>$' + weightedValue.toLocaleString() + '</td>' +
+                    '<td><span class="badge ' + probClass + '">' + (opp.probability || 0) + '%</span></td>' +
+                    '<td>' + formatDate(opp.expected_close_date_key) + '</td>' +
+                    '<td>' + escapeHtml(opp.assigned_user_name || 'Unassigned') + '</td>' +
+                '</tr>';
+            }
+            tbody.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading opportunities</td></tr>';
+        });
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    loadForecast();
+    loadForecastOpportunities();
+    
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        loadForecast();
+        loadForecastOpportunities();
+    });
+});
+</script>
+{% endblock %}

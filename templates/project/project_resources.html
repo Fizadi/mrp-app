@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.cfac8977', 'Home') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/project_portfolio">{{ get_translation('auto.e0fc794f', 'Projects') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/dashboard/{{ project_id }}">{{ project_id }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.083a7aa0', 'Resource Allocation') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.9cf8c2b3', '👥 Resource Allocation') }}</h2>
+<div>
+<button class="btn btn-outline-primary me-2" id="res-import-btn">{{ get_translation('auto.557eba91', '📂 Import CSV') }}</button>
+<button class="btn btn-outline-secondary me-2" id="res-export-btn">{{ get_translation('auto.767a9e08', '📎 Export CSV') }}</button>
+<input accept=".csv" id="res-import-file" style="display: none;" type="file"/>
+<a class="btn btn-secondary" href="/project/dashboard/{{ project_id }}">{{ get_translation('auto.ba9b1e86', '← Back to Dashboard') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-2 mb-4">
+<div class="col-md-4"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('auto.0bf7c628', 'Total Allocated Hours*') }}</h6><h3 id="kpi-total">{{ get_translation('auto.a94ebf17', '0%') }}</h3><small>{{ get_translation('auto.82670858', '*% across active allocations') }}</small></div></div>
+<div class="col-md-4"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('auto.d24e14cc', 'Active Users') }}</h6><h3 id="kpi-users">{{ get_translation('auto.15a0a0c1', '0') }}</h3></div></div>
+<div class="col-md-4 d-flex align-items-stretch">
+<button class="btn btn-success w-100" id="res-assign-btn" type="button">{{ get_translation('auto.8d198eed', '+ Assign Resource') }}</button>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3 p-3">
+<div class="row g-2 align-items-end">
+<div class="col-md-3">
+<label>{{ get_translation('auto.10884cb6', 'Role') }}</label>
+<select class="form-select" id="res-filter-role">
+<option value="">{{ get_translation('auto.845f7dcc', 'All') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<button class="btn btn-secondary w-100" id="res-apply-filters" type="button">{{ get_translation('auto.9adf656c', 'Apply Filters') }}</button>
+</div>
+</div>
+</div>
+<!-- Allocations Table -->
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+<thead class="table-dark">
+<tr><th>{{ get_translation('auto.382676af', 'Employee') }}</th><th>{{ get_translation('auto.0aabbcb8', 'Role') }}</th><th>{{ get_translation('auto.28146713', 'Allocation %') }}</th><th>{{ get_translation('auto.d920c5c6', 'Start Date') }}</th><th>{{ get_translation('auto.af9fac84', 'End Date') }}</th><th>{{ get_translation('auto.46dc2d1a', 'Status') }}</th><th>{{ get_translation('auto.0196179a', 'Actions') }}</th></tr>
+</thead>
+<tbody id="res-tbody"></tbody>
+</table>
+</div>
+</div>
+<!-- Assign Resource Modal -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.f9226952', 'Assign Resource') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-2">
+<label>{{ get_translation('auto.f5033ffc', 'Employee') }}</label>
+<select class="form-select" id="assign-user" required="">
+<option value="">{{ get_translation('auto.1f57a4d0', 'Select...') }}</option>
+</select>
+</div>
+<div class="mb-2">
+<label>{{ get_translation('auto.e54b1548', 'Role') }}</label>
+<input class="form-control" id="assign-role" placeholder="e.g., Engineer, Manager" type="text"/>
+</div>
+<div class="mb-2">
+<label>{{ get_translation('auto.7e7277b1', 'Allocation %') }}</label>
+<input class="form-control" id="assign-percent" max="100" min="0" type="number" value="100"/>
+</div>
+<div class="mb-2">
+<label>{{ get_translation('auto.7cf69715', 'Start Date') }}</label>
+<input class="form-control" id="assign-start" type="date"/>
+</div>
+<div class="mb-2">
+<label>{{ get_translation('auto.d998b404', 'End Date') }}</label>
+<input class="form-control" id="assign-end" type="date"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="confirm-assign">{{ get_translation('auto.a4c839aa', 'Assign') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.49f74120', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    all:              {{ get_translation('global.all', 'All')|tojson }},
+    select:           {{ get_translation('global.select', 'Select...')|tojson }},
+    error:            {{ get_translation('global.error', 'Error')|tojson }},
+    unknown:          {{ get_translation('global.unknown', 'Unknown')|tojson }},
+    load_error:       {{ get_translation('ms.resources.load_error', 'Load error')|tojson }},
+    release_confirm:  {{ get_translation('ms.resources.release_confirm', 'Release {employee} from this project?')|tojson }},
+    release_btn:      {{ get_translation('ms.resources.release_btn', 'Release')|tojson }},
+    released_label:   {{ get_translation('ms.resources.released_label', 'Released')|tojson }},
+    select_employee:  {{ get_translation('ms.resources.select_employee', 'Select employee')|tojson }},
+    imported_prefix:  {{ get_translation('ms.resources.imported_prefix', 'Imported')|tojson }},
+    imported_suffix:  {{ get_translation('ms.resources.imported_suffix', 'allocations.')|tojson }},
+    errors_label:     {{ get_translation('ms.resources.errors_label', 'Errors')|tojson }},
+    import_failed:    {{ get_translation('ms.resources.import_failed', 'Import failed')|tojson }}
+};
+
+// ============================================================
+// 2. State — TOP LEVEL
+// ============================================================
+var projectId = "{{ project_id }}";
+
+// ============================================================
+// 3. Helper functions — TOP LEVEL
+// ============================================================
+function formatDateKey(dateKey) {
+    if (!dateKey) return '-';
+    var s = dateKey.toString();
+    if (s.length !== 8) return s;
+    return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+}
+
+// ============================================================
+// 4. Data loading — TOP LEVEL, fetch()
+// ============================================================
+function loadAllocations() {
+    var roleEl = document.getElementById('res-filter-role');
+    var role = roleEl ? roleEl.value : '';
+
+    var url = '/api/project/resources/' + projectId;
+    if (role) url += '?role=' + encodeURIComponent(role);
+    console.log('🌐 Fetching allocations:', url);
+
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var kpiTotal = document.getElementById('kpi-total');
+            var kpiUsers = document.getElementById('kpi-users');
+            if (kpiTotal) kpiTotal.innerText = data.kpis.total_allocated_percent + '%';
+            if (kpiUsers) kpiUsers.innerText = data.kpis.active_users;
+
+            // Update role filter options
+            var roleSelect = document.getElementById('res-filter-role');
+            if (roleSelect) {
+                var currentRole = roleSelect.value;
+                roleSelect.innerHTML = '<option value="">' + trans.all + '</option>';
+                (data.filter_options.roles || []).forEach(function(r) {
+                    var opt = document.createElement('option');
+                    opt.value = r;
+                    opt.innerText = r;
+                    if (r === currentRole) opt.selected = true;
+                    roleSelect.appendChild(opt);
+                });
+            }
+
+            var tbody = document.getElementById('res-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            (data.allocations || []).forEach(function(a) {
+                var row = tbody.insertRow();
+                row.insertCell(0).innerText = a.employee;
+                row.insertCell(1).innerText = a.role || '-';
+                row.insertCell(2).innerText = a.allocation_percent + '%';
+                row.insertCell(3).innerText = formatDateKey(a.start_date);
+                row.insertCell(4).innerText = formatDateKey(a.end_date);
+                row.insertCell(5).innerText = a.status;
+
+                var actionsCell = row.insertCell(6);
+                if (a.status === 'Active') {
+                    var releaseBtn = document.createElement('button');
+                    releaseBtn.className = 'btn btn-sm btn-danger release-resource';
+                    releaseBtn.innerText = trans.release_btn;
+                    releaseBtn.dataset.id = a.id;
+                    releaseBtn.dataset.employee = a.employee;
+                    actionsCell.appendChild(releaseBtn);
+                } else {
+                    actionsCell.innerText = trans.released_label;
+                }
+            });
+        })
+        .catch(function(err) {
+            console.error(trans.load_error + ':', err);
+        });
+}
+
+// ============================================================
+// 5. Action handlers — TOP LEVEL
+// ============================================================
+function releaseResource(btn) {
+    var id = btn.dataset.id;
+    var employee = btn.dataset.employee;
+
+    var msg = trans.release_confirm.replace('{employee}', employee);
+    if (!confirm(msg)) return;
+
+    fetch('/api/project/resources/release/' + id, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) loadAllocations();
+            else alert(trans.error);
+        })
+        .catch(function(err) {
+            alert(trans.error + ': ' + err.message);
+        });
+}
+
+function confirmAssign() {
+    var userSelect = document.getElementById('assign-user');
+    var userId = userSelect ? userSelect.value : '';
+    if (!userId) { alert(trans.select_employee); return; }
+
+    var roleEl = document.getElementById('assign-role');
+    var percentEl = document.getElementById('assign-percent');
+    var startEl = document.getElementById('assign-start');
+    var endEl = document.getElementById('assign-end');
+
+    var startVal = startEl ? startEl.value.replace(/-/g, '') : '';
+    var endVal = endEl ? endEl.value.replace(/-/g, '') : '';
+
+    var data = {
+        project_id: projectId,
+        user_id: parseInt(userId),
+        role: roleEl ? roleEl.value : '',
+        allocation_percent: parseInt(percentEl ? percentEl.value : 100),
+        start_date_key: startVal || null,
+        end_date_key: endVal || null
+    };
+
+    fetch('/api/project/resources/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            var modalEl = document.getElementById('assignModal');
+            var inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.hide();
+            loadAllocations();
+        } else {
+            alert(trans.error + ': ' + (res.error || trans.unknown));
+        }
+    })
+    .catch(function(err) {
+        alert(trans.error + ': ' + err.message);
+    });
+}
+
+function loadUsersForAssign() {
+    fetch('/api/project/users/list')
+        .then(function(r) { return r.json(); })
+        .then(function(users) {
+            var select = document.getElementById('assign-user');
+            if (!select) return;
+            select.innerHTML = '<option value="">' + trans.select + '</option>';
+            (users || []).forEach(function(u) {
+                var opt = document.createElement('option');
+                opt.value = u.id;
+                opt.innerText = u.name;
+                select.appendChild(opt);
+            });
+        })
+        .catch(function(err) {
+            console.error('loadUsersForAssign:', err);
+        });
+}
+
+function handleImportFile(e) {
+    var fd = new FormData();
+    fd.append('file', e.target.files[0]);
+
+    fetch('/api/project/resources/import', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var errs = (res.errors || []).join(', ');
+                alert(trans.imported_prefix + ' ' + res.created + ' ' + trans.imported_suffix + '\n' + trans.errors_label + ': ' + errs);
+                loadAllocations();
+            } else {
+                alert(trans.import_failed);
+            }
+        })
+        .catch(function(err) {
+            alert(trans.import_failed + ': ' + err.message);
+        });
+
+    e.target.value = ''; // allow re-upload
+}
+
+// ============================================================
+// 6. Init — DOMContentLoaded
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllocations();
+    loadUsersForAssign();
+
+    // Apply filters
+    var applyBtn = document.getElementById('res-apply-filters');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadAllocations();
+        });
+    }
+
+    // Assign button — open modal
+    var assignBtn = document.getElementById('res-assign-btn');
+    if (assignBtn) {
+        assignBtn.addEventListener('click', function() {
+            var modalEl = document.getElementById('assignModal');
+            if (modalEl) new bootstrap.Modal(modalEl).show();
+        });
+    }
+
+    // Confirm assign
+    var confirmBtn = document.getElementById('confirm-assign');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', confirmAssign);
+    }
+
+    // Import
+    var importBtn = document.getElementById('res-import-btn');
+    var importFile = document.getElementById('res-import-file');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function() { importFile.click(); });
+        importFile.addEventListener('change', handleImportFile);
+    }
+
+    // Export
+    var exportBtn = document.getElementById('res-export-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            window.location.href = '/api/project/resources/export/' + projectId;
+        });
+    }
+
+    // Delegated handler for release buttons in the table
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.release-resource');
+        if (!btn) return;
+        releaseResource(btn);
+    });
+});
+</script>
+{% endblock %}

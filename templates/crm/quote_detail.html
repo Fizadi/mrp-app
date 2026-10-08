@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.quote.detail.title', 'Quote Detail') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+    <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+        <h2 id="pageTitle">
+            {{ get_translation('crm.quote.detail.title', 'Quote Detail') }}:
+            <span id="quoteNumberSpan">{{ get_translation('global.loading', 'Loading...') }}</span>
+        </h2>
+        <div>
+            <button class="btn btn-secondary" id="backBtn">
+                <i class="fas fa-arrow-left me-1"></i>{{ get_translation('global.back', 'Back') }}
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-3">
+                <div class="card-header"><h5>{{ get_translation('crm.quote.information', 'Quote Information') }}</h5></div>
+                <div class="card-body" id="quoteDetails">
+                    <div class="alert alert-info">{{ get_translation('global.loading', 'Loading...') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header"><h5>{{ get_translation('crm.quote.lines', 'Quote Lines') }}</h5></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0 table-sticky-dark">
+                            <thead>
+                                <tr>
+                                    <th>{{ get_translation('crm.quote.product', 'Product') }}</th>
+                                    <th>{{ get_translation('crm.quote.quantity', 'Quantity') }}</th>
+                                    <th>{{ get_translation('crm.quote.unit_price', 'Unit Price') }}</th>
+                                    <th>{{ get_translation('crm.quote.total_price', 'Total Price') }}</th>
+                                    <th>{{ get_translation('crm.quotes.notes', 'Notes') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="quoteLinesBody">
+                                <tr><td colspan="5" class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold">
+                                    <td colspan="3" class="text-end">{{ get_translation('crm.quotes.total_amount', 'Total') }}:</td>
+                                    <td id="quoteTotalDisplay">$0.00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// 1. PARSE URL — TOP LEVEL
+// ============================================================================
+var pathParts = window.location.pathname.split('/').filter(Boolean);
+var quoteId = pathParts[pathParts.length - 1];
+console.log('🎯 quote_detail: id =', quoteId);
+
+// ============================================================================
+// 2. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function el(id) { return document.getElementById(id); }
+
+function statusBadgeClass(status) {
+    return {
+        'Draft':      'bg-secondary',
+        'Sent':       'bg-primary',
+        'Accepted':   'bg-success',
+        'Rejected':   'bg-danger',
+        'Superseded': 'bg-warning',
+    }[status] || 'bg-secondary';
+}
+
+function statusLabel(raw) {
+    if (!raw) return '';
+    var key = 'global.status.' + String(raw).toLowerCase().replace(/ /g, '_');
+    return t(key, raw);
+}
+
+// ============================================================================
+// 3. LOAD QUOTE — TOP LEVEL, use fetch()
+// ============================================================================
+function loadQuote() {
+    if (!quoteId) {
+        el('quoteDetails').innerHTML = '<div class="alert alert-danger">No quote ID in URL</div>';
+        return;
+    }
+    fetch('/api/crm/quotes/' + encodeURIComponent(quoteId), { credentials: 'same-origin' })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function (quote) {
+            renderQuote(quote);
+        })
+        .catch(function (err) {
+            console.error('load quote failed:', err);
+            el('quoteDetails').innerHTML = '<div class="alert alert-danger">' +
+                t('global.error_loading', 'Error loading data') + ': ' + escapeHtml(err.message) + '</div>';
+            el('quoteLinesBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">' +
+                t('global.error_loading', 'Error loading data') + '</td></tr>';
+        });
+}
+
+function renderQuote(quote) {
+    var qn = quote.quote_number || quote.quote_id || '';
+    el('quoteNumberSpan').textContent = qn;
+
+    // Dates: ALWAYS use server-formatted twin, never slice key
+    var validUntil = quote.valid_until_date_formatted || '—';
+    var createdDate = quote.created_date_formatted || '—';
+
+    var statusText = statusLabel(quote.status || 'Draft');
+    var statusCls = statusBadgeClass(quote.status);
+
+    var customerHtml;
+    if (quote.customer_name) {
+        customerHtml = escapeHtml(quote.customer_name);
+    } else {
+        customerHtml = '—';
+    }
+
+    var oppHtml;
+    if (quote.opportunity_name) {
+        oppHtml = '<a href="/crm/opportunity/' + quote.opportunity_id + '">' + escapeHtml(quote.opportunity_name) + '</a>';
+    } else {
+        oppHtml = t('crm.quote.standalone', 'Standalone Quote');
+    }
+
+    var html =
+        '<table class="table table-bordered">' +
+            '<tr><th style="width:200px">' + t('crm.quote.quote_number', 'Quote Number') + '</th><td>' + escapeHtml(qn) + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.customer', 'Customer') + '</th><td>' + customerHtml + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.opportunity', 'Opportunity') + '</th><td>' + oppHtml + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.subject', 'Subject') + '</th><td>' + escapeHtml(quote.subject || '—') + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.status', 'Status') + '</th><td><span class="badge ' + statusCls + '">' + escapeHtml(statusText) + '</span></td></tr>' +
+            '<tr><th>' + t('crm.quote.revision', 'Revision') + '</th><td>' + (quote.revision || 1) + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.valid_until', 'Valid Until') + '</th><td>' + escapeHtml(validUntil) + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.created_date', 'Created') + '</th><td>' + escapeHtml(createdDate) + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.notes', 'Notes') + '</th><td>' + escapeHtml(quote.notes || '—') + '</td></tr>' +
+        '</table>';
+    el('quoteDetails').innerHTML = html;
+
+    if (quote.lines && quote.lines.length) {
+        var linesHtml = '';
+        var total = 0;
+        quote.lines.forEach(function (line) {
+            var qty   = parseFloat(line.quantity)   || 0;
+            var price = parseFloat(line.unit_price) || 0;
+            var lineTotal = parseFloat(line.total_price) || (qty * price);
+            total += lineTotal;
+
+            linesHtml += '<tr>' +
+                '<td>' + escapeHtml(line.product_id || '') +
+                    (line.product_name ? ' — ' + escapeHtml(line.product_name) : '') + '</td>' +
+                '<td>' + qty + '</td>' +
+                '<td>$' + price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+                '<td>$' + lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+                '<td>' + escapeHtml(line.notes || '') + '</td>' +
+            '</tr>';
+        });
+        el('quoteLinesBody').innerHTML = linesHtml;
+        el('quoteTotalDisplay').textContent = '$' + total.toLocaleString(undefined,
+            { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+        el('quoteLinesBody').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">' +
+            t('crm.quote.no_lines', 'No line items') + '</td></tr>';
+        el('quoteTotalDisplay').textContent = '$0.00';
+    }
+}
+
+// ============================================================================
+// 4. INIT — ONLY init + event binding
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    var back = el('backBtn');
+    if (back) back.addEventListener('click', function () { window.history.back(); });
+    loadQuote();
+});
+</script>
+{% endblock %}

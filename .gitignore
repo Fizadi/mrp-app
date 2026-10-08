@@ -1,0 +1,13 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+venv/
+.venv/
+backups/*.bak
+backups/*.rar
+web_log.txt
+*.log
+~$*
+.TarzTamin-Test-API Key.txt
+*API Key.txt

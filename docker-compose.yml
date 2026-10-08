@@ -1,0 +1,61 @@
+name: mrpapp
+services:
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mrp_sqlserver
+    hostname: sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA:       "${ACCEPT_EULA:-Y}"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      MSSQL_PID:         "${MSSQL_PID:-Express}"
+    # Port NOT exposed to host (avoids conflict with native SQLEXPRESS).
+    # For local SSMS access, uncomment in docker-compose.override.yml instead.
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - mssql_backup:/var/opt/mssql/backups
+      - ./backups:/backups:ro
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks:
+      - mrp_net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mrp_web
+    hostname: mrp_web
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DB_SERVER: sqlserver
+      DB_PORT:   "1433"
+      FLASK_ENV: production
+    # Ports are declared in docker-compose.override.yml for dev.
+    # In production you may re-add:  ports: ["5001:5001"]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/static/uploads
+      - generated_docs_data:/app/static/documents/generated
+      - mssql_backup:/var/opt/mssql/backups
+      - ./backups:/app/backups:ro
+    networks:
+      - mrp_net
+
+volumes:
+  mssql_data:
+  mssql_backup:
+  uploads_data:
+  generated_docs_data:
+
+networks:
+  mrp_net:
+    driver: bridge

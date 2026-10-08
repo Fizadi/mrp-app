@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('delivery.title', 'Delivery Management') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('workflow.workflow_tasks') }}">{{ get_translation('nav.workflow', 'Workflow') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('delivery.title', 'Delivery Management') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('delivery.title', 'Delivery Management') }}</h2>
+        <div>
+            <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#createDeliveryModal">
+                <i class="fas fa-plus"></i> {{ get_translation('delivery.create', 'Create Delivery') }}
+            </button>
+            <button class="btn btn-secondary" id="refreshBtn">
+                <i class="fas fa-sync-alt"></i> {{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <h6>{{ get_translation('delivery.preparing', 'Preparing') }}</h6>
+                    <h3 id="kpiPreparing">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6>{{ get_translation('delivery.shipped', 'Shipped') }}</h6>
+                    <h3 id="kpiShipped">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6>{{ get_translation('delivery.delivered', 'Delivered') }}</h6>
+                    <h3 id="kpiDelivered">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6>{{ get_translation('delivery.accepted', 'Accepted') }}</h6>
+                    <h3 id="kpiAccepted">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label>{{ get_translation('delivery.search', 'Search') }}</label>
+                    <input type="text" class="form-control" id="filterSearch" 
+                           placeholder="{{ get_translation('delivery.search_placeholder', 'Search by number, project...') }}">
+                </div>
+                <div class="col-md-3">
+                    <label>{{ get_translation('delivery.project', 'Project') }}</label>
+                    <select class="form-select" id="filterProject">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('delivery.status', 'Status') }}</label>
+                    <select class="form-select" id="filterStatus">
+                        <!-- Will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" id="applyFiltersBtn">
+                        <i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deliveries Table -->
+    <div class="card">
+        <div class="card-body table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('delivery.number', 'Delivery Number') }}</th>
+                        <th>{{ get_translation('delivery.project', 'Project') }}</th>
+                        <th>{{ get_translation('delivery.date', 'Delivery Date') }}</th>
+                        <th>{{ get_translation('delivery.location', 'Location') }}</th>
+                        <th>{{ get_translation('delivery.items', 'Items') }}</th>
+                        <th>{{ get_translation('delivery.status', 'Status') }}</th>
+                        <th>{{ get_translation('delivery.accepted_by', 'Accepted By') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="deliveriesTableBody">
+                    <tr><td colspan="9" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== MODALS ======================== -->
+
+<!-- Create/Edit Delivery Modal -->
+<div class="modal fade" id="createDeliveryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('delivery.create', 'Create Delivery') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="deliveryForm">
+                    <input type="hidden" id="editDeliveryId">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('delivery.project', 'Project') }}</label>
+                            <select class="form-select" id="deliveryProject" required>
+                                <option value="">{{ get_translation('global.select', 'Select...') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('delivery.date', 'Delivery Date') }}</label>
+                            <input type="date" class="form-control" id="deliveryDate">
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <label>{{ get_translation('delivery.location', 'Location') }}</label>
+                            <input type="text" class="form-control" id="deliveryLocation">
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <label>{{ get_translation('delivery.items', 'Items (JSON)') }}</label>
+                            <textarea class="form-control" id="deliveryItems" rows="3" 
+                                      placeholder='[{"product":"VALVE-500-CTRL","qty":5}]'></textarea>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('delivery.packing_list', 'Packing List ID') }}</label>
+                            <input type="number" class="form-control" id="deliveryPackingList">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('delivery.delivery_note', 'Delivery Note ID') }}</label>
+                            <input type="number" class="form-control" id="deliveryNote">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="saveDeliveryBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mark Shipped Modal -->
+<div class="modal fade" id="shipModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('delivery.mark_shipped', 'Mark Shipped') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="shipDeliveryId">
+                <div class="mb-2">
+                    <label>{{ get_translation('delivery.shipping_date', 'Shipping Date') }}</label>
+                    <input type="date" class="form-control" id="shipDate">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('delivery.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="shipNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmShipBtn">{{ get_translation('delivery.mark_shipped', 'Mark Shipped') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Record Acceptance Modal -->
+<div class="modal fade" id="acceptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('delivery.record_acceptance', 'Record Acceptance') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="acceptDeliveryId">
+                <div class="mb-2">
+                    <label>{{ get_translation('delivery.accepted_by', 'Accepted By') }}</label>
+                    <input type="text" class="form-control" id="acceptBy">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('delivery.acceptance_date', 'Acceptance Date') }}</label>
+                    <input type="date" class="form-control" id="acceptDate">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('delivery.certificate', 'Certificate') }}</label>
+                    <input type="text" class="form-control" id="acceptCertificate" placeholder="Certificate reference">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('delivery.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="acceptNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmAcceptBtn">{{ get_translation('delivery.record_acceptance', 'Record Acceptance') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Translation object (similar to My Tasks page)
+var trans = {
+    // General
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Operation failed')|tojson }},
+    success: {{ get_translation('global.success', 'successfully')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    confirm: {{ get_translation('global.confirm', 'Confirm')|tojson }},
+    apply: {{ get_translation('global.apply', 'Apply')|tojson }},
+    select: {{ get_translation('global.select', 'Select...')|tojson }},
+    all: {{ get_translation('global.all', 'All')|tojson }},
+    refresh: {{ get_translation('global.refresh', 'Refresh')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    
+    // Delivery translations
+    delivery_title: {{ get_translation('delivery.title', 'Delivery Management')|tojson }},
+    delivery_preparing: {{ get_translation('delivery.preparing', 'Preparing')|tojson }},
+    delivery_shipped: {{ get_translation('delivery.shipped', 'Shipped')|tojson }},
+    delivery_delivered: {{ get_translation('delivery.delivered', 'Delivered')|tojson }},
+    delivery_accepted: {{ get_translation('delivery.accepted', 'Accepted')|tojson }},
+    delivery_number: {{ get_translation('delivery.number', 'Delivery Number')|tojson }},
+    delivery_project: {{ get_translation('delivery.project', 'Project')|tojson }},
+    delivery_date: {{ get_translation('delivery.date', 'Delivery Date')|tojson }},
+    delivery_location: {{ get_translation('delivery.location', 'Location')|tojson }},
+    delivery_items: {{ get_translation('delivery.items', 'Items')|tojson }},
+    delivery_status: {{ get_translation('delivery.status', 'Status')|tojson }},
+    delivery_accepted_by: {{ get_translation('delivery.accepted_by', 'Accepted By')|tojson }},
+    delivery_create: {{ get_translation('delivery.create', 'Create Delivery')|tojson }},
+    delivery_mark_shipped: {{ get_translation('delivery.mark_shipped', 'Mark Shipped')|tojson }},
+    delivery_record_acceptance: {{ get_translation('delivery.record_acceptance', 'Record Acceptance')|tojson }},
+    delivery_shipping_date: {{ get_translation('delivery.shipping_date', 'Shipping Date')|tojson }},
+    delivery_acceptance_date: {{ get_translation('delivery.acceptance_date', 'Acceptance Date')|tojson }},
+    delivery_certificate: {{ get_translation('delivery.certificate', 'Certificate')|tojson }},
+    delivery_notes: {{ get_translation('delivery.notes', 'Notes')|tojson }},
+    delivery_packing_list: {{ get_translation('delivery.packing_list', 'Packing List ID')|tojson }},
+    delivery_delivery_note: {{ get_translation('delivery.delivery_note', 'Delivery Note ID')|tojson }},
+    delivery_search: {{ get_translation('delivery.search', 'Search')|tojson }},
+    delivery_search_placeholder: {{ get_translation('delivery.search_placeholder', 'Search by number, project...')|tojson }},
+    delivery_ship: {{ get_translation('delivery.ship', 'Ship')|tojson }},
+    delivery_accept: {{ get_translation('delivery.accept', 'Accept')|tojson }}
+};
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    return defaultText || key;
+}
+
+function getEl(id) {
+    var el = document.getElementById(id);
+    if (!el) console.warn('⚠️ Element not found:', id);
+    return el;
+}
+
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+function debounce(func, wait) {
+    var timeout;
+    return function() {
+        var context = this, args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(function() { func.apply(context, args); }, wait);
+    };
+}
+
+function getStatusColor(status) {
+    var colors = {
+        'Preparing': 'secondary',
+        'Shipped': 'primary',
+        'Delivered': 'info',
+        'Accepted': 'success'
+    };
+    return colors[status] || 'secondary';
+}
+
+// ============================================================================
+// LOAD DELIVERIES - FIXED: Updated API URLs
+// ============================================================================
+function loadDeliveries() {
+    var tbody = getEl('deliveriesTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    var params = new URLSearchParams();
+    var searchFilter = getEl('filterSearch');
+    var projectFilter = getEl('filterProject');
+    var statusFilter = getEl('filterStatus');
+    
+    if (searchFilter && searchFilter.value) params.set('search', searchFilter.value);
+    if (projectFilter && projectFilter.value) params.set('project_id', projectFilter.value);
+    if (statusFilter && statusFilter.value) params.set('status', statusFilter.value);
+    
+    // ✅ FIXED: Changed from '/workflow/api/deliveries' to '/api/workflow/deliveries'
+    var url = '/api/workflow/deliveries' + (params.toString() ? '?' + params.toString() : '');
+    console.log('📡 Fetching deliveries from:', url);
+    
+    fetch(url)
+        .then(function(r) { 
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json(); 
+        })
+        .then(function(data) {
+            console.log('📦 Deliveries data:', data);
+            if (data.success) {
+                renderDeliveries(data.deliveries || []);
+                updateKPIs(data.deliveries || []);
+            } else {
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-danger">' + t('error', 'Error') + ': ' + (data.error || 'Unknown') + '</td></tr>';
+                }
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading deliveries:', err);
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-danger">' + t('error', 'Failed to load') + '</td></tr>';
+            }
+        });
+}
+
+function renderDeliveries(deliveries) {
+    var tbody = getEl('deliveriesTableBody');
+    if (!tbody) return;
+    
+    if (!deliveries || deliveries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('no_data', 'No deliveries found') + '</td></tr>';
+        return;
+    }
+    
+    // ============================================================
+    // STATUS TRANSLATIONS
+    // ============================================================
+    var statusKeys = {
+        'Preparing': 'preparing',
+        'Shipped': 'shipped',
+        'Delivered': 'delivered',
+        'Accepted': 'accepted'
+    };
+    
+    var html = '';
+    deliveries.forEach(function(d, index) {
+        var rowNumber = index + 1;
+        var statusDisplay = t('delivery_' + (statusKeys[d.Status] || d.Status.toLowerCase()), d.Status);
+        var statusColor = getStatusColor(d.Status);
+        var statusBadge = '<span class="badge bg-' + statusColor + '">' + statusDisplay + '</span>';
+        
+        var deliveryDate = d.DeliveryDate ? formatDateKey(d.DeliveryDate) : '-';
+        
+        var actions = '';
+        actions += '<button class="btn btn-outline-secondary btn-sm view-delivery me-1" data-id="' + d.DeliveryID + '">' + t('view', 'View') + '</button> ';
+        if (d.Status === 'Preparing') {
+            actions += '<button class="btn btn-primary btn-sm ship-delivery me-1" data-id="' + d.DeliveryID + '">' + t('delivery_ship', 'Ship') + '</button> ';
+        }
+        if (d.Status === 'Shipped') {
+            actions += '<button class="btn btn-info btn-sm deliver-delivery me-1" data-id="' + d.DeliveryID + '">' + t('delivery_delivered', 'Deliver') + '</button> ';
+        }
+        if (d.Status === 'Delivered') {
+            actions += '<button class="btn btn-success btn-sm accept-delivery me-1" data-id="' + d.DeliveryID + '">' + t('delivery_accept', 'Accept') + '</button> ';
+        }
+        
+        html += '<tr>' +
+            '<td class="text-center text-muted">' + rowNumber + '</td>' +
+            '<td>' + (d.DeliveryNumber || '-') + '</td>' +
+            '<td>' + (d.ProjectName || '-') + '</td>' +
+            '<td>' + deliveryDate + '</td>' +
+            '<td>' + (d.DeliveryLocation || '-') + '</td>' +
+            '<td>' + (d.ItemsCount || 0) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + (d.AcceptedBy || '-') + '</td>' +
+            '<td>' + actions + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function formatDateKey(dateKey) {
+    if (!dateKey) return '-';
+    var s = dateKey.toString();
+    if (s.length !== 8) return '-';
+    return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+}
+
+function updateKPIs(deliveries) {
+    if (!deliveries) deliveries = [];
+    var counts = { Preparing: 0, Shipped: 0, Delivered: 0, Accepted: 0 };
+    deliveries.forEach(function(d) {
+        if (counts[d.Status] !== undefined) counts[d.Status]++;
+    });
+    var kpiPreparing = getEl('kpiPreparing');
+    var kpiShipped = getEl('kpiShipped');
+    var kpiDelivered = getEl('kpiDelivered');
+    var kpiAccepted = getEl('kpiAccepted');
+    if (kpiPreparing) kpiPreparing.textContent = counts.Preparing || 0;
+    if (kpiShipped) kpiShipped.textContent = counts.Shipped || 0;
+    if (kpiDelivered) kpiDelivered.textContent = counts.Delivered || 0;
+    if (kpiAccepted) kpiAccepted.textContent = counts.Accepted || 0;
+}
+
+// ============================================================================
+// LOAD PROJECTS - FIXED: Updated API URLs
+// ============================================================================
+function loadProjects() {
+    // ✅ FIXED: Changed from '/workflow/api/projects' to '/api/workflow/projects'
+    fetch('/api/workflow/projects')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success && data.projects) {
+                var selects = ['filterProject', 'deliveryProject'];
+                selects.forEach(function(id) {
+                    var select = getEl(id);
+                    if (select) {
+                        var opts = '<option value="">' + t('all', 'All') + '</option>';
+                        data.projects.forEach(function(p) {
+                            // Use the already localized ProjectName from API
+                            opts += '<option value="' + p.CompanyProjectID + '">' + p.ProjectName + '</option>';
+                        });
+                        select.innerHTML = opts;
+                    }
+                });
+            }
+        })
+        .catch(function(err) { 
+            console.error('Error loading projects:', err); 
+        });
+}
+
+function loadStatusFilter() {
+    var statusFilter = getEl('filterStatus');
+    if (!statusFilter) return;
+    
+    var options = [
+        { value: '', label: t('all', 'All') },
+        { value: 'Preparing', label: t('delivery_preparing', 'Preparing') },
+        { value: 'Shipped', label: t('delivery_shipped', 'Shipped') },
+        { value: 'Delivered', label: t('delivery_delivered', 'Delivered') },
+        { value: 'Accepted', label: t('delivery_accepted', 'Accepted') }
+    ];
+    
+    var html = '';
+    options.forEach(function(opt) {
+        html += '<option value="' + opt.value + '">' + opt.label + '</option>';
+    });
+    statusFilter.innerHTML = html;
+}
+
+// ============================================================================
+// DOM READY - FIXED: All API URLs updated
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Delivery Management page loaded');
+    
+    // Load status filter with translations
+    loadStatusFilter();
+    
+    loadProjects();
+    loadDeliveries();
+    
+    var refreshBtn = getEl('refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', loadDeliveries);
+    
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) applyBtn.addEventListener('click', loadDeliveries);
+    
+    var searchInput = getEl('filterSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(loadDeliveries, 300));
+    }
+    
+    var statusFilter = getEl('filterStatus');
+    if (statusFilter) statusFilter.addEventListener('change', loadDeliveries);
+    
+    var projectFilter = getEl('filterProject');
+    if (projectFilter) projectFilter.addEventListener('change', loadDeliveries);
+    
+    // Save delivery - FIXED: Updated API URLs
+    var saveBtn = getEl('saveDeliveryBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+            var data = {
+                project_id: getEl('deliveryProject') ? getEl('deliveryProject').value : '',
+                delivery_date: getEl('deliveryDate') ? getEl('deliveryDate').value : '',
+                location: getEl('deliveryLocation') ? getEl('deliveryLocation').value : '',
+                items_json: getEl('deliveryItems') ? getEl('deliveryItems').value : '[]',
+                packing_list_id: getEl('deliveryPackingList') ? parseInt(getEl('deliveryPackingList').value) : null,
+                delivery_note_id: getEl('deliveryNote') ? parseInt(getEl('deliveryNote').value) : null
+            };
+            var editId = getEl('editDeliveryId') ? getEl('editDeliveryId').value : '';
+            // ✅ FIXED: Changed from '/workflow/api/deliveries' to '/api/workflow/deliveries'
+            var url = editId ? '/api/workflow/deliveries/' + editId : '/api/workflow/deliveries';
+            var method = editId ? 'PUT' : 'POST';
+            
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('createDeliveryModal'));
+                    if (modal) modal.hide();
+                    showToast(t('success', 'Delivery saved'), 'success');
+                    loadDeliveries();
+                } else {
+                    showToast(t('error', 'Error') + ': ' + (data.error || 'Save failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                showToast(t('error', 'Error') + ': ' + err.message, 'error');
+            });
+        });
+    }
+    
+    // Confirm Ship - FIXED: Updated API URLs
+    var confirmShipBtn = getEl('confirmShipBtn');
+    if (confirmShipBtn) {
+        confirmShipBtn.addEventListener('click', function() {
+            var deliveryId = getEl('shipDeliveryId') ? getEl('shipDeliveryId').value : '';
+            var shipDate = getEl('shipDate') ? getEl('shipDate').value : '';
+            var notes = getEl('shipNotes') ? getEl('shipNotes').value : '';
+            
+            // ✅ FIXED: Changed from '/workflow/api/deliveries/' to '/api/workflow/deliveries/'
+            fetch('/api/workflow/deliveries/' + deliveryId + '/ship', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ship_date: shipDate, notes: notes })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('shipModal'));
+                    if (modal) modal.hide();
+                    showToast(t('delivery_mark_shipped', 'Shipped') + ' ' + t('success', 'successfully'), 'success');
+                    loadDeliveries();
+                } else {
+                    showToast(t('error', 'Error') + ': ' + (data.error || 'Ship failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                showToast(t('error', 'Error') + ': ' + err.message, 'error');
+            });
+        });
+    }
+    
+    // Confirm Accept - FIXED: Updated API URLs
+    var confirmAcceptBtn = getEl('confirmAcceptBtn');
+    if (confirmAcceptBtn) {
+        confirmAcceptBtn.addEventListener('click', function() {
+            var deliveryId = getEl('acceptDeliveryId') ? getEl('acceptDeliveryId').value : '';
+            var acceptedBy = getEl('acceptBy') ? getEl('acceptBy').value : '';
+            var acceptDate = getEl('acceptDate') ? getEl('acceptDate').value : '';
+            var certificate = getEl('acceptCertificate') ? getEl('acceptCertificate').value : '';
+            var notes = getEl('acceptNotes') ? getEl('acceptNotes').value : '';
+            
+            // ✅ FIXED: Changed from '/workflow/api/deliveries/' to '/api/workflow/deliveries/'
+            fetch('/api/workflow/deliveries/' + deliveryId + '/accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accepted_by: acceptedBy, accept_date: acceptDate, certificate: certificate, notes: notes })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('acceptModal'));
+                    if (modal) modal.hide();
+                    showToast(t('delivery_record_acceptance', 'Accepted') + ' ' + t('success', 'successfully'), 'success');
+                    loadDeliveries();
+                } else {
+                    showToast(t('error', 'Error') + ': ' + (data.error || 'Accept failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                showToast(t('error', 'Error') + ': ' + err.message, 'error');
+            });
+        });
+    }
+    
+    // Event delegation for action buttons
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        var btn = target.closest('button');
+        if (!btn) return;
+        
+        if (btn.classList.contains('ship-delivery')) {
+            var deliveryId = btn.getAttribute('data-id');
+            var shipDeliveryId = getEl('shipDeliveryId');
+            if (shipDeliveryId) shipDeliveryId.value = deliveryId;
+            var shipDate = getEl('shipDate');
+            if (shipDate) shipDate.value = new Date().toISOString().split('T')[0];
+            var modal = new bootstrap.Modal(document.getElementById('shipModal'));
+            modal.show();
+            return;
+        }
+        
+        if (btn.classList.contains('accept-delivery')) {
+            var deliveryId = btn.getAttribute('data-id');
+            var acceptDeliveryId = getEl('acceptDeliveryId');
+            if (acceptDeliveryId) acceptDeliveryId.value = deliveryId;
+            var acceptDate = getEl('acceptDate');
+            if (acceptDate) acceptDate.value = new Date().toISOString().split('T')[0];
+            var modal = new bootstrap.Modal(document.getElementById('acceptModal'));
+            modal.show();
+            return;
+        }
+        
+        if (btn.classList.contains('view-delivery')) {
+            var deliveryId = btn.getAttribute('data-id');
+            showToast('View delivery ' + deliveryId + ' - Feature coming soon', 'info');
+            return;
+        }
+    });
+    
+    setInterval(loadDeliveries, 60000);
+});
+</script>
+{% endblock %}

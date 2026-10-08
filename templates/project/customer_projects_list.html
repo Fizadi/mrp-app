@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('project.customer_projects.title', '🏭 Customer Projects') }}</h2>
+        <div>
+            <button class="btn btn-outline-primary me-2" id="cp-import-btn">{{ get_translation('project.customer_projects.btn.import', '📂 Import CSV') }}</button>
+            <button class="btn btn-outline-secondary me-2" id="cp-export-btn">{{ get_translation('project.customer_projects.btn.export', '📎 Export CSV') }}</button>
+            <input type="file" id="cp-import-file" accept=".csv" style="display: none;">
+            <button type="button" class="btn btn-success" id="cp-add-btn">{{ get_translation('project.customer_projects.btn.create', '+ Create Project') }}</button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-2 mb-4">
+        <div class="col-md-3"><div class="card text-center p-2 bg-secondary text-white"><h6>{{ get_translation('project.customer_projects.kpi.total', 'Total') }}</h6><h3 id="kpi-total">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('project.customer_projects.kpi.active', 'Active') }}</h6><h3 id="kpi-active">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('project.customer_projects.kpi.on_hold', 'On Hold') }}</h6><h3 id="kpi-hold">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-success text-white"><h6>{{ get_translation('project.customer_projects.kpi.completed', 'Completed') }}</h6><h3 id="kpi-completed">0</h3></div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3 p-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label>{{ get_translation('global.status', 'Status') }}</label>
+                <select id="cp-filter-status" class="form-select"><option value="">{{ get_translation('global.all', 'All') }}</option></select>
+            </div>
+            <div class="col-md-3">
+                <label>{{ get_translation('project.customer_projects.filter.company', 'Company') }}</label>
+                <select id="cp-filter-company" class="form-select"><option value="">{{ get_translation('global.all', 'All') }}</option></select>
+            </div>
+            <div class="col-md-3">
+                <button type="button" id="cp-apply-filters" class="btn btn-secondary w-100">{{ get_translation('global.apply_filters', 'Apply Filters') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover" id="cp-table">
+            <thead class="table-dark">
+                <tr>
+                    <th>{{ get_translation('project.customer_projects.col.id', 'Customer Project ID') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.company', 'Company') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.name', 'Project Name') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.location', 'Location') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.value', 'Value') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.status', 'Status') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.linked', 'Linked Projects') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.start', 'Start Date') }}</th>
+                    <th>{{ get_translation('project.customer_projects.col.end', 'End Date') }}</th>
+                </tr>
+            </thead>
+            <tbody id="cp-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Customer Project Modal -->
+<div class="modal fade" id="cpModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="cp-modal-title">{{ get_translation('project.customer_projects.modal.create_title', 'Create Customer Project') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label>{{ get_translation('project.customer_projects.field.id', 'Customer Project ID *') }}</label>
+                        <input type="text" id="cp-id" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label>{{ get_translation('project.customer_projects.field.company', 'Company *') }}</label>
+                        <select id="cp-company" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('project.customer_projects.field.name', 'Project Name *') }}</label>
+                    <input type="text" id="cp-name" class="form-control" required>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('project.customer_projects.field.description', 'Description') }}</label>
+                    <textarea id="cp-desc" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label>{{ get_translation('project.customer_projects.field.location', 'Location') }}</label>
+                        <input type="text" id="cp-location" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label>{{ get_translation('project.customer_projects.field.value', 'Value') }}</label>
+                        <input type="number" id="cp-value" class="form-control" step="0.01">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label>{{ get_translation('project.customer_projects.field.status', 'Status') }}</label>
+                        <select id="cp-status" class="form-select">
+                            <option>{{ get_translation('global.active', 'Active') }}</option>
+                            <option>{{ get_translation('global.on_hold', 'On Hold') }}</option>
+                            <option>{{ get_translation('global.completed', 'Completed') }}</option>
+                            <option>{{ get_translation('global.cancelled', 'Cancelled') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label>{{ get_translation('project.customer_projects.field.start', 'Start Date') }}</label>
+                        <input type="date" id="cp-start" class="form-control">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label>{{ get_translation('project.customer_projects.field.end', 'End Date') }}</label>
+                        <input type="date" id="cp-end" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="cp-save">{{ get_translation('global.save', 'Save') }}</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// Server-injected translations (top-level — same pattern as portfolio)
+// ============================================================
+var trans = {
+    no_projects:    {{ get_translation('project.customer_projects.msg.no_projects', 'No projects found')|tojson }},
+    load_failed:    {{ get_translation('project.customer_projects.msg.load_failed', 'Failed to load customer projects.')|tojson }},
+    required:       {{ get_translation('project.customer_projects.msg.required', 'Customer Project ID, Company, and Project Name are required')|tojson }},
+    import_ok:      {{ get_translation('project.customer_projects.msg.import_success', 'Imported {count} projects')|tojson }},
+    import_fail:    {{ get_translation('project.customer_projects.msg.import_failed', 'Import failed')|tojson }},
+    linked_suffix:  {{ get_translation('project.customer_projects.linked_suffix', 'linked')|tojson }},
+    all:            {{ get_translation('global.all', 'All')|tojson }},
+    select:         {{ get_translation('project.customer_projects.select.company', 'Select...')|tojson }},
+    error_unknown:  {{ get_translation('project.customer_projects.error.unknown', 'Unknown error')|tojson }},
+    error_request:  {{ get_translation('project.customer_projects.error.request_failed', 'Request failed')|tojson }}
+};
+
+// ============================================================
+// Data loading
+// ============================================================
+function loadProjects() {
+    var status = document.getElementById('cp-filter-status').value || '';
+    var company = document.getElementById('cp-filter-company').value || '';
+    var url = '/api/project/customer_projects?status=' + encodeURIComponent(status)
+            + '&company=' + encodeURIComponent(company)
+            + '&_=' + new Date().getTime();
+
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            // KPI cards
+            document.getElementById('kpi-total').innerText = data.kpis.total;
+            document.getElementById('kpi-active').innerText = data.kpis.active;
+            document.getElementById('kpi-hold').innerText = data.kpis.on_hold;
+            document.getElementById('kpi-completed').innerText = data.kpis.completed;
+
+            // Table rows
+            var tbody = document.getElementById('cp-tbody');
+            tbody.innerHTML = '';
+
+            if (!data.projects || data.projects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">' + trans.no_projects + '</td></tr>';
+                return;
+            }
+
+            data.projects.forEach(function(p) {
+                var row = tbody.insertRow();
+                row.insertCell(0).innerHTML = '<a href="/project/customer_projects/' + p.id + '">' + p.id + '</a>';
+                row.insertCell(1).innerText = p.company || '-';
+                row.insertCell(2).innerText = p.name || '-';
+                row.insertCell(3).innerText = p.location || '-';
+                row.insertCell(4).innerText = Number(p.value || 0).toLocaleString();
+                row.insertCell(5).innerText = p.status || '-';
+                row.insertCell(6).innerHTML = '<a href="/project/customer_projects/' + p.id + '">' + (p.linked_count || 0) + ' ' + trans.linked_suffix + '</a>';
+                row.insertCell(7).innerText = p.start_date ? formatDateKey(p.start_date) : '-';
+                row.insertCell(8).innerText = p.end_date ? formatDateKey(p.end_date) : '-';
+            });
+
+            // Populate filter dropdowns
+            var statusSel = document.getElementById('cp-filter-status');
+            statusSel.innerHTML = '<option value="">' + trans.all + '</option>' +
+                (data.filter_options.statuses || []).map(function(s) { return '<option>' + s + '</option>'; }).join('');
+
+            var compSel = document.getElementById('cp-filter-company');
+            compSel.innerHTML = '<option value="">' + trans.all + '</option>' +
+                (data.filter_options.companies || []).map(function(c) { return '<option value="' + c.id + '">' + c.name + '</option>'; }).join('');
+
+            var modalComp = document.getElementById('cp-company');
+            modalComp.innerHTML = '<option value="">' + trans.select + '</option>' +
+                (data.filter_options.companies || []).map(function(c) { return '<option value="' + c.id + '">' + c.name + '</option>'; }).join('');
+        })
+        .catch(function(err) {
+            console.error('Load projects failed:', err);
+            alert(trans.load_failed);
+        });
+}
+
+// ============================================================
+// Helper
+// ============================================================
+function formatDateKey(dateKey) {
+    if (!dateKey) return '-';
+    var s = dateKey.toString();
+    if (s.length !== 8) return s;
+    return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+}
+
+// ============================================================
+// Save new customer project
+// ============================================================
+function saveNewProject() {
+    var data = {
+        customer_project_id: document.getElementById('cp-id').value.trim(),
+        company_id: document.getElementById('cp-company').value,
+        project_name: document.getElementById('cp-name').value.trim(),
+        description: document.getElementById('cp-desc').value,
+        location: document.getElementById('cp-location').value,
+        value: parseFloat(document.getElementById('cp-value').value) || 0,
+        status: document.getElementById('cp-status').value,
+        start_date_key: (document.getElementById('cp-start').value || '').replace(/-/g, '') || null,
+        end_date_key: (document.getElementById('cp-end').value || '').replace(/-/g, '') || null
+    };
+
+    if (!data.customer_project_id || !data.company_id || !data.project_name) {
+        alert(trans.required);
+        return;
+    }
+
+    fetch('/api/project/customer_project/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            window.location.reload();
+        } else {
+            alert(trans.error_unknown + ': ' + (res.error || trans.error_unknown));
+        }
+    })
+    .catch(function() {
+        alert(trans.error_request);
+    });
+}
+
+// ============================================================
+// Init — same pattern as portfolio
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadProjects();
+
+    document.getElementById('cp-apply-filters').addEventListener('click', loadProjects);
+
+    // Add button
+    document.getElementById('cp-add-btn').addEventListener('click', function() {
+        document.getElementById('cp-id').value = '';
+        document.getElementById('cp-name').value = '';
+        document.getElementById('cp-desc').value = '';
+        document.getElementById('cp-location').value = '';
+        document.getElementById('cp-value').value = '';
+        document.getElementById('cp-status').value = 'Active';
+        document.getElementById('cp-start').value = '';
+        document.getElementById('cp-end').value = '';
+        new bootstrap.Modal(document.getElementById('cpModal')).show();
+    });
+
+    // Save button
+    document.getElementById('cp-save').addEventListener('click', saveNewProject);
+
+    // Import button
+    document.getElementById('cp-import-btn').addEventListener('click', function() {
+        document.getElementById('cp-import-file').click();
+    });
+
+    document.getElementById('cp-import-file').addEventListener('change', function(e) {
+        var fd = new FormData();
+        fd.append('file', e.target.files[0]);
+        fetch('/api/project/customer_projects/import', { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.success) {
+                    var msg = trans.import_ok.replace('{count}', res.created);
+                    alert(msg);
+                } else {
+                    alert(trans.import_fail);
+                }
+                loadProjects();
+            });
+        e.target.value = '';
+    });
+
+    // Export button
+    document.getElementById('cp-export-btn').addEventListener('click', function() {
+        window.location.href = '/api/project/customer_projects/export';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('engineering.products.title', 'Product Management') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('home', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('engineering', 'Engineering') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('engineering.products.title', 'Product Management') }}</li>
+</ol>
+</nav>
+
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.products.kpi.total', 'Total Products') }}</h5>
+<p class="card-text display-6" id="kpiTotal">0</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.products.kpi.manufactured', 'Manufactured') }}</h5>
+<p class="card-text display-6" id="kpiManufactured">0</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-info">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.products.kpi.purchased', 'Purchased') }}</h5>
+<p class="card-text display-6" id="kpiPurchased">0</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.products.kpi.active', 'Active Products') }}</h5>
+<p class="card-text display-6" id="kpiActive">0</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Filters & Actions -->
+<div class="row mb-3 g-2">
+<div class="col-md-3">
+<label>{{ get_translation('engineering.products.filter.procurement_type', 'Procurement Type') }}</label>
+<select class="form-select" id="filterProcurement">
+<option value="">{{ get_translation('all', 'All') }}</option>
+<option value="Manufactured">{{ get_translation('engineering.products.type.manufactured', 'Manufactured') }}</option>
+<option value="Purchased">{{ get_translation('engineering.products.type.purchased', 'Purchased') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('engineering.products.filter.warranty_min', 'Warranty (min)') }}</label>
+<input class="form-control" id="filterWarrantyMin" placeholder="{{ get_translation('engineering.products.filter.min_placeholder', 'Min') }}" type="number"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('engineering.products.filter.warranty_max', 'Warranty (max)') }}</label>
+<input class="form-control" id="filterWarrantyMax" placeholder="{{ get_translation('engineering.products.filter.max_placeholder', 'Max') }}" type="number"/>
+</div>
+<div class="col-md-3 d-flex align-items-end">
+<button class="btn btn-primary me-2" id="applyFiltersBtn">{{ get_translation('apply', 'Apply Filters') }}</button>
+<button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('reset', 'Reset') }}</button>
+</div>
+<div class="col-md-2 d-flex align-items-end gap-2">
+<button class="btn btn-success" id="addProductBtn">{{ get_translation('engineering.products.add', '+ Add Product') }}</button>
+<button class="btn btn-secondary" id="importBtn">{{ get_translation('import', 'Import CSV') }}</button>
+<button class="btn btn-secondary" id="exportBtn">{{ get_translation('export', 'Export CSV') }}</button>
+</div>
+</div>
+
+<!-- Products Table -->
+<div class="card">
+<div class="card-header">{{ get_translation('engineering.products.list', 'Products List') }}</div>
+<div class="card-body" style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+<table class="table table-striped table-hover table-sticky">
+<thead>
+<tr>
+<th>{{ get_translation('engineering.products.table.product_id', 'Product ID') }}</th>
+<th>{{ get_translation('engineering.products.table.description', 'Description') }}</th>
+<th>{{ get_translation('engineering.products.table.uom', 'UOM') }}</th>
+<th>{{ get_translation('engineering.products.table.standard_cost', 'Standard Cost') }}</th>
+<th>{{ get_translation('engineering.products.table.procurement_type', 'Procurement Type') }}</th>
+<th>{{ get_translation('engineering.products.table.warranty', 'Warranty (months)') }}</th>
+<th>{{ get_translation('actions', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="productsTableBody">
+<tr><td class="text-center" colspan="7">{{ get_translation('loading', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div class="modal fade" data-bs-backdrop="static" id="productModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="productModalTitle">{{ get_translation('engineering.products.add_modal.title', 'Add Product') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<ul class="nav nav-tabs" id="productTabs" role="tablist">
+<li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#generalTab">{{ get_translation('engineering.products.tab.general', 'General') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#costTab">{{ get_translation('engineering.products.tab.cost', 'Cost') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#manufacturingTab">{{ get_translation('engineering.products.tab.manufacturing', 'Manufacturing') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#warrantyTab">{{ get_translation('engineering.products.tab.warranty', 'Warranty') }}</a></li>
+</ul>
+<div class="tab-content mt-3">
+<div class="tab-pane fade show active" id="generalTab">
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.product_id', 'Product ID *') }}</label>
+<input class="form-control" id="productId" required type="text"/>
+<small class="text-muted">{{ get_translation('engineering.products.fields.product_id_hint', 'Unique text identifier, e.g., VALVE-500-CTRL') }}</small>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.description', 'Description (English)') }}</label>
+<input class="form-control" id="descEnglish" type="text"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.uom', 'UOM') }}</label>
+<select class="form-select" id="uom">
+<option>{{ get_translation('engineering.products.uom.ea', 'EA') }}</option>
+<option>{{ get_translation('engineering.products.uom.kg', 'KG') }}</option>
+<option>{{ get_translation('engineering.products.uom.m', 'M') }}</option>
+</select>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.procurement_type', 'Procurement Type') }}</label>
+<select class="form-select" id="procurementType">
+<option>{{ get_translation('engineering.products.type.manufactured', 'Manufactured') }}</option>
+<option>{{ get_translation('engineering.products.type.purchased', 'Purchased') }}</option>
+</select>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.technical_drawing', 'Technical Drawing') }}</label>
+<input class="form-control" id="technicalDrawing" placeholder="{{ get_translation('engineering.products.fields.technical_drawing_hint', 'File path or URL') }}" type="text"/>
+</div>
+</div>
+<div class="tab-pane fade" id="costTab">
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.standard_cost', 'Standard Cost (USD)') }}</label>
+<input class="form-control" id="standardCost" step="0.01" type="number" value="0"/>
+</div>
+</div>
+<div class="tab-pane fade" id="manufacturingTab">
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.lead_time', 'Lead Time (days)') }}</label>
+<input class="form-control" id="leadTime" type="number" value="0"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.min_order_qty', 'Min Order Qty') }}</label>
+<input class="form-control" id="minOrderQty" type="number" value="1"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.safety_stock', 'Safety Stock') }}</label>
+<input class="form-control" id="safetyStock" type="number" value="0"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.batch_size', 'Batch Size') }}</label>
+<input class="form-control" id="batchSize" type="number" value="1"/>
+</div>
+</div>
+<div class="tab-pane fade" id="warrantyTab">
+<div class="mb-3">
+<label>{{ get_translation('engineering.products.fields.warranty', 'Warranty (months)') }}</label>
+<input class="form-control" id="warrantyMonths" type="number" value="0"/>
+<small class="text-muted">{{ get_translation('engineering.products.fields.warranty_hint', 'Warranty applied to new serial numbers') }}</small>
+</div>
+</div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('cancel', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveProductBtn" type="button">{{ get_translation('save', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+
+<style>
+.table-sticky thead th {
+    position: sticky;
+    top: 56px;
+    z-index: 10;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var currentEditId = null;
+
+    // Load KPI stats
+    function loadStats() {
+        $.get('/api/bom/products/stats')
+            .done(function(stats) {
+                $('#kpiTotal').text(stats.totalProducts);
+                $('#kpiManufactured').text(stats.manufactured);
+                $('#kpiPurchased').text(stats.purchased);
+                $('#kpiActive').text(stats.activeProducts);
+            })
+            .fail(function() { console.error("Failed to load stats"); });
+    }
+
+    // Load product table with filters
+    function loadProducts() {
+        var sidebarProject = $('#sidebarProject').val();
+        var params = {
+            procurement_type: $('#filterProcurement').val(),
+            warranty_min: $('#filterWarrantyMin').val(),
+            warranty_max: $('#filterWarrantyMax').val()
+        };
+        if (sidebarProject && sidebarProject !== 'All' && sidebarProject !== '') {
+            params.project_id = sidebarProject;
+        }
+        $.get('/api/bom/products', params)
+            .done(function(products) {
+                var $tbody = $('#productsTableBody');
+                $tbody.empty();
+                if (!products.length) {
+                    $tbody.html('<tr><td colspan="7" class="text-center">No products found</td></tr>');
+                    return;
+                }
+                products.forEach(function(p) {
+                    var row = '<tr>' +
+                        '<td><a href="/engineering/product/' + encodeURIComponent(p.ProductId) + '">' + p.ProductId + '</a></td>' +
+                        '<td>' + (p.ProductName || '') + '</td>' +
+                        '<td>' + p.UOM + '</td>' +
+                        '<td>' + (p.StandardCost || 0).toFixed(2) + '</td>' +
+                        '<td>' + p.ProcurementType + '</td>' +
+                        '<td>' + (p.WarrantyMonths || 0) + '</td>' +
+                        '<td><button class="btn btn-sm btn-warning edit-product" data-id="' + p.ProductId + '">Edit</button> ' +
+                        '<button class="btn btn-sm btn-danger delete-product" data-id="' + p.ProductId + '">Delete</button></td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() { $('#productsTableBody').html('<tr><td colspan="7" class="text-danger">Error loading products</td></tr>'); });
+    }
+
+    // Open modal for add/edit
+    function openModal(id) {
+        currentEditId = id;
+        if (id) {
+            $('#productModalTitle').text('Edit Product');
+            $.get('/api/bom/products/' + encodeURIComponent(id))
+                .done(function(p) {
+                    $('#productId').val(p.ProductId).prop('disabled', true);
+                    $('#descEnglish').val(p.descEnglish || '');
+                    $('#uom').val(p.UOM || 'EA');
+                    $('#procurementType').val(p.ProcurementType || 'Manufactured');
+                    $('#technicalDrawing').val(p.TechnicalDrawing || '');
+                    $('#standardCost').val(p.StandardCost || 0);
+                    $('#leadTime').val(p.LeadTime || 0);
+                    $('#minOrderQty').val(p.MinOrderQty || 1);
+                    $('#safetyStock').val(p.SafetyStock || 0);
+                    $('#batchSize').val(p.BatchSize || 1);
+                    $('#warrantyMonths').val(p.WarrantyMonths || 0);
+                    $('#productModal').modal('show');
+                })
+                .fail(function() { alert("Error loading product details"); });
+        } else {
+            $('#productModalTitle').text('Add Product');
+            $('#productId').prop('disabled', false).val('');
+            $('#descEnglish').val('');
+            $('#uom').val('EA');
+            $('#procurementType').val('Manufactured');
+            $('#technicalDrawing').val('');
+            $('#standardCost').val('0');
+            $('#leadTime').val('0');
+            $('#minOrderQty').val('1');
+            $('#safetyStock').val('0');
+            $('#batchSize').val('1');
+            $('#warrantyMonths').val('0');
+            $('#productModal').modal('show');
+        }
+    }
+
+    // Save product
+    function saveProduct() {
+        var data = {
+            ProductId: $('#productId').val(),
+            descEnglish: $('#descEnglish').val(),
+            UOM: $('#uom').val(),
+            ProcurementType: $('#procurementType').val(),
+            TechnicalDrawing: $('#technicalDrawing').val(),
+            StandardCost: parseFloat($('#standardCost').val()) || 0,
+            LeadTime: parseInt($('#leadTime').val()) || 0,
+            MinOrderQty: parseInt($('#minOrderQty').val()) || 1,
+            SafetyStock: parseInt($('#safetyStock').val()) || 0,
+            BatchSize: parseInt($('#batchSize').val()) || 1,
+            WarrantyMonths: parseInt($('#warrantyMonths').val()) || 0
+        };
+        if (!data.ProductId) { alert("Product ID is required"); return; }
+        var url = currentEditId ? '/api/bom/products/' + encodeURIComponent(currentEditId) : '/api/bom/products';
+        var method = currentEditId ? 'PUT' : 'POST';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(resp) {
+                $('#productModal').modal('hide');
+                loadProducts();
+                loadStats();
+                alert(resp.message || (currentEditId ? "Product updated" : "Product created"));
+            },
+            error: function(xhr) {
+                alert("Error: " + (xhr.responseJSON?.error || "Unknown error"));
+            }
+        });
+    }
+
+    // Delete product
+    function deleteProduct(id) {
+        if (confirm("Delete product " + id + "? This may affect BOMs and other modules.")) {
+            $.ajax({
+                url: '/api/bom/products/' + encodeURIComponent(id),
+                method: 'DELETE',
+                success: function() {
+                    loadProducts();
+                    loadStats();
+                    alert("Product deleted");
+                },
+                error: function() { alert("Delete failed"); }
+            });
+        }
+    }
+
+    // Import CSV
+    function importCSV() {
+        var input = $('<input type="file" accept=".csv">').on('change', function(e) {
+            var fd = new FormData();
+            fd.append('file', e.target.files[0]);
+            $.ajax({
+                url: '/api/bom/products/import',
+                method: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function() {
+                    loadProducts();
+                    loadStats();
+                    alert("Import completed");
+                },
+                error: function() { alert("Import failed"); }
+            });
+        });
+        input.click();
+    }
+
+    // Export CSV
+    function exportCSV() {
+        window.location.href = '/api/bom/products/export';
+    }
+
+    // Event bindings
+    $('#applyFiltersBtn').click(loadProducts);
+    $('#resetFiltersBtn').click(function() {
+        $('#filterProcurement').val('');
+        $('#filterWarrantyMin').val('');
+        $('#filterWarrantyMax').val('');
+        loadProducts();
+    });
+    $('#addProductBtn').click(function() { openModal(null); });
+    $('#importBtn').click(importCSV);
+    $('#exportBtn').click(exportCSV);
+    $('#saveProductBtn').click(saveProduct);
+    $(document).on('click', '.edit-product', function() { openModal($(this).data('id')); });
+    $(document).on('click', '.delete-product', function() { deleteProduct($(this).data('id')); });
+
+    // Initial load
+    loadStats();
+    loadProducts();
+});
+</script>
+{% endblock %}

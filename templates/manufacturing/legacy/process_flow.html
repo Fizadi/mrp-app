@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}{{ get_translation('manufacturing.process_flow.title', 'Manufacturing Process Flow') }}{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.process_flow.breadcrumb', 'Process Flow') }}</li>
+        </ol>
+    </nav>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.process_flow.title', 'Manufacturing Process Flow') }}</h2>
+        <div>
+            <button class="btn btn-success me-2" id="exportSvgBtn"><i class="fas fa-download"></i> {{ get_translation('common.export_svg', 'Export SVG') }}</button>
+        </div>
+    </div>
+
+    <!-- Product Selector -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label">{{ get_translation('manufacturing.process_flow.select_product', 'Select Product') }}</label>
+                <select id="productSelector" class="form-select">
+                    <option value="">{{ get_translation('common.select_product', '-- Select a product --') }}</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <button id="loadFlowBtn" class="btn btn-primary w-100"><i class="fas fa-play"></i> {{ get_translation('manufacturing.process_flow.load_flow', 'Load Flow Diagram') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="loadingIndicator" style="display:none;" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">{{ get_translation('common.loading', 'Loading...') }}</span>
+        </div>
+        <p class="mt-2">{{ get_translation('common.loading', 'Loading process flow...') }}</p>
+    </div>
+
+    <!-- Flow Diagram Container -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span id="diagramTitle">{{ get_translation('manufacturing.process_flow.diagram_title', 'Process Flow') }}</span>
+            <div>
+                <span class="badge bg-primary me-2">{{ get_translation('manufacturing.process_flow.main_flow', 'Main Flow') }}</span>
+                <span class="badge bg-success me-2">{{ get_translation('manufacturing.process_flow.assembly_point', 'Assembly Point') }}</span>
+                <span class="badge bg-warning">{{ get_translation('manufacturing.process_flow.parallel_operation', 'Parallel Operation') }}</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="svgContainer" style="min-height: 600px; border: 1px solid #ddd; border-radius: 4px; overflow: auto; position: relative;">
+                <div id="svgWrapper" style="min-height: 600px; padding: 20px; background: #fafafa;">
+                    <p class="text-center text-muted py-5">{{ get_translation('manufacturing.process_flow.select_hint', 'Select a product and click "Load Flow Diagram" to view the process flow.') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabular View (below diagram) -->
+    <div class="card mt-3">
+        <div class="card-header">{{ get_translation('manufacturing.process_flow.routing_details', 'Routing Details') }}</div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover" id="routingTable">
+                <thead>
+                    <tr>
+                        <th>{{ get_translation('manufacturing.process_flow.product', 'Product') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.seq', 'Seq') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.work_center', 'Work Center') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.setup', 'Setup (hrs)') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.run', 'Run (hrs/unit)') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.queue', 'Queue (hrs)') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.move', 'Move (hrs)') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.assembly', 'Assembly Point') }}</th>
+                        <th>{{ get_translation('manufacturing.process_flow.parallel', 'Parallel') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="routingTableBody">
+                    <tr><td colspan="9" class="text-center">{{ get_translation('manufacturing.process_flow.select_hint', 'Select a product to view routing') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Process Flow page loaded (DOM ready)');
+
+    // Load products using plain JavaScript
+    function loadProducts() {
+        console.log('Loading products with XMLHttpRequest...');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/production-orders/products-search?q=', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var products = JSON.parse(xhr.responseText);
+                    console.log('Products loaded:', products.length);
+                    var select = document.getElementById('productSelector');
+                    if (!select) {
+                        console.error('Product selector not found!');
+                        return;
+                    }
+                    var opts = '<option value="">-- Select a product --</option>';
+                    if (products && products.length > 0) {
+                        products.forEach(function(p) {
+                            opts += '<option value="' + p.id + '">' + p.id + ' - ' + p.name + '</option>';
+                        });
+                    } else {
+                        opts += '<option value="">No products found</option>';
+                    }
+                    select.innerHTML = opts;
+                    console.log('Dropdown updated with', products.length, 'products');
+                } catch (e) {
+                    console.error('Error parsing JSON:', e);
+                }
+            } else if (xhr.readyState === 4) {
+                console.error('API error:', xhr.status, xhr.statusText);
+            }
+        };
+        xhr.send();
+    }
+
+    // Load products when page loads
+    loadProducts();
+
+    // Load flow button handler
+    document.getElementById('loadFlowBtn').addEventListener('click', function() {
+        var select = document.getElementById('productSelector');
+        var productId = select ? select.value : '';
+        if (!productId) {
+            alert('Please select a product');
+            return;
+        }
+        console.log('Loading flow for product:', productId);
+        loadFlow(productId);
+    });
+
+    function loadFlow(productId) {
+        var loadingIndicator = document.getElementById('loadingIndicator');
+        var svgWrapper = document.getElementById('svgWrapper');
+        var routingBody = document.getElementById('routingTableBody');
+
+        loadingIndicator.style.display = 'block';
+        svgWrapper.innerHTML = '<p class="text-center text-muted py-5">Loading diagram...</p>';
+        routingBody.innerHTML = '<tr><td colspan="9" class="text-center">Loading routing...</td></tr>';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/process-flow/' + encodeURIComponent(productId), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    console.log('Flow data received:', data);
+                    loadingIndicator.style.display = 'none';
+                    document.getElementById('diagramTitle').textContent = 'Process Flow: ' + data.product.id + ' - ' + data.product.name;
+                    renderSvgDiagram(data);
+                    renderRoutingTable(data);
+                } catch (e) {
+                    console.error('Error parsing flow data:', e);
+                    loadingIndicator.style.display = 'none';
+                    svgWrapper.innerHTML = '<p class="text-center text-danger py-5">Error: Invalid response from server</p>';
+                }
+            } else if (xhr.readyState === 4) {
+                console.error('Flow API error:', xhr.status, xhr.statusText);
+                loadingIndicator.style.display = 'none';
+                svgWrapper.innerHTML = '<p class="text-center text-danger py-5">Error: ' + (xhr.statusText || 'Failed to load') + '</p>';
+                alert('Failed to load process flow: ' + (xhr.statusText || 'Unknown error'));
+            }
+        };
+        xhr.send();
+    }
+
+    function renderSvgDiagram(data) {
+        console.log('Rendering SVG diagram...');
+        var wrapper = document.getElementById('svgWrapper');
+        var margin = 60;
+        var nodeRadius = 30;
+        var arrowSize = 12;
+
+        // Build node map from machine layout
+        var machineMap = {};
+        data.machineLayout.forEach(function(m) {
+            machineMap[m.workCenterId] = {
+                x: m.x,
+                y: m.y,
+                size: m.size || 60,
+                name: m.name,
+                id: m.id
+            };
+        });
+
+        // Find min/max for scaling
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        data.machineLayout.forEach(function(m) {
+            if (m.x < minX) minX = m.x;
+            if (m.y < minY) minY = m.y;
+            if (m.x > maxX) maxX = m.x;
+            if (m.y > maxY) maxY = m.y;
+        });
+        var padding = 100;
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+        var width = maxX - minX + 200;
+        var height = maxY - minY + 200;
+
+        // Build SVG
+        var svg = '<svg viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" width="100%" height="600" style="background:#fafafa; border-radius:4px;">';
+
+        // Add grid
+        svg += '<defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e8e8e8" stroke-width="0.5"/></pattern></defs>';
+        svg += '<rect width="100%" height="100%" fill="url(#grid)"/>';
+
+        // Draw edges
+        data.edges.forEach(function(edge) {
+            var sourceCenter, targetCenter;
+            if (edge.type === 'routing_flow') {
+                var source = machineMap[edge.sourceWorkCenter];
+                var target = machineMap[edge.targetWorkCenter];
+                if (source && target) {
+                    sourceCenter = { x: source.x, y: source.y };
+                    targetCenter = { x: target.x, y: target.y };
+                }
+            } else if (edge.type === 'component_flow') {
+                var sourceRouting = data.routings[edge.source];
+                var targetRouting = data.routings[edge.target];
+                if (sourceRouting && sourceRouting.length > 0 && targetRouting && targetRouting.length > 0) {
+                    var sourceWC = sourceRouting[sourceRouting.length - 1].workCenterId;
+                    var targetWC = targetRouting[0].workCenterId;
+                    var source = machineMap[sourceWC];
+                    var target = machineMap[targetWC];
+                    if (source && target) {
+                        sourceCenter = { x: source.x, y: source.y };
+                        targetCenter = { x: target.x, y: target.y };
+                    }
+                }
+            }
+
+            if (sourceCenter && targetCenter) {
+                var angle = Math.atan2(targetCenter.y - sourceCenter.y, targetCenter.x - sourceCenter.x);
+                var offset = nodeRadius + 5;
+                var startX = sourceCenter.x + Math.cos(angle) * offset;
+                var startY = sourceCenter.y + Math.sin(angle) * offset;
+                var endX = targetCenter.x - Math.cos(angle) * offset;
+                var endY = targetCenter.y - Math.sin(angle) * offset;
+
+                var isAssembly = edge.type === 'component_flow';
+                var strokeColor = isAssembly ? '#dc3545' : '#0d6efd';
+                var strokeWidth = isAssembly ? 3 : 2;
+
+                svg += '<line x1="' + startX + '" y1="' + startY + '" x2="' + endX + '" y2="' + endY + '" stroke="' + strokeColor + '" stroke-width="' + strokeWidth + '" marker-end="url(#arrowhead-' + (isAssembly?'red':'blue') + ')" opacity="0.8"/>';
+                svg += '<defs><marker id="arrowhead-' + (isAssembly?'red':'blue') + '" markerWidth="' + arrowSize + '" markerHeight="' + arrowSize + '" refX="' + (arrowSize/2) + '" refY="' + (arrowSize/2) + '" orient="auto"><polygon points="0,0 ' + arrowSize + ',' + (arrowSize/2) + ' 0,' + arrowSize + '" fill="' + strokeColor + '"/></marker></defs>';
+            }
+        });
+
+        // Draw nodes (machines)
+        data.machineLayout.forEach(function(m) {
+            var center = { x: m.x, y: m.y };
+            var size = m.size || 60;
+            var half = size / 2;
+
+            var isUsed = false;
+            for (var pid in data.routings) {
+                if (data.routings[pid].some(function(r) { return r.workCenterId === m.workCenterId; })) {
+                    isUsed = true;
+                    break;
+                }
+            }
+
+            var fillColor = '#e9ecef';
+            var strokeColor = '#6c757d';
+            var textColor = '#212529';
+            var opacity = 0.5;
+
+            if (isUsed) {
+                var hasAssembly = false;
+                for (pid in data.routings) {
+                    data.routings[pid].forEach(function(r) {
+                        if (r.workCenterId === m.workCenterId && r.assemblyPoint) hasAssembly = true;
+                    });
+                }
+                if (hasAssembly) {
+                    fillColor = '#dc3545';
+                    strokeColor = '#b02a37';
+                    textColor = 'white';
+                } else {
+                    fillColor = '#0d6efd';
+                    strokeColor = '#0a58ca';
+                    textColor = 'white';
+                }
+                opacity = 1;
+            }
+
+            var shortName = m.name.length > 12 ? m.name.substring(0, 10) + '...' : m.name;
+            svg += '<rect x="' + (center.x - half) + '" y="' + (center.y - half) + '" width="' + size + '" height="' + size + '" rx="8" ry="8" fill="' + fillColor + '" stroke="' + strokeColor + '" stroke-width="2" opacity="' + opacity + '" class="machine-node" data-wc="' + m.workCenterId + '"/>';
+            svg += '<text x="' + center.x + '" y="' + (center.y + 4) + '" text-anchor="middle" fill="' + textColor + '" font-size="' + (size > 60 ? 12 : 10) + '" font-weight="bold" font-family="Arial, sans-serif" pointer-events="none">' + shortName + '</text>';
+        });
+
+        // Legend
+        svg += '<rect x="' + (minX + 20) + '" y="' + (maxY - 60) + '" width="300" height="40" rx="6" fill="white" stroke="#ddd" opacity="0.9"/>';
+        svg += '<circle cx="' + (minX + 50) + '" cy="' + (maxY - 40) + '" r="8" fill="#0d6efd"/><text x="' + (minX + 65) + '" y="' + (maxY - 35) + '" font-size="12" fill="#333">Main Flow</text>';
+        svg += '<circle cx="' + (minX + 150) + '" cy="' + (maxY - 40) + '" r="8" fill="#dc3545"/><text x="' + (minX + 165) + '" y="' + (maxY - 35) + '" font-size="12" fill="#333">Assembly Point</text>';
+        svg += '<circle cx="' + (minX + 270) + '" cy="' + (maxY - 40) + '" r="8" fill="#ffc107"/><text x="' + (minX + 285) + '" y="' + (maxY - 35) + '" font-size="12" fill="#333">Parallel</text>';
+
+        svg += '</svg>';
+        wrapper.innerHTML = svg;
+        console.log('SVG rendered successfully');
+    }
+
+    function renderRoutingTable(data) {
+        console.log('Rendering routing table...');
+        var tbody = document.getElementById('routingTableBody');
+        var html = '';
+        var hasData = false;
+        for (var pid in data.routings) {
+            data.routings[pid].forEach(function(r) {
+                html += '<tr><td>' + (r.productName || pid) + '</td><td>' + r.sequence + '</td><td>' + r.workCenterId + '</td><td>' + r.setupTime + '</td><td>' + r.runTime + '</td><td>' + r.queueTime + '</td><td>' + r.moveTime + '</td><td>' + (r.assemblyPoint ? '✅' : '') + '</td><td>' + (r.parallelOperation ? '✅' : '') + '</td></tr>';
+                hasData = true;
+            });
+        }
+        if (!hasData) {
+            html = '<tr><td colspan="9" class="text-center">No routing found for this product</td></tr>';
+        }
+        tbody.innerHTML = html;
+        console.log('Routing table rendered');
+    }
+
+    // Export SVG button
+    document.getElementById('exportSvgBtn').addEventListener('click', function() {
+        var svgContent = document.querySelector('#svgWrapper svg');
+        if (!svgContent) { alert('No diagram to export'); return; }
+        var serializer = new XMLSerializer();
+        var svgStr = serializer.serializeToString(svgContent);
+        var blob = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'process_flow.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    });
+});
+</script>
+{% endblock %}

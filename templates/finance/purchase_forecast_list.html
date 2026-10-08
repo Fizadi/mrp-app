@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('finance.purchase_forecast.title', 'Purchase Forecast') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">{{ get_translation('nav.finance', 'Finance') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('finance.purchase_forecast.title', 'Purchase Forecast') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2><i class="fas fa-shopping-cart me-2"></i>{{ get_translation('finance.purchase_forecast.title', 'Purchase Forecast') }}</h2>
+        <div>
+            <a href="/finance/purchase-forecast/create" class="btn btn-primary">
+                <i class="fas fa-plus"></i> {{ get_translation('finance.purchase_forecast.button.new', 'New Forecast') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3" id="kpiCards">
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.purchase_forecast.kpi.total', 'Total Forecasts') }}</h6>
+                    <h3 id="kpiTotal">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.purchase_forecast.kpi.approved', 'Approved') }}</h6>
+                    <h3 id="kpiApproved">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.purchase_forecast.kpi.draft', 'Draft') }}</h6>
+                    <h3 id="kpiDraft">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.purchase_forecast.kpi.total_value', 'Total Purchase Value') }}</h6>
+                    <h3 id="kpiTotalValue">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label>{{ get_translation('finance.purchase_forecast.filter.year', 'Year') }}</label>
+                    <select class="form-select" id="filterYear">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="1405">1405</option>
+                        <option value="1406">1406</option>
+                        <option value="1407">1407</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>{{ get_translation('finance.purchase_forecast.filter.season', 'Season') }}</label>
+                    <select class="form-select" id="filterSeason">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="بهار">بهار</option>
+                        <option value="تابستان">تابستان</option>
+                        <option value="پاییز">پاییز</option>
+                        <option value="زمستان">زمستان</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>{{ get_translation('finance.purchase_forecast.filter.status', 'Status') }}</label>
+                    <select class="form-select" id="filterStatus">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Draft">پیش‌نویس</option>
+                        <option value="Approved">تأیید شده</option>
+                        <option value="Archived">بایگانی شده</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" id="applyFiltersBtn">
+                        <i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="card-body table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('finance.purchase_forecast.table.code', 'Code') }}</th>
+                        <th>{{ get_translation('finance.purchase_forecast.table.name', 'Name') }}</th>
+                        <th>{{ get_translation('finance.purchase_forecast.table.period', 'Period') }}</th>
+                        <th>{{ get_translation('finance.purchase_forecast.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('finance.purchase_forecast.table.total_consumption', 'Total Consumption') }}</th>
+                        <th>{{ get_translation('finance.purchase_forecast.table.total_amount', 'Total Amount') }}</th>
+                        <th>{{ get_translation('finance.purchase_forecast.table.created_by', 'Created By') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="9" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Similar to sales_forecast_list.html but for purchase forecasts
+// (I'll keep it concise here - same patterns as sales forecast)
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Error')|tojson }},
+    success: {{ get_translation('global.success', 'Success')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    edit: {{ get_translation('global.edit', 'Edit')|tojson }},
+    approve: {{ get_translation('global.approve', 'Approve')|tojson }},
+    delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+    'status.draft': {{ get_translation('global.draft', 'Draft')|tojson }},
+    'status.approved': {{ get_translation('global.approved', 'Approved')|tojson }},
+    'status.archived': {{ get_translation('global.archived', 'Archived')|tojson }},
+    'currency.irr': 'ریال'
+};
+
+function t(key, defaultText) { return trans[key] || defaultText || key; }
+function getStatusBadge(status) {
+    var classes = {'Draft': 'bg-warning', 'Approved': 'bg-success', 'Archived': 'bg-secondary'};
+    return classes[status] || 'bg-secondary';
+}
+function getStatusText(status) {
+    var texts = {'Draft': t('status.draft', 'Draft'), 'Approved': t('status.approved', 'Approved'), 'Archived': t('status.archived', 'Archived')};
+    return texts[status] || status;
+}
+function formatCurrency(value) {
+    return (Number(value) || 0).toLocaleString() + ' ' + t('currency.irr', 'ریال');
+}
+
+function loadForecasts() {
+    var tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    var params = new URLSearchParams();
+    var year = document.getElementById('filterYear').value;
+    var season = document.getElementById('filterSeason').value;
+    var status = document.getElementById('filterStatus').value;
+    if (year) params.set('year', year);
+    if (season) params.set('season', season);
+    if (status) params.set('status', status);
+    
+    fetch('/api/finance/purchase-forecast?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                renderForecasts(data.forecasts || []);
+                updateKPIs(data.forecasts || []);
+            } else {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-danger">' + t('error', 'Error') + ': ' + (data.error || '') + '</td></tr>';
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="9" class="text-danger">' + t('error', 'Error') + ': ' + err.message + '</td></tr>';
+        });
+}
+
+function renderForecasts(forecasts) {
+    var tbody = document.getElementById('tableBody');
+    if (!forecasts || forecasts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    forecasts.forEach(function(f, idx) {
+        html += '<tr>' +
+            '<td class="text-center">' + (idx + 1) + '</td>' +
+            '<td><a href="/finance/purchase-forecast/' + f.ForecastID + '/view">' + f.ForecastCode + '</a></td>' +
+            '<td>' + f.ForecastName + '</td>' +
+            '<td>' + f.PeriodPersianSeason + ' ' + f.PeriodPersianYear + '</td>' +
+            '<td><span class="badge ' + getStatusBadge(f.Status) + '">' + getStatusText(f.Status) + '</span></td>' +
+            '<td>' + Number(f.TotalConsumption || 0).toLocaleString() + ' kg</td>' +
+            '<td>' + formatCurrency(f.TotalAmount) + '</td>' +
+            '<td>' + f.CreatedByName + '</td>' +
+            '<td>' +
+                '<a href="/finance/purchase-forecast/' + f.ForecastID + '/view" class="btn btn-sm btn-info" title="' + t('view', 'View') + '"><i class="fas fa-eye"></i></a> ' +
+                (f.Status === 'Draft' ? 
+                    '<a href="/finance/purchase-forecast/' + f.ForecastID + '/edit" class="btn btn-sm btn-primary" title="' + t('edit', 'Edit') + '"><i class="fas fa-edit"></i></a> ' +
+                    '<button class="btn btn-sm btn-success approve-btn" data-id="' + f.ForecastID + '" title="' + t('approve', 'Approve') + '"><i class="fas fa-check"></i></button>'
+                : '') +
+            '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function updateKPIs(forecasts) {
+    var total = forecasts.length;
+    var approved = forecasts.filter(function(f) { return f.Status === 'Approved'; }).length;
+    var draft = forecasts.filter(function(f) { return f.Status === 'Draft'; }).length;
+    var totalValue = forecasts.reduce(function(sum, f) { return sum + (f.TotalAmount || 0); }, 0);
+    
+    document.getElementById('kpiTotal').textContent = total;
+    document.getElementById('kpiApproved').textContent = approved;
+    document.getElementById('kpiDraft').textContent = draft;
+    document.getElementById('kpiTotalValue').textContent = formatCurrency(totalValue);
+}
+
+function approveForecast(id) {
+    if (!confirm(t('approve', 'Approve') + ' this forecast?')) return;
+    fetch('/api/finance/purchase-forecast/' + id + '/approve', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showToast(t('approve', 'Approved') + ' ' + t('success', 'successfully'), 'success');
+                loadForecasts();
+            } else {
+                showToast(t('error', 'Error') + ': ' + (data.error || 'Failed'), 'error');
+            }
+        })
+        .catch(function(err) { showToast(t('error', 'Error') + ': ' + err.message, 'error'); });
+}
+
+function showToast(message, type) {
+    var container = document.getElementById('toastContainer');
+    if (!container) {
+        var c = document.createElement('div');
+        c.id = 'toastContainer';
+        c.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(c);
+        container = c;
+    }
+    var id = 'toast-' + Date.now();
+    var bg = type === 'success' ? '#28a745' : '#dc3545';
+    var html = '<div id="' + id + '" class="toast show" style="background:white; border-left:4px solid ' + bg + '; margin-bottom:10px;">' +
+        '<div class="toast-header"><strong>' + (type === 'success' ? 'Success' : 'Error') + '</strong>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="toast"></button></div>' +
+        '<div class="toast-body">' + message + '</div></div>';
+    container.insertAdjacentHTML('beforeend', html);
+    setTimeout(function() { var el = document.getElementById(id); if (el) el.remove(); }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadForecasts();
+    document.getElementById('applyFiltersBtn').addEventListener('click', loadForecasts);
+    document.getElementById('filterYear').addEventListener('change', loadForecasts);
+    document.getElementById('filterSeason').addEventListener('change', loadForecasts);
+    document.getElementById('filterStatus').addEventListener('change', loadForecasts);
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.approve-btn');
+        if (btn) approveForecast(btn.dataset.id);
+    });
+    setInterval(loadForecasts, 60000);
+});
+</script>
+{% endblock %}

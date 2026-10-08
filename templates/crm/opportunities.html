@@ -1,0 +1,1296 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.opportunities.title', 'Opportunities Pipeline') }}{% endblock %}
+
+{% block styles %}
+<style>
+    .probability-high { color: #28a745; font-weight: bold; }
+    .probability-medium { color: #ffc107; font-weight: bold; }
+    .probability-low { color: #dc3545; font-weight: bold; }
+    .kanban-column {
+        background: #f8f9fa; border-radius: 8px; padding: 10px;
+        min-height: 500px; margin-bottom: 20px;
+    }
+    .kanban-card {
+        background: white; border-radius: 6px; padding: 12px;
+        margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        cursor: pointer; transition: transform 0.1s;
+    }
+    .kanban-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+    .kanban-card .opportunity-value { font-weight: bold; font-size: 1.1em; }
+    .kanban-card .opportunity-name  { font-weight: 500; margin-bottom: 5px; }
+    .view-toggle .btn { margin-right: 5px; }
+    .stage-column-header {
+        background: #e9ecef; padding: 10px; margin: -10px -10px 10px -10px;
+        border-radius: 8px 8px 0 0; font-weight: bold; text-align: center;
+    }
+    #opportunitiesTableBody td:last-child .btn {
+        --bs-btn-padding-y: 0.15rem; --bs-btn-padding-x: 0.4rem; --bs-btn-font-size: 0.75rem;
+    }
+    .kanban-cards { min-height: 60px; }
+    .kanban-empty {
+        padding: 20px 10px; text-align: center; color: #adb5bd;
+        font-size: 0.85rem; border: 1px dashed #dee2e6; border-radius: 6px;
+    }
+    .kanban-card .opportunity-customer { font-size: 0.82rem; color: #6c757d; }
+    .kanban-card .opportunity-prob     { font-size: 0.8rem; font-weight: 600; }
+    .kanban-card .opportunity-followup { font-size: 0.75rem; margin-top: 4px; }
+    .kanban-card .kanban-actions { display: flex; gap: 4px; margin-top: 8px; }
+    .kanban-card .kanban-actions .btn {
+        --bs-btn-padding-y: 0.1rem; --bs-btn-padding-x: 0.35rem; --bs-btn-font-size: 0.7rem;
+    }
+    .bilingual-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .bilingual-pair .lang-label {
+        font-size: 0.7rem; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    [dir="rtl"] .bilingual-pair { direction: rtl; }
+    .table-sticky-dark thead th {
+        position: sticky; top: 0; z-index: 10;
+        background-color: #212529; color: #fff;
+        box-shadow: 0 2px 2px -1px rgba(0,0,0,0.15);
+    }
+    /* AI Assist modal */
+    .ai-preview-section {
+        border: 1px solid #dee2e6; border-radius: 6px;
+        padding: 10px; margin-bottom: 10px; background: #f8f9fa;
+    }
+    .ai-preview-section h6 {
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #495057; margin-bottom: 6px; font-weight: 700;
+    }
+    .ai-preview-section .field-row { font-size: 0.85rem; margin-bottom: 2px; }
+    .ai-preview-section .field-row .label { color: #6c757d; }
+    .ai-preview-section .field-row .value { font-weight: 500; }
+    .ai-preview-section.ai-warn { background: #fff3cd; border-color: #ffc107; }
+    .ai-preview-section.ai-no-save { background: #e7f3ff; border-color: #b6d4fe; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mt-3 mb-3 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-chart-line me-2"></i>{{ get_translation('crm.opportunities.title', 'Opportunities Pipeline') }}
+            <span class="badge bg-secondary ms-2" id="opportunitiesCount">0</span>
+        </h2>
+        <div class="d-flex gap-2 flex-wrap">
+            <div class="btn-group view-toggle" role="group">
+                <button class="btn btn-primary active" id="listViewBtn">
+                    <i class="fas fa-list me-1"></i>{{ get_translation('global.list', 'List') }}
+                </button>
+                <button class="btn btn-outline-primary" id="kanbanViewBtn">
+                    <i class="fas fa-columns me-1"></i>{{ get_translation('global.kanban', 'Kanban') }}
+                </button>
+            </div>
+            <button class="btn btn-success" id="aiAssistBtn">
+                <i class="fas fa-magic me-1"></i>{{ get_translation('crm.ai.assist', 'AI Assist') }}
+            </button>
+            <button class="btn btn-primary" id="createOpportunityBtn">
+                <i class="fas fa-plus me-1"></i>{{ get_translation('crm.opportunities.create', 'Create Opportunity') }}
+            </button>
+            <button class="btn btn-outline-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-3">
+        <div class="col-md-3 mb-2"><div class="card border-primary h-100"><div class="card-body text-center">
+            <h5 class="card-title text-primary">{{ get_translation('crm.opportunities.kpi.pipeline_value', 'Total Pipeline Value') }}</h5>
+            <p class="card-text display-6" id="kpiTotalValue">$0</p>
+        </div></div></div>
+        <div class="col-md-3 mb-2"><div class="card border-success h-100"><div class="card-body text-center">
+            <h5 class="card-title text-success">{{ get_translation('crm.opportunities.kpi.weighted', 'Weighted Pipeline') }}</h5>
+            <p class="card-text display-6" id="kpiWeighted">$0</p>
+        </div></div></div>
+        <div class="col-md-3 mb-2"><div class="card border-info h-100"><div class="card-body text-center">
+            <h5 class="card-title text-info">{{ get_translation('crm.opportunities.kpi.win_rate', 'Win Rate') }}</h5>
+            <p class="card-text display-6" id="kpiWinRate">0%</p>
+        </div></div></div>
+        <div class="col-md-3 mb-2"><div class="card border-warning h-100"><div class="card-body text-center">
+            <h5 class="card-title text-warning">{{ get_translation('crm.opportunities.kpi.open', 'Open Opportunities') }}</h5>
+            <p class="card-text display-6" id="kpiOpenCount">0</p>
+        </div></div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3"><div class="card-body">
+        <div class="row g-3">
+            <div class="col-12 col-md-2">
+                <label class="form-label">{{ get_translation('crm.opportunities.filters.stage', 'Stage') }}</label>
+                <select class="form-select" id="filterStage">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="Prospecting">{{ get_translation('crm.stage.prospecting', 'Prospecting') }}</option>
+                    <option value="Qualification">{{ get_translation('crm.stage.qualification', 'Qualification') }}</option>
+                    <option value="Proposal">{{ get_translation('crm.stage.proposal', 'Proposal') }}</option>
+                    <option value="Negotiation">{{ get_translation('crm.stage.negotiation', 'Negotiation') }}</option>
+                    <option value="Closed Won">{{ get_translation('crm.stage.closed_won', 'Closed Won') }}</option>
+                    <option value="Closed Lost">{{ get_translation('crm.stage.closed_lost', 'Closed Lost') }}</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label">{{ get_translation('crm.opportunities.table.assigned_to', 'Assigned To') }}</label>
+                <select class="form-select" id="filterAssignedTo">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label">{{ get_translation('global.status', 'Status') }}</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="Open">{{ get_translation('global.status.open', 'Open') }}</option>
+                    <option value="All">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label">{{ get_translation('crm.opportunities.filters.date_from', 'Close Date From') }}</label>
+                <input class="form-control" id="filterDateFrom" type="date"/>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label">{{ get_translation('crm.opportunities.filters.date_to', 'Close Date To') }}</label>
+                <input class="form-control" id="filterDateTo" type="date"/>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label">{{ get_translation('global.search', 'Search') }}</label>
+                <input class="form-control" id="filterSearch"
+                       placeholder="{{ get_translation('crm.opportunities.filters.search_placeholder', 'Name, customer, contact...') }}"
+                       type="text"/>
+            </div>
+        </div>
+    </div></div>
+
+    <!-- List View -->
+    <div class="card" id="listView">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('crm.opportunities.list_title', 'Opportunities') }}</h5>
+        </div>
+        <div id="bulkBar" class="card-body border-bottom bg-light" style="display:none;">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <strong class="me-2"><span id="bulkCount">0</span> {{ get_translation('global.selected', 'selected') }}</strong>
+                <select class="form-select form-select-sm" id="bulkAssignTo" style="width:auto;">
+                    <option value="">{{ get_translation('crm.opportunities.bulk.assign_to', 'Assign to…') }}</option>
+                </select>
+                <button class="btn btn-sm btn-outline-primary" id="bulkAssignBtn">
+                    <i class="fas fa-user-check me-1"></i>{{ get_translation('global.apply', 'Apply') }}
+                </button>
+                <select class="form-select form-select-sm" id="bulkStage" style="width:auto;">
+                    <option value="">{{ get_translation('crm.opportunities.bulk.move_to', 'Move to stage…') }}</option>
+                    <option value="Prospecting">{{ get_translation('crm.stage.prospecting', 'Prospecting') }}</option>
+                    <option value="Qualification">{{ get_translation('crm.stage.qualification', 'Qualification') }}</option>
+                    <option value="Proposal">{{ get_translation('crm.stage.proposal', 'Proposal') }}</option>
+                    <option value="Negotiation">{{ get_translation('crm.stage.negotiation', 'Negotiation') }}</option>
+                    <option value="Closed Won">{{ get_translation('crm.stage.closed_won', 'Closed Won') }}</option>
+                    <option value="Closed Lost">{{ get_translation('crm.stage.closed_lost', 'Closed Lost') }}</option>
+                </select>
+                <button class="btn btn-sm btn-outline-primary" id="bulkStageBtn">
+                    <i class="fas fa-exchange-alt me-1"></i>{{ get_translation('global.apply', 'Apply') }}
+                </button>
+                <button class="btn btn-sm btn-outline-danger" id="bulkDeleteBtn">
+                    <i class="fas fa-trash-alt me-1"></i>{{ get_translation('global.delete', 'Delete') }}
+                </button>
+                <button class="btn btn-sm btn-outline-secondary ms-auto" id="bulkClearBtn">
+                    <i class="fas fa-times me-1"></i>{{ get_translation('global.clear', 'Clear') }}
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-hover table-striped mb-0 table-sticky-dark" id="opportunitiesTable">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;"><input type="checkbox" id="selectAllCheckbox"/></th>
+                            <th>{{ get_translation('crm.opportunities.table.name', 'Opportunity Name') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.customer', 'Customer') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.value', 'Value') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.probability', 'Probability') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.stage', 'Stage') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.expected_close', 'Expected Close') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.last_activity', 'Last Activity') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.next_followup', 'Next Follow-up') }}</th>
+                            <th>{{ get_translation('crm.opportunities.table.assigned_to', 'Assigned To') }}</th>
+                            <th>{{ get_translation('global.status', 'Status') }}</th>
+                            <th style="width:180px;">{{ get_translation('global.actions', 'Actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="opportunitiesTableBody">
+                        <tr><td class="text-center py-4" colspan="12">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kanban View -->
+    <div id="kanbanView" style="display: none;"><div class="row" id="kanbanContainer"></div></div>
+</div>
+
+<!-- ============================================================
+     AI ASSIST MODAL
+     ============================================================ -->
+<div class="modal fade" id="aiAssistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-magic me-2"></i>{{ get_translation('crm.ai.title', 'AI Assist — Paste & Parse') }}
+                </h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {{ get_translation('crm.ai.helper', 'Paste any text — email, meeting notes, website content — and the AI will extract the fields for you. You will review before saving.') }}
+                </div>
+
+                <div class="row g-3">
+                    <!-- LEFT: Input -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">{{ get_translation('crm.ai.input_label', 'Paste text') }}</label>
+                        <textarea class="form-control" id="aiInputText" rows="16"
+                            placeholder="{{ get_translation('crm.ai.placeholder', 'Example:\nI contacted Petrofanavr. Tel: 021-88776655. Met Mr. Ahladi, sales engineer, mobile 0912-3456789. Meeting on 2026-09-25 about ball valve project. Budget 200 million tomans.') }}"></textarea>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted">
+                                <span id="aiCharCount">0</span> / 8000
+                            </small>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary" id="aiClearBtn" type="button">
+                                    <i class="fas fa-times me-1"></i>{{ get_translation('global.clear', 'Clear') }}
+                                </button>
+                                <button class="btn btn-sm btn-success" id="aiParseBtn" type="button">
+                                    <i class="fas fa-magic me-1"></i>{{ get_translation('crm.ai.parse_btn', 'Parse with AI') }}
+                                </button>
+                            </div>
+                        </div>
+                        <div id="aiErrorBox" class="alert alert-danger mt-2 small" style="display:none;"></div>
+                    </div>
+
+                    <!-- RIGHT: Preview -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">{{ get_translation('crm.ai.preview_title', 'Parsed Preview') }}</label>
+                        <div id="aiPreviewPanel" style="max-height:520px; overflow-y:auto;">
+                            <div class="text-muted text-center py-5">
+                                <i class="fas fa-arrow-left fa-2x mb-2"></i>
+                                <p>{{ get_translation('crm.ai.waiting', 'Paste text and click "Parse with AI" to see the preview.') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">
+                    {{ get_translation('global.cancel', 'Cancel') }}
+                </button>
+                <button class="btn btn-success" id="aiUseValuesBtn" type="button" disabled>
+                    <i class="fas fa-check me-1"></i>{{ get_translation('crm.ai.use_values', 'Use These Values') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     CREATE / EDIT OPPORTUNITY MODAL — (unchanged from before)
+     ============================================================ -->
+<div class="modal fade" id="opportunityModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="opportunityModalTitle">{{ get_translation('crm.opportunities.create', 'Create Opportunity') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <!-- AI banner — only shown when values came from AI -->
+                <div id="aiFromBanner" class="alert alert-success small py-2 mb-3" style="display:none;">
+                    <i class="fas fa-magic me-1"></i>
+                    <span id="aiFromBannerText">{{ get_translation('crm.ai.filled_from_ai', 'Fields filled by AI. Please review before saving.') }}</span>
+                </div>
+                <!-- "Not saved" info for contacts/activities -->
+                <div id="aiNotSavedInfo" class="alert alert-info small py-2 mb-3" style="display:none;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <span id="aiNotSavedInfoText"></span>
+                </div>
+
+                <form id="opportunityForm">
+                    <input type="hidden" id="opportunityId"/>
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('crm.opportunities.table.name', 'Opportunity Name') }} *</label>
+                        <div class="bilingual-pair">
+                            <div><div class="lang-label">EN</div>
+                                <input class="form-control" id="oppName" required type="text" dir="ltr"/></div>
+                            <div><div class="lang-label">FA</div>
+                                <input class="form-control" id="oppNameFa" type="text" dir="rtl"/></div>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.opportunities.table.customer', 'Customer') }} *</label>
+                            <select class="form-select" id="oppCustomerId" required>
+                                <option value="">{{ get_translation('crm.opportunities.select_customer', 'Select Customer') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.opportunities.table.assigned_to', 'Assigned To') }}</label>
+                            <select class="form-select" id="oppAssignedTo">
+                                <option value="">{{ get_translation('crm.opportunities.unassigned', 'Unassigned') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ get_translation('crm.opportunities.table.value', 'Value ($)') }}</label>
+                            <input class="form-control" id="oppValue" step="any" type="number"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ get_translation('crm.opportunities.table.probability', 'Probability (%)') }}</label>
+                            <input class="form-control" id="oppProbability" max="100" min="0" step="5" type="number"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ get_translation('crm.opportunities.table.stage', 'Stage') }}</label>
+                            <select class="form-select" id="oppStage">
+                                <option value="Prospecting">{{ get_translation('crm.stage.prospecting', 'Prospecting') }}</option>
+                                <option value="Qualification">{{ get_translation('crm.stage.qualification', 'Qualification') }}</option>
+                                <option value="Proposal">{{ get_translation('crm.stage.proposal', 'Proposal') }}</option>
+                                <option value="Negotiation">{{ get_translation('crm.stage.negotiation', 'Negotiation') }}</option>
+                                <option value="Closed Won">{{ get_translation('crm.stage.closed_won', 'Closed Won') }}</option>
+                                <option value="Closed Lost">{{ get_translation('crm.stage.closed_lost', 'Closed Lost') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.opportunities.table.expected_close', 'Expected Close Date') }}</label>
+                            <input class="form-control" id="oppExpectedClose" type="date"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.opportunities.project_optional', 'Project (optional)') }}</label>
+                            <input class="form-control" id="oppProjectId" type="text"/>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">{{ get_translation('crm.opportunities.contact_person', 'Contact Person') }}</label>
+                        <div class="bilingual-pair">
+                            <div><div class="lang-label">EN</div>
+                                <input class="form-control" id="oppContactPerson" type="text" dir="ltr"/></div>
+                            <div><div class="lang-label">FA</div>
+                                <input class="form-control" id="oppContactPersonFa" type="text" dir="rtl"/></div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.opportunities.contact_email', 'Contact Email') }}</label>
+                            <input class="form-control" id="oppContactEmail" type="email"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.opportunities.contact_phone', 'Contact Phone') }}</label>
+                            <input class="form-control" id="oppContactPhone" type="text"/>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">{{ get_translation('crm.opportunities.win_loss_reason', 'Win/Loss Reason') }}</label>
+                        <div class="bilingual-pair">
+                            <div><div class="lang-label">EN</div>
+                                <input class="form-control" id="oppWinLossReason" type="text" dir="ltr"/></div>
+                            <div><div class="lang-label">FA</div>
+                                <input class="form-control" id="oppWinLossReasonFa" type="text" dir="rtl"/></div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">{{ get_translation('crm.opportunities.notes', 'Notes') }}</label>
+                        <div class="bilingual-pair">
+                            <div><div class="lang-label">EN</div>
+                                <textarea class="form-control" id="oppNotes" rows="3" dir="ltr"></textarea></div>
+                            <div><div class="lang-label">FA</div>
+                                <textarea class="form-control" id="oppNotesFa" rows="3" dir="rtl"></textarea></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveOpportunityBtn" type="button">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Activity Modal (unchanged) -->
+<div class="modal fade" id="activityModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('crm.opportunities.log_activity', 'Log Activity') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <form id="activityForm">
+                    <input type="hidden" id="activityOpportunityId"/>
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ get_translation('crm.opportunities.activity_type', 'Activity Type') }}</label>
+                            <select class="form-select" id="activityType">
+                                <option value="Call">{{ get_translation('crm.activity.call', 'Call') }}</option>
+                                <option value="Meeting">{{ get_translation('crm.activity.meeting', 'Meeting') }}</option>
+                                <option value="Email">{{ get_translation('crm.activity.email', 'Email') }}</option>
+                                <option value="Note">{{ get_translation('crm.activity.note', 'Note') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">{{ get_translation('crm.opportunities.subject', 'Subject') }} *</label>
+                            <div class="bilingual-pair">
+                                <div><div class="lang-label">EN</div>
+                                    <input class="form-control" id="activitySubject" type="text" dir="ltr"/></div>
+                                <div><div class="lang-label">FA</div>
+                                    <input class="form-control" id="activitySubjectFa" type="text" dir="rtl"/></div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">{{ get_translation('crm.activity.date', 'Activity Date') }}</label>
+                            <input class="form-control" id="activityDate" type="date"/>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">{{ get_translation('crm.activity.notes', 'Notes') }}</label>
+                            <div class="bilingual-pair">
+                                <div><div class="lang-label">EN</div>
+                                    <textarea class="form-control" id="activityNotes" rows="2" dir="ltr"></textarea></div>
+                                <div><div class="lang-label">FA</div>
+                                    <textarea class="form-control" id="activityNotesFa" rows="2" dir="rtl"></textarea></div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">{{ get_translation('crm.activity.reminder', 'Reminder Date') }}</label>
+                            <input class="form-control" id="activityReminder" type="date"/>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveActivityBtn" type="button">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Convert Modal (unchanged) -->
+<div class="modal fade" id="convertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('crm.opportunities.convert', 'Convert Opportunity') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ get_translation('crm.opportunities.convert_to', 'Convert to:') }}</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" id="convertToProjectBtn">
+                        <i class="fas fa-project-diagram me-2"></i>{{ get_translation('crm.opportunities.project', 'Project') }}
+                    </button>
+                    <button class="btn btn-info" id="convertToQuoteBtn">
+                        <i class="fas fa-file-invoice me-2"></i>{{ get_translation('crm.opportunities.quote', 'Quote') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// 1. STATE — TOP LEVEL
+// ============================================================================
+var KANBAN_STAGES = ['Prospecting','Qualification','Proposal','Negotiation','Closed Won','Closed Lost'];
+var statusKeys = {
+    'Open':         'global.status.open',
+    'Closed Won':   'global.status.closed_won',
+    'Closed Lost':  'global.status.closed_lost',
+};
+var lastAIParsed = null;   // holds the last successful AI parse result
+
+// ============================================================================
+// 2. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function statusLabel(raw) {
+    if (!raw) return '';
+    var key = statusKeys[raw] || ('global.status.' + String(raw).toLowerCase());
+    return t(key, raw);
+}
+
+function stageLabel(raw) {
+    if (!raw) return '';
+    var key = 'crm.stage.' + String(raw).toLowerCase().replace(/ /g, '_');
+    return t(key, raw);
+}
+
+function el(id) { return document.getElementById(id); }
+
+function showToast(message, type) {
+    type = type || 'success';
+    var bg = type === 'error' ? 'bg-danger' : (type === 'warning' ? 'bg-warning text-dark' : 'bg-success');
+    var node = document.createElement('div');
+    node.className = 'toast align-items-center ' + bg + ' text-white border-0 position-fixed top-0 end-0 m-3';
+    node.style.zIndex = '9999';
+    node.innerHTML = '<div class="d-flex"><div class="toast-body">' + escapeHtml(message) +
+        '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    document.body.appendChild(node);
+    new bootstrap.Toast(node, { delay: 3500 }).show();
+    setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 4000);
+}
+
+function getFilters() {
+    return {
+        stage:       (el('filterStage')       || {}).value || '',
+        assigned_to: (el('filterAssignedTo')  || {}).value || '',
+        status:      (el('filterStatus')      || {}).value || 'Open',
+        date_from:   (el('filterDateFrom')    || {}).value || '',
+        date_to:     (el('filterDateTo')      || {}).value || '',
+        search:      (el('filterSearch')      || {}).value || '',
+    };
+}
+
+function buildQueryString(params) {
+    var parts = [];
+    Object.keys(params).forEach(function (k) {
+        var v = params[k];
+        if (v === undefined || v === null || v === '') return;
+        parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+    });
+    return parts.length ? ('?' + parts.join('&')) : '';
+}
+
+// ============================================================================
+// 3. LOADERS — TOP LEVEL
+// ============================================================================
+function loadDropdowns() {
+    fetch('/api/crm/users', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (users) {
+            var opts = '<option value="">' + t('global.all', 'All') + '</option>';
+            var assignOpts = '<option value="">' + t('crm.opportunities.unassigned', 'Unassigned') + '</option>';
+            var bulkOpts = '<option value="">' + t('crm.opportunities.bulk.assign_to', 'Assign to…') + '</option>';
+            (users || []).forEach(function (u) {
+                var o = '<option value="' + escapeHtml(u.user_id) + '">' + escapeHtml(u.full_name) + '</option>';
+                opts += o; assignOpts += o; bulkOpts += o;
+            });
+            var fa = el('filterAssignedTo'); if (fa) fa.innerHTML = opts;
+            var oa = el('oppAssignedTo');    if (oa) oa.innerHTML = assignOpts;
+            var ba = el('bulkAssignTo');     if (ba) ba.innerHTML = bulkOpts;
+        })
+        .catch(function (e) { console.error('users load failed', e); });
+
+    fetch('/api/crm/customers', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (customers) {
+            var opts = '<option value="">' + t('crm.opportunities.select_customer', 'Select Customer') + '</option>';
+            (customers || []).forEach(function (c) {
+                opts += '<option value="' + escapeHtml(c.customer_id) + '">' + escapeHtml(c.name) + '</option>';
+            });
+            var s = el('oppCustomerId'); if (s) s.innerHTML = opts;
+        })
+        .catch(function (e) { console.error('customers load failed', e); });
+}
+
+function loadOpportunities() {
+    var tbody = el('opportunitiesTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4">' + t('global.loading', 'Loading...') + '</td></tr>';
+
+    var qs = buildQueryString(getFilters());
+    fetch('/api/crm/opportunities' + qs, { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            if (!data || !data.length) {
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4">' + t('global.no_data', 'No opportunities found') + '</td></tr>';
+                updateBulkBar();
+                return;
+            }
+            var html = '';
+            data.forEach(function (opp) {
+                var probClass = opp.probability >= 70 ? 'probability-high'
+                              : (opp.probability >= 30 ? 'probability-medium' : 'probability-low');
+                var followupHtml = '<span class="text-muted">—</span>';
+                if (opp.next_followup_formatted) {
+                    var cls  = opp.is_followup_overdue ? 'text-danger fw-bold' : 'text-success';
+                    var icon = opp.is_followup_overdue ? 'fa-exclamation-circle' : 'fa-bell';
+                    followupHtml = '<span class="' + cls + '"><i class="fas ' + icon + ' me-1"></i>' + escapeHtml(opp.next_followup_formatted) + '</span>';
+                }
+                var lastActivityHtml = opp.last_activity_formatted
+                    ? escapeHtml(opp.last_activity_formatted)
+                    : '<span class="text-muted">—</span>';
+                var statusCls = opp.status === 'Closed Won' ? 'bg-success'
+                              : (opp.status === 'Closed Lost' ? 'bg-danger' : 'bg-primary');
+
+                var actionBtns =
+                    '<button class="btn btn-sm btn-outline-info me-1 row-view-btn" data-id="' + opp.opportunity_id + '" title="' + t('global.view', 'View') + '"><i class="fas fa-eye"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-warning me-1 row-edit-btn" data-id="' + opp.opportunity_id + '" title="' + t('global.edit', 'Edit') + '"><i class="fas fa-edit"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-success me-1 row-log-btn" data-id="' + opp.opportunity_id + '" title="' + t('crm.opportunities.log_activity', 'Log Activity') + '"><i class="fas fa-clock"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-primary me-1 row-convert-btn" data-id="' + opp.opportunity_id + '" title="' + t('crm.opportunities.convert', 'Convert') + '"><i class="fas fa-exchange-alt"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-secondary me-1 row-duplicate-btn" data-id="' + opp.opportunity_id + '" title="' + t('global.duplicate', 'Duplicate') + '"><i class="fas fa-copy"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-danger row-delete-btn" data-id="' + opp.opportunity_id + '" title="' + t('global.delete', 'Delete') + '"><i class="fas fa-trash-alt"></i></button>';
+
+                html += '<tr data-id="' + opp.opportunity_id + '">' +
+                    '<td><input type="checkbox" class="row-checkbox" data-id="' + opp.opportunity_id + '"/></td>' +
+                    '<td><a href="/crm/opportunity/' + opp.opportunity_id + '">' + escapeHtml(opp.name || '') + '</a></td>' +
+                    '<td>' + escapeHtml(opp.customer_name || '') + '</td>' +
+                    '<td>$' + Number(opp.value || 0).toLocaleString() + '</td>' +
+                    '<td class="' + probClass + '">' + (opp.probability || 0) + '%</td>' +
+                    '<td>' + escapeHtml(stageLabel(opp.stage)) + '</td>' +
+                    '<td>' + escapeHtml(opp.expected_close_date_formatted || '—') + '</td>' +
+                    '<td>' + lastActivityHtml + '</td>' +
+                    '<td>' + followupHtml + '</td>' +
+                    '<td>' + escapeHtml(opp.assigned_user_name || t('crm.opportunities.unassigned', 'Unassigned')) + '</td>' +
+                    '<td><span class="badge ' + statusCls + '">' + escapeHtml(statusLabel(opp.status)) + '</span></td>' +
+                    '<td>' + actionBtns + '</td>' +
+                '</tr>';
+            });
+            tbody.innerHTML = html;
+            updateBulkBar();
+            var sac = el('selectAllCheckbox'); if (sac) sac.checked = false;
+        })
+        .catch(function (e) {
+            console.error('load opportunities failed', e);
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-4">' + t('global.error_loading', 'Error loading data') + '</td></tr>';
+        });
+}
+
+function loadKPIs() {
+    var f = getFilters();
+    var qs = buildQueryString({ stage: f.stage, assigned_to: f.assigned_to, status: f.status });
+    fetch('/api/crm/opportunities/stats' + qs, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (stats) {
+            var tv = el('kpiTotalValue'); if (tv) tv.textContent = '$' + Number(stats.total_value || 0).toLocaleString();
+            var wv = el('kpiWeighted');   if (wv) wv.textContent = '$' + Number(stats.weighted_value || 0).toLocaleString();
+            var wr = el('kpiWinRate');    if (wr) wr.textContent = (stats.win_rate || 0) + '%';
+            var oc = el('kpiOpenCount');  if (oc) oc.textContent = stats.opportunity_count || 0;
+            var cnt = el('opportunitiesCount'); if (cnt) cnt.textContent = stats.opportunity_count || 0;
+        })
+        .catch(function (e) { console.error('load KPIs failed', e); });
+}
+
+function loadKanban() {
+    var container = el('kanbanContainer');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center text-muted py-4 w-100">' + t('global.loading', 'Loading...') + '</div>';
+    var f = getFilters();
+    var qs = buildQueryString({ assigned_to: f.assigned_to, status: 'All', date_from: f.date_from, date_to: f.date_to, search: f.search });
+
+    fetch('/api/crm/opportunities' + qs, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data || !data.length) {
+                container.innerHTML = '<div class="text-center text-muted py-4 w-100">' + t('global.no_data', 'No opportunities found') + '</div>';
+                return;
+            }
+            var byStage = {};
+            KANBAN_STAGES.forEach(function (s) { byStage[s] = []; });
+            data.forEach(function (opp) {
+                var st = opp.stage || 'Prospecting';
+                if (!byStage[st]) byStage[st] = [];
+                byStage[st].push(opp);
+            });
+
+            var html = '';
+            KANBAN_STAGES.forEach(function (stage, idx) {
+                var cards = byStage[stage] || [];
+                var prevStage = idx > 0 ? KANBAN_STAGES[idx - 1] : null;
+                var nextStage = idx < KANBAN_STAGES.length - 1 ? KANBAN_STAGES[idx + 1] : null;
+
+                html += '<div class="col-md-6 col-lg-4 mb-3"><div class="kanban-column">';
+                html += '<div class="stage-column-header">' + escapeHtml(stageLabel(stage)) +
+                        ' <span class="badge bg-secondary">' + cards.length + '</span></div>';
+                html += '<div class="kanban-cards" data-stage="' + escapeHtml(stage) + '">';
+                if (!cards.length) {
+                    html += '<div class="kanban-empty">' + t('crm.kanban.no_deals', 'No deals') + '</div>';
+                } else {
+                    cards.forEach(function (opp) {
+                        var probClass = opp.probability >= 70 ? 'probability-high'
+                                      : (opp.probability >= 30 ? 'probability-medium' : 'probability-low');
+                        var followup = '';
+                        if (opp.next_followup_formatted) {
+                            var cls  = opp.is_followup_overdue ? 'text-danger fw-bold' : 'text-success';
+                            var icon = opp.is_followup_overdue ? 'fa-exclamation-circle' : 'fa-bell';
+                            followup = '<div class="opportunity-followup ' + cls + '">' +
+                                       '<i class="fas ' + icon + ' me-1"></i>' +
+                                       escapeHtml(opp.next_followup_formatted) + '</div>';
+                        }
+                        html += '<div class="kanban-card" data-id="' + opp.opportunity_id + '">' +
+                            '<div class="opportunity-name"><a href="/crm/opportunity/' + opp.opportunity_id + '">' +
+                                escapeHtml(opp.name || '') + '</a></div>' +
+                            '<div class="opportunity-customer">' + escapeHtml(opp.customer_name || '—') + '</div>' +
+                            '<div class="opportunity-value">$' + Number(opp.value || 0).toLocaleString() + '</div>' +
+                            '<div class="opportunity-prob ' + probClass + '">' + (opp.probability || 0) + '%</div>' +
+                            followup +
+                            '<div class="kanban-actions">' +
+                                (prevStage ? '<button class="btn btn-outline-secondary kb-move" data-id="' + opp.opportunity_id + '" data-to="' + escapeHtml(prevStage) + '"><i class="fas fa-arrow-left"></i></button>' : '') +
+                                (nextStage ? '<button class="btn btn-outline-primary kb-move" data-id="' + opp.opportunity_id + '" data-to="' + escapeHtml(nextStage) + '"><i class="fas fa-arrow-right"></i></button>' : '') +
+                                '<button class="btn btn-outline-info ms-auto kb-log" data-id="' + opp.opportunity_id + '"><i class="fas fa-clock"></i></button>' +
+                            '</div>' +
+                        '</div>';
+                    });
+                }
+                html += '</div></div></div>';
+            });
+            container.innerHTML = html;
+        })
+        .catch(function (e) {
+            console.error('load kanban failed', e);
+            container.innerHTML = '<div class="text-center text-danger py-4 w-100">' + t('global.error_loading', 'Error loading data') + '</div>';
+        });
+}
+
+function refreshAll() {
+    var listView = el('listView');
+    var kanbanView = el('kanbanView');
+    var showingKanban = kanbanView && kanbanView.style.display !== 'none';
+    if (showingKanban) { loadKanban(); } else { loadOpportunities(); }
+    loadKPIs();
+}
+
+// ============================================================================
+// 4. AI ASSIST — TOP LEVEL
+// ============================================================================
+function openAIAssist() {
+    el('aiInputText').value = '';
+    el('aiCharCount').textContent = '0';
+    el('aiErrorBox').style.display = 'none';
+    el('aiErrorBox').textContent = '';
+    el('aiPreviewPanel').innerHTML =
+        '<div class="text-muted text-center py-5">' +
+        '<i class="fas fa-arrow-left fa-2x mb-2"></i>' +
+        '<p>' + escapeHtml(t('crm.ai.waiting', 'Paste text and click "Parse with AI" to see the preview.')) + '</p>' +
+        '</div>';
+    el('aiUseValuesBtn').disabled = true;
+    lastAIParsed = null;
+    bootstrap.Modal.getOrCreateInstance(el('aiAssistModal')).show();
+}
+
+function parseWithAI() {
+    var text = el('aiInputText').value.trim();
+    if (!text) {
+        showToast(t('crm.ai.text_required', 'Please paste some text first.'), 'warning');
+        return;
+    }
+
+    var btn = el('aiParseBtn');
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' +
+                    escapeHtml(t('crm.ai.parsing', 'Analyzing...'));
+
+    el('aiErrorBox').style.display = 'none';
+    el('aiPreviewPanel').innerHTML =
+        '<div class="text-center py-5"><div class="spinner-border text-success mb-2"></div>' +
+        '<p class="text-muted">' + escapeHtml(t('crm.ai.parsing', 'Analyzing...')) + '</p></div>';
+
+    var t0 = Date.now();
+    fetch('/api/crm/ai/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ text: text, context: 'opportunity' }),
+    })
+    .then(function (r) {
+        return r.json().then(function (body) { return { status: r.status, body: body }; });
+    })
+    .then(function (res) {
+        var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        if (res.status === 200 && res.body.ok) {
+            lastAIParsed = res.body.parsed;
+            renderAIPreview(res.body.parsed, elapsed);
+            el('aiUseValuesBtn').disabled = false;
+        } else {
+            var errMsg = (res.body && res.body.error) || 'AI parsing failed';
+            el('aiErrorBox').textContent = errMsg;
+            el('aiErrorBox').style.display = 'block';
+            el('aiPreviewPanel').innerHTML =
+                '<div class="text-center text-danger py-5">' +
+                '<i class="fas fa-exclamation-triangle fa-2x mb-2"></i>' +
+                '<p>' + escapeHtml(t('crm.ai.error', 'AI parsing failed')) + '</p>' +
+                '</div>';
+            el('aiUseValuesBtn').disabled = true;
+        }
+    })
+    .catch(function (err) {
+        el('aiErrorBox').textContent = 'Network error: ' + err.message;
+        el('aiErrorBox').style.display = 'block';
+        el('aiPreviewPanel').innerHTML = '';
+        el('aiUseValuesBtn').disabled = true;
+    })
+    .finally(function () {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+
+function renderAIPreview(parsed, elapsed) {
+    var ents = (parsed && parsed.entities) || {};
+    var warnings = (parsed && parsed.warnings) || [];
+    var html = '';
+
+    // ---- Company ----
+    var company = ents.company;
+    if (company && company.name) {
+        html += '<div class="ai-preview-section">';
+        html += '<h6><i class="fas fa-building me-1"></i>' + escapeHtml(t('crm.ai.company', 'Company')) + '</h6>';
+        html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.customer_name', 'Name')) + ':</span> <span class="value">' + escapeHtml(company.name) + '</span></div>';
+        if (company.website)   html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.ai.website', 'Website')) + ':</span> <span class="value">' + escapeHtml(company.website) + '</span></div>';
+        if (company.email)     html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.ai.email', 'Email')) + ':</span> <span class="value">' + escapeHtml(company.email) + '</span></div>';
+        if (company.address)   html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.address', 'Address')) + ':</span> <span class="value">' + escapeHtml(company.address) + '</span></div>';
+        if (company.phones && company.phones.length) {
+            html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.phone.number', 'Phones')) + ':</span> <span class="value">' +
+                company.phones.map(function (p) { return escapeHtml(p.value) + ' (' + escapeHtml(p.type || '') + ')'; }).join(', ') +
+                '</span></div>';
+        }
+        html += '</div>';
+    }
+
+    // ---- Contacts (informational — not saved) ----
+    var contacts = ents.contacts || [];
+    if (contacts.length) {
+        html += '<div class="ai-preview-section ai-no-save">';
+        html += '<h6><i class="fas fa-user me-1"></i>' + escapeHtml(t('crm.ai.contacts_extracted', 'Contacts extracted (not saved automatically)')) + '</h6>';
+        contacts.forEach(function (c) {
+            var name = [c.first_name, c.last_name].filter(Boolean).join(' ');
+            html += '<div class="field-row"><span class="value">' + escapeHtml(name) + '</span>';
+            if (c.job_title) html += ' <span class="label">— ' + escapeHtml(c.job_title) + '</span>';
+            if (c.email)     html += ' <span class="label">· ' + escapeHtml(c.email) + '</span>';
+            if (c.phones && c.phones.length) {
+                html += ' <span class="label">· ' + c.phones.map(function (p) { return escapeHtml(p.value); }).join(', ') + '</span>';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // ---- Opportunity (will be filled) ----
+    var opp = ents.opportunity;
+    if (opp) {
+        html += '<div class="ai-preview-section">';
+        html += '<h6><i class="fas fa-handshake me-1"></i>' + escapeHtml(t('crm.opportunity', 'Opportunity')) + ' ' +
+                '<span class="badge bg-success">' + escapeHtml(t('crm.ai.will_fill', 'Will fill the form')) + '</span></h6>';
+        if (opp.name)                html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.ai.name', 'Name')) + ':</span> <span class="value">' + escapeHtml(opp.name) + '</span></div>';
+        if (opp.value)               html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.ai.value', 'Value')) + ':</span> <span class="value">' + Number(opp.value).toLocaleString() + (opp.currency ? ' ' + escapeHtml(opp.currency) : '') + '</span></div>';
+        if (opp.stage)               html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.opportunities.table.stage', 'Stage')) + ':</span> <span class="value">' + escapeHtml(opp.stage) + '</span></div>';
+        if (opp.probability !== undefined) html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.ai.probability', 'Probability')) + ':</span> <span class="value">' + escapeHtml(opp.probability) + '%</span></div>';
+        if (opp.expected_close_date) html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.ai.close_date', 'Close Date')) + ':</span> <span class="value">' + escapeHtml(opp.expected_close_date) + '</span></div>';
+        if (opp.contact_person)      html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.opportunities.contact_person', 'Contact Person')) + ':</span> <span class="value">' + escapeHtml(opp.contact_person) + '</span></div>';
+        if (opp.notes)               html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.ai.notes', 'Notes')) + ':</span> <span class="value">' + escapeHtml(opp.notes) + '</span></div>';
+        html += '</div>';
+    }
+
+    // ---- Activities (informational — not saved) ----
+    var activities = ents.activities || [];
+    if (!activities.length && ents.activity) activities = [ents.activity];
+    if (activities.length) {
+        html += '<div class="ai-preview-section ai-no-save">';
+        html += '<h6><i class="fas fa-clock me-1"></i>' + escapeHtml(t('crm.ai.activities_extracted', 'Activities extracted (not saved automatically)')) + '</h6>';
+        activities.forEach(function (a) {
+            html += '<div class="field-row">';
+            html += '<span class="value">' + escapeHtml(a.activity_type || '') + '</span>';
+            if (a.subject)       html += ' <span class="label">— ' + escapeHtml(a.subject) + '</span>';
+            if (a.activity_date) html += ' <span class="label">· ' + escapeHtml(a.activity_date) + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // ---- Warnings ----
+    if (warnings.length) {
+        html += '<div class="ai-preview-section ai-warn">';
+        html += '<h6><i class="fas fa-exclamation-triangle me-1"></i>' + escapeHtml(t('crm.ai.warnings', 'Warnings')) + '</h6>';
+        warnings.forEach(function (w) {
+            html += '<div class="field-row small">• ' + escapeHtml(w) + '</div>';
+        });
+        html += '</div>';
+    }
+
+    if (!html) {
+        html = '<div class="text-center text-muted py-5">' + escapeHtml(t('crm.ai.no_data', 'No data extracted.')) + '</div>';
+    }
+
+    var footer = '<div class="text-muted text-center mt-2 small">' +
+                 escapeHtml(t('crm.ai.parsed_in', 'Parsed in')) + ' ' + elapsed + 's</div>';
+    el('aiPreviewPanel').innerHTML = html + footer;
+}
+
+function useAIParsedValues() {
+    if (!lastAIParsed) return;
+    var ents = lastAIParsed.entities || {};
+    var opp = ents.opportunity || {};
+
+    // 1. Close AI modal
+    var aiModal = bootstrap.Modal.getInstance(el('aiAssistModal'));
+    if (aiModal) aiModal.hide();
+
+    // 2. Open Create modal (reset first)
+    var form = el('opportunityForm');
+    if (form) form.reset();
+    el('opportunityId').value = '';
+    el('opportunityModalTitle').textContent = t('crm.opportunities.create', 'Create Opportunity');
+
+    // 3. Fill values from AI parse
+    if (opp.name)                el('oppName').value = opp.name;
+    if (opp.value)               el('oppValue').value = opp.value;
+    if (opp.probability !== undefined) el('oppProbability').value = opp.probability;
+    if (opp.stage)               el('oppStage').value = opp.stage;
+    if (opp.expected_close_date) el('oppExpectedClose').value = opp.expected_close_date;
+    if (opp.notes)               el('oppNotes').value = opp.notes;
+    if (opp.contact_person)      el('oppContactPerson').value = opp.contact_person;
+
+    // 4. Show "filled by AI" banner
+    el('aiFromBanner').style.display = 'block';
+
+    // 5. Show "not saved" info for contacts/activities
+    var notSavedParts = [];
+    var contacts = ents.contacts || [];
+    var activities = ents.activities || [];
+    if (contacts.length) {
+        notSavedParts.push(contacts.length + ' ' + t('crm.ai.contacts', 'contact(s)'));
+    }
+    if (activities.length) {
+        notSavedParts.push(activities.length + ' ' + t('crm.ai.activities', 'activity(ies)'));
+    }
+    if (notSavedParts.length) {
+        el('aiNotSavedInfoText').textContent =
+            t('crm.ai.not_saved_prefix', 'AI also extracted:') + ' ' + notSavedParts.join(', ') +
+            '. ' + t('crm.ai.not_saved_suffix', 'Save them separately after creating the opportunity.');
+        el('aiNotSavedInfo').style.display = 'block';
+    } else {
+        el('aiNotSavedInfo').style.display = 'none';
+    }
+
+    // 6. Open the Create modal
+    bootstrap.Modal.getOrCreateInstance(el('opportunityModal')).show();
+
+    // 7. Clear the "filled by AI" banner once the modal is hidden
+    el('opportunityModal').addEventListener('hidden.bs.modal', function () {
+        el('aiFromBanner').style.display = 'none';
+        el('aiNotSavedInfo').style.display = 'none';
+    }, { once: true });
+}
+
+// ============================================================================
+// 5. OPPORTUNITY CRUD (unchanged)
+// ============================================================================
+function openCreateModal() {
+    var form = el('opportunityForm');
+    if (form) form.reset();
+    el('opportunityId').value = '';
+    el('opportunityModalTitle').textContent = t('crm.opportunities.create', 'Create Opportunity');
+    el('aiFromBanner').style.display = 'none';
+    el('aiNotSavedInfo').style.display = 'none';
+    var ec = el('oppExpectedClose');
+    if (ec) ec.value = new Date().toISOString().split('T')[0];
+    bootstrap.Modal.getOrCreateInstance(el('opportunityModal')).show();
+}
+
+function openEditModal(id) {
+    fetch('/api/crm/opportunities/' + id, { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (opp) {
+            el('opportunityModalTitle').textContent = t('crm.opportunities.edit_title', 'Edit Opportunity');
+            el('opportunityId').value = opp.opportunity_id;
+            el('oppName').value = opp.name || '';
+            el('oppNameFa').value = opp.name_fa || '';
+            el('oppCustomerId').value = opp.customer_id || '';
+            el('oppAssignedTo').value = opp.assigned_user_id || '';
+            el('oppValue').value = opp.value || '';
+            el('oppProbability').value = opp.probability || '';
+            el('oppStage').value = opp.stage || 'Prospecting';
+            el('oppExpectedClose').value = opp.expected_close_date_formatted || '';
+            el('oppProjectId').value = opp.project_id || '';
+            el('oppContactPerson').value = opp.contact_person || '';
+            el('oppContactPersonFa').value = opp.contact_person_fa || '';
+            el('oppContactEmail').value = opp.contact_email || '';
+            el('oppContactPhone').value = opp.contact_phone || '';
+            el('oppWinLossReason').value = opp.win_loss_reason || '';
+            el('oppWinLossReasonFa').value = opp.win_loss_reason_fa || '';
+            el('oppNotes').value = opp.notes || '';
+            el('oppNotesFa').value = opp.notes_fa || '';
+            el('aiFromBanner').style.display = 'none';
+            el('aiNotSavedInfo').style.display = 'none';
+            bootstrap.Modal.getOrCreateInstance(el('opportunityModal')).show();
+        })
+        .catch(function (e) {
+            console.error('openEditModal failed', e);
+            showToast(t('global.error_loading', 'Error loading data'), 'error');
+        });
+}
+
+function saveOpportunity() {
+    var id = el('opportunityId').value;
+    var payload = {
+        name:                 el('oppName').value,
+        nameFa:               el('oppNameFa').value,
+        customer_id:          el('oppCustomerId').value,
+        assigned_to_user_id:  el('oppAssignedTo').value,
+        value:                parseFloat(el('oppValue').value) || 0,
+        probability:          parseInt(el('oppProbability').value, 10) || 0,
+        stage:                el('oppStage').value,
+        expected_close_date:  el('oppExpectedClose').value,
+        project_id:           el('oppProjectId').value,
+        contact_person:       el('oppContactPerson').value,
+        contact_personFa:     el('oppContactPersonFa').value,
+        contact_email:        el('oppContactEmail').value,
+        contact_phone:        el('oppContactPhone').value,
+        win_loss_reason:      el('oppWinLossReason').value,
+        win_loss_reasonFa:    el('oppWinLossReasonFa').value,
+        notes:                el('oppNotes').value,
+        notesFa:              el('oppNotesFa').value,
+    };
+    var url    = id ? '/api/crm/opportunities/' + id : '/api/crm/opportunities';
+    var method = id ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+    })
+    .then(function (r) {
+        if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || ('HTTP ' + r.status)); });
+        return r.json();
+    })
+    .then(function () {
+        bootstrap.Modal.getInstance(el('opportunityModal')).hide();
+        refreshAll();
+        showToast(t(id ? 'crm.opportunities.updated' : 'crm.opportunities.created',
+                    id ? 'Opportunity updated' : 'Opportunity created'), 'success');
+    })
+    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+}
+
+function openActivityModal(id) {
+    el('activityOpportunityId').value = id;
+    var form = el('activityForm');
+    if (form) form.reset();
+    var ad = el('activityDate');
+    if (ad) ad.value = new Date().toISOString().split('T')[0];
+    var rd = new Date(); rd.setDate(rd.getDate() + 3);
+    var ar = el('activityReminder');
+    if (ar) ar.value = rd.toISOString().split('T')[0];
+    bootstrap.Modal.getOrCreateInstance(el('activityModal')).show();
+}
+
+function saveActivity() {
+    var opportunityId = el('activityOpportunityId').value;
+    var subj = el('activitySubject').value;
+    if (!subj) { showToast(t('crm.activity.subject_required', 'Subject required'), 'warning'); return; }
+    var payload = {
+        activity_type:  el('activityType').value,
+        subject:        subj,
+        subjectFa:      el('activitySubjectFa').value,
+        activity_date:  el('activityDate').value,
+        notes:          el('activityNotes').value,
+        notesFa:        el('activityNotesFa').value,
+        reminder_date:  el('activityReminder').value,
+    };
+    fetch('/api/crm/opportunities/' + opportunityId + '/activity', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin', body: JSON.stringify(payload),
+    })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function () {
+        bootstrap.Modal.getInstance(el('activityModal')).hide();
+        refreshAll();
+        showToast(t('crm.opportunities.activity_logged', 'Activity logged successfully'), 'success');
+    })
+    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+}
+
+function moveOpportunity(id, newStage) {
+    fetch('/api/crm/opportunities/' + id + '/inline', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin', body: JSON.stringify({ stage: newStage }),
+    })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function () { loadKanban(); loadKPIs(); })
+    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+}
+
+// ============================================================================
+// 6. BULK ACTIONS (unchanged)
+// ============================================================================
+function getSelectedIds() {
+    return Array.prototype.slice.call(document.querySelectorAll('.row-checkbox:checked'))
+        .map(function (cb) { return parseInt(cb.getAttribute('data-id'), 10); });
+}
+function updateBulkBar() {
+    var ids = getSelectedIds();
+    var bar = el('bulkBar');
+    if (!bar) return;
+    if (ids.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+    var cnt = el('bulkCount'); if (cnt) cnt.textContent = ids.length;
+}
+function bulkPost(action, ids, value) {
+    fetch('/api/crm/opportunities/bulk', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: action, ids: ids, value: value }),
+    })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (res) {
+        refreshAll();
+        document.querySelectorAll('.row-checkbox').forEach(function (cb) { cb.checked = false; });
+        var sac = el('selectAllCheckbox'); if (sac) sac.checked = false;
+        updateBulkBar();
+        showToast(res.message || 'Done', 'success');
+    })
+    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+}
+
+// ============================================================================
+// 7. INIT — ONLY init + event binding
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('CRM opportunities page loaded | lang:', window.currentLanguage);
+
+    loadDropdowns();
+    refreshAll();
+
+    // Filters
+    var debounceTimer = null;
+    function debouncedRefresh() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(refreshAll, 300);
+    }
+    ['filterStage', 'filterAssignedTo', 'filterStatus', 'filterDateFrom', 'filterDateTo']
+        .forEach(function (id) {
+            var e = el(id); if (e) e.addEventListener('change', refreshAll);
+        });
+    var searchEl = el('filterSearch');
+    if (searchEl) searchEl.addEventListener('input', debouncedRefresh);
+    var refreshBtn = el('refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshAll);
+
+    // View toggle
+    var lv = el('listViewBtn'), kv = el('kanbanViewBtn');
+    var listView = el('listView'), kanbanView = el('kanbanView');
+    if (lv) lv.addEventListener('click', function () {
+        listView.style.display = ''; kanbanView.style.display = 'none';
+        lv.classList.add('btn-primary'); lv.classList.remove('btn-outline-primary');
+        kv.classList.add('btn-outline-primary'); kv.classList.remove('btn-primary');
+        loadOpportunities();
+    });
+    if (kv) kv.addEventListener('click', function () {
+        listView.style.display = 'none'; kanbanView.style.display = '';
+        kv.classList.add('btn-primary'); kv.classList.remove('btn-outline-primary');
+        lv.classList.add('btn-outline-primary'); lv.classList.remove('btn-primary');
+        loadKanban();
+    });
+
+    // Create / Save buttons
+    var createBtn = el('createOpportunityBtn');
+    if (createBtn) createBtn.addEventListener('click', openCreateModal);
+    var saveBtn = el('saveOpportunityBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveOpportunity);
+    var saveActBtn = el('saveActivityBtn');
+    if (saveActBtn) saveActBtn.addEventListener('click', saveActivity);
+
+    // AI Assist buttons
+    var aiBtn = el('aiAssistBtn');
+    if (aiBtn) aiBtn.addEventListener('click', openAIAssist);
+    var aiParseBtn = el('aiParseBtn');
+    if (aiParseBtn) aiParseBtn.addEventListener('click', parseWithAI);
+    var aiUseBtn = el('aiUseValuesBtn');
+    if (aiUseBtn) aiUseBtn.addEventListener('click', useAIParsedValues);
+    var aiClearBtn = el('aiClearBtn');
+    if (aiClearBtn) aiClearBtn.addEventListener('click', function () {
+        el('aiInputText').value = '';
+        el('aiCharCount').textContent = '0';
+        el('aiPreviewPanel').innerHTML =
+            '<div class="text-muted text-center py-5">' +
+            '<i class="fas fa-arrow-left fa-2x mb-2"></i>' +
+            '<p>' + escapeHtml(t('crm.ai.waiting', 'Paste text and click "Parse with AI" to see the preview.')) + '</p>' +
+            '</div>';
+        el('aiUseValuesBtn').disabled = true;
+        el('aiErrorBox').style.display = 'none';
+        lastAIParsed = null;
+    });
+    var aiText = el('aiInputText');
+    if (aiText) aiText.addEventListener('input', function () {
+        el('aiCharCount').textContent = String(aiText.value.length);
+    });
+
+    // Delegated row actions
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.row-view-btn, .row-edit-btn, .row-log-btn, .row-convert-btn, .row-duplicate-btn, .row-delete-btn, .kb-move, .kb-log');
+        if (!btn) return;
+        var id = btn.getAttribute('data-id');
+
+        if (btn.classList.contains('row-view-btn'))     { window.location.href = '/crm/opportunity/' + id; return; }
+        if (btn.classList.contains('row-edit-btn'))     { openEditModal(id); return; }
+        if (btn.classList.contains('row-log-btn'))      { openActivityModal(id); return; }
+        if (btn.classList.contains('row-convert-btn'))  { window.currentOppId = id; bootstrap.Modal.getOrCreateInstance(el('convertModal')).show(); return; }
+        if (btn.classList.contains('row-duplicate-btn')) {
+            if (!confirm(t('crm.opportunities.confirm_duplicate', 'Duplicate this opportunity?'))) return;
+            fetch('/api/crm/opportunities/' + id + '/duplicate', { method: 'POST', credentials: 'same-origin' })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function () { refreshAll(); showToast(t('crm.opportunities.duplicated', 'Opportunity duplicated'), 'success'); })
+                .catch(function (err) { showToast(String(err.message || err), 'error'); });
+            return;
+        }
+        if (btn.classList.contains('row-delete-btn')) {
+            if (!confirm(t('crm.opportunities.confirm_delete', 'Delete this opportunity?'))) return;
+            fetch('/api/crm/opportunities/' + id, { method: 'DELETE', credentials: 'same-origin' })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function () { refreshAll(); showToast(t('crm.opportunities.deleted', 'Opportunity deleted'), 'success'); })
+                .catch(function (err) { showToast(String(err.message || err), 'error'); });
+            return;
+        }
+        if (btn.classList.contains('kb-move'))          { moveOpportunity(id, btn.getAttribute('data-to')); return; }
+        if (btn.classList.contains('kb-log'))           { openActivityModal(id); return; }
+    });
+
+    // Bulk selection
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('row-checkbox')) {
+            updateBulkBar();
+        }
+    });
+    var sac = el('selectAllCheckbox');
+    if (sac) sac.addEventListener('change', function () {
+        document.querySelectorAll('.row-checkbox').forEach(function (cb) { cb.checked = sac.checked; });
+        updateBulkBar();
+    });
+    var bcb = el('bulkClearBtn');
+    if (bcb) bcb.addEventListener('click', function () {
+        document.querySelectorAll('.row-checkbox').forEach(function (cb) { cb.checked = false; });
+        var s = el('selectAllCheckbox'); if (s) s.checked = false;
+        updateBulkBar();
+    });
+    var bab = el('bulkAssignBtn');
+    if (bab) bab.addEventListener('click', function () {
+        var ids = getSelectedIds(); var v = el('bulkAssignTo').value;
+        if (ids.length && v) bulkPost('assign', ids, v);
+    });
+    var bsb = el('bulkStageBtn');
+    if (bsb) bsb.addEventListener('click', function () {
+        var ids = getSelectedIds(); var v = el('bulkStage').value;
+        if (ids.length && v) bulkPost('stage', ids, v);
+    });
+    var bdb = el('bulkDeleteBtn');
+    if (bdb) bdb.addEventListener('click', function () {
+        var ids = getSelectedIds();
+        if (!ids.length) return;
+        if (!confirm(t('crm.opportunities.confirm_bulk_delete', 'Delete the selected opportunities?'))) return;
+        bulkPost('delete', ids, null);
+    });
+});
+</script>
+{% endblock %}

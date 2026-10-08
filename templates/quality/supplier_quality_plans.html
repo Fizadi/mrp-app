@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}Supplier Quality Plans - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<!-- Header -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+<h2 class="page-title mb-0">
+<i class="fas fa-truck me-2"></i>{{ get_translation('auto.e9e35d63', 'Supplier Quality Plans') }}<span class="badge bg-secondary ms-2" id="assignmentsCount">{{ get_translation('auto.1f95a4c4', '0') }}</span>
+</h2>
+<div class="d-flex gap-2">
+<button class="btn btn-primary" id="createAssignmentBtn">
+<i class="fas fa-plus me-1"></i>{{ get_translation('auto.faa2c5d0', 'Assign Supplier QC') }}</button>
+<button class="btn btn-success" id="refreshBtn">
+<i class="fas fa-sync-alt me-1"></i>{{ get_translation('auto.edfd8ea6', 'Refresh') }}</button>
+<div class="dropdown">
+<button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+<i class="fas fa-file-import me-1"></i>{{ get_translation('auto.08afe120', 'Import/Export') }}</button>
+<ul class="dropdown-menu dropdown-menu-end">
+<li><a class="dropdown-item" href="#" id="importCsvBtn"><i class="fas fa-upload me-2"></i>{{ get_translation('auto.58954620', 'Import CSV') }}</a></li>
+<li><a class="dropdown-item" href="#" id="exportCsvBtn"><i class="fas fa-download me-2"></i>{{ get_translation('auto.6be115a7', 'Export CSV') }}</a></li>
+</ul>
+</div>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-primary h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-primary">{{ get_translation('auto.3a90106f', 'Total Assignments') }}</h5>
+<p class="card-text display-6" id="kpiTotal">{{ get_translation('auto.c5b3452e', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-info h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-info">{{ get_translation('auto.9812aa1b', 'Suppliers') }}</h5>
+<p class="card-text display-6" id="kpiSuppliers">{{ get_translation('auto.4a66447f', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-success">{{ get_translation('auto.cc9f7c28', 'Products') }}</h5>
+<p class="card-text display-6" id="kpiProducts">{{ get_translation('auto.b8787d81', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters Card -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-5">
+<label class="form-label">{{ get_translation('auto.c749436d', 'Supplier') }}</label>
+<select class="form-select" id="filterSupplier">
+<option value="">{{ get_translation('auto.6a0d2eb8', 'All Suppliers') }}</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.SupplierID }}">{{ s.SupplierName }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-5">
+<label class="form-label">{{ get_translation('auto.ac9c52ba', 'Product') }}</label>
+<select class="form-select" id="filterProduct">
+<option value="">{{ get_translation('auto.a36a94c6', 'All Products') }}</option>
+                        {% for p in products %}
+                        <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-2">
+<label class="form-label"> </label>
+<button class="btn btn-outline-secondary w-100" id="clearFiltersBtn">{{ get_translation('auto.5e4db062', 'Clear Filters') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Table Card -->
+<div class="card">
+<div class="card-header">
+<h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('auto.e5461f26', 'Supplier Quality Requirements') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="assignmentsTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.772ac5b0', 'Supplier') }}</th>
+<th>{{ get_translation('auto.e252ef39', 'Product') }}</th>
+<th>{{ get_translation('auto.69dfd205', 'Operation') }}</th>
+<th>{{ get_translation('auto.e09ed433', 'Sampling') }}</th>
+<th>{{ get_translation('auto.76c7ee93', 'Spec Min/Max') }}</th>
+<th>{{ get_translation('auto.5832cba6', 'Required') }}</th>
+<th>{{ get_translation('auto.e6816318', 'Critical') }}</th>
+<th>{{ get_translation('auto.a5ef72f6', 'Certificate') }}</th>
+<th>{{ get_translation('auto.9ffa5d83', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="assignmentsTableBody">
+<tr><td class="text-center py-4" colspan="9">{{ get_translation('auto.e902252f', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- ========== MODALS ========== -->
+<!-- Assign/Edit Supplier QC Modal -->
+<div aria-hidden="true" class="modal fade" id="assignmentModal" tabindex="-1">
+<div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="assignmentModalTitle">{{ get_translation('auto.ffd4d5a7', 'Assign Supplier QC') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="assignmentForm">
+<input id="assignmentId" type="hidden" value=""/>
+<div class="row g-3">
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.095a7d64', 'Supplier *') }}</label>
+<select class="form-select" id="supplierId" required="">
+<option value="">{{ get_translation('auto.fbabb7f2', 'Select Supplier') }}</option>
+                                {% for s in suppliers %}
+                                <option value="{{ s.SupplierID }}">{{ s.SupplierName }}</option>
+                                {% endfor %}
+                            </select>
+</div>
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.15125608', 'Product *') }}</label>
+<select class="form-select" id="productId" required="">
+<option value="">{{ get_translation('auto.a01a20b2', 'Select Product') }}</option>
+                                {% for p in products %}
+                                <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                                {% endfor %}
+                            </select>
+</div>
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.a51e92ae', 'Operation *') }}</label>
+<select class="form-select" id="operationId" required="">
+<option value="">{{ get_translation('auto.e1e08e5b', 'Loading operations...') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.3b27e911', 'Sampling Size') }}</label>
+<input class="form-control" id="samplingSize" type="number" value="1"/>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.ec8af851', 'Sampling Frequency') }}</label>
+<input class="form-control" id="samplingFrequency" placeholder="e.g., Each, Sample" type="text"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.07ed68c1', 'Spec Min') }}</label>
+<input class="form-control" id="specMin" step="any" type="number"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.e0d53384', 'Spec Max') }}</label>
+<input class="form-control" id="specMax" step="any" type="number"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.ba1ede97', 'Unit') }}</label>
+<input class="form-control" id="measurementUnit" type="text"/>
+</div>
+<div class="col-md-4">
+<div class="form-check mt-4">
+<input checked="" class="form-check-input" id="isRequired" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.c23c0f22', 'Required') }}</label>
+</div>
+</div>
+<div class="col-md-4">
+<div class="form-check mt-4">
+<input class="form-check-input" id="isCritical" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.df5cb308', 'Critical') }}</label>
+</div>
+</div>
+<div class="col-md-4">
+<div class="form-check mt-4">
+<input class="form-check-input" id="certificateRequired" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.44cc8cc4', 'Certificate Required') }}</label>
+</div>
+</div>
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.82c63dcc', 'Effective Date Key') }}</label>
+<input class="form-control" id="effectiveDateKey" type="date"/>
+</div>
+<div class="col-md-6">
+<label class="form-label">{{ get_translation('auto.4bc2f6fd', 'Expiry Date Key') }}</label>
+<input class="form-control" id="expiryDateKey" type="date"/>
+</div>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.0e1c5295', 'Cancel') }}</button>
+<button class="btn btn-danger" id="deleteAssignmentBtn" style="display:none;" type="button">{{ get_translation('auto.51ce12cb', 'Delete') }}</button>
+<button class="btn btn-primary" id="saveAssignmentBtn" type="button">{{ get_translation('auto.9e50363a', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let currentAssignmentId = null;
+    let assignmentModal = new bootstrap.Modal(document.getElementById('assignmentModal'));
+    let operationsList = []; // {id, code, name}
+
+    // Load operations for dropdown
+    function loadOperations() {
+        $.get('/api/quality/quality-plans/operations', function(data) {
+            operationsList = data;
+            let select = $('#operationId');
+            select.empty();
+            select.append('<option value="">Select Operation</option>');
+            for (let op of data) {
+                select.append(`<option value="${op.id}">${op.code} - ${op.name}</option>`);
+            }
+        });
+    }
+
+    // Load KPI
+    function loadKPI() {
+        $.get('/api/quality/supplier-plans/kpi', function(data) {
+            $('#kpiTotal').text(data.total || 0);
+            $('#kpiSuppliers').text(data.suppliers || 0);
+            $('#kpiProducts').text(data.products || 0);
+        });
+    }
+
+    // Load table
+    function loadTable() {
+        let supplier = $('#filterSupplier').val();
+        let product = $('#filterProduct').val();
+        $.get('/api/quality/supplier-plans/list', {supplier: supplier, product: product}, function(data) {
+            $('#assignmentsCount').text(data.length);
+            let tbody = $('#assignmentsTableBody').empty();
+            for (let a of data) {
+                let row = `<tr>
+                    <td>${escapeHtml(a.supplierName)} (${escapeHtml(a.supplierId)})</td>
+                    <td>${escapeHtml(a.productId)}</td>
+                    <td>${escapeHtml(a.operationCode)} - ${escapeHtml(a.operationName)}</td>
+                    <td>${a.samplingSize || ''} ${a.samplingFrequency || ''}</td>
+                    <td>${a.specMin !== null ? a.specMin : ''} / ${a.specMax !== null ? a.specMax : ''}</td>
+                    <td>${a.isRequired ? 'Yes' : 'No'}</td>
+                    <td>${a.isCritical ? 'Yes' : 'No'}</td>
+                    <td>${a.certificateRequired ? 'Yes' : 'No'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info edit-assignment" data-id="${a.assignmentId}"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn btn-sm btn-danger delete-assignment" data-id="${a.assignmentId}"><i class="fas fa-trash"></i> Delete</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        });
+    }
+
+    // Open modal for create
+    $('#createAssignmentBtn').click(function() {
+        currentAssignmentId = null;
+        $('#assignmentForm')[0].reset();
+        $('#assignmentId').val('');
+        $('#supplierId').val('');
+        $('#productId').val('');
+        $('#operationId').val('');
+        $('#samplingSize').val(1);
+        $('#samplingFrequency').val('');
+        $('#specMin').val('');
+        $('#specMax').val('');
+        $('#measurementUnit').val('');
+        $('#isRequired').prop('checked', true);
+        $('#isCritical').prop('checked', false);
+        $('#certificateRequired').prop('checked', false);
+        $('#effectiveDateKey').val('');
+        $('#expiryDateKey').val('');
+        $('#deleteAssignmentBtn').hide();
+        $('#assignmentModalTitle').text('Assign Supplier QC');
+        assignmentModal.show();
+    });
+
+    // Edit assignment
+    $(document).on('click', '.edit-assignment', function() {
+        let id = $(this).data('id');
+        $.get(`/api/quality/supplier-plans/assignment/${id}`, function(data) {
+            currentAssignmentId = data.AssignmentID;
+            $('#assignmentId').val(data.AssignmentID);
+            $('#supplierId').val(data.supplierId);
+            $('#productId').val(data.productId);
+            $('#operationId').val(data.QCOperationID);
+            $('#samplingSize').val(data.SamplingSize);
+            $('#samplingFrequency').val(data.SamplingFrequency);
+            $('#specMin').val(data.SpecMin);
+            $('#specMax').val(data.SpecMax);
+            $('#measurementUnit').val(data.MeasurementUnit);
+            $('#isRequired').prop('checked', data.IsRequired == 1);
+            $('#isCritical').prop('checked', data.IsCritical == 1);
+            $('#certificateRequired').prop('checked', data.CertificateRequired == 1);
+            $('#effectiveDateKey').val(data.EffectiveDateKey ? String(data.EffectiveDateKey).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '');
+            $('#expiryDateKey').val(data.ExpiryDateKey ? String(data.ExpiryDateKey).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '');
+            $('#deleteAssignmentBtn').show();
+            $('#assignmentModalTitle').text('Edit Supplier QC');
+            assignmentModal.show();
+        });
+    });
+
+    // Delete assignment
+    $(document).on('click', '.delete-assignment', function() {
+        let id = $(this).data('id');
+        if (confirm('Delete this supplier quality requirement?')) {
+            $.ajax({
+                url: `/api/quality/supplier-plans/assignment/${id}`,
+                method: 'DELETE',
+                success: function() {
+                    loadTable();
+                    loadKPI();
+                }
+            });
+        }
+    });
+
+    $('#deleteAssignmentBtn').click(function() {
+        if (!currentAssignmentId) return;
+        if (confirm('Delete this assignment?')) {
+            $.ajax({
+                url: `/api/quality/supplier-plans/assignment/${currentAssignmentId}`,
+                method: 'DELETE',
+                success: function() {
+                    assignmentModal.hide();
+                    loadTable();
+                    loadKPI();
+                }
+            });
+        }
+    });
+
+    // Save assignment (create or update)
+    $('#saveAssignmentBtn').click(function() {
+        let assignmentData = {
+            supplierId: $('#supplierId').val(),
+            productId: $('#productId').val(),
+            operationId: $('#operationId').val(),
+            sequence: 1,
+            samplingSize: $('#samplingSize').val(),
+            samplingFrequency: $('#samplingFrequency').val(),
+            specMin: $('#specMin').val() || null,
+            specMax: $('#specMax').val() || null,
+            unit: $('#measurementUnit').val(),
+            isRequired: $('#isRequired').is(':checked') ? 1 : 0,
+            isCritical: $('#isCritical').is(':checked') ? 1 : 0,
+            certificateRequired: $('#certificateRequired').is(':checked') ? 1 : 0,
+            effectiveDateKey: $('#effectiveDateKey').val().replace(/-/g, '') || null,
+            expiryDateKey: $('#expiryDateKey').val().replace(/-/g, '') || null
+        };
+        let method = 'POST';
+        let url = '/api/quality/supplier-plans/assignment';
+        if (currentAssignmentId) {
+            method = 'PUT';
+            url = `/api/quality/supplier-plans/assignment/${currentAssignmentId}`;
+        }
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(assignmentData),
+            success: function() {
+                assignmentModal.hide();
+                loadTable();
+                loadKPI();
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON?.error || 'Unknown'));
+            }
+        });
+    });
+
+    // Filters
+    $('#filterSupplier, #filterProduct').on('change', function() {
+        loadTable();
+    });
+    $('#clearFiltersBtn').click(function() {
+        $('#filterSupplier').val('');
+        $('#filterProduct').val('');
+        loadTable();
+    });
+    $('#refreshBtn').click(function() {
+        loadTable();
+        loadKPI();
+    });
+
+    // Import/Export placeholders
+    $('#importCsvBtn').click(function() { alert('CSV import coming soon'); });
+    $('#exportCsvBtn').click(function() { alert('CSV export coming soon'); });
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // Initial load
+    loadOperations();
+    loadKPI();
+    loadTable();
+});
+</script>
+{% endblock %}

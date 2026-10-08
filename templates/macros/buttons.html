@@ -1,0 +1,76 @@
+{# macros/buttons.html #}
+
+{% macro action_button(label, type='primary', size=None, disabled=False, icon=None, url=None, extra_classes='', block=False, visible=True, attrs=None) %}
+    {% if visible %}
+        {% set btn_class = 'btn btn-' + type %}
+        {% if size %}
+            {% set btn_class = btn_class + ' btn-' + size %}
+        {% endif %}
+        {% if block %}
+            {% set btn_class = btn_class + ' w-100' %}
+        {% endif %}
+        {% if extra_classes %}
+            {% set btn_class = btn_class + ' ' + extra_classes %}
+        {% endif %}
+        {% if disabled %}
+            {% set btn_class = btn_class + ' disabled' %}
+        {% endif %}
+        
+        {% if icon %}
+            {% set icon_html = '<i class="' + icon + '"></i> ' %}
+        {% else %}
+            {% set icon_html = '' %}
+        {% endif %}
+        
+        {# Convert attrs dict to string of HTML attributes #}
+        {% set attr_string = '' %}
+        {% if attrs is mapping %}
+            {% for key, val in attrs.items() %}
+                {% set attr_string = attr_string + ' ' + key + '="' + val|string + '"' %}
+            {% endfor %}
+        {% endif %}
+        
+        {% if url %}
+            <a href="{{ url }}" class="{{ btn_class }}"{{ attr_string|safe }}>
+                {{ icon_html|safe }}{{ label }}
+            </a>
+        {% else %}
+            <button type="button" class="{{ btn_class }}"{{ attr_string|safe }} {% if disabled %}disabled{% endif %}>
+                {{ icon_html|safe }}{{ label }}
+            </button>
+        {% endif %}
+    {% endif %}
+{% endmacro %}
+
+{% macro smart_button(label, type=None, size=None, disabled=False, icon=None, url=None, extra_classes='', block=False, visible=True, attrs=None) %}
+    {% set defaults = {
+        'Save': {'type': 'primary', 'icon': 'fas fa-save'},
+        'Edit': {'type': 'warning', 'icon': 'fas fa-edit'},
+        'Delete': {'type': 'danger', 'icon': 'fas fa-trash-alt'},
+        'Cancel': {'type': 'secondary', 'icon': 'fas fa-times'},
+        'Close': {'type': 'secondary', 'icon': 'fas fa-times'},
+        'Add': {'type': 'primary', 'icon': 'fas fa-plus'},
+        'Create': {'type': 'primary', 'icon': 'fas fa-plus'},
+        'Submit': {'type': 'primary', 'icon': 'fas fa-paper-plane'},
+        'Apply': {'type': 'primary', 'icon': 'fas fa-check'},
+        'Refresh': {'type': 'primary', 'icon': 'fas fa-sync-alt'},
+        'Import': {'type': 'outline-primary', 'icon': 'fas fa-upload'},
+        'Export': {'type': 'outline-info', 'icon': 'fas fa-download'},
+        'Approve': {'type': 'success', 'icon': 'fas fa-check-circle'},
+        'Reject': {'type': 'danger', 'icon': 'fas fa-times-circle'},
+        'Back': {'type': 'secondary', 'icon': 'fas fa-arrow-left'},
+        'Reset': {'type': 'secondary', 'icon': 'fas fa-undo'},
+        'Copy': {'type': 'primary', 'icon': 'fas fa-copy'},
+        'View History': {'type': 'secondary', 'icon': 'fas fa-history'},
+        'Archive': {'type': 'danger', 'icon': 'fas fa-archive'},
+        'View Products': {'type': 'info', 'icon': 'fas fa-boxes'},
+    } %}
+    {% set default = defaults.get(label, {'type': 'primary', 'icon': ''}) %}
+    {% if not type %}
+        {% set type = default.type %}
+    {% endif %}
+    {% if not icon and default.icon %}
+        {% set icon = default.icon %}
+    {% endif %}
+    {{ action_button(label, type=type, size=size, disabled=disabled, icon=icon, url=url, extra_classes=extra_classes, block=block, visible=visible, attrs=attrs) }}
+{% endmacro %}

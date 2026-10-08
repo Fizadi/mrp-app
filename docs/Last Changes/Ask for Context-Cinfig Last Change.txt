@@ -1,0 +1,12 @@
+based on what concluded, achieved, happenned.. so far.. please provide instructions to add/modify and update:
+
+
+project context - as a global document aimed to tell the story of the whole app and be used to make/edit and update any module from extact in another chat
+
+page configuration of this module- "Manufacturing module"
+
+
+tell me if you need any info- especially the last version of project context and/or page configuration of thi module
+
+Please keep the whole format and in order to save the tokens, just provide the necessary text - but in details and fully practical
+*: I want to ask you in another chat to combine all the instructions to make a unique one

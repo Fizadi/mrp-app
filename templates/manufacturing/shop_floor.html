@@ -1,0 +1,818 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.shop_floor.title', 'Shop Floor Control') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.shop_floor.breadcrumb', 'Shop Floor Control') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.shop_floor.title', 'Shop Floor Control') }}</h2>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#startJobModal">
+                <i class="fas fa-play"></i> {{ get_translation('manufacturing.shop_floor.start_job', 'Start Job') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.shop_floor.kpi.active', 'Active Jobs') }}</h6><h3 id="kpiActive">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.shop_floor.kpi.completed', 'Completed Today') }}</h6><h3 id="kpiCompleted">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.shop_floor.kpi.downtime', 'Downtime Today') }}</h6><h3 id="kpiDowntime">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.shop_floor.kpi.pass_rate', 'Quality Pass Rate') }}</h6><h3 id="kpiPassRate">0%</h3></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.shop_floor.filters.workstation', 'Workstation') }}</label>
+                <select class="form-select" id="filterWorkstation">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation('manufacturing.shop_floor.filters.status', 'Status') }}</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="InProgress">{{ get_translation('manufacturing.shop_floor.status.in_progress', 'In Progress') }}</option>
+                    <option value="Released">{{ get_translation('manufacturing.shop_floor.status.released', 'Released') }}</option>
+                    <option value="Completed">{{ get_translation('manufacturing.shop_floor.status.completed', 'Completed') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation('manufacturing.shop_floor.filters.operator', 'Operator') }}</label>
+                <select class="form-select" id="filterOperator">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.shop_floor.filters.search', 'Search') }}</label>
+                <input type="text" class="form-control" id="filterSearch" placeholder="{{ get_translation('global.search', 'Search...') }}">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" id="refreshBtn"><i class="fas fa-sync"></i> {{ get_translation('global.refresh', 'Refresh') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jobs Table -->
+    <div class="card">
+        <div class="card-header">{{ get_translation('manufacturing.shop_floor.table.title', 'Active Jobs') }}</div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover align-middle table-sticky">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.job_id', 'Job ID') }}</th>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.product', 'Product') }}</th>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.workstation', 'Workstation') }}</th>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.quantity', 'Qty') }}</th>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.completed', 'Completed') }}</th>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.operator', 'Operator') }}</th>
+                        <th>{{ get_translation('manufacturing.shop_floor.table.progress', 'Progress') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="jobsBody">
+                    <tr><td colspan="9" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Start Job Modal -->
+<div class="modal fade" id="startJobModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.shop_floor.start_job', 'Start Job') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.job', 'Job') }}</label>
+                    <select class="form-select" id="startOrderId">
+                        <option value="">{{ get_translation('global.select', 'Select job...') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.workstation', 'Workstation') }}</label>
+                    <select class="form-select" id="startWorkstationId"></select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.machine', 'Machine') }}</label>
+                    <select class="form-select" id="startMachineId"></select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.operator', 'Operator') }}</label>
+                    <select class="form-select" id="startOperatorId"></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmStartBtn">{{ get_translation('manufacturing.shop_floor.start', 'Start') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Quantity Modal -->
+<div class="modal fade" id="quantityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.shop_floor.report_qty', 'Report Quantity') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="qtyOrderId">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.completed_qty', 'Completed Quantity') }}</label>
+                    <input type="number" class="form-control" id="completedQty" min="1" step="1">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.scrap_qty', 'Scrap Quantity') }}</label>
+                    <input type="number" class="form-control" id="scrapQty" min="0" step="1" value="0">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.quality_status', 'Quality Status') }}</label>
+                    <select class="form-select" id="qualityStatus">
+                        <option value="Pending">{{ get_translation('manufacturing.quality.pending', 'Pending') }}</option>
+                        <option value="Pass">{{ get_translation('manufacturing.quality.pass', 'Pass') }}</option>
+                        <option value="Fail">{{ get_translation('manufacturing.quality.fail', 'Fail') }}</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmQtyBtn">{{ get_translation('manufacturing.shop_floor.report', 'Report') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Downtime Modal -->
+<div class="modal fade" id="downtimeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.shop_floor.downtime', 'Log Downtime') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.workstation', 'Workstation') }}</label>
+                    <select class="form-select" id="downtimeWorkstationId"></select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.downtime_reason', 'Reason') }}</label>
+                    <input type="text" class="form-control" id="downtimeReason" placeholder="{{ get_translation('manufacturing.shop_floor.downtime_reason_placeholder', 'e.g., Machine breakdown, Maintenance') }}">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.duration', 'Duration (minutes)') }}</label>
+                    <input type="number" class="form-control" id="downtimeDuration" min="1" step="1" value="30">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="downtimeNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-danger" id="confirmDowntimeBtn">{{ get_translation('manufacturing.shop_floor.log', 'Log') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Self Inspection Modal -->
+<div class="modal fade" id="inspectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.shop_floor.self_inspect', 'Self Inspection') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="inspectOrderId">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.inspection_result', 'Result') }}</label>
+                    <select class="form-select" id="inspectResult">
+                        <option value="Pass">{{ get_translation('manufacturing.quality.pass', 'Pass') }}</option>
+                        <option value="Fail">{{ get_translation('manufacturing.quality.fail', 'Fail') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="inspectNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmInspectBtn">{{ get_translation('manufacturing.shop_floor.record', 'Record') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Job Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.shop_floor.complete_job', 'Complete Job') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="completeOrderId">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> {{ get_translation('manufacturing.shop_floor.complete_warning', 'This will mark the job as completed.') }}
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.final_qty', 'Final Quantity (optional)') }}</label>
+                    <input type="number" class="form-control" id="completeQty" min="0" step="1">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.shop_floor.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="completeNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmCompleteBtn">{{ get_translation('manufacturing.shop_floor.complete', 'Complete') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// ============================================================================
+// SHOP FLOOR CONTROL - JAVASCRIPT WITH TRANSLATIONS
+// ============================================================================
+
+// ============================================================================
+// TRANSLATIONS - Server-injected with full keys
+// ============================================================================
+var trans = {
+    // General
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error_loading: {{ get_translation('global.error_loading', 'Error loading data')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    edit: {{ get_translation('global.edit', 'Edit')|tojson }},
+    delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    all: {{ get_translation('global.all', 'All')|tojson }},
+    apply: {{ get_translation('global.apply', 'Apply')|tojson }},
+    actions: {{ get_translation('global.actions', 'Actions')|tojson }},
+    refresh: {{ get_translation('global.refresh', 'Refresh')|tojson }},
+    search: {{ get_translation('global.search', 'Search')|tojson }},
+    select: {{ get_translation('global.select', 'Select...')|tojson }},
+    
+    // Page specific
+    title: {{ get_translation('manufacturing.shop_floor.title', 'Shop Floor Control')|tojson }},
+    start_job: {{ get_translation('manufacturing.shop_floor.start_job', 'Start Job')|tojson }},
+    
+    // KPI
+    kpi_active: {{ get_translation('manufacturing.shop_floor.kpi.active', 'Active Jobs')|tojson }},
+    kpi_completed: {{ get_translation('manufacturing.shop_floor.kpi.completed', 'Completed Today')|tojson }},
+    kpi_downtime: {{ get_translation('manufacturing.shop_floor.kpi.downtime', 'Downtime Today')|tojson }},
+    kpi_pass_rate: {{ get_translation('manufacturing.shop_floor.kpi.pass_rate', 'Quality Pass Rate')|tojson }},
+    
+    // Filters
+    filter_workstation: {{ get_translation('manufacturing.shop_floor.filters.workstation', 'Workstation')|tojson }},
+    filter_status: {{ get_translation('manufacturing.shop_floor.filters.status', 'Status')|tojson }},
+    filter_operator: {{ get_translation('manufacturing.shop_floor.filters.operator', 'Operator')|tojson }},
+    filter_search: {{ get_translation('manufacturing.shop_floor.filters.search', 'Search')|tojson }},
+    
+    // Status
+    status_in_progress: {{ get_translation('manufacturing.shop_floor.status.in_progress', 'In Progress')|tojson }},
+    status_released: {{ get_translation('manufacturing.shop_floor.status.released', 'Released')|tojson }},
+    status_completed: {{ get_translation('manufacturing.shop_floor.status.completed', 'Completed')|tojson }},
+    
+    // Table
+    table_job_id: {{ get_translation('manufacturing.shop_floor.table.job_id', 'Job ID')|tojson }},
+    table_product: {{ get_translation('manufacturing.shop_floor.table.product', 'Product')|tojson }},
+    table_workstation: {{ get_translation('manufacturing.shop_floor.table.workstation', 'Workstation')|tojson }},
+    table_status: {{ get_translation('manufacturing.shop_floor.table.status', 'Status')|tojson }},
+    table_quantity: {{ get_translation('manufacturing.shop_floor.table.quantity', 'Qty')|tojson }},
+    table_completed: {{ get_translation('manufacturing.shop_floor.table.completed', 'Completed')|tojson }},
+    table_operator: {{ get_translation('manufacturing.shop_floor.table.operator', 'Operator')|tojson }},
+    table_progress: {{ get_translation('manufacturing.shop_floor.table.progress', 'Progress')|tojson }},
+    table_title: {{ get_translation('manufacturing.shop_floor.table.title', 'Active Jobs')|tojson }},
+    
+    // Modal labels
+    job: {{ get_translation('manufacturing.shop_floor.job', 'Job')|tojson }},
+    workstation: {{ get_translation('manufacturing.shop_floor.workstation', 'Workstation')|tojson }},
+    machine: {{ get_translation('manufacturing.shop_floor.machine', 'Machine')|tojson }},
+    operator: {{ get_translation('manufacturing.shop_floor.operator', 'Operator')|tojson }},
+    report_qty: {{ get_translation('manufacturing.shop_floor.report_qty', 'Report Quantity')|tojson }},
+    completed_qty: {{ get_translation('manufacturing.shop_floor.completed_qty', 'Completed Quantity')|tojson }},
+    scrap_qty: {{ get_translation('manufacturing.shop_floor.scrap_qty', 'Scrap Quantity')|tojson }},
+    quality_status: {{ get_translation('manufacturing.shop_floor.quality_status', 'Quality Status')|tojson }},
+    downtime: {{ get_translation('manufacturing.shop_floor.downtime', 'Log Downtime')|tojson }},
+    downtime_reason: {{ get_translation('manufacturing.shop_floor.downtime_reason', 'Reason')|tojson }},
+    downtime_reason_placeholder: {{ get_translation('manufacturing.shop_floor.downtime_reason_placeholder', 'e.g., Machine breakdown, Maintenance')|tojson }},
+    duration: {{ get_translation('manufacturing.shop_floor.duration', 'Duration (minutes)')|tojson }},
+    notes: {{ get_translation('manufacturing.shop_floor.notes', 'Notes')|tojson }},
+    self_inspect: {{ get_translation('manufacturing.shop_floor.self_inspect', 'Self Inspection')|tojson }},
+    inspection_result: {{ get_translation('manufacturing.shop_floor.inspection_result', 'Result')|tojson }},
+    complete_job: {{ get_translation('manufacturing.shop_floor.complete_job', 'Complete Job')|tojson }},
+    complete_warning: {{ get_translation('manufacturing.shop_floor.complete_warning', 'This will mark the job as completed.')|tojson }},
+    final_qty: {{ get_translation('manufacturing.shop_floor.final_qty', 'Final Quantity (optional)')|tojson }},
+    log: {{ get_translation('manufacturing.shop_floor.log', 'Log')|tojson }},
+    report: {{ get_translation('manufacturing.shop_floor.report', 'Report')|tojson }},
+    record: {{ get_translation('manufacturing.shop_floor.record', 'Record')|tojson }},
+    start: {{ get_translation('manufacturing.shop_floor.start', 'Start')|tojson }},
+    complete: {{ get_translation('manufacturing.shop_floor.complete', 'Complete')|tojson }},
+    
+    // Quality
+    quality_pending: {{ get_translation('manufacturing.quality.pending', 'Pending')|tojson }},
+    quality_pass: {{ get_translation('manufacturing.quality.pass', 'Pass')|tojson }},
+    quality_fail: {{ get_translation('manufacturing.quality.fail', 'Fail')|tojson }}
+};
+
+console.log('✅ Shop Floor translations loaded:', Object.keys(trans).length, 'keys');
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, defaultText);
+    }
+    if (key && !key.startsWith('global.') && !key.startsWith('manufacturing.')) {
+        var prefixedKey = 'global.' + key;
+        if (trans[prefixedKey] !== undefined && trans[prefixedKey] !== '' && trans[prefixedKey] !== prefixedKey) {
+            return trans[prefixedKey];
+        }
+        if (window.i18n && window.i18n.translations && window.i18n.translations[prefixedKey]) {
+            return window.i18n.translations[prefixedKey];
+        }
+    }
+    return defaultText || key;
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Shop Floor Control page loaded');
+
+    function getEl(id) { return document.getElementById(id); }
+
+    function showToast(message, type) {
+        type = type || 'success';
+        var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+        var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+        var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+            '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+        document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+        document.body.insertAdjacentHTML('beforeend', toastHtml);
+        var toastEl = document.querySelector('.toast');
+        var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        toast.show();
+        setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+    }
+
+    // Load KPIs
+    function loadKPIs() {
+        fetch('/api/manufacturing/shop-floor/stats')
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                getEl('kpiActive').textContent = res.active || 0;
+                getEl('kpiCompleted').textContent = res.completed || 0;
+                getEl('kpiDowntime').textContent = res.downtime || 0;
+                getEl('kpiPassRate').textContent = (res.passRate || 0) + '%';
+            })
+            .catch(function(err) { console.error('KPI error:', err); });
+    }
+
+    // Load dropdowns
+    function loadDropdowns() {
+        // Workstations
+        fetch('/api/manufacturing/workstations')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var selects = ['filterWorkstation', 'startWorkstationId', 'downtimeWorkstationId'];
+                selects.forEach(function(id) {
+                    var sel = getEl(id);
+                    if (!sel) return;
+                    var opts = '<option value="">' + t('global.all', 'All') + '</option>';
+                    data.forEach(function(w) {
+                        if (w.isActive && !w.isArchived) {
+                            opts += '<option value="' + w.id + '">' + w.name + '</option>';
+                        }
+                    });
+                    sel.innerHTML = opts;
+                });
+            })
+            .catch(function(err) { console.error('Workstations error:', err); });
+
+        // Operators - using a fallback if /api/users/list doesn't exist
+        fetch('/api/users/list')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var selects = ['filterOperator', 'startOperatorId'];
+                selects.forEach(function(id) {
+                    var sel = getEl(id);
+                    if (!sel) return;
+                    var opts = '<option value="">' + t('global.all', 'All') + '</option>';
+                    if (Array.isArray(data)) {
+                        data.forEach(function(u) {
+                            opts += '<option value="' + u.id + '">' + (u.fullName || u.username || u.id) + '</option>';
+                        });
+                    }
+                    sel.innerHTML = opts;
+                });
+            })
+            .catch(function(err) {
+                console.error('Users error:', err);
+                // Fallback: use current user
+                var selects = ['filterOperator', 'startOperatorId'];
+                selects.forEach(function(id) {
+                    var sel = getEl(id);
+                    if (!sel) return;
+                    var opts = '<option value="">' + t('global.all', 'All') + '</option>';
+                    opts += '<option value="1">Current User</option>';
+                    sel.innerHTML = opts;
+                });
+            });
+
+        // Jobs for start modal
+        fetch('/api/manufacturing/orders?status=Released')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var sel = getEl('startOrderId');
+                if (!sel) return;
+                var opts = '<option value="">' + t('global.select', 'Select job...') + '</option>';
+                if (Array.isArray(data)) {
+                    data.forEach(function(o) {
+                        opts += '<option value="' + o.id + '">' + o.id + ' - ' + (o.productName || '') + '</option>';
+                    });
+                }
+                sel.innerHTML = opts;
+            })
+            .catch(function(err) { console.error('Jobs error:', err); });
+    }
+
+    // Load jobs
+    function loadJobs() {
+        var tbody = getEl('jobsBody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('global.loading', 'Loading...') + '</td></tr>';
+        
+        var params = new URLSearchParams();
+        var ws = getEl('filterWorkstation');
+        var status = getEl('filterStatus');
+        var op = getEl('filterOperator');
+        var search = getEl('filterSearch');
+        
+        if (ws && ws.value) params.set('workstation_id', ws.value);
+        if (status && status.value) params.set('status', status.value);
+        if (op && op.value) params.set('operator_id', op.value);
+        if (search && search.value) params.set('search', search.value);
+        
+        var url = '/api/manufacturing/shop-floor/jobs' + (params.toString() ? '?' + params.toString() : '');
+        
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var html = '';
+                if (!data || data.length === 0) {
+                    html = '<tr><td colspan="9" class="text-center">' + t('global.no_data', 'No active jobs') + '</td></tr>';
+                } else {
+                    data.forEach(function(j) {
+                        var progressBar = '<div class="progress" style="height:10px;"><div class="progress-bar bg-';
+                        if (j.progress >= 100) { progressBar += 'success'; }
+                        else if (j.progress >= 50) { progressBar += 'warning'; }
+                        else { progressBar += 'info'; }
+                        progressBar += '" style="width:' + j.progress + '%"></div></div>';
+                        
+                        var actions = '';
+                        if (j.status === 'InProgress') {
+                            actions += '<button class="btn btn-sm btn-primary report-qty" data-id="' + j.id + '" title="' + t('manufacturing.shop_floor.report_qty', 'Report Quantity') + '"><i class="fas fa-clipboard-check"></i></button> ';
+                            actions += '<button class="btn btn-sm btn-info inspect-job" data-id="' + j.id + '" title="' + t('manufacturing.shop_floor.self_inspect', 'Self Inspection') + '"><i class="fas fa-search"></i></button> ';
+                            actions += '<button class="btn btn-sm btn-success complete-job" data-id="' + j.id + '" title="' + t('manufacturing.shop_floor.complete_job', 'Complete Job') + '"><i class="fas fa-check"></i></button> ';
+                        } else if (j.status === 'Released') {
+                            actions += '<button class="btn btn-sm btn-success start-job" data-id="' + j.id + '" title="' + t('manufacturing.shop_floor.start', 'Start') + '"><i class="fas fa-play"></i></button> ';
+                        }
+                        actions += '<button class="btn btn-sm btn-danger downtime-job" data-id="' + j.id + '" title="' + t('manufacturing.shop_floor.downtime', 'Log Downtime') + '"><i class="fas fa-exclamation-triangle"></i></button>';
+                        
+                        var statusDisplay = j.status;
+                        if (j.status === 'InProgress') statusDisplay = t('manufacturing.shop_floor.status.in_progress', 'In Progress');
+                        else if (j.status === 'Released') statusDisplay = t('manufacturing.shop_floor.status.released', 'Released');
+                        else if (j.status === 'Completed') statusDisplay = t('manufacturing.shop_floor.status.completed', 'Completed');
+                        
+                        html += '<tr>' +
+                            '<td><a href="/manufacturing/job-orders/' + j.id + '" target="_blank">' + j.id + '</a></td>' +
+                            '<td>' + j.productName + '</td>' +
+                            '<td>' + j.workstationName + '</td>' +
+                            '<td>' + j.statusBadge + '</td>' +
+                            '<td>' + j.quantity + '</td>' +
+                            '<td>' + j.completedQty + '</td>' +
+                            '<td>' + j.operatorName + '</td>' +
+                            '<td>' + progressBar + ' ' + j.progress + '%</td>' +
+                            '<td>' + actions + '</td>' +
+                        '</tr>';
+                    });
+                }
+                tbody.innerHTML = html;
+            })
+            .catch(function(err) {
+                console.error('Error:', err);
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + t('global.error_loading', 'Error loading jobs') + '</td></tr>';
+            });
+    }
+
+    function refreshAll() {
+        loadKPIs();
+        loadJobs();
+    }
+
+    // ============================================================================
+    // MODAL HANDLERS
+    // ============================================================================
+
+    getEl('confirmStartBtn').addEventListener('click', function() {
+        var orderId = getEl('startOrderId').value;
+        var workstationId = getEl('startWorkstationId').value;
+        var operatorId = getEl('startOperatorId').value;
+        var machineId = getEl('startMachineId').value;
+        
+        if (!orderId) {
+            showToast(t('manufacturing.shop_floor.select_job', 'Please select a job'), 'error');
+            return;
+        }
+        
+        var data = { orderId: orderId, workstationId: workstationId, operatorId: operatorId, machineId: machineId };
+        
+        fetch('/api/manufacturing/shop-floor/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) { showToast(result.error, 'error'); return; }
+            showToast(result.message, 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('startJobModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) { showToast(t('global.error', 'Error starting job'), 'error'); console.error(err); });
+    });
+
+    getEl('confirmQtyBtn').addEventListener('click', function() {
+        var orderId = getEl('qtyOrderId').value;
+        var qty = parseInt(getEl('completedQty').value);
+        var scrap = parseInt(getEl('scrapQty').value) || 0;
+        var status = getEl('qualityStatus').value;
+        
+        if (!orderId || !qty || qty <= 0) {
+            showToast(t('manufacturing.shop_floor.valid_qty', 'Please enter a valid quantity'), 'error');
+            return;
+        }
+        
+        var data = { orderId: orderId, completedQuantity: qty, scrapQuantity: scrap, qualityStatus: status };
+        
+        fetch('/api/manufacturing/shop-floor/quantity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) { showToast(result.error, 'error'); return; }
+            showToast(t('manufacturing.shop_floor.quantity_reported', 'Quantity reported') + ': ' + qty, 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('quantityModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) { showToast(t('global.error', 'Error reporting quantity'), 'error'); console.error(err); });
+    });
+
+    getEl('confirmDowntimeBtn').addEventListener('click', function() {
+        var workstationId = getEl('downtimeWorkstationId').value;
+        var reason = getEl('downtimeReason').value;
+        var duration = parseInt(getEl('downtimeDuration').value) || 30;
+        var notes = getEl('downtimeNotes').value;
+        
+        if (!workstationId || !reason) {
+            showToast(t('manufacturing.shop_floor.downtime_required', 'Please select workstation and enter reason'), 'error');
+            return;
+        }
+        
+        var data = { workstationId: workstationId, reason: reason, duration: duration, notes: notes };
+        
+        fetch('/api/manufacturing/shop-floor/downtime', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) { showToast(result.error, 'error'); return; }
+            showToast(t('manufacturing.shop_floor.downtime_logged', 'Downtime logged'), 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('downtimeModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) { showToast(t('global.error', 'Error logging downtime'), 'error'); console.error(err); });
+    });
+
+    getEl('confirmInspectBtn').addEventListener('click', function() {
+        var orderId = getEl('inspectOrderId').value;
+        var result = getEl('inspectResult').value;
+        var notes = getEl('inspectNotes').value;
+        
+        if (!orderId) {
+            showToast(t('manufacturing.shop_floor.no_job', 'No job selected'), 'error');
+            return;
+        }
+        
+        var data = { orderId: orderId, result: result, notes: notes };
+        
+        fetch('/api/manufacturing/shop-floor/inspect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) { showToast(result.error, 'error'); return; }
+            showToast(t('manufacturing.shop_floor.inspection_recorded', 'Inspection result') + ': ' + result, 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('inspectModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) { showToast(t('global.error', 'Error recording inspection'), 'error'); console.error(err); });
+    });
+
+    getEl('confirmCompleteBtn').addEventListener('click', function() {
+        var orderId = getEl('completeOrderId').value;
+        var qty = parseInt(getEl('completeQty').value) || null;
+        var notes = getEl('completeNotes').value;
+        
+        if (!orderId) {
+            showToast(t('manufacturing.shop_floor.no_job', 'No job selected'), 'error');
+            return;
+        }
+        
+        if (!confirm(t('manufacturing.shop_floor.complete_confirm', 'Are you sure you want to complete this job?'))) return;
+        
+        var data = { orderId: orderId, finalQuantity: qty, notes: notes };
+        
+        fetch('/api/manufacturing/shop-floor/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) { showToast(result.error, 'error'); return; }
+            showToast(t('manufacturing.shop_floor.job_completed', 'Job completed successfully'), 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('completeModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) { showToast(t('global.error', 'Error completing job'), 'error'); console.error(err); });
+    });
+
+    // ============================================================================
+    // EVENT DELEGATION
+    // ============================================================================
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+
+        if (btn.classList.contains('start-job')) {
+            var orderId = btn.getAttribute('data-id');
+            getEl('startOrderId').value = orderId;
+            var modal = new bootstrap.Modal(getEl('startJobModal'));
+            modal.show();
+            return;
+        }
+
+        if (btn.classList.contains('report-qty')) {
+            var orderId = btn.getAttribute('data-id');
+            getEl('qtyOrderId').value = orderId;
+            getEl('completedQty').value = '';
+            getEl('scrapQty').value = '0';
+            getEl('qualityStatus').value = 'Pending';
+            var modal = new bootstrap.Modal(getEl('quantityModal'));
+            modal.show();
+            return;
+        }
+
+        if (btn.classList.contains('downtime-job')) {
+            var modal = new bootstrap.Modal(getEl('downtimeModal'));
+            modal.show();
+            return;
+        }
+
+        if (btn.classList.contains('inspect-job')) {
+            var orderId = btn.getAttribute('data-id');
+            getEl('inspectOrderId').value = orderId;
+            getEl('inspectResult').value = 'Pass';
+            getEl('inspectNotes').value = '';
+            var modal = new bootstrap.Modal(getEl('inspectModal'));
+            modal.show();
+            return;
+        }
+
+        if (btn.classList.contains('complete-job')) {
+            var orderId = btn.getAttribute('data-id');
+            getEl('completeOrderId').value = orderId;
+            getEl('completeQty').value = '';
+            getEl('completeNotes').value = '';
+            var modal = new bootstrap.Modal(getEl('completeModal'));
+            modal.show();
+            return;
+        }
+    });
+
+    // ============================================================================
+    // FILTERS
+    // ============================================================================
+
+    var refreshBtn = getEl('refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshAll);
+
+    ['filterWorkstation', 'filterStatus', 'filterOperator'].forEach(function(id) {
+        var el = getEl(id);
+        if (el) el.addEventListener('change', refreshAll);
+    });
+
+    var searchInput = getEl('filterSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(this._timer);
+            this._timer = setTimeout(refreshAll, 300);
+        });
+    }
+
+    // ============================================================================
+    // MACHINES FOR START MODAL
+    // ============================================================================
+
+    getEl('startWorkstationId').addEventListener('change', function() {
+        var wsId = this.value;
+        var machineSelect = getEl('startMachineId');
+        if (!wsId) {
+            machineSelect.innerHTML = '<option value="">' + t('global.select', 'Select workstation first...') + '</option>';
+            return;
+        }
+        fetch('/api/manufacturing/machines?workstation_id=' + wsId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var opts = '<option value="">' + t('global.select', 'Select machine...') + '</option>';
+                data.forEach(function(m) {
+                    opts += '<option value="' + m.id + '">' + m.code + ' - ' + m.name + '</option>';
+                });
+                machineSelect.innerHTML = opts;
+            })
+            .catch(function(err) { console.error('Machines error:', err); });
+    });
+
+    // ============================================================================
+    // INITIALIZE
+    // ============================================================================
+
+    loadDropdowns();
+    refreshAll();
+    setInterval(refreshAll, 30000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('boq.title', '📋 Bill of Quantities') }}</h2>
+        <div>
+            <button class="btn btn-outline-primary me-2" id="importCsvBtn">{{ get_translation('boq.import_csv', '📂 Import CSV') }}</button>
+            <button class="btn btn-outline-secondary me-2" id="exportCsvBtn">{{ get_translation('boq.export_csv', '📎 Export CSV') }}</button>
+            <input type="file" id="importFile" accept=".csv" style="display:none;">
+            <button class="btn btn-primary" id="addItemBtn">{{ get_translation('boq.add_item', '+ Add Item') }}</button>
+            <a href="/project/dashboard/{{ project_id }}" class="btn btn-secondary ms-2">{{ get_translation('boq.back_to_dashboard', '← Back to Dashboard') }}</a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-2 mb-4">
+        <div class="col-md-4"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('boq.total_value', 'Total BOQ Value') }}</h6><h3 id="kpi-value">0</h3></div></div>
+        <div class="col-md-4"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('boq.item_count', 'Number of Items') }}</h6><h3 id="kpi-count">0</h3></div></div>
+    </div>
+
+    <!-- BOQ Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>{{ get_translation('boq.item_description', 'Item Description') }}</th>
+                    <th>{{ get_translation('boq.quantity', 'Qty') }}</th>
+                    <th>{{ get_translation('boq.unit', 'Unit') }}</th>
+                    <th>{{ get_translation('boq.unit_price', 'Unit Price') }}</th>
+                    <th>{{ get_translation('boq.total_price', 'Total Price') }}</th>
+                    <th>{{ get_translation('boq.actions', 'Actions') }}</th>
+                </tr>
+            </thead>
+            <tbody id="boq-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add/Edit Item Modal -->
+<div class="modal fade" id="itemModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 id="modalTitle">{{ get_translation('boq.add_edit_item', 'Add/Edit BOQ Item') }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <input type="hidden" id="edit-id">
+            <div class="mb-2"><label>{{ get_translation('boq.product_optional', 'Product (optional)') }}</label><select id="product-id" class="form-select"><option value="">{{ get_translation('boq.free_text', 'Free text') }}</option></select></div>
+            <div class="mb-2"><label>{{ get_translation('boq.description', 'Description') }} *</label><input type="text" id="desc" class="form-control" required></div>
+            <div class="row">
+                <div class="col-md-4"><label>{{ get_translation('boq.quantity', 'Quantity') }}</label><input type="number" id="qty" class="form-control" step="0.01" value="1"></div>
+                <div class="col-md-4"><label>{{ get_translation('boq.unit', 'Unit') }}</label><input type="text" id="unit" class="form-control" value="pcs"></div>
+                <div class="col-md-4"><label>{{ get_translation('boq.unit_price', 'Unit Price') }}</label><input type="number" id="unit-price" class="form-control" step="0.01"></div>
+            </div>
+            <div class="mb-2"><label>{{ get_translation('boq.notes', 'Notes') }}</label><textarea id="notes" class="form-control" rows="2"></textarea></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="saveItem">{{ get_translation('boq.save', 'Save') }}</button>
+            <button class="btn btn-danger" id="deleteItem" style="display:none;">{{ get_translation('boq.delete', 'Delete') }}</button>
+            <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('boq.cancel', 'Cancel') }}</button>
+        </div>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    edit:                 {{ get_translation('boq.edit', 'Edit')|tojson }},
+    add_item:             {{ get_translation('boq.add_item', 'Add BOQ Item')|tojson }},
+    edit_item:            {{ get_translation('boq.edit_item', 'Edit BOQ Item')|tojson }},
+    save:                 {{ get_translation('boq.save', 'Save')|tojson }},
+    delete:               {{ get_translation('boq.delete', 'Delete')|tojson }},
+    cancel:               {{ get_translation('boq.cancel', 'Cancel')|tojson }},
+    description_required: {{ get_translation('boq.description_required', 'Description required')|tojson }},
+    delete_confirm:       {{ get_translation('boq.delete_confirm', 'Delete this item?')|tojson }},
+    error:                {{ get_translation('global.error', 'Error')|tojson }},
+    unknown:              {{ get_translation('global.unknown', 'Unknown')|tojson }},
+    load_error:           {{ get_translation('boq.load_error', 'Load error')|tojson }},
+    imported_prefix:      {{ get_translation('boq.imported_prefix', 'Imported')|tojson }},
+    imported_suffix:      {{ get_translation('boq.imported_suffix', 'items')|tojson }},
+    import_failed:        {{ get_translation('boq.import_failed', 'Import failed')|tojson }}
+};
+
+// ============================================================
+// 2. State — TOP LEVEL
+// ============================================================
+var projectId = "{{ project_id }}";
+
+// ============================================================
+// 3. Helper functions — TOP LEVEL
+// ============================================================
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function showModal(id) {
+    var el = document.getElementById(id);
+    if (el) new bootstrap.Modal(el).show();
+}
+
+function hideModal(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        var inst = bootstrap.Modal.getInstance(el);
+        if (inst) inst.hide();
+    }
+}
+
+// ============================================================
+// 4. Data loading — TOP LEVEL, fetch()
+// ============================================================
+function loadBOQ() {
+    fetch('/api/project/' + projectId + '/boq')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            var kpiValue = document.getElementById('kpi-value');
+            var kpiCount = document.getElementById('kpi-count');
+            if (kpiValue) kpiValue.innerText = Number(res.kpis.total_value).toLocaleString();
+            if (kpiCount) kpiCount.innerText = res.kpis.item_count;
+
+            var tbody = document.getElementById('boq-tbody');
+            if (!tbody) return;
+
+            var html = '';
+            (res.items || []).forEach(function(i) {
+                html += '<tr>';
+                html += '<td>' + escapeHtml(i.description) + '</td>';
+                html += '<td>' + i.quantity + '</td>';
+                html += '<td>' + (i.unit || '') + '</td>';
+                html += '<td>' + Number(i.unit_price).toLocaleString() + '</td>';
+                html += '<td>' + Number(i.total_price).toLocaleString() + '</td>';
+                html += '<td>';
+                html += '<button class="btn btn-sm btn-primary edit-item"';
+                html += ' data-id="' + i.id + '"';
+                html += ' data-prod="' + (i.product_id || '') + '"';
+                html += ' data-desc="' + escapeHtml(i.description) + '"';
+                html += ' data-qty="' + i.quantity + '"';
+                html += ' data-unit="' + escapeHtml(i.unit || '') + '"';
+                html += ' data-price="' + i.unit_price + '"';
+                html += ' data-notes="' + escapeHtml(i.notes || '') + '"';
+                html += '>' + trans.edit + '</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        })
+        .catch(function(err) {
+            console.error(trans.load_error + ':', err);
+        });
+}
+
+// ============================================================
+// 5. Action handlers — TOP LEVEL
+// ============================================================
+function openAddModal() {
+    document.getElementById('edit-id').value = '';
+    document.getElementById('product-id').value = '';
+    document.getElementById('desc').value = '';
+    document.getElementById('qty').value = 1;
+    document.getElementById('unit').value = 'pcs';
+    document.getElementById('unit-price').value = '';
+    document.getElementById('notes').value = '';
+    document.getElementById('modalTitle').innerText = trans.add_item;
+
+    var delBtn = document.getElementById('deleteItem');
+    if (delBtn) delBtn.style.display = 'none';
+
+    showModal('itemModal');
+}
+
+function openEditModalFromButton(btn) {
+    document.getElementById('edit-id').value = btn.dataset.id;
+    document.getElementById('product-id').value = btn.dataset.prod || '';
+    document.getElementById('desc').value = btn.dataset.desc || '';
+    document.getElementById('qty').value = btn.dataset.qty || 1;
+    document.getElementById('unit').value = btn.dataset.unit || '';
+    document.getElementById('unit-price').value = btn.dataset.price || '';
+    document.getElementById('notes').value = btn.dataset.notes || '';
+    document.getElementById('modalTitle').innerText = trans.edit_item;
+
+    var delBtn = document.getElementById('deleteItem');
+    if (delBtn) delBtn.style.display = 'inline-block';
+
+    showModal('itemModal');
+}
+
+function saveItem() {
+    var id = document.getElementById('edit-id').value;
+
+    var prodEl = document.getElementById('product-id');
+    var descEl = document.getElementById('desc');
+    var qtyEl = document.getElementById('qty');
+    var unitEl = document.getElementById('unit');
+    var priceEl = document.getElementById('unit-price');
+    var notesEl = document.getElementById('notes');
+
+    var data = {
+        project_id: projectId,
+        product_id: (prodEl && prodEl.value) ? prodEl.value : null,
+        description: descEl ? descEl.value : '',
+        quantity: parseFloat(qtyEl ? qtyEl.value : 0),
+        unit: unitEl ? unitEl.value : '',
+        unit_price: parseFloat(priceEl ? priceEl.value : 0) || 0,
+        notes: notesEl ? notesEl.value : ''
+    };
+
+    if (!data.description) { alert(trans.description_required); return; }
+
+    var url = id ? '/api/project/boq/' + id : '/api/project/boq';
+    var method = id ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            hideModal('itemModal');
+            loadBOQ();
+        } else {
+            alert(trans.error + ': ' + (res.error || trans.unknown));
+        }
+    })
+    .catch(function(err) {
+        alert(trans.error + ': ' + err.message);
+    });
+}
+
+function deleteItem() {
+    var id = document.getElementById('edit-id').value;
+    if (!id) return;
+    if (!confirm(trans.delete_confirm)) return;
+
+    fetch('/api/project/boq/' + id, { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                hideModal('itemModal');
+                loadBOQ();
+            } else {
+                alert(trans.error);
+            }
+        })
+        .catch(function(err) {
+            alert(trans.error + ': ' + err.message);
+        });
+}
+
+function handleImportFile(e) {
+    var fd = new FormData();
+    fd.append('file', e.target.files[0]);
+
+    fetch('/api/project/boq/import/' + projectId, { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                alert(trans.imported_prefix + ' ' + res.created + ' ' + trans.imported_suffix);
+                loadBOQ();
+            } else {
+                alert(trans.import_failed);
+            }
+        })
+        .catch(function(err) {
+            alert(trans.import_failed + ': ' + err.message);
+        });
+
+    e.target.value = '';
+}
+
+function exportCSV() {
+    window.location.href = '/api/project/boq/export/' + projectId;
+}
+
+// ============================================================
+// 6. Init — DOMContentLoaded
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadBOQ();
+
+    // Add item button
+    var addBtn = document.getElementById('addItemBtn');
+    if (addBtn) addBtn.addEventListener('click', openAddModal);
+
+    // Save / Delete in modal
+    var saveBtn = document.getElementById('saveItem');
+    if (saveBtn) saveBtn.addEventListener('click', saveItem);
+
+    var delBtn = document.getElementById('deleteItem');
+    if (delBtn) delBtn.addEventListener('click', deleteItem);
+
+    // Import
+    var importBtn = document.getElementById('importCsvBtn');
+    var importFile = document.getElementById('importFile');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function() { importFile.click(); });
+        importFile.addEventListener('change', handleImportFile);
+    }
+
+    // Export
+    var exportBtn = document.getElementById('exportCsvBtn');
+    if (exportBtn) exportBtn.addEventListener('click', exportCSV);
+
+    // Delegated handler for dynamically-rendered Edit buttons
+    document.addEventListener('click', function(e) {
+        var editBtn = e.target.closest('.edit-item');
+        if (!editBtn) return;
+        openEditModalFromButton(editBtn);
+    });
+});
+</script>
+{% endblock %}

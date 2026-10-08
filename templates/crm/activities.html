@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('crm.activities.title', 'Activity Log') }}{% endblock %}
+
+{% block styles %}
+<style>
+    .activity-icon { width:40px; height:40px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }
+    .activity-call    { background-color:#0d6efd; color:white; }
+    .activity-meeting { background-color:#198754; color:white; }
+    .activity-email   { background-color:#6c757d; color:white; }
+    .activity-note    { background-color:#fd7e14; color:white; }
+    .timeline-item {
+        border-left: 3px solid #dee2e6;
+        padding-left: 20px;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    .timeline-item:before {
+        content: ''; position: absolute; left: -9px; top: 0;
+        width: 15px; height: 15px; border-radius: 50%; background: #0d6efd;
+    }
+    [dir="rtl"] .timeline-item { border-left: none; border-right: 3px solid #dee2e6; padding-left: 0; padding-right: 20px; }
+    [dir="rtl"] .timeline-item:before { left: auto; right: -9px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-history me-2"></i>{{ get_translation('crm.activities.title', 'Activity Log') }}
+            <span class="badge bg-secondary ms-2" id="activitiesCount">0</span>
+        </h2>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+            <button class="btn btn-outline-secondary" id="exportCsvBtn">
+                <i class="fas fa-file-export me-1"></i>{{ get_translation('global.export', 'Export') }}
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4 mb-2">
+            <div class="card border-primary h-100"><div class="card-body text-center">
+                <h5 class="card-title text-primary">{{ get_translation('crm.activities.total_activities', 'Total Activities') }}</h5>
+                <p class="card-text display-6" id="kpiTotalActivities">0</p>
+            </div></div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card border-success h-100"><div class="card-body text-center">
+                <h5 class="card-title text-success">{{ get_translation('crm.activities.this_month', 'This Month') }}</h5>
+                <p class="card-text display-6" id="kpiThisMonth">0</p>
+            </div></div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card border-info h-100"><div class="card-body text-center">
+                <h5 class="card-title text-info">{{ get_translation('crm.activities.recent_activities', 'Last 30 Days') }}</h5>
+                <p class="card-text display-6" id="kpiLast30Days">0</p>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('crm.activities.activity_type', 'Activity Type') }}</label>
+                    <select class="form-select" id="filterType">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Call">{{ get_translation('crm.activity.call', 'Call') }}</option>
+                        <option value="Meeting">{{ get_translation('crm.activity.meeting', 'Meeting') }}</option>
+                        <option value="Email">{{ get_translation('crm.activity.email', 'Email') }}</option>
+                        <option value="Note">{{ get_translation('crm.activity.note', 'Note') }}</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('crm.activities.date_from', 'Date From') }}</label>
+                    <input class="form-control" id="filterDateFrom" type="date">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('crm.activities.date_to', 'Date To') }}</label>
+                    <input class="form-control" id="filterDateTo" type="date">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">{{ get_translation('global.limit', 'Limit') }}</label>
+                    <select class="form-select" id="filterLimit">
+                        <option value="20">20</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('crm.activities.recent_activities', 'Recent Activities') }}</h5>
+        </div>
+        <div class="card-body" id="activitiesContainer">
+            <div class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// 1. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function el(id) { return document.getElementById(id); }
+
+function activityIcon(type) {
+    return ({ Call:'fa-phone', Meeting:'fa-users', Email:'fa-envelope', Note:'fa-sticky-note' })[type] || 'fa-clock';
+}
+function activityClass(type) {
+    return ({ Call:'activity-call', Meeting:'activity-meeting', Email:'activity-email', Note:'activity-note' })[type] || 'activity-call';
+}
+function activityLabel(type) {
+    var map = { Call: 'crm.activity.call', Meeting: 'crm.activity.meeting', Email: 'crm.activity.email', Note: 'crm.activity.note' };
+    return t(map[type] || '', type);
+}
+
+function buildQs() {
+    var p = new URLSearchParams();
+    var type = (el('filterType') || {}).value || '';
+    var df   = (el('filterDateFrom') || {}).value || '';
+    var dt   = (el('filterDateTo') || {}).value || '';
+    var lim  = (el('filterLimit') || {}).value || '50';
+    if (type) p.append('activity_type', type);
+    if (df) p.append('from_date', df.replace(/-/g, ''));
+    if (dt) p.append('to_date', dt.replace(/-/g, ''));
+    p.append('limit', lim);
+    return p.toString();
+}
+
+// ============================================================================
+// 2. DATA LOADER — TOP LEVEL, use fetch()
+// ============================================================================
+function loadActivities() {
+    var container = el('activitiesContainer');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-4">' + t('global.loading', 'Loading...') + '</div>';
+
+    fetch('/api/crm/all-activities?' + buildQs(), { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            if (!data || !data.length) {
+                container.innerHTML = '<div class="text-center py-4 text-muted">' +
+                    t('global.no_data', 'No activities found') + '</div>';
+                updateKPIs(0, 0, 0);
+                return;
+            }
+            renderTimeline(data);
+        })
+        .catch(function (err) {
+            console.error('load activities failed:', err);
+            container.innerHTML = '<div class="text-center py-4 text-danger">' +
+                t('global.error_loading', 'Error loading data') + '</div>';
+        });
+}
+
+function renderTimeline(data) {
+    var container = el('activitiesContainer');
+    var today = new Date();
+    var thisMonth = 0, last30 = 0;
+    var thirtyAgo = new Date(); thirtyAgo.setDate(today.getDate() - 30);
+
+    var html = '<div class="timeline">';
+    data.forEach(function (act) {
+        // Counters use raw key ints (still fine — numeric comparison on JS numbers)
+        var key = parseInt(act.activity_date_key, 10);
+        if (key) {
+            var y = Math.floor(key / 10000);
+            var m = Math.floor((key % 10000) / 100) - 1;
+            if (y === today.getFullYear() && m === today.getMonth()) thisMonth++;
+            var dt = new Date(y, m, key % 100);
+            if (dt >= thirtyAgo) last30++;
+        }
+
+        // Display uses server-formatted twin — never slice in JS
+        var displayDate = act.activity_date_formatted || '—';
+
+        html += '<div class="timeline-item">' +
+            '<div class="d-flex align-items-start">' +
+                '<div class="activity-icon ' + activityClass(act.activity_type) + ' me-3">' +
+                    '<i class="fas ' + activityIcon(act.activity_type) + '"></i>' +
+                '</div>' +
+                '<div class="flex-grow-1">' +
+                    '<div class="d-flex justify-content-between align-items-center">' +
+                        '<strong>' + escapeHtml(activityLabel(act.activity_type)) + '</strong>' +
+                        '<small class="text-muted">' + escapeHtml(displayDate) + '</small>' +
+                    '</div>' +
+                    '<h6 class="mt-1 mb-1">' + escapeHtml(act.subject || '') + '</h6>' +
+                    '<p class="mb-1"><a href="/crm/opportunity/' + act.opportunity_id + '">' +
+                        escapeHtml(act.opportunity_name || '') + '</a></p>' +
+                    (act.notes ? '<p class="text-muted small mb-0">' + escapeHtml(act.notes) + '</p>' : '') +
+                    '<small class="text-muted">' + t('crm.activities.created_by', 'Created by') + ': ' +
+                        escapeHtml(act.created_by_name || '—') + '</small>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+    updateKPIs(data.length, thisMonth, last30);
+}
+
+function updateKPIs(total, month, last30) {
+    var a = el('kpiTotalActivities'); if (a) a.textContent = total;
+    var b = el('kpiThisMonth');       if (b) b.textContent = month;
+    var c = el('kpiLast30Days');      if (c) c.textContent = last30;
+    var d = el('activitiesCount');    if (d) d.textContent = total;
+}
+
+function exportActivities() {
+    window.location.href = '/api/crm/all-activities/export?' + buildQs();
+}
+
+// ============================================================================
+// 3. INIT — ONLY init + event binding
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('CRM activities page loaded | lang:', window.currentLanguage);
+
+    ['filterType', 'filterDateFrom', 'filterDateTo', 'filterLimit'].forEach(function (id) {
+        var e = el(id);
+        if (e) e.addEventListener('change', loadActivities);
+    });
+    var rb = el('refreshBtn');   if (rb) rb.addEventListener('click', loadActivities);
+    var ex = el('exportCsvBtn'); if (ex) ex.addEventListener('click', exportActivities);
+
+    loadActivities();
+});
+</script>
+{% endblock %}

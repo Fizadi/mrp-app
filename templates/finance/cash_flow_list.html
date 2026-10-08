@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('finance.cash_flow.title', 'Cash Flow Projections') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">{{ get_translation('nav.finance', 'Finance') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('finance.cash_flow.title', 'Cash Flow Projections') }}</li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2><i class="fas fa-money-bill-wave me-2"></i>{{ get_translation('finance.cash_flow.title', 'Cash Flow Projections') }}</h2>
+        <div>
+            <a href="/finance/cash-flow/generate" class="btn btn-primary">
+                <i class="fas fa-plus"></i> {{ get_translation('finance.cash_flow.generate', 'Generate New') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3" id="kpiCards">
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.cash_flow.kpi.total', 'Total Projections') }}</h6>
+                    <h3 id="kpiTotal">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.cash_flow.kpi.approved', 'Approved') }}</h6>
+                    <h3 id="kpiApproved">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.cash_flow.kpi.draft', 'Draft') }}</h6>
+                    <h3 id="kpiDraft">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6>{{ get_translation('finance.cash_flow.kpi.total_value', 'Total Cash Flow') }}</h6>
+                    <h3 id="kpiTotalValue">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Table -->
+    <div class="card">
+        <div class="card-body table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('finance.cash_flow.table.code', 'Code') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.name', 'Name') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.period', 'دوره') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.period_type', 'نوع دوره') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.sales_forecast', 'Sales Forecast') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.purchase_forecast', 'Purchase Forecast') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.total_receipts', 'Total Receipts') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.total_payments', 'Total Payments') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.net_cash', 'Net Cash') }}</th>
+                        <th>{{ get_translation('finance.cash_flow.table.closing', 'Closing Balance') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="13" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Error')|tojson }},
+    success: {{ get_translation('global.success', 'Success')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+    duplicate: 'Duplicate',
+    'status.draft': {{ get_translation('global.draft', 'Draft')|tojson }},
+    'status.approved': {{ get_translation('global.approved', 'Approved')|tojson }},
+    'status.archived': {{ get_translation('global.archived', 'Archived')|tojson }},
+    'currency.irr': 'ریال',
+    'period.custom': {{ get_translation('finance.cash_flow.period_custom', 'دوره سفارشی')|tojson }},
+    'period.season': {{ get_translation('finance.cash_flow.period_season', 'دوره فصلی')|tojson }}
+};
+
+function t(key, defaultText) {
+    return trans[key] || defaultText || key;
+}
+
+function formatCurrency(value) {
+    if (value === undefined || value === null) value = 0;
+    return Number(value).toLocaleString() + ' ' + t('currency.irr', 'ریال');
+}
+
+function getStatusBadge(status) {
+    var classes = {
+        'Draft': 'bg-warning',
+        'Approved': 'bg-success',
+        'Archived': 'bg-secondary'
+    };
+    return classes[status] || 'bg-secondary';
+}
+
+function getStatusText(status) {
+    var texts = {
+        'Draft': t('status.draft', 'Draft'),
+        'Approved': t('status.approved', 'Approved'),
+        'Archived': t('status.archived', 'Archived')
+    };
+    return texts[status] || status;
+}
+
+// ============================================================================
+// PERIOD DISPLAY HELPERS
+// ============================================================================
+
+function getPeriodDisplay(p) {
+    // Check if it's a custom period
+    if (p.PeriodType === 'custom' || p.PeriodPersianSeason === 'دوره سفارشی') {
+        return t('period.custom', 'دوره سفارشی');
+    }
+    
+    // Show season and year
+    var season = p.PeriodPersianSeason || '';
+    var year = p.PeriodPersianYear || '';
+    if (season && year) {
+        return season + ' ' + year;
+    } else if (season) {
+        return season;
+    } else if (year) {
+        return year;
+    }
+    return '-';
+}
+
+function getPeriodTypeDisplay(p) {
+    if (p.PeriodType === 'custom') {
+        return t('period.custom', 'دوره سفارشی');
+    }
+    return t('period.season', 'دوره فصلی');
+}
+
+// ============================================================================
+// LOAD DATA
+// ============================================================================
+function loadProjections() {
+    var tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '<tr><td colspan="13" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    fetch('/api/finance/cash-flow/list')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                renderProjections(data.projections || []);
+                updateKPIs(data.projections || []);
+            } else {
+                tbody.innerHTML = '<tr><td colspan="13" class="text-danger">' + t('error', 'Error') + ': ' + (data.error || '') + '</td></tr>';
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="13" class="text-danger">' + t('error', 'Error') + ': ' + err.message + '</td></tr>';
+        });
+}
+
+function renderProjections(projections) {
+    var tbody = document.getElementById('tableBody');
+    if (!projections || projections.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center">' + t('no_data', 'No projections available. Create your first cash flow projection!') + '</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    projections.forEach(function(p, idx) {
+        var statusBadge = getStatusBadge(p.Status);
+        var statusText = getStatusText(p.Status);
+        var netColor = p.TotalNetCash >= 0 ? 'text-success' : 'text-danger';
+        var periodDisplay = getPeriodDisplay(p);
+        var periodTypeDisplay = getPeriodTypeDisplay(p);
+        
+        html += '<tr>' +
+            '<td class="text-center text-muted">' + (idx + 1) + '</td>' +
+            '<td><a href="/finance/cash-flow/' + p.ProjectionID + '/view">' + p.ProjectionCode + '</a></td>' +
+            '<td>' + p.ProjectionName + '</td>' +
+            '<td>' + periodDisplay + '</td>' +
+            '<td><span class="badge ' + (p.PeriodType === 'custom' ? 'bg-info' : 'bg-secondary') + '">' + periodTypeDisplay + '</span></td>' +
+            '<td>' + (p.SalesForecastCode || '-') + '</td>' +
+            '<td>' + (p.PurchaseForecastCode || '-') + '</td>' +
+            '<td><span class="badge ' + statusBadge + '">' + statusText + '</span></td>' +
+            '<td class="text-end">' + formatCurrency(p.TotalReceipts) + '</td>' +
+            '<td class="text-end">' + formatCurrency(p.TotalPayments) + '</td>' +
+            '<td class="text-end ' + netColor + '">' + formatCurrency(p.TotalNetCash) + '</td>' +
+            '<td class="text-end fw-bold">' + formatCurrency(p.ClosingBalance) + '</td>' +
+            '<td>' +
+                '<a href="/finance/cash-flow/' + p.ProjectionID + '/view" class="btn btn-sm btn-info" title="' + t('view', 'View') + '"><i class="fas fa-eye"></i></a> ' +
+                '<button class="btn btn-sm btn-primary duplicate-btn" data-id="' + p.ProjectionID + '" title="' + t('duplicate', 'Duplicate') + '"><i class="fas fa-copy"></i></button> ' +
+                '<button class="btn btn-sm btn-danger delete-btn" data-id="' + p.ProjectionID + '" title="' + t('delete', 'Delete') + '"><i class="fas fa-trash"></i></button>' +
+            '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function updateKPIs(projections) {
+    var total = projections.length;
+    var approved = projections.filter(function(p) { return p.Status === 'Approved'; }).length;
+    var draft = projections.filter(function(p) { return p.Status === 'Draft'; }).length;
+    var totalValue = projections.reduce(function(sum, p) { return sum + (p.ClosingBalance || 0); }, 0);
+    
+    document.getElementById('kpiTotal').textContent = total;
+    document.getElementById('kpiApproved').textContent = approved;
+    document.getElementById('kpiDraft').textContent = draft;
+    document.getElementById('kpiTotalValue').textContent = formatCurrency(totalValue);
+}
+
+// ============================================================================
+// ACTIONS
+// ============================================================================
+function duplicateProjection(id) {
+    if (!confirm('Duplicate this projection for scenario analysis?')) return;
+    
+    fetch('/api/finance/cash-flow/' + id + '/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast('Projection duplicated successfully!', 'success');
+            loadProjections();
+        } else {
+            showToast('Error: ' + (data.error || 'Failed to duplicate'), 'error');
+        }
+    })
+    .catch(function(err) {
+        showToast('Error: ' + err.message, 'error');
+    });
+}
+
+function deleteProjection(id) {
+    if (!confirm('Delete this projection? This cannot be undone.')) return;
+    
+    fetch('/api/finance/cash-flow/' + id + '/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast('Projection deleted successfully!', 'success');
+            loadProjections();
+        } else {
+            showToast('Error: ' + (data.error || 'Failed to delete'), 'error');
+        }
+    })
+    .catch(function(err) {
+        showToast('Error: ' + err.message, 'error');
+    });
+}
+
+// ============================================================================
+// TOAST NOTIFICATIONS
+// ============================================================================
+function showToast(message, type) {
+    var container = document.getElementById('toastContainer');
+    if (!container) {
+        var c = document.createElement('div');
+        c.id = 'toastContainer';
+        c.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(c);
+        container = c;
+    }
+    var id = 'toast-' + Date.now();
+    var bg = type === 'success' ? '#28a745' : (type === 'error' ? '#dc3545' : '#17a2b8');
+    var html = '<div id="' + id + '" class="toast show" style="background:white; border-left:4px solid ' + bg + '; margin-bottom:10px;">' +
+        '<div class="toast-header"><strong>' + (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info') + '</strong>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="toast"></button></div>' +
+        '<div class="toast-body">' + message + '</div></div>';
+    container.insertAdjacentHTML('beforeend', html);
+    setTimeout(function() { var el = document.getElementById(id); if (el) el.remove(); }, 5000);
+}
+
+// ============================================================================
+// EVENT LISTENERS
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadProjections();
+    
+    // Event delegation for action buttons
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.duplicate-btn');
+        if (btn) {
+            duplicateProjection(btn.dataset.id);
+            return;
+        }
+        btn = e.target.closest('.delete-btn');
+        if (btn) {
+            deleteProjection(btn.dataset.id);
+            return;
+        }
+    });
+    
+    // Auto-refresh every 60 seconds
+    setInterval(loadProjections, 60000);
+});
+</script>
+{% endblock %}

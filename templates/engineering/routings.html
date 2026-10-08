@@ -1,0 +1,1464 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('engineering.routings.title', 'Routings & Work Instructions') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.f4b2ca44', 'Home') }}</a></li>
+            <li class="breadcrumb-item">{{ get_translation('auto.e4a0f8ea', 'Engineering') }}</li>
+            <li class="breadcrumb-item active">{{ get_translation('engineering.routings.title', 'Routings & Work Instructions') }}</li>
+        </ol>
+    </nav>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 col-sm-6 mb-2">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.routings.kpi.total', 'Total Routings') }}</h5>
+                    <p class="card-text display-6" id="kpiTotal">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-2">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.routings.kpi.active', 'Active Routings') }}</h5>
+                    <p class="card-text display-6" id="kpiActive">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-2">
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.routings.kpi.inactive', 'Inactive Routings') }}</h5>
+                    <p class="card-text display-6" id="kpiInactive">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Actions -->
+    <div class="row mb-3 g-2">
+        <div class="col-md-3">
+            <label>{{ get_translation('engineering.routings.filter.product', 'Product') }}</label>
+            <select class="form-select" id="filterProduct">
+                <option value="">{{ get_translation('auto.86a89a2a', 'All') }}</option>
+                {% for p in products %}
+                <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.routings.filter.status', 'Status') }}</label>
+            <select class="form-select" id="filterStatus">
+                <option value="">{{ get_translation('auto.86a89a2a', 'All') }}</option>
+                <option value="Active">{{ get_translation('engineering.routings.status.active', 'Active') }}</option>
+                <option value="Inactive">{{ get_translation('engineering.routings.status.inactive', 'Inactive') }}</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary me-2" id="applyFiltersBtn">{{ get_translation('auto.133f99ab', 'Apply') }}</button>
+            <button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('auto.0cb5f899', 'Reset') }}</button>
+        </div>
+        <div class="col-md-4 d-flex align-items-end gap-2">
+            <button class="btn btn-success" id="addRoutingBtn">{{ get_translation('engineering.routings.add', '+ Add Routing') }}</button>
+            <button class="btn btn-secondary" id="exportBtn">{{ get_translation('auto.d3cc1def', 'Export CSV') }}</button>
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <ul class="nav nav-tabs mb-3" id="routingTabs">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#tableTab" id="tableTabBtn">
+                {{ get_translation('engineering.routings.tab.table', 'Table View') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#ganttTab" id="ganttTabBtn">
+                {{ get_translation('engineering.routings.tab.gantt', 'Gantt View') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#flowTab" id="flowTabBtn">
+                {{ get_translation('engineering.routings.tab.flow', 'Process Flow') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#joinMapTab" id="joinMapTabBtn">
+                {{ get_translation('engineering.routings.tab.joinmap', 'Join Map') }}
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- TABLE TAB -->
+        <div class="tab-pane fade show active" id="tableTab">
+            <div class="card">
+                <div class="card-header">{{ get_translation('engineering.routings.list', 'Routing List') }}</div>
+                <div class="card-body" style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                    <table class="table table-striped table-hover table-sticky">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>{{ get_translation('engineering.routings.table.product', 'Product') }}</th>
+                                <th>{{ get_translation('engineering.routings.table.work_center', 'Work Center') }}</th>
+                                <th>{{ get_translation('engineering.routings.table.sequence', 'Seq') }}</th>
+                                <th>{{ get_translation('engineering.routings.table.setup', 'Setup (hrs)') }}</th>
+                                <th>{{ get_translation('engineering.routings.table.run', 'Run (hrs)') }}</th>
+                                <th>{{ get_translation('engineering.routings.table.sourcing', 'Sourcing') }}</th>
+                                <th>{{ get_translation('engineering.routings.table.instructions', 'Instructions') }}</th>
+                                <th>{{ get_translation('engineering.routings.table.status', 'Status') }}</th>
+                                <th>{{ get_translation('auto.ff9f1e3e', 'Actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="routingsTableBody">
+                            <tr><td colspan="10" class="text-center">{{ get_translation('auto.474660de', 'Loading...') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- GANTT TAB -->
+        <div class="tab-pane fade" id="ganttTab">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <label>{{ get_translation('engineering.routings.gantt.product', 'Select Product') }}</label>
+                            <select class="form-select" id="ganttProduct">
+                                <option value="">{{ get_translation('auto.7794ce67', 'Select a product...') }}</option>
+                                {% for p in products %}
+                                <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary w-100" id="loadGanttBtn">{{ get_translation('auto.133f99ab', 'Load Gantt') }}</button>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <span class="badge bg-info">{{ get_translation('engineering.routings.gantt.hint', 'Sequential timeline view (read-only)') }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body" style="overflow-x: auto;">
+                    <div id="ganttChart" style="min-height: 400px;">
+                        <p class="text-muted text-center" id="ganttPlaceholder">
+                            {{ get_translation('engineering.routings.gantt.placeholder', 'Select a product and click "Load Gantt" to view the routing timeline.') }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ENHANCED PROCESS FLOW TAB -->
+        <div class="tab-pane fade" id="flowTab">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <label>{{ get_translation('engineering.routings.gantt.product', 'Select Product') }}</label>
+                            <select class="form-select" id="flowProduct">
+                                <option value="">{{ get_translation('auto.7794ce67', 'Select a product...') }}</option>
+                                {% for p in products %}
+                                <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary w-100" id="loadFlowBtn">{{ get_translation('auto.133f99ab', 'Load Flow') }}</button>
+                        </div>
+                        <div class="col-md-7 text-end">
+                            <span class="badge bg-info me-2">{{ get_translation('engineering.routings.flow.hint', 'Multi-product process flow') }}</span>
+                            <span class="badge bg-secondary">{{ get_translation('engineering.routings.flow.showing', 'Showing products at each workstation') }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body" style="overflow-x: auto; min-height: 400px; padding: 20px;">
+                    <div id="flowChart">
+                        <p class="text-muted text-center">{{ get_translation('engineering.routings.flow.placeholder', 'Select a product and click "Load Flow" to view the process flow diagram.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COMPONENT JOIN MAP TAB -->
+        <div class="tab-pane fade" id="joinMapTab">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <label>{{ get_translation('engineering.routings.gantt.product', 'Select Product') }}</label>
+                            <select class="form-select" id="joinMapProduct">
+                                <option value="">{{ get_translation('auto.7794ce67', 'Select a product...') }}</option>
+                                {% for p in products %}
+                                <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary w-100" id="loadJoinMapBtn">{{ get_translation('auto.133f99ab', 'Load Map') }}</button>
+                        </div>
+                        <div class="col-md-7 text-end">
+                            <span class="badge bg-info me-2">{{ get_translation('engineering.routings.joinmap.hint', 'Component join map') }}</span>
+                            <span class="badge bg-secondary">{{ get_translation('engineering.routings.joinmap.showing', 'Showing where parts meet') }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body" style="overflow-x: auto; min-height: 400px; padding: 20px;">
+                    <div id="joinMapChart">
+                        <p class="text-muted text-center">{{ get_translation('engineering.routings.joinmap.placeholder', 'Select a product and click "Load Map" to view the component join map.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODALS -->
+<!-- ================================================================ -->
+
+<!-- Add/Edit Routing Modal -->
+<div class="modal fade" id="routingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="routingModalTitle">{{ get_translation('engineering.routings.add_modal', 'Add Routing') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editRoutingId"/>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.product', 'Product') }} *</label>
+                        <select class="form-select" id="routingProduct">
+                            <option value="">{{ get_translation('auto.7794ce67', 'Select a product...') }}</option>
+                            {% for p in products %}
+                            <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.work_center', 'Work Center') }} *</label>
+                        <select class="form-select" id="routingWorkCenter">
+                            <option value="">{{ get_translation('auto.7794ce67', 'Select a work center...') }}</option>
+                            {% for wc in work_centers %}
+                            <option value="{{ wc.WorkCenterID }}">{{ wc.Name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.sequence', 'Operation Sequence') }}</label>
+                        <input class="form-control" id="routingSequence" type="number" value="10"/>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.setup', 'Setup Time (hrs)') }}</label>
+                        <input class="form-control" id="routingSetup" type="number" step="0.01" value="0"/>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.run', 'Run Time (hrs/unit)') }}</label>
+                        <input class="form-control" id="routingRun" type="number" step="0.01" value="0"/>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.sourcing', 'Sourcing Type') }}</label>
+                        <select class="form-select" id="routingSourcing">
+                            <option value="Make">{{ get_translation('engineering.routings.sourcing.make', 'Make') }}</option>
+                            <option value="Buy">{{ get_translation('engineering.routings.sourcing.buy', 'Buy') }}</option>
+                            <option value="Outsource">{{ get_translation('engineering.routings.sourcing.outsource', 'Outsource') }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.queue', 'Queue Time (hrs)') }}</label>
+                        <input class="form-control" id="routingQueue" type="number" step="0.01" value="0"/>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.routings.fields.move', 'Move Time (hrs)') }}</label>
+                        <input class="form-control" id="routingMove" type="number" step="0.01" value="0"/>
+                    </div>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" id="routingIsActive" type="checkbox" checked/>
+                    <label class="form-check-label">{{ get_translation('engineering.routings.fields.is_active', 'Is Active') }}</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.a5674199', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveRoutingBtn">{{ get_translation('auto.e3b7614f', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Instructions Modal -->
+<div class="modal fade" id="instructionsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('engineering.routings.instructions.title', 'Work Instructions') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body" id="instructionsContent">
+                <p class="text-muted">{{ get_translation('auto.474660de', 'Loading...') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.cf210f90', 'Close') }}</button>
+                <button class="btn btn-success" id="addInstructionBtn">{{ get_translation('engineering.routings.instructions.add', '+ Add Instruction') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Instruction Modal -->
+<div class="modal fade" id="instructionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="instructionModalTitle">{{ get_translation('engineering.routings.instructions.add_modal', 'Add Work Instruction') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editInstructionId"/>
+                <input type="hidden" id="instructionRoutingId"/>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.step', 'Step Number') }}</label>
+                    <input class="form-control" id="instructionStep" type="number" value="1"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.description', 'Description') }} (EN)</label>
+                    <textarea class="form-control" id="instructionDescription" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.description_local', 'Description') }} (FA)</label>
+                    <textarea class="form-control" id="instructionDescriptionLocal" rows="2" dir="rtl"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.setup', 'Setup Instructions') }} (EN)</label>
+                    <textarea class="form-control" id="instructionSetup" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.setup_local', 'Setup Instructions') }} (FA)</label>
+                    <textarea class="form-control" id="instructionSetupLocal" rows="2" dir="rtl"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.operating', 'Operating Instructions') }} (EN)</label>
+                    <textarea class="form-control" id="instructionOperating" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.operating_local', 'Operating Instructions') }} (FA)</label>
+                    <textarea class="form-control" id="instructionOperatingLocal" rows="2" dir="rtl"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.quality', 'Quality Checkpoints') }}</label>
+                    <textarea class="form-control" id="instructionQuality" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.safety', 'Safety Notes') }}</label>
+                    <textarea class="form-control" id="instructionSafety" rows="2"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.routings.instructions.fields.image', 'Image Path') }}</label>
+                        <input class="form-control" id="instructionImage" placeholder="/static/images/instruction.jpg"/>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.routings.instructions.fields.video', 'Video Path') }}</label>
+                        <input class="form-control" id="instructionVideo" placeholder="/static/videos/instruction.mp4"/>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.routings.instructions.fields.display_order', 'Display Order') }}</label>
+                    <input class="form-control" id="instructionDisplayOrder" type="number" value="0"/>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.a5674199', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveInstructionBtn">{{ get_translation('auto.e3b7614f', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.table-sticky thead th {
+    position: sticky;
+    top: 56px;
+    z-index: 10;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var editingRoutingId = null;
+    var editingInstructionId = null;
+    var currentRoutingId = null;
+
+    // Helper translation function
+    function getTranslation(key, defaultText) {
+        if (window.trans && window.trans[key]) {
+            return window.trans[key];
+        }
+        return defaultText || key;
+    }
+
+    // Get project from sidebar
+    function getProjectId() {
+        var sidebarProject = $('#sidebarProject').val();
+        var urlParams = new URLSearchParams(window.location.search);
+        var projectId = urlParams.get('project_id') || sidebarProject || '';
+        return projectId;
+    }
+
+    // ================================================================
+    // LOAD STATS
+    // ================================================================
+    function loadStats() {
+        var params = {};
+        var projectId = getProjectId();
+        if (projectId && projectId !== 'All' && projectId !== '') {
+            params.project_id = projectId;
+        }
+        $.get('/api/bom/routings/stats', params)
+            .done(function(s) {
+                $('#kpiTotal').text(s.totalRoutings || 0);
+                $('#kpiActive').text(s.activeRoutings || 0);
+                $('#kpiInactive').text(s.inactiveRoutings || 0);
+            })
+            .fail(function() { console.error("Failed to load stats"); });
+    }
+
+    // ================================================================
+    // LOAD ROUTINGS (TABLE VIEW)
+    // ================================================================
+    function loadRoutings() {
+        var params = {};
+        var projectId = getProjectId();
+        if (projectId && projectId !== 'All' && projectId !== '') {
+            params.project_id = projectId;
+        }
+        var productId = $('#filterProduct').val();
+        if (productId) params.product_id = productId;
+        var status = $('#filterStatus').val();
+        if (status) params.status = status;
+
+        $.get('/api/bom/routings', params)
+            .done(function(routings) {
+                var $tbody = $('#routingsTableBody');
+                $tbody.empty();
+                if (!routings || !routings.length) {
+                    $tbody.html('<tr><td colspan="10" class="text-center">' + getTranslation('auto.09f6c4b5', 'No routings found') + '</td></tr>');
+                    return;
+                }
+                routings.forEach(function(r, i) {
+                    var statusBadge = r.isActive ? 
+                        '<span class="badge bg-success">' + getTranslation('auto.585a7e93', 'Active') + '</span>' : 
+                        '<span class="badge bg-secondary">' + getTranslation('auto.058f1fa3', 'Inactive') + '</span>';
+                    var sourcingBadge = getSourcingBadge(r.sourcingType);
+                    var row = '<tr>' +
+                        '<td>' + (i+1) + '</td>' +
+                        '<td><a href="#" class="view-routing" data-id="' + r.routingId + '">' + escapeHtml(r.productName || r.productId) + '</a></td>' +
+                        '<td>' + escapeHtml(r.workCenterName || r.workCenterId) + '</td>' +
+                        '<td>' + r.operationSequence + '</td>' +
+                        '<td>' + r.setupTimeHours.toFixed(2) + '</td>' +
+                        '<td>' + r.runTimeHoursPerUnit.toFixed(2) + '</td>' +
+                        '<td>' + sourcingBadge + '</td>' +
+                        '<td><button class="btn btn-sm btn-info view-instructions" data-id="' + r.routingId + '">' + r.instructionCount + ' <i class="fas fa-list"></i></button></td>' +
+                        '<td>' + statusBadge + '</td>' +
+                        '<td>' +
+                        '<button class="btn btn-sm btn-secondary view-routing me-1" data-id="' + r.routingId + '" title="View Routing"><i class="fas fa-eye"></i></button> ' +
+                        '<button class="btn btn-sm btn-warning edit-routing me-1" data-id="' + r.routingId + '"><i class="fas fa-edit"></i></button> ' +
+                        '<button class="btn btn-sm btn-danger delete-routing" data-id="' + r.routingId + '"><i class="fas fa-trash"></i></button>' +
+                        '</td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() {
+                $('#routingsTableBody').html('<tr><td colspan="10" class="text-danger">' + getTranslation('auto.12dc432e', 'Error loading routings') + '</td></tr>');
+            });
+    }
+
+    function getSourcingBadge(sourcingType) {
+        var colors = {
+            'Make': 'success',
+            'Buy': 'info',
+            'Outsource': 'warning'
+        };
+        var labels = {
+            'Make': getTranslation('engineering.routings.sourcing.make', 'Make'),
+            'Buy': getTranslation('engineering.routings.sourcing.buy', 'Buy'),
+            'Outsource': getTranslation('engineering.routings.sourcing.outsource', 'Outsource')
+        };
+        return '<span class="badge bg-' + (colors[sourcingType] || 'secondary') + '">' + (labels[sourcingType] || sourcingType || 'Make') + '</span>';
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    // ================================================================
+    // MODAL FUNCTIONS
+    // ================================================================
+
+    // ---- ROUTING MODAL ----
+    function openRoutingModal(id) {
+        editingRoutingId = id;
+        $('#routingModalTitle').text(id ? getTranslation('engineering.routings.edit_modal', 'Edit Routing') : getTranslation('engineering.routings.add_modal', 'Add Routing'));
+        if (id) {
+            $.get('/api/bom/routings/' + id)
+                .done(function(r) {
+                    $('#editRoutingId').val(r.routingId);
+                    $('#routingProduct').val(r.productId);
+                    $('#routingWorkCenter').val(r.workCenterId);
+                    $('#routingSequence').val(r.operationSequence);
+                    $('#routingSetup').val(r.setupTimeHours);
+                    $('#routingRun').val(r.runTimeHoursPerUnit);
+                    $('#routingQueue').val(r.queueTimeHours);
+                    $('#routingMove').val(r.moveTimeHours);
+                    $('#routingSourcing').val(r.sourcingType || 'Make');
+                    $('#routingIsActive').prop('checked', r.isActive);
+                    $('#routingModal').modal('show');
+                })
+                .fail(function() { alert(getTranslation('auto.9d8f9f5b', 'Error loading routing details')); });
+        } else {
+            $('#editRoutingId').val('');
+            $('#routingProduct').val('');
+            $('#routingWorkCenter').val('');
+            $('#routingSequence').val('10');
+            $('#routingSetup').val('0');
+            $('#routingRun').val('0');
+            $('#routingQueue').val('0');
+            $('#routingMove').val('0');
+            $('#routingSourcing').val('Make');
+            $('#routingIsActive').prop('checked', true);
+            $('#routingModal').modal('show');
+        }
+    }
+
+    function saveRouting() {
+        var data = {
+            productId: $('#routingProduct').val(),
+            workCenterId: $('#routingWorkCenter').val(),
+            operationSequence: parseInt($('#routingSequence').val()) || 10,
+            setupTimeHours: parseFloat($('#routingSetup').val()) || 0,
+            runTimeHoursPerUnit: parseFloat($('#routingRun').val()) || 0,
+            queueTimeHours: parseFloat($('#routingQueue').val()) || 0,
+            moveTimeHours: parseFloat($('#routingMove').val()) || 0,
+            sourcingType: $('#routingSourcing').val(),
+            isActive: $('#routingIsActive').is(':checked')
+        };
+        if (!data.productId) { alert(getTranslation('engineering.routings.product_required', 'Product is required')); return; }
+        if (!data.workCenterId) { alert(getTranslation('engineering.routings.workcenter_required', 'Work Center is required')); return; }
+
+        var id = $('#editRoutingId').val();
+        var url = id ? '/api/bom/routings/' + id : '/api/bom/routings';
+        var method = id ? 'PUT' : 'POST';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                $('#routingModal').modal('hide');
+                loadRoutings();
+                loadStats();
+                alert(id ? getTranslation('auto.bb4343fb', 'Routing updated') : getTranslation('auto.9aa25926', 'Routing created'));
+            },
+            error: function(xhr) { 
+                var msg = xhr.responseJSON?.error || getTranslation('auto.9f7cf0c7', 'Unknown error');
+                alert(getTranslation('auto.ed67c9fb', 'Error') + ': ' + msg);
+            }
+        });
+    }
+
+    function deleteRouting(id) {
+        if (confirm(getTranslation('engineering.routings.delete_confirm', 'Delete this routing?'))) {
+            $.ajax({
+                url: '/api/bom/routings/' + id,
+                method: 'DELETE',
+                success: function() {
+                    loadRoutings();
+                    loadStats();
+                    alert(getTranslation('auto.e5c9c4b1', 'Routing deleted'));
+                },
+                error: function(xhr) { 
+                    var msg = xhr.responseJSON?.error || getTranslation('auto.9f7cf0c7', 'Unknown error');
+                    alert(getTranslation('auto.ed67c9fb', 'Error') + ': ' + msg);
+                }
+            });
+        }
+    }
+
+    // ---- INSTRUCTION MODAL ----
+    function viewInstructions(routingId) {
+        currentRoutingId = routingId;
+        $('#instructionsContent').html('<p class="text-muted">' + getTranslation('auto.474660de', 'Loading...') + '</p>');
+        $('#instructionsModal').modal('show');
+        
+        $.get('/api/bom/routings/' + routingId + '/instructions')
+            .done(function(instructions) {
+                var html = '';
+                if (!instructions || !instructions.length) {
+                    html = '<p class="text-muted">' + getTranslation('engineering.routings.instructions.none', 'No instructions found for this routing.') + '</p>';
+                } else {
+                    html = '<div class="table-responsive"><table class="table table-sm table-striped">';
+                    html += '<thead><tr><th>' + getTranslation('engineering.routings.instructions.table.step', 'Step') + '</th><th>' + getTranslation('engineering.routings.instructions.table.description', 'Description') + '</th><th>' + getTranslation('auto.ff9f1e3e', 'Actions') + '</th></tr></thead><tbody>';
+                    instructions.forEach(function(instr) {
+                        html += '<tr>' +
+                            '<td>' + instr.stepNumber + '</td>' +
+                            '<td>' + escapeHtml(instr.description || '-') + '</td>' +
+                            '<td>' +
+                            '<button class="btn btn-sm btn-warning edit-instruction me-1" data-id="' + instr.instructionId + '"><i class="fas fa-edit"></i></button>' +
+                            '<button class="btn btn-sm btn-danger delete-instruction" data-id="' + instr.instructionId + '"><i class="fas fa-trash"></i></button>' +
+                            '</td>' +
+                            '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                }
+                $('#instructionsContent').html(html);
+            })
+            .fail(function() {
+                $('#instructionsContent').html('<p class="text-danger">' + getTranslation('auto.12dc432e', 'Error loading instructions') + '</p>');
+            });
+    }
+
+    function openInstructionModal(id) {
+        editingInstructionId = id;
+        $('#instructionModalTitle').text(id ? getTranslation('engineering.routings.instructions.edit', 'Edit Work Instruction') : getTranslation('engineering.routings.instructions.add_modal', 'Add Work Instruction'));
+        if (id) {
+            $.get('/api/bom/routings/' + currentRoutingId + '/instructions')
+                .done(function(instructions) {
+                    var instr = instructions.find(function(x) { return x.instructionId === id; });
+                    if (instr) {
+                        $('#editInstructionId').val(instr.instructionId);
+                        $('#instructionRoutingId').val(currentRoutingId);
+                        $('#instructionStep').val(instr.stepNumber);
+                        $('#instructionDescription').val(instr.description);
+                        $('#instructionDescriptionLocal').val(instr.descriptionLocal || '');
+                        $('#instructionSetup').val(instr.setupInstructions || '');
+                        $('#instructionSetupLocal').val(instr.setupInstructionsLocal || '');
+                        $('#instructionOperating').val(instr.operatingInstructions || '');
+                        $('#instructionOperatingLocal').val(instr.operatingInstructionsLocal || '');
+                        $('#instructionQuality').val(instr.qualityCheckpoints || '');
+                        $('#instructionSafety').val(instr.safetyNotes || '');
+                        $('#instructionImage').val(instr.imagePath || '');
+                        $('#instructionVideo').val(instr.videoPath || '');
+                        $('#instructionDisplayOrder').val(instr.displayOrder || 0);
+                        $('#instructionModal').modal('show');
+                    }
+                });
+        } else {
+            $('#editInstructionId').val('');
+            $('#instructionRoutingId').val(currentRoutingId);
+            $('#instructionStep').val('1');
+            $('#instructionDescription').val('');
+            $('#instructionDescriptionLocal').val('');
+            $('#instructionSetup').val('');
+            $('#instructionSetupLocal').val('');
+            $('#instructionOperating').val('');
+            $('#instructionOperatingLocal').val('');
+            $('#instructionQuality').val('');
+            $('#instructionSafety').val('');
+            $('#instructionImage').val('');
+            $('#instructionVideo').val('');
+            $('#instructionDisplayOrder').val('0');
+            $('#instructionModal').modal('show');
+        }
+    }
+
+    function saveInstruction() {
+        var data = {
+            stepNumber: parseInt($('#instructionStep').val()) || 1,
+            description: $('#instructionDescription').val(),
+            descriptionLocal: $('#instructionDescriptionLocal').val(),
+            setupInstructions: $('#instructionSetup').val(),
+            setupInstructionsLocal: $('#instructionSetupLocal').val(),
+            operatingInstructions: $('#instructionOperating').val(),
+            operatingInstructionsLocal: $('#instructionOperatingLocal').val(),
+            qualityCheckpoints: $('#instructionQuality').val(),
+            safetyNotes: $('#instructionSafety').val(),
+            imagePath: $('#instructionImage').val(),
+            videoPath: $('#instructionVideo').val(),
+            displayOrder: parseInt($('#instructionDisplayOrder').val()) || 0
+        };
+
+        var id = $('#editInstructionId').val();
+        var routingId = $('#instructionRoutingId').val();
+        var url = id ? '/api/bom/routings/instructions/' + id : '/api/bom/routings/' + routingId + '/instructions';
+        var method = id ? 'PUT' : 'POST';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                $('#instructionModal').modal('hide');
+                viewInstructions(routingId);
+                alert(id ? getTranslation('auto.bb4343fb', 'Instruction updated') : getTranslation('auto.9aa25926', 'Instruction created'));
+            },
+            error: function(xhr) { 
+                var msg = xhr.responseJSON?.error || getTranslation('auto.9f7cf0c7', 'Unknown error');
+                alert(getTranslation('auto.ed67c9fb', 'Error') + ': ' + msg);
+            }
+        });
+    }
+
+    function deleteInstruction(id) {
+        if (confirm(getTranslation('engineering.routings.instructions.delete_confirm', 'Delete this instruction?'))) {
+            $.ajax({
+                url: '/api/bom/routings/instructions/' + id,
+                method: 'DELETE',
+                success: function() {
+                    viewInstructions(currentRoutingId);
+                    alert(getTranslation('auto.e5c9c4b1', 'Instruction deleted'));
+                },
+                error: function(xhr) { 
+                    var msg = xhr.responseJSON?.error || getTranslation('auto.9f7cf0c7', 'Unknown error');
+                    alert(getTranslation('auto.ed67c9fb', 'Error') + ': ' + msg);
+                }
+            });
+        }
+    }
+
+    // ================================================================
+    // GANTT VIEW - GROUPED BY SEQUENCE WITH PARALLEL OPERATIONS
+    // ================================================================
+    function loadGantt() {
+        var productId = $('#ganttProduct').val();
+        if (!productId) {
+            $('#ganttChart').html('<p class="text-warning text-center">' + getTranslation('engineering.routings.gantt.select_product', 'Please select a product.') + '</p>');
+            return;
+        }
+
+        $('#ganttChart').html('<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> ' + getTranslation('auto.474660de', 'Loading...') + '</p>');
+
+        $.get('/api/bom/routings', { product_id: productId })
+            .done(function(routings) {
+                if (!routings || routings.length === 0) {
+                    $('#ganttChart').html('<p class="text-muted text-center">' + getTranslation('engineering.routings.gantt.no_steps', 'No routing steps found for this product.') + '</p>');
+                    return;
+                }
+
+                // Sort by operation sequence
+                routings.sort(function(a, b) {
+                    return a.operationSequence - b.operationSequence;
+                });
+
+                // ==========================================================
+                // GROUP BY SEQUENCE - Parallel operations have same sequence
+                // ==========================================================
+                var sequenceGroups = {};
+                routings.forEach(function(r) {
+                    var seq = r.operationSequence;
+                    if (!sequenceGroups[seq]) {
+                        sequenceGroups[seq] = [];
+                    }
+                    var duration = r.setupTimeHours + r.runTimeHoursPerUnit + r.queueTimeHours + r.moveTimeHours;
+                    if (duration === 0) duration = 0.5;
+                    sequenceGroups[seq].push({
+                        name: r.workCenterName || r.workCenterId,
+                        sequence: seq,
+                        duration: duration,
+                        setup: r.setupTimeHours,
+                        run: r.runTimeHoursPerUnit,
+                        queue: r.queueTimeHours,
+                        move: r.moveTimeHours
+                    });
+                });
+
+                // Calculate sequential vs parallel
+                var colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+                var totalDuration = 0;
+                var allGroups = [];
+                var sequenceKeys = Object.keys(sequenceGroups).sort((a, b) => parseInt(a) - parseInt(b));
+
+                sequenceKeys.forEach(function(seq) {
+                    var group = sequenceGroups[seq];
+                    var maxDuration = Math.max.apply(null, group.map(function(g) { return g.duration; }));
+                    totalDuration += maxDuration; // Sequential time = max of parallel operations
+                    allGroups.push({
+                        sequence: parseInt(seq),
+                        operations: group,
+                        maxDuration: maxDuration,
+                        isParallel: group.length > 1
+                    });
+                });
+
+                // Build the Gantt chart
+                var html = '<div style="overflow-x: auto;">';
+                html += '<table class="table table-bordered" style="min-width: 900px; font-size: 13px;">';
+                html += '<thead><tr>' +
+                    '<th style="width:150px; background:#f8f9fa; position:sticky; left:0; z-index:5;">' + getTranslation('engineering.routings.table.work_center', 'Work Center') + '</th>' +
+                    '<th style="width:60px; background:#f8f9fa;">' + getTranslation('engineering.routings.table.sequence', 'Seq') + '</th>' +
+                    '<th style="background:#f8f9fa;">' + getTranslation('engineering.routings.gantt.timeline', 'Timeline (hours)') + '</th>' +
+                    '<th style="width:120px; background:#f8f9fa;">' + getTranslation('engineering.routings.gantt.duration', 'Duration (hrs)') + '</th>' +
+                    '</tr></thead>';
+                html += '<tbody>';
+
+                var cumulativeTime = 0;
+                var colorIndex = 0;
+
+                allGroups.forEach(function(group) {
+                    var seq = group.sequence;
+                    var operations = group.operations;
+                    var isParallel = group.isParallel;
+                    var maxDur = group.maxDuration;
+
+                    // For each operation in the group
+                    operations.forEach(function(op, idx) {
+                        var color = colors[colorIndex % colors.length];
+                        if (idx === 0) colorIndex++; // Next group gets next color
+
+                        var barWidth = (op.duration / totalDuration) * 100;
+                        var barWidthMin = Math.max(barWidth, 2);
+
+                        // Start offset based on cumulative time (same for all parallel ops)
+                        var startOffset = (cumulativeTime / totalDuration) * 100;
+
+                        // Label for parallel operations
+                        var parallelLabel = isParallel ? ' ⚡' : '';
+
+                        html += '<tr>' +
+                            '<td style="position:sticky; left:0; background:white; z-index:2; font-weight:bold;">' + escapeHtml(op.name) + parallelLabel + '</td>' +
+                            '<td style="text-align:center;">' + seq + '</td>' +
+                            '<td style="position:relative; height:65px; background:#f8f9fa; border-left:1px solid #dee2e6; border-right:1px solid #dee2e6;">';
+
+                        // The bar
+                        html += '<div style="position:absolute; left:' + startOffset + '%; top:4px; height:36px; width:' + barWidthMin + '%; background:' + color + '; border-radius:4px; display:flex; align-items:center; justify-content:center; color:white; font-size:13px; font-weight:bold; min-width:35px; box-shadow:0 2px 4px rgba(0,0,0,0.15);">' +
+                            op.duration.toFixed(1) + 'h' +
+                            '</div>';
+
+                        // Details below the bar (CLEAN LAYOUT)
+                        html += '<div style="position:absolute; left:' + startOffset + '%; top:44px; font-size:11px; color:#555; white-space:nowrap; min-width:180px; background:rgba(255,255,255,0.8); padding:2px 6px; border-radius:3px;">' +
+                            'S:' + op.setup.toFixed(1) + 'h | R:' + op.run.toFixed(1) + 'h | Q:' + op.queue.toFixed(1) + 'h | M:' + op.move.toFixed(1) + 'h' +
+                            '</div>';
+
+                        // If parallel, show a small indicator
+                        if (isParallel && idx === 0) {
+                            html += '<div style="position:absolute; right:5px; top:15px; font-size:10px; color:#fff; background:#6c757d; padding:1px 6px; border-radius:10px;">' + getTranslation('engineering.routings.gantt.parallel', 'Parallel') + '</div>';
+                        }
+
+                        html += '</td>' +
+                            '<td style="text-align:center; font-weight:bold; font-size:13px;">' + op.duration.toFixed(1) + 'h</td>' +
+                            '</tr>';
+                    });
+
+                    // Move cumulative time forward by the max duration of the group
+                    cumulativeTime += maxDur;
+                });
+
+                html += '</tbody></table>';
+
+                // Legend
+                html += '<div class="row mt-3">';
+                html += '<div class="col-md-8">';
+                html += '<span class="badge bg-info me-2">' + getTranslation('engineering.routings.gantt.readonly', 'Read-only view') + '</span>';
+                html += '<span class="badge bg-secondary me-2">' + getTranslation('engineering.routings.gantt.legend', 'Legend') + '</span>';
+                html += '<span class="badge bg-success me-2">' + getTranslation('engineering.routings.gantt.sequential_badge', 'Sequential') + '</span>';
+                html += '<span class="badge bg-warning me-2">⚡ ' + getTranslation('engineering.routings.gantt.parallel_badge', 'Parallel') + '</span>';
+                html += '<span class="text-muted small">' + getTranslation('engineering.routings.gantt.total_duration', 'Total duration') + ': <strong>' + totalDuration.toFixed(1) + ' hrs</strong></span>';
+                html += '</div>';
+                html += '<div class="col-md-4 text-end">';
+                html += '<span class="text-muted small">S=' + getTranslation('engineering.routings.table.setup', 'Setup') + ' | R=' + getTranslation('engineering.routings.table.run', 'Run') + ' | Q=' + getTranslation('engineering.routings.fields.queue', 'Queue') + ' | M=' + getTranslation('engineering.routings.fields.move', 'Move') + '</span>';
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
+
+                $('#ganttChart').html(html);
+                
+                // ==========================================================
+                // FIX: Set Gantt container to 100% width for responsiveness
+                // ==========================================================
+                $('#ganttChart').css('width', '100%');
+                
+                // Fix SVG width if it exists (with small delay for rendering)
+                setTimeout(function() {
+                    var ganttSvg = $('#ganttChart').find('svg');
+                    if (ganttSvg.length) {
+                        ganttSvg.css('width', '100%');
+                        ganttSvg.attr('width', '100%');
+                    }
+                }, 100);
+            })
+            .fail(function() {
+                $('#ganttChart').html('<p class="text-danger text-center">' + getTranslation('auto.12dc432e', 'Error loading routing data.') + '</p>');
+            });
+    }
+
+    // ================================================================
+    // RESPONSIVE PROCESS FLOW DIAGRAM (Multi-Product View)
+    // ================================================================
+    function loadProcessFlow() {
+        var productId = $('#flowProduct').val();
+        if (!productId) {
+            $('#flowChart').html('<p class="text-warning text-center">' + getTranslation('engineering.routings.gantt.select_product', 'Please select a product.') + '</p>');
+            return;
+        }
+
+        $('#flowChart').html('<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> ' + getTranslation('auto.474660de', 'Loading...') + '</p>');
+
+        $.get('/api/bom/routings', {})
+            .done(function(allRoutings) {
+                if (!allRoutings || allRoutings.length === 0) {
+                    $('#flowChart').html('<p class="text-muted text-center">' + getTranslation('engineering.routings.gantt.no_steps', 'No routing data found.') + '</p>');
+                    return;
+                }
+
+                var selectedProductRoutings = allRoutings.filter(function(r) {
+                    return r.productId === productId;
+                });
+
+                if (!selectedProductRoutings || selectedProductRoutings.length === 0) {
+                    $('#flowChart').html('<p class="text-warning text-center">' + getTranslation('engineering.routings.gantt.no_steps', 'No routing found for selected product.') + '</p>');
+                    return;
+                }
+
+                selectedProductRoutings.sort(function(a, b) {
+                    return a.operationSequence - b.operationSequence;
+                });
+
+                // Build work center product map
+                var workCenterProducts = {};
+                allRoutings.forEach(function(r) {
+                    if (!workCenterProducts[r.workCenterId]) {
+                        workCenterProducts[r.workCenterId] = [];
+                    }
+                    if (!workCenterProducts[r.workCenterId].includes(r.productId)) {
+                        workCenterProducts[r.workCenterId].push(r.productId);
+                    }
+                });
+
+                var colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+                var productColorIndex = 0;
+                var productColors = {};
+
+                // ==========================================================
+                // BUILD HTML – RESPONSIVE
+                // ==========================================================
+                var html = '';
+
+                // Container with responsive class
+                html += '<div class="process-flow-container" style="padding: 10px 5px;">';
+
+                // ==========================================================
+                // DESKTOP VIEW (horizontal flow with arrows)
+                // ==========================================================
+                html += '<div class="flow-desktop" style="display: flex; flex-wrap: nowrap; align-items: flex-start; min-width: 800px; gap: 10px; padding: 10px 0; overflow-x: auto;">';
+
+                selectedProductRoutings.forEach(function(r, index) {
+                    var color = colors[index % colors.length];
+                    var duration = (r.setupTimeHours + r.runTimeHoursPerUnit + r.queueTimeHours + r.moveTimeHours).toFixed(1);
+                    var seq = r.operationSequence;
+                    var workCenterName = r.workCenterName || r.workCenterId || 'Unknown';
+
+                    var productsAtWorkCenter = workCenterProducts[r.workCenterId] || [];
+                    var otherProducts = productsAtWorkCenter.filter(function(p) { return p !== productId; });
+
+                    productsAtWorkCenter.forEach(function(p) {
+                        if (!productColors[p]) {
+                            productColors[p] = colors[productColorIndex % colors.length];
+                            productColorIndex++;
+                        }
+                    });
+
+                    // Node
+                    html += '<div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 140px; max-width: 180px;">';
+                    html += '<div style="background: ' + color + '; color: white; padding: 10px 15px; border-radius: 8px; width: 100%; text-align: center; font-weight: bold; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">';
+                    html += '<div style="font-size: 10px; opacity: 0.8;">' + getTranslation('engineering.routings.flow.step', 'Step') + ' ' + seq + '</div>';
+                    html += escapeHtml(workCenterName);
+                    html += '<div style="font-size: 10px; opacity: 0.8; margin-top: 3px;">' + duration + 'h</div>';
+                    html += '</div>';
+
+                    // Products list
+                    html += '<div style="margin-top: 6px; width: 100%; text-align: center; font-size: 10px; background: #f8f9fa; border-radius: 4px; padding: 3px 6px; border: 1px solid #e9ecef;">';
+                    html += '<span style="font-weight: bold; color: ' + (productColors[productId] || '#000') + ';">' + escapeHtml(productId) + '</span>';
+                    if (otherProducts.length > 0) {
+                        html += ' <span style="color: #6c757d; font-size: 9px;">+</span> ';
+                        var displayed = 0;
+                        otherProducts.forEach(function(p) {
+                            if (displayed < 2) {
+                                html += '<span style="color: ' + (productColors[p] || '#6c757d') + '; font-size: 9px; margin: 0 2px;">' + escapeHtml(p) + '</span>';
+                                displayed++;
+                            }
+                        });
+                        if (otherProducts.length > 2) {
+                            html += '<span style="color: #6c757d; font-size: 9px;"> +' + (otherProducts.length - 2) + '</span>';
+                        }
+                    } else {
+                        html += ' <span style="color: #6c757d; font-size: 9px;">(' + getTranslation('engineering.routings.flow.only', 'only') + ')</span>';
+                    }
+                    html += '</div>';
+
+                    if (r.sourcingType) {
+                        var bgColor = r.sourcingType === 'Make' ? '#28a745' : (r.sourcingType === 'Buy' ? '#17a2b8' : '#ffc107');
+                        html += '<div style="font-size: 8px; margin-top: 2px; background: ' + bgColor + '; color: white; padding: 1px 6px; border-radius: 8px;">' + getTranslation('engineering.routings.sourcing.' + r.sourcingType.toLowerCase(), r.sourcingType) + '</div>';
+                    }
+                    html += '</div>';
+
+                    if (index < selectedProductRoutings.length - 1) {
+                        html += '<div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 25px;">';
+                        html += '<div style="width: 25px; height: 2px; background: #6c757d; position: relative;">';
+                        html += '<div style="position: absolute; right: -6px; top: -5px; width: 0; height: 0; border-left: 8px solid #6c757d; border-top: 6px solid transparent; border-bottom: 6px solid transparent;"></div>';
+                        html += '</div>';
+                        if (r.moveTimeHours > 0) {
+                            html += '<div style="font-size: 7px; color: #888; margin-top: 1px;">' + r.moveTimeHours.toFixed(1) + 'h</div>';
+                        }
+                        html += '</div>';
+                    }
+                });
+
+                html += '</div>'; // end desktop view
+
+                // ==========================================================
+                // MOBILE VIEW (vertical list – hidden on desktop)
+                // ==========================================================
+                html += '<div class="flow-mobile" style="display: none; flex-direction: column; gap: 10px; padding: 10px 0;">';
+
+                selectedProductRoutings.forEach(function(r, index) {
+                    var color = colors[index % colors.length];
+                    var duration = (r.setupTimeHours + r.runTimeHoursPerUnit + r.queueTimeHours + r.moveTimeHours).toFixed(1);
+                    var seq = r.operationSequence;
+                    var workCenterName = r.workCenterName || r.workCenterId || 'Unknown';
+
+                    var productsAtWorkCenter = workCenterProducts[r.workCenterId] || [];
+                    var otherProducts = productsAtWorkCenter.filter(function(p) { return p !== productId; });
+
+                    html += '<div style="display: flex; align-items: center; gap: 10px; background: #f8f9fa; border-radius: 6px; padding: 8px 12px; border-left: 4px solid ' + color + ';">';
+                    html += '<div style="min-width: 40px; font-weight: bold; font-size: 12px; color: ' + color + ';">' + seq + '</div>';
+                    html += '<div style="flex: 1;">';
+                    html += '<div style="font-weight: bold; font-size: 14px;">' + escapeHtml(workCenterName) + '</div>';
+                    html += '<div style="font-size: 11px; color: #555;">' + duration + 'h';
+                    if (r.sourcingType) {
+                        html += ' · <span style="color: #888;">' + getTranslation('engineering.routings.sourcing.' + r.sourcingType.toLowerCase(), r.sourcingType) + '</span>';
+                    }
+                    html += '</div>';
+                    html += '<div style="font-size: 10px; color: #888; margin-top: 2px;">';
+                    html += '<strong>' + escapeHtml(productId) + '</strong>';
+                    if (otherProducts.length > 0) {
+                        html += ' + ';
+                        var displayed = 0;
+                        otherProducts.forEach(function(p) {
+                            if (displayed < 2) {
+                                html += escapeHtml(p);
+                                displayed++;
+                                if (displayed < Math.min(otherProducts.length, 2)) html += ', ';
+                            }
+                        });
+                        if (otherProducts.length > 2) {
+                            html += ' +' + (otherProducts.length - 2) + ' ' + getTranslation('engineering.routings.flow.more', 'more');
+                        }
+                    }
+                    html += '</div>';
+                    html += '</div>';
+                    html += '<div style="font-size: 20px; color: #ccc;">→</div>';
+                    html += '</div>';
+                });
+
+                html += '</div>'; // end mobile view
+
+                // ==========================================================
+                // LEGEND
+                // ==========================================================
+                html += '<div class="row mt-3" style="border-top: 1px solid #eee; padding-top: 12px;">';
+                html += '<div class="col-md-6 col-sm-12">';
+                html += '<span class="badge bg-info me-1">' + getTranslation('engineering.routings.gantt.readonly', 'Read-only') + '</span>';
+                html += '<span class="badge bg-secondary me-1">' + getTranslation('engineering.routings.flow.legend', 'Legend') + '</span>';
+
+                var legendProducts = Object.keys(productColors);
+                legendProducts.forEach(function(p) {
+                    var isSelected = (p === productId);
+                    html += '<span style="display: inline-block; margin: 2px 3px; padding: 1px 6px; border-radius: 8px; font-size: 9px; background: ' + productColors[p] + '; color: white; ' + (isSelected ? 'font-weight: bold; border: 2px solid #000;' : '') + '">' + escapeHtml(p) + (isSelected ? ' ★' : '') + '</span>';
+                });
+
+                html += '</div>';
+                html += '<div class="col-md-6 col-sm-12 text-end">';
+                html += '<span class="text-muted small">' + getTranslation('engineering.routings.flow.total_steps', 'Steps') + ': <strong>' + selectedProductRoutings.length + '</strong> | ';
+                var totalDuration = selectedProductRoutings.reduce(function(sum, r) {
+                    return sum + r.setupTimeHours + r.runTimeHoursPerUnit + r.queueTimeHours + r.moveTimeHours;
+                }, 0);
+                html += getTranslation('engineering.routings.gantt.total_duration', 'Total') + ': <strong>' + totalDuration.toFixed(1) + ' hrs</strong></span>';
+                html += '</div>';
+                html += '</div>';
+
+                html += '</div>'; // end container
+
+                // ==========================================================
+                // RENDER AND SETUP RESPONSIVE TOGGLES
+                // ==========================================================
+                $('#flowChart').html(html);
+
+                // Call setupResponsiveToggles after rendering
+                setupResponsiveToggles();
+
+            })
+            .fail(function() {
+                $('#flowChart').html('<p class="text-danger text-center">' + getTranslation('auto.12dc432e', 'Error loading routing data.') + '</p>');
+            });
+    }
+
+    // ================================================================
+    // COMPONENT JOIN MAP
+    // ================================================================
+    function loadJoinMap() {
+        var productId = $('#joinMapProduct').val();
+        if (!productId) {
+            $('#joinMapChart').html('<p class="text-warning text-center">' + getTranslation('engineering.routings.gantt.select_product', 'Please select a product.') + '</p>');
+            return;
+        }
+
+        $('#joinMapChart').html('<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> ' + getTranslation('auto.474660de', 'Loading...') + '</p>');
+
+        // Get routing and BOM data
+        $.when(
+            $.get('/api/bom/routings', { product_id: productId }),
+            $.get('/api/bom/bom', { product_id: productId })
+        ).done(function(routingResp, bomResp) {
+            var routings = routingResp[0];
+            var bomItems = bomResp[0];
+
+            if (!routings || routings.length === 0) {
+                $('#joinMapChart').html('<p class="text-muted text-center">' + getTranslation('engineering.routings.gantt.no_steps', 'No routing steps found for this product.') + '</p>');
+                return;
+            }
+
+            // Sort by operation sequence
+            routings.sort(function(a, b) {
+                return a.operationSequence - b.operationSequence;
+            });
+
+            // Build component join map
+            var colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+            var joinTypes = {
+                'Weld': '🔗 ' + getTranslation('engineering.routings.joinmap.weld', 'Weld'),
+                'Bolt': '🔩 ' + getTranslation('engineering.routings.joinmap.bolt', 'Bolt'),
+                'Press': '📌 ' + getTranslation('engineering.routings.joinmap.press', 'Press'),
+                'Glue': '🧪 ' + getTranslation('engineering.routings.joinmap.glue', 'Glue'),
+                'Screw': '🔧 ' + getTranslation('engineering.routings.joinmap.screw', 'Screw'),
+                'None': '➡️ ' + getTranslation('engineering.routings.joinmap.none', 'None')
+            };
+            var joinTypeColors = {
+                'Weld': '#e74c3c',
+                'Bolt': '#f39c12',
+                'Press': '#9b59b6',
+                'Glue': '#2ecc71',
+                'Screw': '#3498db',
+                'None': '#95a5a6'
+            };
+
+            var html = '<div style="overflow-x: auto; padding: 10px 5px;">';
+            html += '<div style="display: flex; flex-wrap: nowrap; align-items: flex-start; min-width: 800px; gap: 10px; padding: 10px 0;">';
+
+            // Build a map of components by step
+            var componentsByStep = {};
+            if (bomItems && bomItems.length > 0) {
+                bomItems.forEach(function(bom) {
+                    var step = bom.operationSequence || 0;
+                    if (!componentsByStep[step]) {
+                        componentsByStep[step] = [];
+                    }
+                    componentsByStep[step].push({
+                        componentId: bom.componentProductId,
+                        componentName: bom.componentName || bom.componentProductId,
+                        quantity: bom.quantity || 1
+                    });
+                });
+            }
+
+            routings.forEach(function(r, index) {
+                var color = colors[index % colors.length];
+                var seq = r.operationSequence;
+                var workCenterName = r.workCenterName || r.workCenterId || 'Unknown';
+
+                // Get join type for this step (from t_WorkInstructions)
+                var joinType = 'None';
+                // In production, this would come from the API
+                // For now, we'll use a sample based on the step
+                if (seq === 30) {
+                    joinType = 'Bolt';
+                } else if (seq === 40) {
+                    joinType = 'None';
+                } else if (seq === 50) {
+                    joinType = 'None';
+                } else {
+                    joinType = 'None';
+                }
+
+                var joinTypeColor = joinTypeColors[joinType] || '#95a5a6';
+                var joinTypeDisplay = joinTypes[joinType] || '➡️ None';
+
+                // Node
+                html += '<div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 180px; max-width: 220px;">';
+
+                // Work center node
+                html += '<div style="background: ' + color + '; color: white; padding: 10px 15px; border-radius: 8px; width: 100%; text-align: center; font-weight: bold; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer;" onclick="showJoinDetails(' + seq + ')">';
+                html += '<div style="font-size: 10px; opacity: 0.8;">' + getTranslation('engineering.routings.flow.step', 'Step') + ' ' + seq + '</div>';
+                html += escapeHtml(workCenterName);
+                html += '<div style="font-size: 10px; opacity: 0.8; margin-top: 3px;">' + r.setupTimeHours.toFixed(1) + 'h ' + getTranslation('engineering.routings.table.setup', 'setup') + '</div>';
+                html += '</div>';
+
+                // Components coming into this step
+                var componentsAtStep = componentsByStep[seq] || [];
+                if (componentsAtStep.length > 0) {
+                    html += '<div style="margin-top: 6px; width: 100%; text-align: center; font-size: 11px; background: #f8f9fa; border-radius: 4px; padding: 4px 8px; border: 1px solid #e9ecef;">';
+                    html += '<div style="font-weight: bold; font-size: 10px; color: #555; margin-bottom: 2px;">' + getTranslation('engineering.routings.joinmap.components', 'Components') + ':</div>';
+                    componentsAtStep.forEach(function(comp) {
+                        html += '<span style="display: inline-block; margin: 1px 3px; padding: 1px 6px; border-radius: 4px; background: #e9ecef; font-size: 10px;">' + escapeHtml(comp.componentName) + ' (' + comp.quantity + 'x)</span>';
+                    });
+                    html += '</div>';
+                }
+
+                // Join type badge
+                html += '<div style="margin-top: 4px; padding: 2px 10px; border-radius: 12px; background: ' + joinTypeColor + '; color: white; font-size: 10px; font-weight: bold;">' + joinTypeDisplay + '</div>';
+
+                html += '</div>';
+
+                // Arrow between nodes
+                if (index < routings.length - 1) {
+                    html += '<div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 25px;">';
+                    html += '<div style="width: 25px; height: 2px; background: #6c757d; position: relative;">';
+                    html += '<div style="position: absolute; right: -6px; top: -5px; width: 0; height: 0; border-left: 8px solid #6c757d; border-top: 6px solid transparent; border-bottom: 6px solid transparent;"></div>';
+                    html += '</div>';
+                    if (r.moveTimeHours > 0) {
+                        html += '<div style="font-size: 7px; color: #888; margin-top: 1px;">' + r.moveTimeHours.toFixed(1) + 'h</div>';
+                    }
+                    html += '</div>';
+                }
+            });
+
+            html += '</div>';
+
+            // Legend
+            html += '<div class="row mt-4" style="border-top: 1px solid #eee; padding-top: 15px;">';
+            html += '<div class="col-md-8">';
+            html += '<span class="badge bg-info me-2">' + getTranslation('engineering.routings.gantt.readonly', 'Read-only') + '</span>';
+            html += '<span class="badge bg-secondary me-2">' + getTranslation('engineering.routings.joinmap.legend', 'Join Types') + '</span>';
+
+            // Show join type legend
+            var joinTypeKeys = Object.keys(joinTypes);
+            joinTypeKeys.forEach(function(key) {
+                var color = joinTypeColors[key] || '#95a5a6';
+                html += '<span style="display: inline-block; margin: 2px 4px; padding: 2px 8px; border-radius: 10px; font-size: 10px; background: ' + color + '; color: white;">' + joinTypes[key] + '</span>';
+            });
+
+            html += '</div>';
+            html += '<div class="col-md-4 text-end">';
+            html += '<span class="text-muted small">' + getTranslation('engineering.routings.joinmap.total_steps', 'Total steps') + ': <strong>' + routings.length + '</strong></span>';
+            html += '</div>';
+            html += '</div>';
+
+            html += '</div>';
+
+            $('#joinMapChart').html(html);
+
+            // Store data for interactive click
+            window.joinMapData = {
+                routings: routings,
+                components: bomItems,
+                componentsByStep: componentsByStep
+            };
+
+        }).fail(function() {
+            $('#joinMapChart').html('<p class="text-danger text-center">' + getTranslation('auto.12dc432e', 'Error loading join map data.') + '</p>');
+        });
+    }
+
+    // ================================================================
+    // INTERACTIVE: Show join details on click
+    // ================================================================
+    window.showJoinDetails = function(stepNumber) {
+        var data = window.joinMapData;
+        if (!data) return;
+
+        var components = data.componentsByStep[stepNumber] || [];
+        var routing = data.routings.find(function(r) { return r.operationSequence === stepNumber; });
+
+        if (!routing) return;
+
+        var html = '<div style="padding: 10px;">';
+        html += '<h5>' + escapeHtml(routing.workCenterName || routing.workCenterId) + ' (' + getTranslation('engineering.routings.flow.step', 'Step') + ' ' + stepNumber + ')</h5>';
+        html += '<p><strong>' + getTranslation('engineering.routings.table.setup', 'Setup Time') + ':</strong> ' + routing.setupTimeHours.toFixed(1) + ' hrs</p>';
+        html += '<p><strong>' + getTranslation('engineering.routings.table.run', 'Run Time') + ':</strong> ' + routing.runTimeHoursPerUnit.toFixed(1) + ' hrs/unit</p>';
+        if (components.length > 0) {
+            html += '<p><strong>' + getTranslation('engineering.routings.joinmap.components', 'Components') + ':</strong></p><ul>';
+            components.forEach(function(comp) {
+                html += '<li>' + escapeHtml(comp.componentName) + ' (' + getTranslation('engineering.routings.joinmap.quantity', 'Quantity') + ': ' + comp.quantity + ')</li>';
+            });
+            html += '</ul>';
+        } else {
+            html += '<p><strong>' + getTranslation('engineering.routings.joinmap.no_components', 'No components specifically at this step.') + '</strong></p>';
+        }
+        html += '</div>';
+
+        // Show as a modal
+        var modalHtml = '<div class="modal fade" id="joinDetailModal" tabindex="-1" style="z-index:9999;">';
+        modalHtml += '<div class="modal-dialog">';
+        modalHtml += '<div class="modal-content">';
+        modalHtml += '<div class="modal-header"><h5>' + getTranslation('engineering.routings.flow.step', 'Step') + ' ' + stepNumber + ' ' + getTranslation('engineering.routings.joinmap.details', 'Details') + '</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>';
+        modalHtml += '<div class="modal-body">' + html + '</div>';
+        modalHtml += '<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">' + getTranslation('auto.cf210f90', 'Close') + '</button></div>';
+        modalHtml += '</div></div></div>';
+
+        // Remove existing modal if any
+        $('#joinDetailModal').remove();
+        $('body').append(modalHtml);
+        var modal = new bootstrap.Modal(document.getElementById('joinDetailModal'));
+        modal.show();
+    };
+
+    // ================================================================
+    // RESPONSIVE TOGGLES FOR GANTT AND PROCESS FLOW (UPDATED)
+    // ================================================================
+    function setupResponsiveToggles() {
+        // ===== GANTT CHART =====
+        var ganttContainer = $('#ganttChart');
+        if (ganttContainer.length) {
+            ganttContainer.css('width', '100%');
+            // If Frappe Gantt is rendered, set its container to 100%
+            var ganttSvg = ganttContainer.find('svg');
+            if (ganttSvg.length) {
+                ganttSvg.css('width', '100%');
+                ganttSvg.attr('width', '100%');
+            }
+        }
+
+        // ===== PROCESS FLOW =====
+        var $desktop = $('.flow-desktop');
+        var $mobile = $('.flow-mobile');
+        
+        if ($desktop.length === 0 && $mobile.length === 0) {
+            return;
+        }
+        
+        function toggleFlowView() {
+            if (window.innerWidth < 576) {
+                $desktop.hide();
+                $mobile.show().css('display', 'flex');
+            } else {
+                $desktop.show();
+                $mobile.hide();
+            }
+        }
+        
+        // Remove previous listeners to avoid duplicates
+        $(window).off('resize.flowToggle');
+        $(window).on('resize.flowToggle', function() {
+            toggleFlowView();
+            // Also fix Gantt SVG width on resize
+            var ganttSvg = $('#ganttChart').find('svg');
+            if (ganttSvg.length) {
+                ganttSvg.css('width', '100%');
+                ganttSvg.attr('width', '100%');
+            }
+        });
+        
+        // Run once
+        toggleFlowView();
+    }
+
+    // ================================================================
+    // EVENT BINDINGS
+    // ================================================================
+    $('#addRoutingBtn').click(function() { openRoutingModal(null); });
+    $('#saveRoutingBtn').click(saveRouting);
+    $(document).on('click', '.edit-routing', function() { openRoutingModal($(this).data('id')); });
+    $(document).on('click', '.delete-routing', function() { deleteRouting($(this).data('id')); });
+    
+    $(document).on('click', '.view-routing', function(e) {
+        e.preventDefault();
+        viewInstructions($(this).data('id'));
+    });
+    $(document).on('click', '.view-instructions', function() {
+        viewInstructions($(this).data('id'));
+    });
+    
+    $('#addInstructionBtn').click(function() { openInstructionModal(null); });
+    $('#saveInstructionBtn').click(saveInstruction);
+    $(document).on('click', '.edit-instruction', function() { openInstructionModal($(this).data('id')); });
+    $(document).on('click', '.delete-instruction', function() { deleteInstruction($(this).data('id')); });
+
+    $('#applyFiltersBtn').click(function() { loadRoutings(); });
+    $('#resetFiltersBtn').click(function() {
+        $('#filterProduct').val('');
+        $('#filterStatus').val('');
+        loadRoutings();
+    });
+
+    $('#exportBtn').click(function() {
+        var projectId = getProjectId();
+        var url = '/api/bom/routings/export';
+        if (projectId && projectId !== 'All' && projectId !== '') {
+            url += '?project_id=' + encodeURIComponent(projectId);
+        }
+        window.location.href = url;
+    });
+
+    // Gantt View
+    $('#ganttTabBtn').on('shown.bs.tab', function() {
+        if ($('#ganttProduct').val()) {
+            loadGantt();
+        }
+    });
+
+    $('#loadGanttBtn').click(loadGantt);
+    $(document).on('change', '#ganttProduct', function() {
+        if ($('#ganttTab').hasClass('active')) {
+            loadGantt();
+        }
+    });
+
+    // Responsive Process Flow View
+    $('#flowTabBtn').on('shown.bs.tab', function() {
+        if ($('#flowProduct').val()) {
+            loadProcessFlow();
+        }
+    });
+
+    $('#loadFlowBtn').click(loadProcessFlow);
+    $(document).on('change', '#flowProduct', function() {
+        if ($('#flowTab').hasClass('active')) {
+            loadProcessFlow();
+        }
+    });
+
+    // Join Map View
+    $('#joinMapTabBtn').on('shown.bs.tab', function() {
+        if ($('#joinMapProduct').val()) {
+            loadJoinMap();
+        }
+    });
+
+    $('#loadJoinMapBtn').click(loadJoinMap);
+    $(document).on('change', '#joinMapProduct', function() {
+        if ($('#joinMapTab').hasClass('active')) {
+            loadJoinMap();
+        }
+    });
+
+    // Listen for project change events
+    $(document).on('projectChanged', function() {
+        loadStats();
+        loadRoutings();
+    });
+
+    // ================================================================
+    // INITIAL LOAD – Setup responsive toggles on page load
+    // ================================================================
+    loadStats();
+    loadRoutings();
+    setupResponsiveToggles();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Project Roles &amp; Permissions{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h1 class="h3"><i class="fas fa-users me-2"></i>{{ get_translation('auto.8f469347', 'Project Roles &amp; Permissions') }}</h1>
+<div>
+<button class="btn btn-outline-success me-2" id="exportBtn"><i class="fas fa-download"></i>{{ get_translation('auto.374816c9', 'Export CSV') }}</button>
+<button class="btn btn-outline-primary me-2" id="importBtn"><i class="fas fa-upload"></i>{{ get_translation('auto.53341a22', 'Import CSV') }}</button>
+<button class="btn btn-primary" id="assignBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.3cb9d311', 'Assign Role') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+<div class="col-12">
+<div class="card">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.30c2a028', 'Active Assignments by Role') }}</h6>
+<div class="d-flex flex-wrap gap-2" id="kpiContainer">{{ get_translation('auto.44bc38fc', 'Loading...') }}</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-4">
+<div class="card-body row g-3 align-items-end">
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.c42fc535', 'Project') }}</label>
+<select class="form-select" id="filterProject"><option value="">{{ get_translation('auto.e9f37c74', 'All Projects') }}</option></select>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.ad6f4856', 'Role') }}</label>
+<select class="form-select" id="filterRole"><option value="">{{ get_translation('auto.9b12a1bf', 'All Roles') }}</option></select>
+</div>
+<div class="col-md-2">
+<div class="form-check mt-4"><input checked="" class="form-check-input" id="filterActiveOnly" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.85f2d634', 'Active only') }}</label></div>
+</div>
+<div class="col-md-2">
+<button class="btn btn-secondary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i>{{ get_translation('auto.d388fc73', 'Apply') }}</button>
+</div>
+</div>
+</div>
+<!-- Assignments Table -->
+<div class="card">
+<div class="card-header bg-light">{{ get_translation('auto.ba656d9a', 'Current Role Assignments') }}</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+<thead class="table-light">
+<tr><th>{{ get_translation('auto.52f0b06c', 'Project') }}</th><th>{{ get_translation('auto.926d6aab', 'User') }}</th><th>{{ get_translation('auto.eac89029', 'Role') }}</th><th>{{ get_translation('auto.10cfda1e', 'Start Date') }}</th><th>{{ get_translation('auto.5393054c', 'End Date') }}</th><th>{{ get_translation('auto.8fa03140', 'Status') }}</th><th style="width:100px">{{ get_translation('auto.42dd7f7e', 'Actions') }}</th></tr>
+</thead>
+<tbody id="assignmentsTableBody"><tr><td class="text-center py-4" colspan="7">{{ get_translation('auto.580a9d04', 'Loading......') }}</td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Assign/Edit Modal -->
+<div class="modal fade" id="assignmentModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header bg-primary text-white"><h5 class="modal-title" id="modalTitle">{{ get_translation('auto.60d5ab46', 'Assign Role') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="assignmentForm">
+<input id="assignmentId" type="hidden"/>
+<div class="mb-3"><label>{{ get_translation('auto.d4b4026c', 'Project *') }}</label><select class="form-select" id="projectId" required=""><option value="">{{ get_translation('auto.173207b3', 'Select project') }}</option></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.870b868a', 'User *') }}</label><select class="form-select" id="userId" required=""><option value="">{{ get_translation('auto.cad5f4ea', 'Select user') }}</option></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.536b6d95', 'Role *') }}</label><select class="form-select" id="roleCode" required=""><option value="">{{ get_translation('auto.5167b423', 'Select role') }}</option></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.ec73cc60', 'Start Date Key (YYYYMMDD) *') }}</label><input class="form-control" id="startDateKey" placeholder="e.g., 20250101" required="" type="number"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.b1b5062c', 'End Date Key (optional)') }}</label><input class="form-control" id="endDateKey" placeholder="e.g., 20251231" type="number"/></div>
+<div class="form-check"><input checked="" class="form-check-input" id="isActive" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.341f23b3', 'Active') }}</label></div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.2ff7d8f9', 'Cancel') }}</button><button class="btn btn-danger" id="deleteBtn" style="display:none;">{{ get_translation('auto.d4b0fe96', 'Delete') }}</button><button class="btn btn-primary" id="saveBtn">{{ get_translation('auto.250bc028', 'Save') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.f55b10b3', 'Import Project Roles CSV') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body"><p>{{ get_translation('auto.a246de2e', 'Required columns:') }}<code>{{ get_translation('auto.3653b00e', 'Project, Username, Role, Start Date Key, End Date Key, Is Active') }}</code></p><input accept=".csv" class="form-control" id="importFile" type="file"/></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.71132d07', 'Cancel') }}</button><button class="btn btn-primary" id="doImportBtn">{{ get_translation('auto.91e679c5', 'Import') }}</button></div></div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let projects = [], users = [], roles = [], assignments = [];
+let currentAssignmentId = null;
+let activeOnly = true;
+let currentFilters = { project_id: '', role_code: '' };
+
+function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+function getEl(id) { return document.getElementById(id); }
+
+async function loadDropdowns() {
+    const [projRes, userRes, roleRes] = await Promise.all([
+        fetch('/api/admin/projects/list'),
+        fetch('/api/admin/users/list'),
+        fetch('/api/admin/roles/list')
+    ]);
+    projects = await projRes.json();
+    users = await userRes.json();
+    roles = await roleRes.json();
+    const projSelect = getEl('projectId');
+    projSelect.innerHTML = '<option value="">Select project</option>';
+    projects.forEach(p => projSelect.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`);
+    const filterProj = getEl('filterProject');
+    filterProj.innerHTML = '<option value="">All Projects</option>';
+    projects.forEach(p => filterProj.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`);
+    const userSelect = getEl('userId');
+    userSelect.innerHTML = '<option value="">Select user</option>';
+    users.forEach(u => userSelect.innerHTML += `<option value="${u.id}">${escapeHtml(u.fullName)} (${escapeHtml(u.username)})</option>`);
+    const roleSelect = getEl('roleCode');
+    roleSelect.innerHTML = '<option value="">Select role</option>';
+    const filterRole = getEl('filterRole');
+    filterRole.innerHTML = '<option value="">All Roles</option>';
+    roles.forEach(r => {
+        roleSelect.innerHTML += `<option value="${r.code}">${escapeHtml(r.name)}</option>`;
+        filterRole.innerHTML += `<option value="${r.code}">${escapeHtml(r.name)}</option>`;
+    });
+}
+
+async function loadKPIs() {
+    const res = await fetch('/api/admin/project-roles/kpi');
+    const data = await res.json();
+    const container = getEl('kpiContainer');
+    if (!data.length) { container.innerHTML = '<span class="text-muted">No active assignments</span>'; return; }
+    container.innerHTML = data.map(k => `<span class="badge bg-secondary p-2">${escapeHtml(k.role)}: ${k.count}</span>`).join('');
+}
+
+async function loadAssignments() {
+    const params = new URLSearchParams();
+    if (currentFilters.project_id) params.append('project_id', currentFilters.project_id);
+    if (currentFilters.role_code) params.append('role_code', currentFilters.role_code);
+    params.append('active_only', activeOnly);
+    const res = await fetch(`/api/admin/project-roles/assignments?${params.toString()}`);
+    assignments = await res.json();
+    renderTable();
+}
+
+function renderTable() {
+    const tbody = getEl('assignmentsTableBody');
+    if (!assignments.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No assignments found</td></tr>'; return; }
+    let html = '';
+    assignments.forEach(a => {
+        const status = a.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+        const end = a.endDateKey || '—';
+        html += `<tr>
+            <td>${escapeHtml(a.projectName)}</td>
+            <td>${escapeHtml(a.fullName)} (${escapeHtml(a.username)})</td>
+            <td>${escapeHtml(a.roleName)}</td>
+            <td>${a.startDateKey}</td>
+            <td>${end}</td>
+            <td>${status}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary edit-assignment" data-id="${a.id}"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-warning toggle-active" data-id="${a.id}" data-active="${a.isActive}"><i class="fas ${a.isActive ? 'fa-ban' : 'fa-check-circle'}"></i></button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+// Modal handlers
+let assignmentModal, importModal;
+document.addEventListener('DOMContentLoaded', () => {
+    assignmentModal = new bootstrap.Modal(getEl('assignmentModal'));
+    importModal = new bootstrap.Modal(getEl('importModal'));
+
+    getEl('assignBtn').addEventListener('click', () => {
+        currentAssignmentId = null;
+        getEl('modalTitle').innerText = 'Assign Role';
+        getEl('assignmentForm').reset();
+        getEl('assignmentId').value = '';
+        getEl('isActive').checked = true;
+        getEl('deleteBtn').style.display = 'none';
+        assignmentModal.show();
+    });
+
+    getEl('saveBtn').addEventListener('click', async () => {
+        const id = getEl('assignmentId').value;
+        const payload = {
+            projectId: getEl('projectId').value,
+            userId: getEl('userId').value,
+            roleCode: getEl('roleCode').value,
+            startDateKey: parseInt(getEl('startDateKey').value),
+            endDateKey: getEl('endDateKey').value ? parseInt(getEl('endDateKey').value) : null,
+            isActive: getEl('isActive').checked ? 1 : 0
+        };
+        if (!payload.projectId || !payload.userId || !payload.roleCode || !payload.startDateKey) {
+            alert('Please fill all required fields'); return;
+        }
+        const url = id ? `/api/admin/project-roles/${id}` : '/api/admin/project-roles/assign';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) {
+            assignmentModal.hide();
+            loadKPIs();
+            loadAssignments();
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Error saving assignment');
+        }
+    });
+
+    getEl('deleteBtn').addEventListener('click', async () => {
+        if (!currentAssignmentId) return;
+        if (!confirm('Delete this assignment permanently?')) return;
+        const res = await fetch(`/api/admin/project-roles/${currentAssignmentId}`, { method: 'DELETE' });
+        if (res.ok) {
+            assignmentModal.hide();
+            loadKPIs();
+            loadAssignments();
+        } else alert('Delete failed');
+    });
+
+    // Edit assignment delegation
+    document.getElementById('assignmentsTableBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.edit-assignment');
+        if (btn) {
+            const id = parseInt(btn.dataset.id);
+            const assignment = assignments.find(a => a.id === id);
+            if (assignment) {
+                currentAssignmentId = id;
+                getEl('modalTitle').innerText = 'Edit Assignment';
+                getEl('assignmentId').value = id;
+                getEl('projectId').value = assignment.projectId;
+                getEl('userId').value = assignment.userId;
+                getEl('roleCode').value = assignment.roleCode;
+                getEl('startDateKey').value = assignment.startDateKey;
+                getEl('endDateKey').value = assignment.endDateKey || '';
+                getEl('isActive').checked = assignment.isActive;
+                getEl('deleteBtn').style.display = 'inline-block';
+                assignmentModal.show();
+            }
+        }
+        const toggle = e.target.closest('.toggle-active');
+        if (toggle) {
+            const id = parseInt(toggle.dataset.id);
+            const currentlyActive = toggle.dataset.active === 'true';
+            const newActive = !currentlyActive;
+            const res = await fetch(`/api/admin/project-roles/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive: newActive ? 1 : 0 })
+            });
+            if (res.ok) { loadKPIs(); loadAssignments(); }
+        }
+    });
+
+    // Filters
+    getEl('applyFiltersBtn').addEventListener('click', () => {
+        currentFilters.project_id = getEl('filterProject').value;
+        currentFilters.role_code = getEl('filterRole').value;
+        activeOnly = getEl('filterActiveOnly').checked;
+        loadAssignments();
+    });
+
+    // Import / Export
+    getEl('importBtn').addEventListener('click', () => importModal.show());
+    getEl('doImportBtn').addEventListener('click', async () => {
+        const file = getEl('importFile').files[0];
+        if (!file) { alert('Select CSV file'); return; }
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/admin/project-roles/import', { method: 'POST', body: formData });
+        if (res.ok) {
+            const data = await res.json();
+            alert(data.message + (data.errors?.length ? '\nErrors: '+data.errors.join('\n') : ''));
+            importModal.hide();
+            loadKPIs();
+            loadAssignments();
+        } else alert('Import failed');
+    });
+    getEl('exportBtn').addEventListener('click', () => window.location.href = '/api/admin/project-roles/export');
+
+    // Initial load
+    loadDropdowns().then(() => {
+        loadKPIs();
+        loadAssignments();
+    });
+});
+</script>
+{% endblock %}

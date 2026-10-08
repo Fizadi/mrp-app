@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Shop Floor Barcode Interface{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.dee98b22', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.3f76d505', 'Barcode / RFID Interface') }}</li>
+</ol>
+</nav>
+<div class="row">
+<div class="col-md-12">
+<div class="card text-center">
+<div class="card-header bg-dark text-white">
+<h4>{{ get_translation('auto.083c1ec7', 'Scan Job Card, Serial Number, or Badge') }}</h4>
+</div>
+<div class="card-body">
+<input autofocus="" class="form-control form-control-lg mb-4" id="barcodeInput" placeholder="Scan barcode here..." type="text"/>
+<div class="alert alert-info mb-4" id="resultMessage" style="display: none;"></div>
+<div class="mb-4" id="activeSession">
+<h5>{{ get_translation('auto.53dd3345', 'Current Active Job') }}</h5>
+<p><strong>{{ get_translation('auto.d2f1e9a7', 'Order ID:') }}</strong> <span id="activeOrder">{{ get_translation('auto.2391fdf8', '-') }}</span></p>
+<p><strong>{{ get_translation('auto.c4ea0ab8', 'Product:') }}</strong> <span id="activeProduct">{{ get_translation('auto.f1ae5634', '-') }}</span></p>
+<p><strong>{{ get_translation('auto.d9121703', 'Completed / Total:') }}</strong> <span id="activeProgress">{{ get_translation('auto.42f9273e', '0 / 0') }}</span></p>
+</div>
+<div class="row mt-4">
+<div class="col-md-6">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<h6>{{ get_translation('auto.cd3b57ff', 'Active Sessions') }}</h6>
+<h3 id="kpiActiveSessions">{{ get_translation('auto.f61c4c2f', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-6">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h6>{{ get_translation('auto.8391ee20', 'Scans Today') }}</h6>
+<h3 id="kpiScansToday">{{ get_translation('auto.a3150794', '0') }}</h3>
+</div>
+</div>
+</div>
+</div>
+<div class="row mt-4">
+<div class="col-md-12">
+<button class="btn btn-secondary" id="refreshStatusBtn"><i class="fas fa-sync"></i>{{ get_translation('auto.268e9df1', 'Refresh Status') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+(function() {
+    const barcodeInput = document.getElementById('barcodeInput');
+    const resultDiv = document.getElementById('resultMessage');
+    const activeOrderSpan = document.getElementById('activeOrder');
+    const activeProductSpan = document.getElementById('activeProduct');
+    const activeProgressSpan = document.getElementById('activeProgress');
+    const kpiActiveSpan = document.getElementById('kpiActiveSessions');
+    const kpiScansSpan = document.getElementById('kpiScansToday');
+
+    barcodeInput.focus();
+
+    function showMessage(text, type) {
+        resultDiv.textContent = text;
+        resultDiv.className = `alert alert-${type}`;
+        resultDiv.style.display = 'block';
+        setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
+    }
+
+    function updateKPIs() {
+        fetch('/api/barcode/active-sessions')
+            .then(r => r.json())
+            .then(data => {
+                kpiActiveSpan.innerText = data.activeSessions;
+                kpiScansSpan.innerText = data.scansToday;
+            });
+    }
+
+    function updateActiveJob() {
+        fetch('/api/barcode/current-status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.active === false) {
+                    activeOrderSpan.innerText = '-';
+                    activeProductSpan.innerText = '-';
+                    activeProgressSpan.innerText = '0 / 0';
+                } else {
+                    activeOrderSpan.innerText = data.orderId;
+                    activeProductSpan.innerText = data.productId;
+                    activeProgressSpan.innerText = `${data.completedQuantity || 0} / ${data.totalQuantity}`;
+                }
+            });
+    }
+
+    function processScan(barcode) {
+        fetch('/api/barcode/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ barcode: barcode })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showMessage(res.message, 'success');
+                updateKPIs();
+                updateActiveJob();
+            } else if (res.error) {
+                showMessage(res.error, 'danger');
+            } else {
+                showMessage(res.message || 'Unknown response', 'warning');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showMessage('Error processing scan', 'danger');
+        });
+    }
+
+    barcodeInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const code = barcodeInput.value.trim();
+            if (code) {
+                processScan(code);
+                barcodeInput.value = '';
+            }
+            e.preventDefault();
+        }
+    });
+
+    document.getElementById('refreshStatusBtn').addEventListener('click', function() {
+        updateKPIs();
+        updateActiveJob();
+    });
+
+    updateKPIs();
+    updateActiveJob();
+})();
+</script>
+{% endblock %}

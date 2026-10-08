@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block title %}Quality Templates{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+<style>
+/* Additional page-specific styles */
+.badge-template-type {
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+}
+.version-badge {
+    background-color: #6c757d;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    margin-left: 5px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.f1c071d5', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('auto.968545de', 'Quality') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('auto.a160b7d3', 'Quality Templates') }}</li>
+</ol>
+</nav>
+<!-- Header -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-2 mb-3">
+<h2 class="page-title">
+<i class="fas fa-clipboard-list me-2"></i>{{ get_translation('auto.e9be55d6', 'Quality Templates') }}<span class="badge bg-secondary ms-2" id="totalCount">{{ get_translation('auto.ab7838a5', '0') }}</span>
+</h2>
+<div class="d-flex gap-2">
+<button class="btn btn-primary" id="createBtn">
+<i class="fas fa-plus me-1"></i>{{ get_translation('auto.b00775ca', 'Add Template') }}</button>
+<div class="dropdown">
+<button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+<i class="fas fa-file-import me-1"></i>{{ get_translation('auto.ea3b0307', 'Import/Export') }}</button>
+<ul class="dropdown-menu dropdown-menu-end">
+<li><a class="dropdown-item" href="#" id="importCsvBtn"><i class="fas fa-upload me-2"></i>{{ get_translation('auto.1d917900', 'Import CSV') }}</a></li>
+<li><a class="dropdown-item" href="#" id="exportCsvBtn"><i class="fas fa-download me-2"></i>{{ get_translation('auto.4b8bbaf4', 'Export CSV') }}</a></li>
+</ul>
+</div>
+<button class="btn btn-success" id="refreshBtn">
+<i class="fas fa-sync-alt me-1"></i>{{ get_translation('auto.d3ee5500', 'Refresh') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-3 mb-2">
+<div class="card border-primary h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-primary">{{ get_translation('auto.c42c1e22', 'Total Templates') }}</h5>
+<p class="card-text display-6" id="kpiTotal">{{ get_translation('auto.d53c9f3e', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-success">{{ get_translation('auto.c4a0698a', 'Active Templates') }}</h5>
+<p class="card-text display-6" id="kpiActive">{{ get_translation('auto.a1472493', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 mb-2">
+<div class="card border-info h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-info">{{ get_translation('auto.d9bc84d7', 'Used in Products') }}</h5>
+<p class="card-text display-6" id="kpiUsed">{{ get_translation('auto.19764b79', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="card-title text-warning">{{ get_translation('auto.04da7ee4', 'Used in Projects') }}</h5>
+<p class="card-text display-6" id="kpiProjects">{{ get_translation('auto.02a1e362', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters Card -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.7ebea4ca', 'Product Family') }}</label>
+<select class="form-select" id="filterFamily">
+<option value="">{{ get_translation('auto.b36321d5', 'All Families') }}</option>
+                        {% for family in families %}
+                        <option value="{{ family }}">{{ family }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.75d2872e', 'Status') }}</label>
+<div class="form-check mt-2">
+<input checked="" class="form-check-input" id="filterActiveOnly" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.8a2f93ca', 'Active only') }}</label>
+</div>
+</div>
+<div class="col-md-5">
+<label class="form-label">{{ get_translation('auto.3293d2e4', 'Search') }}</label>
+<input class="form-control" id="filterSearch" placeholder="Template name, code..." type="text"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Table Card -->
+<div class="card">
+<div class="card-header">
+<h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>{{ get_translation('auto.c35a515a', 'Quality Templates') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="templatesTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.56d15ad1', 'Template Name') }}</th>
+<th>{{ get_translation('auto.df7917e3', 'Product Family') }}</th>
+<th>{{ get_translation('auto.03e4e28d', 'Description') }}</th>
+<th>{{ get_translation('auto.3af2e600', 'Is Active') }}</th>
+<th>{{ get_translation('auto.978ec075', 'Created Date') }}</th>
+<th>{{ get_translation('auto.19b42a81', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="templatesTableBody">
+<td><td class="text-center py-4" colspan="6">{{ get_translation('auto.53b6215b', 'Loading...') }}</td>
+</td></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Add/Edit Template Modal -->
+<div aria-hidden="true" class="modal fade" id="templateModal" tabindex="-1">
+<div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="templateModalTitle">{{ get_translation('auto.1b638551', 'Add Template') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="templateForm">
+<input id="templateId" type="hidden"/>
+<div class="row g-3">
+<div class="col-md-8">
+<label class="form-label">{{ get_translation('auto.99eac220', 'Template Name *') }}</label>
+<input class="form-control" id="templateName" required="" type="text"/>
+</div>
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.d1279626', 'Product Family') }}</label>
+<select class="form-select" id="productFamily">
+<option value="">{{ get_translation('auto.2dbcb547', 'Select Family') }}</option>
+                                {% for family in families %}
+                                <option value="{{ family }}">{{ family }}</option>
+                                {% endfor %}
+                            </select>
+</div>
+<div class="col-12">
+<label class="form-label">{{ get_translation('auto.d77e5e0b', 'Description') }}</label>
+<textarea class="form-control" id="description" rows="2"></textarea>
+</div>
+<div class="col-md-6">
+<div class="form-check mt-2">
+<input checked="" class="form-check-input" id="isActive" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.3c9a85c5', 'Is Active') }}</label>
+</div>
+</div>
+<div class="col-md-6">
+<div class="form-check mt-2">
+<input class="form-check-input" id="copyFromExisting" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.9ddb2428', 'Copy from existing template') }}</label>
+</div>
+<select class="form-select mt-2" id="copyTemplateId" style="display:none;">
+<option value="">{{ get_translation('auto.6a6c59c9', 'Select template to copy') }}</option>
+</select>
+</div>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.b780d6a6', 'Cancel') }}</button>
+<button class="btn btn-danger" id="deleteBtn" style="display:none;" type="button">{{ get_translation('auto.89fe86d1', 'Delete') }}</button>
+<button class="btn btn-primary" id="saveBtn" type="button">{{ get_translation('auto.bc7dba88', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+// Global variables
+let currentTemplateId = null;
+let templateModal = null;
+
+// Load KPI
+function loadKPI() {
+    $.get('/api/quality/quality_templates/stats', function(data) {
+        $('#kpiTotal').text(data.total || 0);
+        $('#kpiActive').text(data.active || 0);
+        $('#kpiUsed').text(data.usedInProducts || 0);
+        $('#kpiProjects').text(data.usedInProjects || 0);
+    }).fail(function(xhr) {
+        console.error('KPI error:', xhr);
+    });
+}
+
+// Load table
+function loadTemplates() {
+    let params = {
+        family: $('#filterFamily').val() || '',
+        active_only: $('#filterActiveOnly').is(':checked') ? 'true' : 'false',
+        search: $('#filterSearch').val() || ''
+    };
+    
+    console.log('📊 Loading templates with params:', params);
+    
+    $.get('/api/quality/quality_templates/list', params, function(data) {
+        console.log('📊 Data received:', data);
+        console.log('📊 Data length:', data.length);
+        
+        let tbody = $('#templatesTableBody');
+        tbody.empty();
+        $('#totalCount').text(data.length);
+        
+        if (data.length === 0) {
+            tbody.append('<tr><td colspan="6" class="text-center">No templates found</td></tr>');
+            return;
+        }
+        
+        for (let t of data) {
+            let row = `<tr>
+                <td><a href="#" class="template-detail" data-id="${t.TemplateID}">${escapeHtml(t.TemplateName)}</a></td>
+                <td>${escapeHtml(t.ProductFamily || '-')}</td>
+                <td>${escapeHtml(t.Description || '').substring(0,60)}</td>
+                <td>${t.IsActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+                <td>${t.CreatedDate || ''}</td>
+                <td>
+                    <button class="btn btn-sm btn-info edit-template" data-id="${t.TemplateID}">Edit</button>
+                    <button class="btn btn-sm btn-success copy-template" data-id="${t.TemplateID}">Copy</button>
+                </td>
+            </tr>`;
+            tbody.append(row);
+        }
+    }).fail(function(xhr) {
+        console.error('❌ Error loading templates:', xhr);
+        $('#templatesTableBody').html('<tr><td colspan="6" class="text-center text-danger">Error loading templates</td></tr>');
+    });
+}
+
+// Escape HTML
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        if (m === '"') return '&quot;';
+        return m;
+    });
+}
+
+// Load copy list
+function loadCopyList() {
+    $.get('/api/quality/quality_templates/list', function(data) {
+        let select = $('#copyTemplateId');
+        select.empty().append('<option value="">Select template to copy</option>');
+        data.forEach(t => {
+            if (t.TemplateID != currentTemplateId) {
+                select.append(`<option value="${t.TemplateID}">${t.TemplateName}</option>`);
+            }
+        });
+    }).fail(console.error);
+}
+
+$(document).ready(function() {
+    console.log('🚀 Quality Templates page initialized');
+    
+    templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
+
+    // Create button
+    $('#createBtn').click(function() {
+        currentTemplateId = null;
+        $('#templateForm')[0].reset();
+        $('#templateId').val('');
+        $('#isActive').prop('checked', true);
+        $('#copyFromExisting').prop('checked', false);
+        $('#copyTemplateId').hide();
+        $('#deleteBtn').hide();
+        $('#templateModalTitle').text('Add New Template');
+        templateModal.show();
+        loadCopyList();
+    });
+
+    // Edit template
+    $(document).on('click', '.edit-template', function() {
+        let id = $(this).data('id');
+        currentTemplateId = id;
+        $.get(`/api/quality/quality_templates/${id}`, function(t) {
+            $('#templateId').val(t.TemplateID);
+            $('#templateName').val(t.TemplateName);
+            $('#productFamily').val(t.ProductFamily);
+            $('#description').val(t.Description);
+            $('#isActive').prop('checked', t.IsActive == 1);
+            $('#copyFromExisting').prop('checked', false);
+            $('#copyTemplateId').hide();
+            $('#deleteBtn').show();
+            $('#templateModalTitle').text('Edit Template');
+            templateModal.show();
+            loadCopyList();
+        });
+    });
+
+    // Copy template
+    $(document).on('click', '.copy-template', function() {
+        let id = $(this).data('id');
+        if (confirm('Copy this template?')) {
+            $.post(`/api/quality/quality_templates/${id}/copy`, function(res) {
+                if (res.newTemplateId) {
+                    $.get(`/api/quality/quality_templates/${res.newTemplateId}`, function(t) {
+                        currentTemplateId = t.TemplateID;
+                        $('#templateId').val(t.TemplateID);
+                        $('#templateName').val(t.TemplateName + ' (Copy)');
+                        $('#productFamily').val(t.ProductFamily);
+                        $('#description').val(t.Description);
+                        $('#isActive').prop('checked', t.IsActive == 1);
+                        $('#copyFromExisting').prop('checked', false);
+                        $('#copyTemplateId').hide();
+                        $('#deleteBtn').show();
+                        $('#templateModalTitle').text('Edit Template (Copy)');
+                        templateModal.show();
+                        loadCopyList();
+                    });
+                } else {
+                    alert('Copy failed');
+                }
+            }).fail(() => alert('Copy failed'));
+        }
+    });
+
+    // Delete
+    $('#deleteBtn').click(function() {
+        if (confirm('Delete this template?')) {
+            $.ajax({
+                url: `/api/quality/quality_templates/${currentTemplateId}`,
+                method: 'DELETE',
+                success: function() {
+                    templateModal.hide();
+                    loadTemplates();
+                    loadKPI();
+                },
+                error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+            });
+        }
+    });
+
+    // Save
+    $('#saveBtn').click(function() {
+        let data = {
+            TemplateName: $('#templateName').val(),
+            ProductFamily: $('#productFamily').val(),
+            Description: $('#description').val(),
+            IsActive: $('#isActive').is(':checked') ? 1 : 0
+        };
+        let url = currentTemplateId ? `/api/quality/quality_templates/${currentTemplateId}` : '/api/quality/quality_templates';
+        let method = currentTemplateId ? 'PUT' : 'POST';
+        if ($('#copyFromExisting').is(':checked') && $('#copyTemplateId').val()) {
+            data.copyFromTemplateId = $('#copyTemplateId').val();
+        }
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                templateModal.hide();
+                loadTemplates();
+                loadKPI();
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+    // Show/hide copy selection
+    $('#copyFromExisting').change(function() {
+        if ($(this).is(':checked')) {
+            $('#copyTemplateId').show();
+        } else {
+            $('#copyTemplateId').hide();
+        }
+    });
+
+    // Filters
+    $('#filterFamily, #filterActiveOnly, #filterSearch').on('change keyup', function() {
+        loadTemplates();
+    });
+    $('#refreshBtn').click(function() { loadTemplates(); loadKPI(); });
+
+    // Import/Export
+    $('#importCsvBtn').click(function() { alert('CSV import coming soon'); });
+    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/quality_templates/export'; });
+
+    // Detail view
+    $(document).on('click', '.template-detail', function(e) {
+        e.preventDefault();
+        let id = $(this).data('id');
+        $('.edit-template').trigger('click', [id]);
+    });
+
+    // Initial load
+    console.log('🚀 Initial load');
+    loadKPI();
+    loadTemplates();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Defect Management - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-bug me-2"></i>{{ get_translation('auto.2b3821fb', 'Defect Management') }}</h2>
+<div>
+<button class="btn btn-success me-2" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.166a221d', 'Refresh') }}</button>
+<button class="btn btn-info" id="exportCsvBtn"><i class="fas fa-file-csv"></i>{{ get_translation('auto.3f2af93e', 'Export CSV') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.2d312cf2', 'Open') }}</h5>
+<p class="display-6" id="kpiOpen">{{ get_translation('auto.120b0286', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="text-success">{{ get_translation('auto.d8efc4e0', 'Closed') }}</h5>
+<p class="display-6" id="kpiClosed">{{ get_translation('auto.e01e4f63', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-danger h-100">
+<div class="card-body text-center">
+<h5 class="text-danger">{{ get_translation('auto.757cf829', 'Critical / Major / Minor') }}</h5>
+<p class="h5" id="kpiSeverity">{{ get_translation('auto.891eeafc', '- / - / -') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.108b9643', 'Product') }}</label>
+<select class="form-select" id="filterProduct">
+<option value="">{{ get_translation('auto.aca800bd', 'All') }}</option>
+                        {% for p in products %}
+                        <option value="{{ p.ProductID }}">{{ p.ProductID }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.8ed0468f', 'Severity') }}</label>
+<select class="form-select" id="filterSeverity">
+<option value="">{{ get_translation('auto.5dede9cb', 'All') }}</option>
+<option>{{ get_translation('auto.bce3762b', 'Critical') }}</option><option>{{ get_translation('auto.e8d6ec01', 'Major') }}</option><option>{{ get_translation('auto.50c54dcd', 'Minor') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.39f5c7c0', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.ffb24551', 'All') }}</option>
+<option>{{ get_translation('auto.59cb865c', 'Open') }}</option><option>{{ get_translation('auto.9fe0b6b2', 'Closed') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.50f6bc9a', 'Source') }}</label>
+<select class="form-select" id="filterSource">
+<option value="">{{ get_translation('auto.4fce03f6', 'All') }}</option>
+                        {% for s in sources %}
+                        <option value="{{ s.SourceType }}">{{ s.SourceType }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-2">
+<div class="form-check mt-4">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.4033151a', 'Apply') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Defects Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-list"></i>{{ get_translation('auto.716c1c7c', 'Defect Register') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="defectsTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.511cae74', 'NCR #') }}</th><th>{{ get_translation('auto.c471485e', 'Product') }}</th><th>{{ get_translation('auto.ef4581a0', 'Severity') }}</th><th>{{ get_translation('auto.b8188c24', 'Status') }}</th><th>{{ get_translation('auto.d274ed31', 'Source') }}</th><th>{{ get_translation('auto.14f69b72', 'Description') }}</th><th>{{ get_translation('auto.3412dd0d', 'Date Raised') }}</th><th>{{ get_translation('auto.0564b2ac', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="defectsTableBody">
+<tr><td class="text-center py-4" colspan="8">{{ get_translation('auto.0109ad36', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Disposition Modal -->
+<div class="modal fade" id="dispositionModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.e282a9af', 'Defect Disposition') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="dispositionNCRId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.a760d692', 'Disposition') }}</label>
+<select class="form-select" id="dispositionValue">
+<option>{{ get_translation('auto.23733335', 'Accept') }}</option><option>{{ get_translation('auto.45c61154', 'Reject') }}</option><option>{{ get_translation('auto.e46f668d', 'Rework') }}</option><option>{{ get_translation('auto.4bcf84ed', 'Scrap') }}</option>
+</select>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.29390f09', 'Notes') }}</label>
+<textarea class="form-control" id="dispositionNotes" rows="3"></textarea>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.fbef4f33', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveDispositionBtn">{{ get_translation('auto.f7c0662a', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Root Cause Analysis Modal -->
+<div class="modal fade" id="rcaModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.7c162dc7', 'Root Cause Analysis &amp; CAPA') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="rcaNCRId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.98208b50', 'Root Cause') }}</label>
+<textarea class="form-control" id="rootCause" rows="2"></textarea>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.26b5fbd0', 'Corrective Actions') }}</label>
+<textarea class="form-control" id="correctiveActions" rows="2"></textarea>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.7b1df258', 'Preventive Actions') }}</label>
+<textarea class="form-control" id="preventiveActions" rows="2"></textarea>
+</div>
+<div class="row">
+<div class="col-md-6">
+<label>{{ get_translation('auto.90e18a98', 'Responsible Person') }}</label>
+<input class="form-control" id="responsiblePerson" type="text"/>
+</div>
+<div class="col-md-6">
+<label>{{ get_translation('auto.4a7eff66', 'Target Date (YYYYMMDD)') }}</label>
+<input class="form-control" id="targetDateKey" type="number"/>
+</div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.c8e384e9', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveRCABtn">{{ get_translation('auto.7e6feb2e', 'Save RCA') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let dispositionModal = new bootstrap.Modal(document.getElementById('dispositionModal'));
+    let rcaModal = new bootstrap.Modal(document.getElementById('rcaModal'));
+    let currentNCRId = null;
+
+    function loadKPI() {
+        $.get('/api/quality/defects/kpi', function(data) {
+            $('#kpiOpen').text(data.open);
+            $('#kpiClosed').text(data.closed);
+            $('#kpiSeverity').text(`${data.critical} / ${data.major} / ${data.minor}`);
+        });
+    }
+
+    function loadDefects() {
+        let params = {
+            product: $('#filterProduct').val(),
+            severity: $('#filterSeverity').val(),
+            status: $('#filterStatus').val(),
+            source: $('#filterSource').val()
+        };
+        $.get('/api/quality/defects/list', params, function(defects) {
+            let tbody = $('#defectsTableBody').empty();
+            for (let d of defects) {
+                let row = `<tr>
+                    <td>${d.NCRNumber}</td>
+                    <td>${d.ProductID || ''}</td>
+                    <td>${d.Severity || ''}</td>
+                    <td>${d.Status}</td>
+                    <td>${d.SourceType}</td>
+                    <td>${d.DefectDescription ? d.DefectDescription.substring(0,50) : ''}</td>
+                    <td>${d.DateRaised}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info disposition-btn" data-id="${d.NCRID}">Disposition</button>
+                        <button class="btn btn-sm btn-warning rca-btn" data-id="${d.NCRID}">RCA</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(console.error);
+    }
+
+    $(document).on('click', '.disposition-btn', function() {
+        currentNCRId = $(this).data('id');
+        $('#dispositionNCRId').val(currentNCRId);
+        $('#dispositionValue').val('Accept');
+        $('#dispositionNotes').val('');
+        dispositionModal.show();
+    });
+
+    $('#saveDispositionBtn').click(function() {
+        let data = {
+            disposition: $('#dispositionValue').val(),
+            notes: $('#dispositionNotes').val()
+        };
+        $.ajax({
+            url: `/api/quality/defects/${currentNCRId}/disposition`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                dispositionModal.hide();
+                loadDefects();
+                loadKPI();
+            }
+        });
+    });
+
+    $(document).on('click', '.rca-btn', function() {
+        currentNCRId = $(this).data('id');
+        // Optionally load existing RCA data (if any)
+        $.get(`/api/quality/defects/${currentNCRId}`, function(data) {
+            let d = data.defect;
+            $('#rcaNCRId').val(currentNCRId);
+            $('#rootCause').val(d.RootCause || '');
+            $('#correctiveActions').val(d.CorrectiveActions || '');
+            $('#preventiveActions').val(d.PreventiveActions || '');
+            $('#responsiblePerson').val(d.ResponsiblePerson || '');
+            $('#targetDateKey').val(d.TargetDate || '');
+            rcaModal.show();
+        });
+    });
+
+    $('#saveRCABtn').click(function() {
+        let data = {
+            rootCause: $('#rootCause').val(),
+            correctiveActions: $('#correctiveActions').val(),
+            preventiveActions: $('#preventiveActions').val(),
+            responsiblePerson: $('#responsiblePerson').val(),
+            targetDateKey: $('#targetDateKey').val()
+        };
+        $.ajax({
+            url: `/api/quality/defects/${currentNCRId}/root-cause`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                rcaModal.hide();
+                loadDefects();
+                loadKPI();
+            }
+        });
+    });
+
+    $('#applyFiltersBtn').click(function() { loadDefects(); });
+    $('#refreshBtn').click(function() { loadDefects(); loadKPI(); });
+    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/defects/export'; });
+
+    loadKPI();
+    loadDefects();
+});
+</script>
+{% endblock %}

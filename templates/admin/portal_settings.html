@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Portal Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h1 class="h3"><i class="fas fa-globe me-2"></i>{{ get_translation('auto.2e2d4d23', 'Portal Settings') }}</h1>
+<button class="btn btn-primary" id="saveSettingsBtn"><i class="fas fa-save"></i>{{ get_translation('auto.0b9acc8f', 'Save All') }}</button>
+</div>
+<div class="row">
+<div class="col-md-6">
+<div class="card mb-4">
+<div class="card-header bg-light">{{ get_translation('auto.aa535991', 'Branding') }}</div>
+<div class="card-body">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.53f3199c', 'Company Name') }}</label>
+<input class="form-control" id="portal_company_name" type="text"/>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.f421d81c', 'Primary Color (Hex)') }}</label>
+<input class="form-control form-control-color w-100" id="portal_primary_color" type="color"/>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.5aeb1132', 'Logo') }}</label>
+<div class="mb-2" id="logoPreview">
+<img alt="Logo preview" id="logoImg" src="" style="max-height: 100px; display: none;"/>
+</div>
+<input accept="image/png,image/jpeg,image/gif" class="form-control" id="logoUpload" type="file"/>
+<small class="text-muted">{{ get_translation('auto.c11c3ff9', 'Upload PNG, JPG or GIF.') }}</small>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.43344fc2', 'Login Background Image') }}</label>
+<input class="form-control" id="portal_login_background_image" placeholder="uploads/bg.jpg" type="text"/>
+<small class="text-muted">{{ get_translation('auto.4ca8a4e2', 'Relative path to image (e.g., uploads/bg.jpg)') }}</small>
+</div>
+</div>
+</div>
+<div class="card mb-4">
+<div class="card-header bg-light">{{ get_translation('auto.ff498bac', 'Footer') }}</div>
+<div class="card-body">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.af8d6095', 'Footer Text') }}</label>
+<textarea class="form-control" id="portal_footer_text" rows="2"></textarea>
+</div>
+</div>
+</div>
+</div>
+<div class="col-md-6">
+<div class="card mb-4">
+<div class="card-header bg-light">{{ get_translation('auto.47eac310', 'Welcome &amp; Terms') }}</div>
+<div class="card-body">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.4fbe5542', 'Welcome Message') }}</label>
+<textarea class="form-control" id="portal_welcome_message" rows="3"></textarea>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.b35002a4', 'Terms &amp; Conditions (HTML allowed)') }}</label>
+<textarea class="form-control" id="portal_terms_conditions" rows="8"></textarea>
+</div>
+</div>
+</div>
+<div class="card mb-4">
+<div class="card-header bg-light">{{ get_translation('auto.ed47b2a8', 'Available Modules') }}</div>
+<div class="card-body">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.30c497b9', 'Select modules to show in portal') }}</label>
+<div id="modulesCheckboxes">
+<div class="form-check"><input id="mod_sales" type="checkbox" value="sales"/> <label>{{ get_translation('auto.f04c76d0', 'Sales') }}</label></div>
+<div class="form-check"><input id="mod_inventory" type="checkbox" value="inventory"/> <label>{{ get_translation('auto.9d19df57', 'Inventory') }}</label></div>
+<div class="form-check"><input id="mod_quality" type="checkbox" value="quality"/> <label>{{ get_translation('auto.ce957fa5', 'Quality') }}</label></div>
+<div class="form-check"><input id="mod_purchasing" type="checkbox" value="purchasing"/> <label>{{ get_translation('auto.82a07d29', 'Purchasing') }}</label></div>
+<div class="form-check"><input id="mod_reports" type="checkbox" value="reports"/> <label>{{ get_translation('auto.48eea064', 'Reports') }}</label></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let settings = {};
+
+async function loadSettings() {
+    const res = await fetch('/api/admin/portal-settings');
+    settings = await res.json();
+    $('#portal_company_name').val(settings.portal_company_name?.value || '');
+    $('#portal_primary_color').val(settings.portal_primary_color?.value || '#0d6efd');
+    $('#portal_login_background_image').val(settings.portal_login_background_image?.value || '');
+    $('#portal_footer_text').val(settings.portal_footer_text?.value || '');
+    $('#portal_welcome_message').val(settings.portal_welcome_message?.value || '');
+    $('#portal_terms_conditions').val(settings.portal_terms_conditions?.value || '');
+    const logoPath = settings.portal_logo_path?.value;
+    if (logoPath) {
+        $('#logoImg').attr('src', '/' + logoPath).show();
+    } else {
+        $('#logoImg').hide();
+    }
+    let modules = [];
+    try {
+        modules = JSON.parse(settings.portal_modules?.value || '[]');
+    } catch(e) { modules = []; }
+    $('[id^="mod_"]').prop('checked', false);
+    modules.forEach(mod => $(`#mod_${mod}`).prop('checked', true));
+}
+
+$('#logoUpload').on('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('logo', file);
+    const res = await fetch('/api/admin/portal-settings/upload-logo', { method: 'POST', body: formData });
+    if (res.ok) {
+        const data = await res.json();
+        $('#logoImg').attr('src', '/' + data.logo_path).show();
+        alert('Logo uploaded successfully');
+        await loadSettings();
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Upload failed');
+    }
+});
+
+$('#saveSettingsBtn').on('click', async function() {
+    const modules = [];
+    $('[id^="mod_"]:checked').each(function() { modules.push($(this).val()); });
+    const payload = {
+        portal_company_name: $('#portal_company_name').val(),
+        portal_primary_color: $('#portal_primary_color').val(),
+        portal_login_background_image: $('#portal_login_background_image').val(),
+        portal_footer_text: $('#portal_footer_text').val(),
+        portal_welcome_message: $('#portal_welcome_message').val(),
+        portal_terms_conditions: $('#portal_terms_conditions').val(),
+        portal_modules: JSON.stringify(modules)
+    };
+    const res = await fetch('/api/admin/portal-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+        alert('Settings saved');
+    } else {
+        alert('Error saving settings');
+    }
+});
+
+loadSettings();
+</script>
+{% endblock %}

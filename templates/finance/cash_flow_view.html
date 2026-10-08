@@ -1,0 +1,812 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('finance.cash_flow.report.title', 'Cash Flow Report') }}{% endblock %}
+
+{% block styles %}
+<style>
+    .report-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 20px 25px;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.05);
+    }
+    .report-header {
+        text-align: center;
+        border-bottom: 2px solid #2c3e50;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .report-header .company-name {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    .report-header .report-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #34495e;
+        margin-top: 3px;
+    }
+    .report-header .report-period {
+        font-size: 1rem;
+        color: #7f8c8d;
+        margin-top: 2px;
+    }
+    .report-header .report-currency {
+        font-size: 0.85rem;
+        color: #95a5a6;
+        font-style: italic;
+    }
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .report-table th {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 6px 8px;
+        text-align: center;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .report-table td {
+        border: 1px solid #dee2e6;
+        padding: 5px 8px;
+        text-align: center;
+    }
+    .report-table .text-end {
+        text-align: right;
+        direction: rtl;
+        font-family: 'IRANSans', 'Vazir', Tahoma, Arial, sans-serif;
+    }
+    .report-table .section-header {
+        background: #e9ecef;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    .report-table .sub-section {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    .report-table .total-row {
+        background: #d4edda;
+        font-weight: 700;
+    }
+    .report-table .negative {
+        color: #dc3545;
+    }
+    .report-table .positive {
+        color: #28a745;
+    }
+    .report-table .highlight-row {
+        background: #fff3cd;
+        font-weight: 700;
+    }
+    .report-table .balance-row {
+        background: #cce5ff;
+        font-weight: 700;
+    }
+    .report-footer {
+        margin-top: 20px;
+        padding-top: 12px;
+        border-top: 1px solid #dee2e6;
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        text-align: center;
+    }
+    .chart-container {
+        position: relative;
+        height: 280px;
+        margin: 5px 0;
+    }
+    .projection-selector {
+        background: #f8f9fa;
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+    }
+    .no-print {
+        margin-bottom: 15px;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .report-container { box-shadow: none; padding: 15px; }
+        .report-table th { background: #f8f9fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .report-table .section-header { background: #e9ecef !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .report-table .total-row { background: #d4edda !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .report-table .highlight-row { background: #fff3cd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .report-table .balance-row { background: #cce5ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2">
+
+    <!-- ============================================================ -->
+    <!-- PROJECTION SELECTOR & ACTIONS (NO PRINT) -->
+    <!-- ============================================================ -->
+    <div class="projection-selector no-print">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <select class="form-select" id="projectionSelector">
+                        <option value="">{{ get_translation('finance.cash_flow.view.loading', 'در حال بارگذاری...') }}</option>
+                    </select>
+                    <button class="btn btn-primary" id="goToProjectionBtn">
+                        <i class="fas fa-arrow-right"></i> {{ get_translation('finance.cash_flow.view.go', 'مشاهده') }}
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="/finance/cash-flow/generate" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus"></i> {{ get_translation('finance.cash_flow.generate', 'پیش‌بینی جدید') }}
+                </a>
+                <a href="/finance/cash-flow" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-list"></i> {{ get_translation('finance.cash_flow.list', 'لیست') }}
+                </a>
+                <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                    <i class="fas fa-print"></i> {{ get_translation('finance.cash_flow.report.print', 'چاپ') }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- CHARTS SECTION (COLLAPSIBLE, NO PRINT) -->
+    <!-- ============================================================ -->
+    <div class="card mb-3 no-print">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-bar me-2"></i>
+                {{ get_translation('finance.cash_flow.charts.title', 'نمودارهای جریان نقد') }}
+            </h5>
+            <button class="btn btn-sm btn-outline-secondary" id="toggleChartsBtn">
+                <i class="fas fa-chevron-up"></i>
+            </button>
+        </div>
+        <div class="card-body" id="chartsContainer">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="chart-container">
+                        <canvas id="cashFlowChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="chart-container">
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- REPORT CONTAINER -->
+    <!-- ============================================================ -->
+    <div class="report-container" id="reportContainer">
+        <!-- Header -->
+        <div class="report-header">
+            <div class="company-name">{{ company.CompanyName if company else 'شرکت پارس البرز پوشش' }}</div>
+            <div class="report-title">{{ get_translation('finance.cash_flow.report.title', 'پیش‌بینی منابع و مصارف وجوه') }}</div>
+            <div class="report-period" id="reportPeriod">بهار 1405</div>
+            <div class="report-currency">{{ get_translation('finance.cash_flow.report.currency', 'ارقام به هزار ريال') }}</div>
+        </div>
+
+        <!-- Main Table -->
+        <div id="reportContent">
+            <div class="table-responsive">
+                <table class="report-table" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th style="width:5%;">{{ get_translation('finance.cash_flow.report.row', 'ردیف') }}</th>
+                            <th style="width:35%;">{{ get_translation('finance.cash_flow.report.description', 'شرح') }}</th>
+                            <th style="width:10%;">{{ get_translation('finance.cash_flow.report.immediate', 'فوری') }}</th>
+                            <th style="width:10%;">{{ get_translation('finance.cash_flow.report.days30', 'تا ۳۰ روز') }}</th>
+                            <th style="width:10%;">{{ get_translation('finance.cash_flow.report.days60', 'تا ۶۰ روز') }}</th>
+                            <th style="width:10%;">{{ get_translation('finance.cash_flow.report.days90', 'تا ۹۰ روز') }}</th>
+                            <th style="width:10%;">{{ get_translation('finance.cash_flow.report.days120', 'تا ۱۲۰ روز') }}</th>
+                            <th style="width:10%;">{{ get_translation('finance.cash_flow.report.days150', 'تا ۱۵۰ روز') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportBody">
+                        <tr><td colspan="8" class="text-center">{{ get_translation('global.loading', 'در حال بارگذاری...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="report-footer">
+            {{ get_translation('finance.cash_flow.report.generated', 'تاریخ تهیه') }}: <span id="generatedDate"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Error')|tojson }},
+    'currency.irr': 'هزار ريال'
+};
+
+function t(key, defaultText) {
+    return trans[key] || defaultText || key;
+}
+
+function formatCurrency(value) {
+    if (value === undefined || value === null) value = 0;
+    var inThousands = value / 1000;
+    return inThousands.toLocaleString();
+}
+
+// ============================================================================
+// GLOBAL VARIABLES
+// ============================================================================
+var projectionId = {{ projection_id }};
+var cashFlowChart = null;
+var pieChart = null;
+var allProjections = [];
+
+// ============================================================================
+// LOAD REPORT DATA
+// ============================================================================
+function loadReport() {
+    var tbody = document.getElementById('reportBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">' + t('loading', 'در حال بارگذاری...') + '</td></tr>';
+    
+    fetch('/api/finance/cash-flow/' + projectionId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                renderReport(data.header, data.lines);
+                loadChartData();
+            } else {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-danger">' + t('error', 'Error') + ': ' + (data.error || '') + '</td></tr>';
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="8" class="text-danger">' + t('error', 'Error') + ': ' + err.message + '</td></tr>';
+        });
+}
+
+function loadChartData() {
+    fetch('/api/finance/cash-flow/' + projectionId + '/chart-data')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                renderCharts(data.chart_data);
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading chart data:', err);
+        });
+}
+
+// ============================================================================
+// RENDER REPORT - COMPLETE VERSION
+// ============================================================================
+function renderReport(header, lines) {
+    // Update period
+    var period = (header.PeriodPersianSeason || '') + ' ' + (header.PeriodPersianYear || '');
+    document.getElementById('reportPeriod').textContent = period;
+    
+    // Update generated date
+    var now = new Date();
+    var persianDate = now.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('generatedDate').textContent = persianDate;
+
+    var tbody = document.getElementById('reportBody');
+
+    if (!lines || lines.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+
+    // Extract month data
+    var monthData = [];
+    lines.forEach(function(line) {
+        monthData.push({
+            receipts_cash: line.SalesReceiptsCash || 0,
+            receipts_30: line.SalesReceipts30 || 0,
+            receipts_60: line.SalesReceipts60 || 0,
+            receipts_90: line.SalesReceipts90 || 0,
+            receipts_120: line.SalesReceipts120 || 0,
+            receipts_150: line.SalesReceipts150 || 0,
+            payments_cash: line.PurchasePaymentsCash || 0,
+            payments_30: line.PurchasePayments30 || 0,
+            payments_60: line.PurchasePayments60 || 0,
+            payments_90: line.PurchasePayments90 || 0,
+            payments_120: line.PurchasePayments120 || 0,
+            payments_150: line.PurchasePayments150 || 0,
+            opening: line.OpeningBalance || 0,
+            closing: line.ClosingBalance || 0,
+            loan: line.LoanRepayments || 0,
+            mandatory: line.MandatoryPayments || 0,
+            bank_credit: line.BankCreditReceived || 0,
+            shareholder: line.ShareholderContributions || 0
+        });
+    });
+
+    var html = '';
+    var rowNum = 0;
+
+    // ================================================================
+    // SECTION 1: SALES RECEIPTS
+    // ================================================================
+    // Get product categories from sales forecast
+    var salesId = header.SalesForecastID;
+    if (salesId) {
+        // Use synchronous fetch to get data
+        fetch('/api/finance/sales-forecast/' + salesId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success && data.lines) {
+                    renderAll(data.lines);
+                } else {
+                    renderAll([]);
+                }
+            })
+            .catch(function(err) {
+                console.error(err);
+                renderAll([]);
+            });
+    } else {
+        renderAll([]);
+    }
+
+    function renderAll(salesLines) {
+        html = '';
+        
+        // Sales section header
+        html += '<tr class="section-header"><td colspan="8" class="text-end">' + 
+                t('finance.cash_flow.report.sales_header', 'وجوه حاصل از فروش ۳ماهه') + 
+                '</td></tr>';
+        
+        // Product rows
+        var totalCash = 0, total30 = 0, total60 = 0, total90 = 0, total120 = 0, total150 = 0;
+        
+        if (salesLines && salesLines.length > 0) {
+            salesLines.forEach(function(line, idx) {
+                rowNum = idx + 1;
+                var month1Amount = line.Month1Amount || 0;
+                var month2Amount = line.Month2Amount || 0;
+                var month3Amount = line.Month3Amount || 0;
+                var totalAmount = month1Amount + month2Amount + month3Amount;
+                
+                var cash = totalAmount * (line.CashPct || 0) / 100;
+                var d30 = totalAmount * (line.Days30Pct || 0) / 100;
+                var d60 = totalAmount * (line.Days60Pct || 0) / 100;
+                var d90 = totalAmount * (line.Days90Pct || 0) / 100;
+                var d120 = totalAmount * (line.Days120Pct || 0) / 100;
+                var d150 = totalAmount * (line.Days150Pct || 0) / 100;
+                
+                totalCash += cash;
+                total30 += d30;
+                total60 += d60;
+                total90 += d90;
+                total120 += d120;
+                total150 += d150;
+                
+                var categoryName = line.CategoryName || '';
+                
+                html += '<tr>';
+                html += '<td>' + rowNum + '</td>';
+                html += '<td class="text-end">' + categoryName + '</td>';
+                html += '<td class="text-end">' + formatCurrency(cash) + '</td>';
+                html += '<td class="text-end">' + formatCurrency(d30) + '</td>';
+                html += '<td class="text-end">' + formatCurrency(d60) + '</td>';
+                html += '<td class="text-end">' + formatCurrency(d90) + '</td>';
+                html += '<td class="text-end">' + formatCurrency(d120) + '</td>';
+                html += '<td class="text-end">' + formatCurrency(d150) + '</td>';
+                html += '</tr>';
+            });
+        }
+        
+        // Total sales row
+        html += '<tr class="total-row">';
+        html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.total_sales', 'جمع وجوه حاصل از فروش ۳ماهه') + '</td>';
+        html += '<td class="text-end">' + formatCurrency(totalCash) + '</td>';
+        html += '<td class="text-end">' + formatCurrency(total30) + '</td>';
+        html += '<td class="text-end">' + formatCurrency(total60) + '</td>';
+        html += '<td class="text-end">' + formatCurrency(total90) + '</td>';
+        html += '<td class="text-end">' + formatCurrency(total120) + '</td>';
+        html += '<td class="text-end">' + formatCurrency(total150) + '</td>';
+        html += '</tr>';
+        
+        // ================================================================
+        // SECTION 2: PURCHASE PAYMENTS
+        // ================================================================
+        var purchaseId = header.PurchaseForecastID;
+        if (purchaseId) {
+            fetch('/api/finance/purchase-forecast/' + purchaseId)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success && data.lines) {
+                        renderPurchaseRows(data.lines);
+                    } else {
+                        renderPurchaseRows([]);
+                    }
+                })
+                .catch(function(err) {
+                    console.error(err);
+                    renderPurchaseRows([]);
+                });
+        } else {
+            renderPurchaseRows([]);
+        }
+
+        function renderPurchaseRows(purchaseLines) {
+            html += '<tr class="section-header"><td colspan="8" class="text-end">' + 
+                    t('finance.cash_flow.report.purchases', 'خرید مواد اولیه و لوازم بسته‌بندی') + 
+                    '</td></tr>';
+            
+            var totalPurchaseCash = 0, totalPurchase30 = 0, totalPurchase60 = 0, 
+                totalPurchase90 = 0, totalPurchase120 = 0, totalPurchase150 = 0;
+            
+            if (purchaseLines && purchaseLines.length > 0) {
+                purchaseLines.forEach(function(line, idx) {
+                    var totalAmount = line.TotalPurchaseAmount || 0;
+                    if (totalAmount === 0) return;
+                    
+                    var cash = totalAmount * (line.CashPct || 0) / 100;
+                    var d30 = totalAmount * (line.Days30Pct || 0) / 100;
+                    var d60 = totalAmount * (line.Days60Pct || 0) / 100;
+                    var d90 = totalAmount * (line.Days90Pct || 0) / 100;
+                    var d120 = totalAmount * (line.Days120Pct || 0) / 100;
+                    var d150 = totalAmount * (line.Days150Pct || 0) / 100;
+                    
+                    totalPurchaseCash += cash;
+                    totalPurchase30 += d30;
+                    totalPurchase60 += d60;
+                    totalPurchase90 += d90;
+                    totalPurchase120 += d120;
+                    totalPurchase150 += d150;
+                    
+                    var productName = line.ProductName || line.ProductID || '';
+                    
+                    html += '<tr>';
+                    html += '<td></td>';
+                    html += '<td class="text-end" style="padding-left:30px;">' + productName + '</td>';
+                    html += '<td class="text-end">' + formatCurrency(cash) + '</td>';
+                    html += '<td class="text-end">' + formatCurrency(d30) + '</td>';
+                    html += '<td class="text-end">' + formatCurrency(d60) + '</td>';
+                    html += '<td class="text-end">' + formatCurrency(d90) + '</td>';
+                    html += '<td class="text-end">' + formatCurrency(d120) + '</td>';
+                    html += '<td class="text-end">' + formatCurrency(d150) + '</td>';
+                    html += '</tr>';
+                });
+            }
+            
+            // Total purchases row
+            html += '<tr class="total-row">';
+            html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.total_purchases', 'مبلغ خرید مواد اولیه و لوازم بسته‌بندی') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalPurchaseCash) + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalPurchase30) + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalPurchase60) + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalPurchase90) + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalPurchase120) + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalPurchase150) + '</td>';
+            html += '</tr>';
+            
+            // ================================================================
+            // SECTION 3: SURPLUS/DEFICIT
+            // ================================================================
+            var totalSalesReceipts = totalCash + total30 + total60 + total90 + total120 + total150;
+            var totalPurchasePayments = totalPurchaseCash + totalPurchase30 + totalPurchase60 + totalPurchase90 + totalPurchase120 + totalPurchase150;
+            var surplus = totalSalesReceipts - totalPurchasePayments;
+            
+            html += '<tr class="highlight-row">';
+            html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.surplus', 'مازاد (کسری) وجوه ناشی از فروش') + '</td>';
+            var color = surplus >= 0 ? 'positive' : 'negative';
+            html += '<td class="text-end ' + color + '">' + formatCurrency(surplus) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            // ================================================================
+            // SECTION 4: OPENING BALANCE
+            // ================================================================
+            var opening = header.OpeningBalanceInitial || 0;
+            html += '<tr class="balance-row">';
+            html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.opening_balance', 'موجودی (کسری) نقد ابتدای ماه') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(opening) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            // ================================================================
+            // SECTION 5: TOTAL RESOURCES
+            // ================================================================
+            var totalResources = opening + surplus;
+            html += '<tr class="total-row">';
+            html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.total_resources', 'جمع منابع وجوه جاری') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalResources) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            // ================================================================
+            // SECTION 6: MANDATORY PAYMENTS
+            // ================================================================
+            html += '<tr class="section-header"><td colspan="8" class="text-end">' + 
+                    t('finance.cash_flow.report.mandatory', 'پرداخت‌های اجباری') + 
+                    '</td></tr>';
+            
+            var totalLoan = 0, totalMandatory = 0;
+            monthData.forEach(function(md) {
+                totalLoan += md.loan || 0;
+                totalMandatory += md.mandatory || 0;
+            });
+            
+            html += '<tr>';
+            html += '<td></td>';
+            html += '<td class="text-end" style="padding-left:30px;">' + t('finance.cash_flow.report.loan_payments', 'قسط وام‌های بانکی') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalLoan) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            html += '<tr>';
+            html += '<td></td>';
+            html += '<td class="text-end" style="padding-left:30px;">' + t('finance.cash_flow.report.mandatory_payments', 'سایر پرداخت‌های اجباری') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalMandatory) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            var totalMandatoryPayments = totalLoan + totalMandatory;
+            html += '<tr class="total-row">';
+            html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.total_mandatory', 'جمع پرداخت‌های اجباری') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalMandatoryPayments) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            // ================================================================
+            // SECTION 7: FINANCING
+            // ================================================================
+            html += '<tr class="section-header"><td colspan="8" class="text-end">' + 
+                    t('finance.cash_flow.report.financing', 'تأمین مالی') + 
+                    '</td></tr>';
+            
+            var totalBankCredit = 0, totalShareholder = 0;
+            monthData.forEach(function(md) {
+                totalBankCredit += md.bank_credit || 0;
+                totalShareholder += md.shareholder || 0;
+            });
+            
+            html += '<tr>';
+            html += '<td></td>';
+            html += '<td class="text-end" style="padding-left:30px;">' + t('finance.cash_flow.report.bank_credit', 'اعتبارات بانکی') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalBankCredit) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            html += '<tr>';
+            html += '<td></td>';
+            html += '<td class="text-end" style="padding-left:30px;">' + t('finance.cash_flow.report.shareholder', 'سایر منابع (شرکاء)') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalShareholder) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            var totalFinancing = totalBankCredit + totalShareholder;
+            html += '<tr class="total-row">';
+            html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.total_financing', 'جمع تأمین مالی') + '</td>';
+            html += '<td class="text-end">' + formatCurrency(totalFinancing) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            // ================================================================
+            // SECTION 8: FINAL SURPLUS/DEFICIT
+            // ================================================================
+            var finalSurplus = totalResources - totalMandatoryPayments + totalFinancing;
+            
+            html += '<tr class="total-row" style="background:#d4edda; font-weight:700; font-size:1.05rem;">';
+            html += '<td colspan="2" class="text-end">' + t('finance.cash_flow.report.final_surplus', 'مازاد (کسری) وجوه تامین شده') + '</td>';
+            var finalColor = finalSurplus >= 0 ? 'positive' : 'negative';
+            html += '<td class="text-end ' + finalColor + '" style="font-weight:700;">' + formatCurrency(finalSurplus) + '</td>';
+            html += '<td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>';
+            html += '</tr>';
+            
+            tbody.innerHTML = html;
+        }
+    }
+}
+
+// ============================================================================
+// RENDER CHARTS
+// ============================================================================
+function renderCharts(chartData) {
+    if (cashFlowChart) {
+        cashFlowChart.destroy();
+        cashFlowChart = null;
+    }
+    if (pieChart) {
+        pieChart.destroy();
+        pieChart = null;
+    }
+
+    var ctx1 = document.getElementById('cashFlowChart').getContext('2d');
+    cashFlowChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels || [],
+            datasets: [
+                {
+                    label: 'دریافتی‌ها',
+                    data: chartData.receipts || [],
+                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'پرداختی‌ها',
+                    data: chartData.payments || [],
+                    backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'جریان نقد خالص',
+                    data: chartData.net_cash || [],
+                    type: 'line',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(0, 123, 255, 1)',
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { size: 11 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + formatCurrency(context.raw) + ' هزار ريال';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    var totalReceipts = chartData.receipts.reduce(function(a, b) { return a + b; }, 0);
+    var totalPayments = chartData.payments.reduce(function(a, b) { return a + b; }, 0);
+
+    var ctx2 = document.getElementById('pieChart').getContext('2d');
+    pieChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: ['دریافتی‌ها', 'پرداختی‌ها'],
+            datasets: [{
+                data: [totalReceipts, totalPayments],
+                backgroundColor: ['rgba(40, 167, 69, 0.8)', 'rgba(220, 53, 69, 0.8)'],
+                borderColor: ['rgba(40, 167, 69, 1)', 'rgba(220, 53, 69, 1)'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { size: 11 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                            var percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0;
+                            return context.label + ': ' + formatCurrency(context.raw) + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ============================================================================
+// PROJECTION SELECTOR
+// ============================================================================
+function loadProjectionSelector() {
+    fetch('/api/finance/cash-flow/list')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var select = document.getElementById('projectionSelector');
+            select.innerHTML = '';
+            if (data.success && data.projections && data.projections.length > 0) {
+                allProjections = data.projections;
+                data.projections.forEach(function(p) {
+                    var opt = document.createElement('option');
+                    opt.value = p.ProjectionID;
+                    opt.textContent = p.ProjectionCode + ' - ' + p.ProjectionName + 
+                                     ' (' + (p.PeriodPersianSeason || '') + ' ' + (p.PeriodPersianYear || '') + ')';
+                    if (p.ProjectionID == {{ projection_id }}) {
+                        opt.selected = true;
+                    }
+                    select.appendChild(opt);
+                });
+            } else {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'هیچ پیش‌بینی موجود نیست';
+                select.appendChild(opt);
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+        });
+}
+
+// ============================================================================
+// EVENT LISTENERS
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadReport();
+    loadProjectionSelector();
+    
+    // Go to selected projection
+    document.getElementById('goToProjectionBtn').addEventListener('click', function() {
+        var id = document.getElementById('projectionSelector').value;
+        if (id) {
+            window.location.href = '/finance/cash-flow/' + id + '/view';
+        }
+    });
+    
+    // Enter key on selector
+    document.getElementById('projectionSelector').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('goToProjectionBtn').click();
+        }
+    });
+    
+    // Toggle charts
+    var chartsVisible = true;
+    document.getElementById('toggleChartsBtn').addEventListener('click', function() {
+        var container = document.getElementById('chartsContainer');
+        var icon = this.querySelector('i');
+        if (chartsVisible) {
+            container.style.display = 'none';
+            icon.className = 'fas fa-chevron-down';
+        } else {
+            container.style.display = 'block';
+            icon.className = 'fas fa-chevron-up';
+            setTimeout(function() {
+                if (cashFlowChart) cashFlowChart.resize();
+                if (pieChart) pieChart.resize();
+            }, 100);
+        }
+        chartsVisible = !chartsVisible;
+    });
+});
+</script>
+{% endblock %}

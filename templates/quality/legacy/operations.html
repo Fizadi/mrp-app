@@ -1,0 +1,155 @@
+<!-- templates/quality/operations.html -->
+{% extends "base.html" %}
+
+{% block title %}Quality Operations - MRP System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="page-header">
+<h2 class="page-title">{{ get_translation('auto.e711f538', 'Quality Operations') }}<span class="project-context-badge">
+<i class="fas fa-cogs me-2"></i>{{ get_translation('auto.be0ca3ec', 'System Operations') }}</span>
+</h2>
+<div class="btn-group">
+<button class="btn btn-primary" id="testModalBtn" type="button">
+<i class="fas fa-plus me-1"></i>{{ get_translation('auto.4213ded5', 'Test Modal') }}</button>
+<button class="btn btn-success" id="refreshBtn">
+<i class="fas fa-sync-alt me-1"></i>{{ get_translation('auto.93f1394d', 'Refresh') }}</button>
+</div>
+</div>
+<!-- TEST MODAL (Bootstrap 5) -->
+<div aria-hidden="true" aria-labelledby="testModalLabel" class="modal fade" id="testModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="testModalLabel">{{ get_translation('auto.c7d30003', 'Test Modal') }}</h5>
+<button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<p>{{ get_translation('auto.961fa224', 'This is a Bootstrap 5 modal test.') }}</p>
+<p>{{ get_translation('auto.cb208141', 'If this opens, your Bootstrap 5 JavaScript is working!') }}</p>
+<div class="alert alert-info">
+<i class="fas fa-info-circle me-2"></i>{{ get_translation('auto.3f35d6bf', 'Check browser console (F12) for debug information') }}</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.25c81b42', 'Close') }}</button>
+<button class="btn btn-primary" type="button">{{ get_translation('auto.3175e101', 'Test Action') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- DATA TABLE -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0">
+<i class="fas fa-list-alt me-2"></i>{{ get_translation('auto.3626be14', 'Operations List') }}<span class="badge bg-secondary" id="operationsCount">{{ get_translation('auto.7e2352a1', '0') }}</span>
+</h5>
+</div>
+<div class="card-body">
+<div class="table-responsive">
+<table class="table table-hover table-striped" id="operationsTable">
+<thead>
+<tr>
+<th>{{ get_translation('auto.7940031b', 'ID') }}</th>
+<th>{{ get_translation('auto.589afe71', 'Name') }}</th>
+<th>{{ get_translation('auto.002754ad', 'Description') }}</th>
+<th>{{ get_translation('auto.ea7c2f00', 'Status') }}</th>
+<th>{{ get_translation('auto.c3f0a75a', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody>
+<!-- Data loaded via JavaScript -->
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    console.log('=== OPERATIONS PAGE LOADED (Bootstrap 5) ===');
+    
+    // Manual handler for test modal button using Bootstrap 5 API
+    $('#testModalBtn').on('click', function(e) {
+        e.preventDefault();
+        var modalElement = document.getElementById('testModal');
+        var myModal = new bootstrap.Modal(modalElement);
+        myModal.show();
+    });
+    
+    // Refresh button
+    $('#refreshBtn').on('click', function() {
+        console.log('Refresh clicked');
+        loadOperations();
+    });
+    
+    // Load operations data
+    function loadOperations() {
+        console.log('Loading operations...');
+        $.ajax({
+            url: '/api/quality/operations',
+            method: 'GET',
+            success: function(data) {
+                console.log('Operations data:', data);
+                if (data.operations && data.operations.length > 0) {
+                    $('#operationsCount').text(data.operations.length);
+                    var tbody = $('#operationsTable tbody');
+                    tbody.empty();
+                    
+                    data.operations.forEach(function(op) {
+                        var statusBadge = '';
+                        if (op.status === 'active') {
+                            statusBadge = '<span class="status-badge status-active">Active</span>';
+                        } else if (op.status === 'inactive') {
+                            statusBadge = '<span class="status-badge status-draft">Inactive</span>';
+                        }
+                        
+                        var row = '<tr>' +
+                            '<td>' + op.id + '</td>' +
+                            '<td>' + op.name + '</td>' +
+                            '<td>' + (op.description || '') + '</td>' +
+                            '<td>' + statusBadge + '</td>' +
+                            '<td>' +
+                                '<button class="btn btn-xs btn-info view-op-btn" data-id="' + op.id + '">' +
+                                    '<i class="fas fa-eye"></i> View' +
+                                '</button>' +
+                            '</td>' +
+                            '</tr>';
+                        tbody.append(row);
+                    });
+                    
+                    // Attach click handlers for view buttons
+                    $('.view-op-btn').on('click', function() {
+                        var id = $(this).data('id');
+                        showOperationDetail(id);
+                    });
+                    
+                    console.log('✅ Loaded ' + data.operations.length + ' operations');
+                } else {
+                    $('#operationsTable tbody').html(
+                        '<tr><td colspan="5" class="text-center">No operations found</td></tr>'
+                    );
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading operations:', error);
+                showToast('Error loading operations: ' + error, 'error');
+            }
+        });
+    }
+    
+    loadOperations();
+});
+
+// Global function (to be replaced with modal later)
+function showOperationDetail(id) {
+    console.log('Show operation detail:', id);
+    showToast('Viewing operation #' + id, 'info');
+    // Future: replace with Bootstrap 5 modal
+}
+</script>
+{% endblock %}
+
+{% block extra_modals %}{% endblock %}

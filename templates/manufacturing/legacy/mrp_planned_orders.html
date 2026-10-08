@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}MRP Planned Orders{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.0e665cc4', 'MRP') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.3d5d56ea', 'Planned Orders') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.6e0bb7b4', 'Planned Orders') }}</h2>
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.e496ea2c', 'Run ID') }}</label>
+<select class="form-select" id="runSelect">
+<option value="">{{ get_translation('auto.2b0c346a', 'Select Run') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.094ea857', 'Product') }}</label>
+<input class="form-control" id="filterProduct" placeholder="Product ID" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.3fabf18c', 'Date From') }}</label>
+<input class="form-control" id="dateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.35da1c2f', 'Date To') }}</label>
+<input class="form-control" id="dateTo" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.185960f2', 'Order Type') }}</label>
+<select class="form-select" id="filterType">
+<option value="">{{ get_translation('auto.f78a6f69', 'All') }}</option>
+<option>{{ get_translation('auto.d394d559', 'Purchase') }}</option>
+<option>{{ get_translation('auto.805aed33', 'Manufacturing') }}</option>
+</select>
+</div>
+<div class="col-md-1 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.9c924ff4', 'Refresh') }}</button>
+</div>
+</div>
+<div class="row mb-4">
+<div class="col-md-3"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('auto.aeb0c148', 'Total Planned') }}</h6><h3 id="kpiTotal">{{ get_translation('auto.81bf12c4', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.f0b7d7d2', 'Purchase Orders') }}</h6><h3 id="kpiPurchase">{{ get_translation('auto.d79fb984', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('auto.c3a26ae9', 'Manufacturing Orders') }}</h6><h3 id="kpiMfg">{{ get_translation('auto.12f8c196', '0') }}</h3></div></div></div>
+<div class="col-md-3"><div class="card text-white bg-danger"><div class="card-body"><h6>{{ get_translation('auto.b169b6fc', 'Past Due') }}</h6><h3 id="kpiPastDue">{{ get_translation('auto.51517689', '0') }}</h3></div></div></div>
+</div>
+<div class="card">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('auto.754f7107', 'Planned Orders List') }}</span>
+<div>
+<button class="btn btn-sm btn-secondary me-2" id="massUpdateBtn">{{ get_translation('auto.a4d961bc', 'Mass Update') }}</button>
+<a class="btn btn-sm btn-info" href="#" id="exportBtn">{{ get_translation('auto.5ae8b163', 'Export CSV') }}</a>
+</div>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr><th>{{ get_translation('auto.1eac1e9d', 'Product') }}</th><th>{{ get_translation('auto.6aa77543', 'Date') }}</th><th>{{ get_translation('auto.ecc60f4f', 'Quantity') }}</th><th>{{ get_translation('auto.dbb5d7f5', 'Type') }}</th><th>{{ get_translation('auto.3f88d277', 'Status') }}</th><th>{{ get_translation('auto.fc79a409', 'Action') }}</th></tr>
+</thead>
+<tbody id="ordersBody">
+<tr><td class="text-center" colspan="6">{{ get_translation('auto.9d53ba47', 'Select a run to view orders') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Mass Update Modal -->
+<div class="modal fade" id="massUpdateModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.b6077f20', 'Mass Update Planned Orders') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<label>{{ get_translation('auto.43121d91', 'Product Filter (contains)') }}</label>
+<input class="form-control" id="massProduct" type="text"/>
+<label>{{ get_translation('auto.71b48000', 'Order Type') }}</label>
+<select class="form-select" id="massType">
+<option value="">{{ get_translation('auto.7b282764', 'All') }}</option>
+<option>{{ get_translation('auto.9a4d78f6', 'Purchase') }}</option>
+<option>{{ get_translation('auto.aac9d267', 'Manufacturing') }}</option>
+</select>
+<div class="form-check mt-2">
+<input class="form-check-input" id="massFirm" type="checkbox"/>
+<label>{{ get_translation('auto.29095919', 'Set as Firmed') }}</label>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.cec0e062', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmMassUpdate">{{ get_translation('auto.8aa07acc', 'Apply') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+$(document).ready(function(){
+    function loadRuns() {
+        $.get('/api/mrp/runs?status=Completed', function(runs){
+            let opts = '<option value="">Select Run</option>';
+            runs.forEach(r => opts += `<option value="${r.planningNumber}">${r.planningNumber} (${r.runDate})</option>`);
+            $('#runSelect').html(opts);
+        });
+    }
+    function loadKPI(runId) {
+        $.get('/api/mrp/planned-orders/kpi', {run_id: runId}, function(res){
+            $('#kpiTotal').text(res.total);
+            $('#kpiPurchase').text(res.purchase);
+            $('#kpiMfg').text(res.manufacturing);
+            $('#kpiPastDue').text(res.pastDue);
+        });
+    }
+    function loadOrders() {
+        let runId = $('#runSelect').val();
+        if(!runId) { $('#ordersBody').html('<tr><td colspan="6">Select a run to view orders</td></tr>'); return; }
+        let params = {run_id: runId, product: $('#filterProduct').val(), date_from: $('#dateFrom').val(), date_to: $('#dateTo').val(), order_type: $('#filterType').val()};
+        $.get('/api/mrp/planned-orders/list', params, function(orders){
+            let html = '';
+            orders.forEach(o => {
+                let rowClass = o.isPastDue ? 'table-danger' : '';
+                let firmBtn = o.isFirmed ? '<span class="badge bg-success">Firmed</span>' : `<button class="btn btn-sm btn-outline-primary firm-btn" data-run="${o.runId}" data-prod="${o.productId}" data-date="${o.dateKey}">Firm</button>`;
+                html += `<tr class="${rowClass}"><td>${o.productId}</td><td>${o.dateKey}</td><td>${o.quantity}</td><td>${o.orderType}</td><td>${firmBtn}</td><td></td></tr>`;
+            });
+            $('#ordersBody').html(html || '<tr><td colspan="6">No planned orders</td></tr>');
+        });
+    }
+    function refreshAll() { let runId = $('#runSelect').val(); if(runId) { loadKPI(runId); loadOrders(); } }
+    $('#runSelect').change(refreshAll);
+    $('#refreshBtn').click(refreshAll);
+    $('#exportBtn').click(function(e){
+        e.preventDefault();
+        let runId = $('#runSelect').val();
+        if(runId) window.location.href = `/api/mrp/planned-orders/export-csv?run_id=${runId}`;
+        else alert('Select a run first');
+    });
+    $(document).on('click', '.firm-btn', function(){
+        let runId = $(this).data('run'), prod = $(this).data('prod'), date = $(this).data('date');
+        $.post('/api/mrp/planned-orders/firm', JSON.stringify({runId: runId, productId: prod, dateKey: date}), function(){ refreshAll(); }).fail(()=>alert('Failed to firm'));
+    });
+    $('#massUpdateBtn').click(function(){ if($('#runSelect').val()) $('#massUpdateModal').modal('show'); else alert('Select a run first'); });
+    $('#confirmMassUpdate').click(function(){
+        let data = {runId: $('#runSelect').val(), productFilter: $('#massProduct').val(), orderType: $('#massType').val(), firm: $('#massFirm').is(':checked')};
+        $.post('/api/mrp/planned-orders/mass-update', JSON.stringify(data), function(){ $('#massUpdateModal').modal('hide'); refreshAll(); });
+    });
+    loadRuns();
+});
+</script>
+{% endblock %}

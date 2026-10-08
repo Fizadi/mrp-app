@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}Work Center Routing{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('auto.648f25f4', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.2de96c59', 'Work Center Routing') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.01839757', 'Work Center Routing') }}</h2>
+<div>
+<button class="btn btn-success me-2" data-bs-target="#stepModal" data-bs-toggle="modal" onclick="clearStepModal()"><i class="fas fa-plus"></i>{{ get_translation('auto.f2415091', 'Add Step') }}</button>
+<button class="btn btn-secondary me-2" data-bs-target="#importModal" data-bs-toggle="modal"><i class="fas fa-upload"></i>{{ get_translation('auto.c2f4c7eb', 'Import CSV') }}</button>
+<a class="btn btn-info" href="/api/work-center-routing/export-csv"><i class="fas fa-download"></i>{{ get_translation('auto.20cfd2ad', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4 g-3">
+<div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h5 class="card-title">{{ get_translation('auto.aaecb9ea', 'Total Steps') }}</h5><h3 id="kpiTotal">{{ get_translation('auto.09cfe310', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h5 class="card-title">{{ get_translation('auto.91c1de0f', 'Internal Steps') }}</h5><h3 id="kpiInternal">{{ get_translation('auto.e5e4d344', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-warning"><div class="card-body"><h5 class="card-title">{{ get_translation('auto.1143c36c', 'External Steps') }}</h5><h3 id="kpiExternal">{{ get_translation('auto.fb8b9ae8', '0') }}</h3></div></div></div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body row g-2 align-items-end">
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.5fb4ddd3', 'Product') }}</label>
+<select class="form-select" id="filterProduct">
+<option value="">{{ get_translation('auto.2eeca9e9', 'All Products') }}</option>
+</select>
+</div>
+<div class="col-md-3 form-check mt-4">
+<input class="form-check-input" id="showEffectiveOnly" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.15130a8d', 'Show effective only (today's date)') }}</label>
+</div>
+<div class="col-md-5 d-flex justify-content-end gap-2">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.ef4e372c', 'Apply') }}</button>
+<button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('auto.ffbe3865', 'Reset') }}</button>
+</div>
+</div>
+</div>
+<!-- Routing Steps Table -->
+<div class="card">
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover align-middle">
+<thead class="table-light">
+<tr>
+<th>{{ get_translation('auto.7a7ed282', 'Product') }}</th><th>{{ get_translation('auto.1f1219c6', 'Sequence') }}</th><th>{{ get_translation('auto.c29dc8cb', 'Work Center') }}</th><th>{{ get_translation('auto.f1aa82ac', 'Setup (hrs)') }}</th><th>{{ get_translation('auto.e583a0c2', 'Run (hrs/unit)') }}</th>
+<th>{{ get_translation('auto.d5625d55', 'Queue (hrs)') }}</th><th>{{ get_translation('auto.c1e34789', 'Move (hrs)') }}</th><th>{{ get_translation('auto.c91ab744', 'Quality Checks') }}</th><th>{{ get_translation('auto.48113aa0', 'Effective Date') }}</th><th>{{ get_translation('auto.6127cb53', 'Obsolete Date') }}</th><th>{{ get_translation('auto.40e26cba', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="routingTableBody">
+<tr><td class="text-center" colspan="11">{{ get_translation('auto.df6d402d', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Add/Edit Step Modal -->
+<div class="modal fade" id="stepModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5 class="modal-title" id="stepModalTitle">{{ get_translation('auto.67940adb', 'Add Routing Step') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="stepForm">
+<input id="stepOriginalProduct" type="hidden" value=""/>
+<input id="stepOriginalSeq" type="hidden" value=""/>
+<div class="row">
+<div class="col-md-6 mb-3"><label class="form-label">{{ get_translation('auto.40a1e468', 'Product *') }}</label><select class="form-select" id="stepProduct" required=""><option value="">{{ get_translation('auto.f995d1f9', 'Select product') }}</option></select></div>
+<div class="col-md-6 mb-3"><label class="form-label">{{ get_translation('auto.8d41481e', 'Operation Sequence *') }}</label><input class="form-control" id="stepSequence" min="1" required="" step="1" type="number"/></div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3"><label class="form-label">{{ get_translation('auto.843e763b', 'Work Center *') }}</label><select class="form-select" id="stepWorkCenter" required=""><option value="">{{ get_translation('auto.09eafa8c', 'Select work center') }}</option></select></div>
+<div class="col-md-6 mb-3"><div class="form-check mt-4"><input class="form-check-input" id="stepIsExternal" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.e736fe66', 'External (subcontract)') }}</label></div></div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3"><label class="form-label">{{ get_translation('auto.e6c65841', 'Supplier (if external)') }}</label><select class="form-select" id="stepSupplier"><option value="">{{ get_translation('auto.38c01c1e', 'Select supplier') }}</option></select></div>
+</div>
+<div class="row">
+<div class="col-md-3 mb-3"><label class="form-label">{{ get_translation('auto.d8cd8af5', 'Setup Time (hrs)') }}</label><input class="form-control" id="stepSetup" step="0.01" type="number" value="0"/></div>
+<div class="col-md-3 mb-3"><label class="form-label">{{ get_translation('auto.fbf926d1', 'Run Time (hrs/unit)') }}</label><input class="form-control" id="stepRun" step="0.01" type="number" value="0"/></div>
+<div class="col-md-3 mb-3"><label class="form-label">{{ get_translation('auto.9c64efa0', 'Queue Time (hrs)') }}</label><input class="form-control" id="stepQueue" step="0.01" type="number" value="0"/></div>
+<div class="col-md-3 mb-3"><label class="form-label">{{ get_translation('auto.51e4c3ed', 'Move Time (hrs)') }}</label><input class="form-control" id="stepMove" step="0.01" type="number" value="0"/></div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3"><label class="form-label">{{ get_translation('auto.84e6cc75', 'Effective Date (YYYYMMDD)') }}</label><input class="form-control" id="stepEffectivity" placeholder="e.g., 20240101" type="number"/></div>
+<div class="col-md-6 mb-3"><label class="form-label">{{ get_translation('auto.f6a9be5e', 'Obsolete Date (YYYYMMDD)') }}</label><input class="form-control" id="stepObsolete" placeholder="Leave empty if active" type="number"/></div>
+</div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.ae36d197', 'Cancel') }}</button><button class="btn btn-primary" id="saveStepBtn">{{ get_translation('auto.1d643dc4', 'Save Step') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Import CSV Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.e2bdfc5e', 'Import Routing Steps (CSV)') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input accept=".csv" class="form-control" id="csvFile" type="file"/></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.f62c1105', 'Cancel') }}</button><button class="btn btn-primary" id="importBtn">{{ get_translation('auto.a200b824', 'Upload') }}</button></div></div></div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load dropdowns
+    function loadProducts() {
+        fetch('/api/work-center-routing/products')
+            .then(r => r.json())
+            .then(products => {
+                let opts = '<option value="">All Products</option>';
+                products.forEach(p => opts += `<option value="${p.id}">${p.name} (${p.id})</option>`);
+                document.getElementById('filterProduct').innerHTML = opts;
+                let stepOpts = '<option value="">Select product</option>' + products.map(p => `<option value="${p.id}">${p.name} (${p.id})</option>`).join('');
+                document.getElementById('stepProduct').innerHTML = stepOpts;
+            });
+    }
+    function loadWorkCenters() {
+        fetch('/api/work-center-routing/work-centers')
+            .then(r => r.json())
+            .then(centers => {
+                let opts = '<option value="">Select work center</option>';
+                centers.forEach(c => opts += `<option value="${c.id}">${c.name}</option>`);
+                document.getElementById('stepWorkCenter').innerHTML = opts;
+            });
+    }
+    function loadSuppliers() {
+        fetch('/api/work-center-routing/suppliers')
+            .then(r => r.json())
+            .then(suppliers => {
+                let opts = '<option value="">Select supplier</option>';
+                suppliers.forEach(s => opts += `<option value="${s.id}">${s.name}</option>`);
+                document.getElementById('stepSupplier').innerHTML = opts;
+            });
+    }
+    // KPI
+    function loadKPIs() {
+        fetch('/api/work-center-routing/kpi')
+            .then(r => r.json())
+            .then(res => {
+                document.getElementById('kpiTotal').innerText = res.totalSteps;
+                document.getElementById('kpiInternal').innerText = res.internalSteps;
+                document.getElementById('kpiExternal').innerText = res.externalSteps;
+            });
+    }
+    // Table
+    function loadRoutingSteps() {
+        let product = document.getElementById('filterProduct').value;
+        let effectiveOnly = document.getElementById('showEffectiveOnly').checked;
+        let url = `/api/work-center-routing/list?product_id=${encodeURIComponent(product)}&show_effective_only=${effectiveOnly}`;
+        fetch(url)
+            .then(r => r.json())
+            .then(steps => {
+                const tbody = document.getElementById('routingTableBody');
+                if (!steps.length) {
+                    tbody.innerHTML = '<tr><td colspan="11">No routing steps found<\/td><\/tr>';
+                    return;
+                }
+                let html = '';
+                steps.forEach(s => {
+                    html += `<tr>
+                        <td>${s.productName || s.productId}<\/td>
+                        <td>${s.sequence}<\/td>
+                        <td>${s.workCenter}<\/td>
+                        <td>${s.setupHours}<\/td>
+                        <td>${s.runHours}<\/td>
+                        <td>${s.queueHours}<\/td>
+                        <td>${s.moveHours}<\/td>
+                        <td><button class="btn btn-sm btn-outline-secondary quality-check" data-wc="${s.workCenter}" data-seq="${s.sequence}">Assign<\/button><\/td>
+                        <td>${s.effectivityDateKey || ''}<\/td>
+                        <td>${s.obsoleteDateKey || ''}<\/td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-step" data-product="${s.productId}" data-seq="${s.sequence}">Edit<\/button>
+                            <button class="btn btn-sm btn-danger delete-step" data-product="${s.productId}" data-seq="${s.sequence}">Del<\/button>
+                            <button class="btn btn-sm btn-info history-step" data-product="${s.productId}" data-seq="${s.sequence}">History<\/button>
+                        <\/td>
+                    <\/tr>`;
+                });
+                tbody.innerHTML = html;
+                attachStepEvents();
+            });
+    }
+    function attachStepEvents() {
+        document.querySelectorAll('.edit-step').forEach(btn => {
+            btn.onclick = () => editStep(btn.dataset.product, btn.dataset.seq);
+        });
+        document.querySelectorAll('.delete-step').forEach(btn => {
+            btn.onclick = () => deleteStep(btn.dataset.product, btn.dataset.seq);
+        });
+        document.querySelectorAll('.history-step').forEach(btn => {
+            btn.onclick = () => viewHistory(btn.dataset.product, btn.dataset.seq);
+        });
+        document.querySelectorAll('.quality-check').forEach(btn => {
+            btn.onclick = () => alert('Quality check assignment not implemented yet');
+        });
+    }
+    // Edit step
+    function editStep(product, seq) {
+        fetch(`/api/work-center-routing/step/${product}/${seq}`)
+            .then(r => r.json())
+            .then(step => {
+                document.getElementById('stepModalTitle').innerText = 'Edit Routing Step';
+                document.getElementById('stepOriginalProduct').value = product;
+                document.getElementById('stepOriginalSeq').value = seq;
+                document.getElementById('stepProduct').value = step.productId;
+                document.getElementById('stepProduct').disabled = true;
+                document.getElementById('stepSequence').value = step.sequence;
+                document.getElementById('stepSequence').readOnly = true;
+                document.getElementById('stepWorkCenter').value = step.workCenter;
+                document.getElementById('stepIsExternal').checked = step.isExternal;
+                document.getElementById('stepSupplier').value = step.supplierId || '';
+                document.getElementById('stepSetup').value = step.setupHours;
+                document.getElementById('stepRun').value = step.runHours;
+                document.getElementById('stepQueue').value = step.queueHours;
+                document.getElementById('stepMove').value = step.moveHours;
+                document.getElementById('stepEffectivity').value = step.effectivityDateKey || '';
+                document.getElementById('stepObsolete').value = step.obsoleteDateKey || '';
+                new bootstrap.Modal(document.getElementById('stepModal')).show();
+            });
+    }
+    function clearStepModal() {
+        document.getElementById('stepModalTitle').innerText = 'Add Routing Step';
+        document.getElementById('stepOriginalProduct').value = '';
+        document.getElementById('stepOriginalSeq').value = '';
+        document.getElementById('stepProduct').disabled = false;
+        document.getElementById('stepSequence').readOnly = false;
+        document.getElementById('stepForm').reset();
+        document.getElementById('stepIsExternal').checked = false;
+    }
+    function saveStep() {
+        const originalProduct = document.getElementById('stepOriginalProduct').value;
+        const originalSeq = document.getElementById('stepOriginalSeq').value;
+        const data = {
+            productId: document.getElementById('stepProduct').value,
+            sequence: parseInt(document.getElementById('stepSequence').value),
+            workCenter: document.getElementById('stepWorkCenter').value,
+            setupHours: parseFloat(document.getElementById('stepSetup').value) || 0,
+            runHours: parseFloat(document.getElementById('stepRun').value) || 0,
+            queueHours: parseFloat(document.getElementById('stepQueue').value) || 0,
+            moveHours: parseFloat(document.getElementById('stepMove').value) || 0,
+            effectivityDateKey: document.getElementById('stepEffectivity').value ? parseInt(document.getElementById('stepEffectivity').value) : null,
+            obsoleteDateKey: document.getElementById('stepObsolete').value ? parseInt(document.getElementById('stepObsolete').value) : null,
+            isExternal: document.getElementById('stepIsExternal').checked,
+            supplierId: document.getElementById('stepSupplier').value || null
+        };
+        if (!data.productId || !data.sequence || !data.workCenter) {
+            alert('Product, Sequence, and Work Center are required');
+            return;
+        }
+        const method = originalProduct && originalSeq ? 'PUT' : 'POST';
+        const url = originalProduct && originalSeq ? `/api/work-center-routing/step/${originalProduct}/${originalSeq}` : '/api/work-center-routing/step';
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(() => {
+            bootstrap.Modal.getInstance(document.getElementById('stepModal')).hide();
+            loadRoutingSteps();
+            loadKPIs();
+            clearStepModal();
+        })
+        .catch(err => alert('Save failed'));
+    }
+    function deleteStep(product, seq) {
+        if (confirm(`Delete step ${seq} for product ${product}?`)) {
+            fetch(`/api/work-center-routing/step/${product}/${seq}`, { method: 'DELETE' })
+                .then(() => { loadRoutingSteps(); loadKPIs(); })
+                .catch(() => alert('Delete failed'));
+        }
+    }
+    function viewHistory(product, seq) {
+        fetch(`/api/work-center-routing/list?product_id=${product}&show_effective_only=false`)
+            .then(r => r.json())
+            .then(steps => {
+                let history = steps.filter(s => s.sequence == seq);
+                if (history.length === 0) {
+                    alert('No historical versions found');
+                    return;
+                }
+                let msg = history.map(s => `Effective: ${s.effectivityDateKey || '-'} | Obsolete: ${s.obsoleteDateKey || '-'} | WC: ${s.workCenter} | Setup: ${s.setupHours} | Run: ${s.runHours}`).join('\n');
+                alert('History versions:\n' + msg);
+            });
+    }
+    // Import/Export
+    function importCSV() {
+        const file = document.getElementById('csvFile').files[0];
+        if (!file) { alert('Select a file'); return; }
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/api/work-center-routing/import-csv', { method: 'POST', body: formData })
+            .then(() => {
+                bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+                loadRoutingSteps();
+                loadKPIs();
+                loadProducts();  // refresh product list
+            })
+            .catch(() => alert('Import failed'));
+    }
+    // Refresh all
+    function refreshAll() {
+        loadKPIs();
+        loadRoutingSteps();
+    }
+    // Event listeners
+    document.getElementById('applyFiltersBtn').onclick = refreshAll;
+    document.getElementById('resetFiltersBtn').onclick = function() {
+        document.getElementById('filterProduct').value = '';
+        document.getElementById('showEffectiveOnly').checked = false;
+        refreshAll();
+    };
+    document.getElementById('saveStepBtn').onclick = saveStep;
+    document.getElementById('importBtn').onclick = importCSV;
+    // Initial load
+    loadProducts();
+    loadWorkCenters();
+    loadSuppliers();
+    refreshAll();
+});
+</script>
+{% endblock %}

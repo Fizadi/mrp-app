@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Incoming Inspection - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-truck-loading me-2"></i>{{ get_translation('auto.cda3e353', 'Incoming Inspection') }}</h2>
+<button class="btn btn-success" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.eba10664', 'Refresh') }}</button>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2"><div class="card border-warning h-100"><div class="card-body text-center"><h5 class="text-warning">{{ get_translation('auto.90912ee6', 'Pending Batches') }}</h5><p class="display-6" id="kpiPending">{{ get_translation('auto.e8237ba6', '-') }}</p></div></div></div>
+<div class="col-md-4 mb-2"><div class="card border-success h-100"><div class="card-body text-center"><h5 class="text-success">{{ get_translation('auto.5bc30754', 'Accepted') }}</h5><p class="display-6" id="kpiAccepted">{{ get_translation('auto.a2728931', '-') }}</p></div></div></div>
+<div class="col-md-4 mb-2"><div class="card border-danger h-100"><div class="card-body text-center"><h5 class="text-danger">{{ get_translation('auto.a7c65a32', 'Rejected') }}</h5><p class="display-6" id="kpiRejected">{{ get_translation('auto.c6241232', '-') }}</p></div></div></div>
+</div>
+<!-- Filters -->
+<div class="card mb-3"><div class="card-body"><div class="row g-3">
+<div class="col-md-3"><label>{{ get_translation('auto.a1d93dcc', 'Supplier') }}</label><select class="form-select" id="filterSupplier"><option value="">{{ get_translation('auto.19b6c4bb', 'All') }}</option>{% for s in suppliers %}<option value="{{ s.SupplierID }}">{{ s.SupplierName }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label>{{ get_translation('auto.242957c5', 'PO Number') }}</label><input class="form-control" id="filterPO" placeholder="PO-SUP-001" type="text"/></div>
+<div class="col-md-2"><label>{{ get_translation('auto.7432f865', 'Date From') }}</label><input class="form-control" id="filterDateFrom" type="date"/></div>
+<div class="col-md-2"><label>{{ get_translation('auto.c42e8ef9', 'Date To') }}</label><input class="form-control" id="filterDateTo" type="date"/></div>
+<div class="col-md-3"><div class="form-check mt-4"><button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.7bd90b67', 'Apply Filters') }}</button></div></div>
+</div></div></div>
+<!-- Batches Table -->
+<div class="card"><div class="card-header"><h5 class="mb-0"><i class="fas fa-clipboard-list"></i>{{ get_translation('auto.1a49f682', 'Incoming Batches') }}</h5></div>
+<div class="card-body p-0"><div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="batchesTable">
+<thead class="table-dark"><tr><th>{{ get_translation('auto.b89217b4', 'Batch #') }}</th><th>{{ get_translation('auto.2f27c3df', 'PO #') }}</th><th>{{ get_translation('auto.dfd66991', 'Supplier') }}</th><th>{{ get_translation('auto.f271cd7c', 'Product') }}</th><th>{{ get_translation('auto.84bed7e5', 'Quantity') }}</th><th>{{ get_translation('auto.e6e589f5', 'Status') }}</th><th>{{ get_translation('auto.64427bd4', 'Result') }}</th><th>{{ get_translation('auto.5d21ab47', 'Due Date') }}</th><th>{{ get_translation('auto.088c6330', 'Actions') }}</th></tr></thead>
+<tbody id="batchesTableBody"><tr><td class="text-center py-4" colspan="9">{{ get_translation('auto.289dffc0', 'Loading...') }}</td></tr></tbody>
+</table>
+</div></div></div>
+</div>
+<!-- Compare Results Modal -->
+<div class="modal fade" id="compareModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.73d518f5', 'Compare Inspection Results') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="compareModalBody">{{ get_translation('auto.54288048', 'Loading...') }}</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.7728151e', 'Close') }}</button>
+<button class="btn btn-success" id="acceptBatchBtn">{{ get_translation('auto.0790a939', 'Accept Batch') }}</button>
+<button class="btn btn-danger" id="rejectBatchBtn">{{ get_translation('auto.a4406ad9', 'Reject Batch') }}</button>
+</div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let currentBatchId = null;
+    let compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
+
+    function loadKPI() {
+        $.get('/api/quality/incoming/kpi', function(data) {
+            $('#kpiPending').text(data.pending);
+            $('#kpiAccepted').text(data.accepted);
+            $('#kpiRejected').text(data.rejected);
+        });
+    }
+
+    function loadBatches() {
+        let params = {
+            supplier: $('#filterSupplier').val(),
+            po: $('#filterPO').val(),
+            date_from: $('#filterDateFrom').val(),
+            date_to: $('#filterDateTo').val()
+        };
+        $.get('/api/quality/incoming/batches', params, function(batches) {
+            let tbody = $('#batchesTableBody').empty();
+            for (let b of batches) {
+                let dueDate = b.DueDateKey ? `${b.DueDateKey.toString().slice(0,4)}-${b.DueDateKey.toString().slice(4,6)}-${b.DueDateKey.toString().slice(6,8)}` : '';
+                let resultBadge = '';
+                if (b.OverallResult === 'Pass') resultBadge = '<span class="badge bg-success">Pass</span>';
+                else if (b.OverallResult === 'Fail') resultBadge = '<span class="badge bg-danger">Fail</span>';
+                else resultBadge = '<span class="badge bg-secondary">Pending</span>';
+                let row = `<tr>
+                    <td>${b.BatchNumber}</td><td>${b.PurchaseOrderID || ''}</td><td>${b.SupplierName || ''}</td>
+                    <td>${b.ProductID}</td><td>${b.Quantity}</td><td>${b.Status}</td><td>${resultBadge}</td>
+                    <td>${dueDate}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info compare-batch" data-id="${b.BatchID}"><i class="fas fa-chart-line"></i> Compare</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        });
+    }
+
+    $(document).on('click', '.compare-batch', function() {
+        currentBatchId = $(this).data('id');
+        $.get(`/api/quality/incoming/compare/${currentBatchId}`, function(data) {
+            let html = `<h6>Product: ${data.productId}</h6><table class="table table-sm"><thead><tr><th>Operation</th><th>Our Value</th><th>Supplier Value</th><th>Pass/Fail</th></tr></thead><tbody>`;
+            for (let r of data.ourResults) {
+                let supplierVal = r.SupplierMeasuredValue !== null ? r.SupplierMeasuredValue : '—';
+                html += `<tr><td>${r.Code} - ${r.Name}</td><td>${r.MeasuredValue || '—'}</td><td>${supplierVal}</td><td>${r.PassFail ? 'Pass' : 'Fail'}</td></tr>`;
+            }
+            html += `</tbody></table>`;
+            $('#compareModalBody').html(html);
+            compareModal.show();
+        });
+    });
+
+    $('#acceptBatchBtn').click(function() {
+        if (currentBatchId && confirm('Accept this batch? This will mark it as passed.')) {
+            $.ajax({
+                url: `/api/quality/incoming/batch/${currentBatchId}/disposition`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({disposition: 'Accept'}),
+                success: function() {
+                    compareModal.hide();
+                    loadBatches();
+                    loadKPI();
+                }
+            });
+        }
+    });
+
+    $('#rejectBatchBtn').click(function() {
+        if (currentBatchId && confirm('Reject this batch? This will mark it as failed.')) {
+            $.ajax({
+                url: `/api/quality/incoming/batch/${currentBatchId}/disposition`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({disposition: 'Reject'}),
+                success: function() {
+                    compareModal.hide();
+                    loadBatches();
+                    loadKPI();
+                }
+            });
+        }
+    });
+
+    $('#applyFiltersBtn').click(function() { loadBatches(); });
+    $('#refreshBtn').click(function() { loadBatches(); loadKPI(); });
+
+    loadKPI();
+    loadBatches();
+});
+</script>
+{% endblock %}

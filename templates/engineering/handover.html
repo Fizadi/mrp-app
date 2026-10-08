@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Engineering Handover{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.a250577b', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('auto.8eb17fd1', 'Engineering') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('auto.d939d12b', 'Engineering Handover') }}</li>
+</ol>
+</nav>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-4 col-sm-6 mb-2">
+<div class="card text-white bg-info">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.95837969', 'Finalized Engineering Items') }}</h5>
+<p class="card-text display-6" id="kpiFinalized">{{ get_translation('auto.24c40c7e', '0') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 col-sm-6 mb-2">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.9e585c6b', 'Products Created') }}</h5>
+<p class="card-text display-6" id="kpiProducts">{{ get_translation('auto.e9e8a02c', '0') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 col-sm-6 mb-2">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.02761cce', 'BOMs Pending') }}</h5>
+<p class="card-text display-6" id="kpiBomsPending">{{ get_translation('auto.fe803c4d', '0') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="row mb-3 g-2">
+<div class="col-md-4">
+<label>{{ get_translation('auto.7da1a63d', 'Project') }}</label>
+<select class="form-select" id="filterProject">
+<option value="">{{ get_translation('auto.841105a7', 'All Projects') }}</option>
+                {% for proj in projects %}
+                <option value="{{ proj.ProjectID }}">{{ proj.ProjectName }}</option>
+                {% endfor %}
+            </select>
+</div>
+<div class="col-md-4">
+<label>{{ get_translation('auto.6f6fae4b', 'Handover Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.593ec216', 'All') }}</option>
+<option value="pending">{{ get_translation('auto.feb18922', 'Pending (no product)') }}</option>
+<option value="product_created">{{ get_translation('auto.21c9449b', 'Product created, BOM pending') }}</option>
+<option value="bom_created">{{ get_translation('auto.7e30f26e', 'BOM created') }}</option>
+</select>
+</div>
+<div class="col-md-4 d-flex align-items-end">
+<button class="btn btn-primary me-2" id="applyFiltersBtn">{{ get_translation('auto.ea8ea80a', 'Apply Filters') }}</button>
+<button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('auto.e6e3b55c', 'Reset') }}</button>
+</div>
+</div>
+<!-- Handover Items Table with Sticky Headers -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.ec1a1e00', 'Engineering Handover Items') }}</div>
+<div class="card-body" style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+<table class="table table-striped table-sticky">
+<thead>
+<tr>
+<th>{{ get_translation('auto.c034d049', 'Item Line#') }}</th>
+<th>{{ get_translation('auto.51c6cedb', 'Tag Range') }}</th>
+<th>{{ get_translation('auto.ff2e29a0', 'P&amp;ID') }}</th>
+<th>{{ get_translation('auto.d9576f5a', 'Product') }}</th>
+<th>{{ get_translation('auto.4b38f4fa', 'BOM Status') }}</th>
+<th>{{ get_translation('auto.008cf3c9', 'Handover Date') }}</th>
+<th>{{ get_translation('auto.33cb6be1', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="handoverTableBody">
+<tr><td class="text-center" colspan="7">{{ get_translation('auto.e4ee2c5f', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Create Product Modal -->
+<div class="modal fade" id="createProductModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.f2f268b5', 'Create Product from Engineering Item') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="createProductItemId" type="hidden"/>
+<div class="mb-3"><label>{{ get_translation('auto.1fd8c46b', 'Procurement Type') }}</label><select class="form-select" id="createProcurementType"><option>{{ get_translation('auto.e1413283', 'Manufactured') }}</option><option>{{ get_translation('auto.08a80411', 'Purchased') }}</option></select></div>
+<div class="mb-3"><label>{{ get_translation('auto.48a4cf2d', 'Standard Cost') }}</label><input class="form-control" id="createStandardCost" step="0.01" type="number" value="0"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.b6b2a140', 'Lead Time (days)') }}</label><input class="form-control" id="createLeadTime" type="number" value="0"/></div>
+<div class="mb-3"><label>{{ get_translation('auto.9168754c', 'UOM') }}</label><input class="form-control" id="createUOM" type="text" value="EA"/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.4cb0218b', 'Cancel') }}</button><button class="btn btn-primary" id="confirmCreateProductBtn">{{ get_translation('auto.ad04e579', 'Create Product') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Link to Existing Product Modal -->
+<div class="modal fade" id="linkProductModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.faf23688', 'Link to Existing Product') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="linkProductItemId" type="hidden"/>
+<div class="mb-3"><label>{{ get_translation('auto.0c3894b0', 'Target Product ID') }}</label><input class="form-control" id="targetProductId" placeholder="e.g., VALVE-500-CTRL" type="text"/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.71c9c947', 'Cancel') }}</button><button class="btn btn-primary" id="confirmLinkProductBtn">{{ get_translation('auto.21bc7f3a', 'Link') }}</button></div>
+</div>
+</div>
+</div>
+
+<style>
+.table-sticky thead th {
+    position: sticky;
+    top: 56px;
+    z-index: 10;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    function loadStats() {
+        $.get('/api/bom/handover/stats')
+            .done(function(s) {
+                $('#kpiFinalized').text(s.finalizedItems);
+                $('#kpiProducts').text(s.productsCreated);
+                $('#kpiBomsPending').text(s.bomsPending);
+            })
+            .fail(console.error);
+    }
+
+    function loadItems() {
+        var params = {
+            project_id: $('#filterProject').val(),
+            status: $('#filterStatus').val()
+        };
+        $.get('/api/bom/handover/items', params)
+            .done(function(items) {
+                var $tbody = $('#handoverTableBody');
+                $tbody.empty();
+                if (!items.length) {
+                    $tbody.html('<tr><td colspan="7" class="text-center">No engineering items found</td></tr>');
+                    return;
+                }
+                items.forEach(function(item) {
+                    var productLink = item.hasProduct ? '<a href="/engineering/bom?product=' + item.productId + '">' + item.productId + '</a>' : '-';
+                    var bomStatus = item.hasBOM ? 'BOM Created' : (item.hasProduct ? 'Pending BOM' : 'No Product');
+                    var row = '<tr>' +
+                        '<td>' + escapeHtml(item.lineNumber || '-') + '</td>' +
+                        '<td>' + escapeHtml(item.tagRange || '-') + '</td>' +
+                        '<td>' + escapeHtml(item.pid || '-') + '</td>' +
+                        '<td>' + productLink + '</td>' +
+                        '<td>' + bomStatus + '</td>' +
+                        '<td>' + (item.handoverDate || '-') + '</td>' +
+                        '<td>' +
+                        (!item.hasProduct ? '<button class="btn btn-sm btn-success create-product me-1" data-id="' + item.productId + '">Create Product</button>' : '') +
+                        (!item.hasProduct && item.productId ? '<button class="btn btn-sm btn-info link-product me-1" data-id="' + item.productId + '">Link Existing</button>' : '') +
+                        (item.hasProduct && !item.hasBOM ? '<button class="btn btn-sm btn-warning create-bom me-1" data-id="' + item.productId + '">Create BOM</button>' : '') +
+                        (item.hasBOM ? '<button class="btn btn-sm btn-primary release" data-id="' + item.productId + '">Release to Manufacturing</button>' : '') +
+                        '</td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() { $('#handoverTableBody').html('<tr><td colspan="7" class="text-danger">Error loading items</td></tr>'); });
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    // Create Product modal
+    $(document).on('click', '.create-product', function() {
+        var id = $(this).data('id');
+        $('#createProductItemId').val(id);
+        $('#createProductModal').modal('show');
+    });
+    $('#confirmCreateProductBtn').click(function() {
+        var id = $('#createProductItemId').val();
+        var data = {
+            ProcurementType: $('#createProcurementType').val(),
+            StandardCost: parseFloat($('#createStandardCost').val()),
+            LeadTime: parseInt($('#createLeadTime').val()),
+            UOM: $('#createUOM').val()
+        };
+        $.post('/api/bom/handover/create-product/' + id, JSON.stringify(data), {contentType: 'application/json'})
+            .done(function() {
+                $('#createProductModal').modal('hide');
+                loadItems();
+                loadStats();
+                alert('Product created');
+            })
+            .fail(function() { alert('Failed to create product'); });
+    });
+
+    // Link to existing product
+    $(document).on('click', '.link-product', function() {
+        var id = $(this).data('id');
+        $('#linkProductItemId').val(id);
+        $('#targetProductId').val('');
+        $('#linkProductModal').modal('show');
+    });
+    $('#confirmLinkProductBtn').click(function() {
+        var id = $('#linkProductItemId').val();
+        var targetId = $('#targetProductId').val();
+        if (!targetId) { alert('Target product ID is required'); return; }
+        $.post('/api/bom/handover/link-product/' + id, JSON.stringify({ targetProductId: targetId }), {contentType: 'application/json'})
+            .done(function() {
+                $('#linkProductModal').modal('hide');
+                loadItems();
+                alert('Linked to product ' + targetId);
+            })
+            .fail(function() { alert('Failed to link'); });
+    });
+
+    // Create BOM
+    $(document).on('click', '.create-bom', function() {
+        var id = $(this).data('id');
+        if (confirm('Create an empty BOM for this product? You can edit it later in BOM Management.')) {
+            $.post('/api/bom/handover/create-bom/' + id, JSON.stringify({}), {contentType: 'application/json'})
+                .done(function() {
+                    loadItems();
+                    alert('Empty BOM created');
+                })
+                .fail(function() { alert('Failed to create BOM'); });
+        }
+    });
+
+    // Release to manufacturing
+    $(document).on('click', '.release', function() {
+        var id = $(this).data('id');
+        if (confirm('Release this product to manufacturing? The BOM must be valid.')) {
+            $.post('/api/bom/handover/release/' + id, JSON.stringify({}), {contentType: 'application/json'})
+                .done(function() {
+                    loadItems();
+                    alert('Released to manufacturing');
+                })
+                .fail(function() { alert('Release failed'); });
+        }
+    });
+
+    // Filters
+    $('#applyFiltersBtn').click(loadItems);
+    $('#resetFiltersBtn').click(function() {
+        $('#filterProject').val('');
+        $('#filterStatus').val('');
+        loadItems();
+    });
+
+    loadStats();
+    loadItems();
+});
+</script>
+{% endblock %}

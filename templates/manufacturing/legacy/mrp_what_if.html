@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}MRP What-If Scenarios{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('production.mrp_run_dashboard') }}">{{ get_translation('auto.3d27f688', 'MRP') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.23d5b6ab', 'What-If Scenarios') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.bae9c9c0', 'What-If Scenarios') }}</h2>
+<button class="btn btn-success" data-bs-target="#createScenarioModal" data-bs-toggle="modal"><i class="fas fa-plus"></i>{{ get_translation('auto.30ce59f3', 'Create Scenario') }}</button>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-6"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.d8406270', 'Total Scenarios') }}</h6><h3 id="kpiTotal">{{ get_translation('auto.95fda5fe', '0') }}</h3></div></div></div>
+<div class="col-md-6"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.cf1d80a0', 'Active (Published)') }}</h6><h3 id="kpiActive">{{ get_translation('auto.ff671d2b', '0') }}</h3></div></div></div>
+</div>
+<!-- Simulation Controls -->
+<div class="card mb-3">
+<div class="card-header bg-light">{{ get_translation('auto.db6ce5ed', 'Interactive Simulation – Toggle Input Sources') }}</div>
+<div class="card-body">
+<div class="row">
+<div class="col-md-3"><div class="form-check"><input checked="" class="form-check-input" id="includeSalesOrders" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.f6b7835c', 'Sales Orders') }}</label></div></div>
+<div class="col-md-3"><div class="form-check"><input checked="" class="form-check-input" id="includeForecasts" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.f2a64c9a', 'Forecasts') }}</label></div></div>
+<div class="col-md-3"><div class="form-check"><input checked="" class="form-check-input" id="includePurchaseOrders" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.ac4b96ea', 'Open Purchase Orders (supply)') }}</label></div></div>
+<div class="col-md-3"><div class="form-check"><input checked="" class="form-check-input" id="includeProductionOrders" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.a3bdf5ca', 'Released Production Orders (supply)') }}</label></div></div>
+</div>
+<div class="row mt-2">
+<div class="col-md-4"><label>{{ get_translation('auto.8e7dbe68', 'Planning Horizon (days)') }}</label><input class="form-control" id="simHorizon" type="number" value="90"/></div>
+<div class="col-md-4"><label>{{ get_translation('auto.49a6b069', 'Start Date') }}</label><input class="form-control" id="simStartDate" type="date" value="{{ today }}"/></div>
+<div class="col-md-4 d-flex align-items-end"><button class="btn btn-primary w-100" id="runSimulationBtn"><i class="fas fa-play"></i>{{ get_translation('auto.3695307e', 'Run Simulation') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Simulation Results -->
+<div id="simResults" style="display: none;">
+<div class="card">
+<div class="card-header">{{ get_translation('auto.48302f4d', 'Simulation Results') }}</div>
+<div class="card-body">
+<ul class="nav nav-tabs" role="tablist">
+<li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#plannedOrders" id="planned-tab">{{ get_translation('auto.3e2ca243', 'Planned Orders') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#exceptions" id="exceptions-tab">{{ get_translation('auto.d5b00a3b', 'Exceptions') }}</a></li>
+</ul>
+<div class="tab-content mt-3">
+<div class="tab-pane fade show active" id="plannedOrders">
+<div class="table-responsive"><table class="table table-bordered table-sm"><thead><tr><th>{{ get_translation('auto.95b5f622', 'Product') }}</th><th>{{ get_translation('auto.90b5fd94', 'Date Key') }}</th><th>{{ get_translation('auto.c8676467', 'Quantity') }}</th><th>{{ get_translation('auto.d4fd2723', 'Type') }}</th></tr></thead><tbody id="simPlannedBody"><tr><td colspan="4">{{ get_translation('auto.7146d0c5', 'No data') }}</td></tr></tbody></table></div>
+</div>
+<div class="tab-pane fade" id="exceptions">
+<div class="table-responsive"><table class="table table-bordered table-sm"><thead><tr><th>{{ get_translation('auto.65b2dfb8', 'Product') }}</th><th>{{ get_translation('auto.008fb2ec', 'Type') }}</th><th>{{ get_translation('auto.c13bba98', 'Details') }}</th><th>{{ get_translation('auto.30291408', 'Date') }}</th></tr></thead><tbody id="simExceptionsBody"><tr><td colspan="4">{{ get_translation('auto.97d3428a', 'No data') }}</td></tr></tbody></table></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Scenario List -->
+<div class="card mt-4">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('auto.64de9d7b', 'Scenario List') }}</span>
+<button class="btn btn-sm btn-secondary" disabled="" id="compareBtn">{{ get_translation('auto.512df401', 'Compare Selected') }}</button>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead><tr><th><input id="selectAll" type="checkbox"/></th><th>{{ get_translation('auto.db117c6c', 'Name') }}</th><th>{{ get_translation('auto.6e392572', 'Description') }}</th><th>{{ get_translation('auto.7507bf5f', 'Status') }}</th><th>{{ get_translation('auto.280343ff', 'Created Date') }}</th><th>{{ get_translation('auto.9c0215b7', 'Actions') }}</th></tr></thead>
+<tbody id="scenariosBody"><tr><td class="text-center" colspan="6">{{ get_translation('auto.269b0fea', 'Loading...') }}</td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Modals -->
+<div class="modal fade" id="createScenarioModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.9c1fc21d', 'Create What-If Scenario') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<label>{{ get_translation('auto.365cc60e', 'Name') }}</label><input class="form-control mb-2" id="scenarioName" type="text"/>
+<label>{{ get_translation('auto.ad398643', 'Description') }}</label><textarea class="form-control mb-2" id="scenarioDesc" rows="2"></textarea>
+<label>{{ get_translation('auto.c7bf95e2', 'Scenario Data (JSON, optional)') }}</label><textarea class="form-control" id="scenarioData" placeholder='{"demand_multiplier": 1.2}' rows="4"></textarea>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.07c72702', 'Cancel') }}</button><button class="btn btn-primary" id="confirmCreate">{{ get_translation('auto.4f027e07', 'Create') }}</button></div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="compareModal" tabindex="-1">
+<div class="modal-dialog modal-xl">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.4f7bac15', 'Scenario Comparison') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="compareContent"></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.c93ee444', 'Close') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pure JavaScript – no jQuery dependencies
+(function() {
+    // ---------- Scenario Management ----------
+    function loadScenarios() {
+        fetch('/api/mrp/scenarios/list')
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('scenariosBody');
+                if (!data.length) {
+                    tbody.innerHTML = '<tr><td colspan="6">No scenarios found</td></tr>';
+                    return;
+                }
+                let html = '';
+                data.forEach(s => {
+                    let badge = s.status === 'Published' ? '<span class="badge bg-success">Published</span>' : '<span class="badge bg-secondary">Draft</span>';
+                    html += `<tr>
+                                <td><input type="checkbox" class="scenario-check" value="${s.id}"></td>
+                                <td>${escapeHtml(s.name)}</td>
+                                <td>${escapeHtml(s.description || '-')}</td>
+                                <td>${badge}</td>
+                                <td>${s.createdDateKey}</td>
+                                <td>
+                                    ${s.status !== 'Published' ? `<button class="btn btn-sm btn-primary publish-btn" data-id="${s.id}">Publish</button>` : ''}
+                                    <button class="btn btn-sm btn-info view-compare" data-id="${s.id}">View</button>
+                                </td>
+                              </tr>`;
+                });
+                tbody.innerHTML = html;
+                attachCheckboxEvents();
+                attachPublishEvents();
+                attachViewEvents();
+                updateCompareButton();
+            })
+            .catch(() => document.getElementById('scenariosBody').innerHTML = '<tr><td colspan="6">Error loading scenarios</td></tr>');
+    }
+
+    function loadKPIs() {
+        fetch('/api/mrp/scenarios/kpi')
+            .then(r => r.json())
+            .then(res => {
+                document.getElementById('kpiTotal').innerText = res.totalScenarios;
+                document.getElementById('kpiActive').innerText = res.activeScenario;
+            });
+    }
+
+    function attachCheckboxEvents() {
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.onchange = function() {
+                document.querySelectorAll('.scenario-check').forEach(cb => cb.checked = this.checked);
+                updateCompareButton();
+            };
+        }
+        document.querySelectorAll('.scenario-check').forEach(cb => {
+            cb.onchange = updateCompareButton;
+        });
+    }
+
+    function attachPublishEvents() {
+        document.querySelectorAll('.publish-btn').forEach(btn => {
+            btn.onclick = function() {
+                const id = this.getAttribute('data-id');
+                fetch(`/api/mrp/scenarios/publish/${id}`, { method: 'POST' })
+                    .then(() => { loadScenarios(); loadKPIs(); })
+                    .catch(() => alert('Publish failed'));
+            };
+        });
+    }
+
+    function attachViewEvents() {
+        document.querySelectorAll('.view-compare').forEach(btn => {
+            btn.onclick = function() {
+                const id = this.getAttribute('data-id');
+                fetch('/api/mrp/scenarios/compare')
+                    .then(r => r.json())
+                    .then(data => {
+                        // For now just show placeholder; you could fetch scenario data
+                        const compContent = document.getElementById('compareContent');
+                        compContent.innerHTML = `<pre>Comparison of scenario ${id} not fully implemented yet.\nBase: ${JSON.stringify(data.scenario1, null, 2)}</pre>`;
+                        new bootstrap.Modal(document.getElementById('compareModal')).show();
+                    })
+                    .catch(() => alert('Comparison not available'));
+            };
+        });
+    }
+
+    function updateCompareButton() {
+        const selected = document.querySelectorAll('.scenario-check:checked');
+        const compareBtn = document.getElementById('compareBtn');
+        compareBtn.disabled = selected.length !== 2;
+        compareBtn.onclick = () => {
+            if (selected.length !== 2) return;
+            alert('Comparison between two selected scenarios not yet implemented.' +
+                  ' You can implement by calling a compare API with scenario IDs.');
+        };
+    }
+
+    // Create scenario
+    const createBtn = document.getElementById('confirmCreate');
+    if (createBtn) {
+        createBtn.onclick = function() {
+            const name = document.getElementById('scenarioName').value.trim();
+            if (!name) { alert('Name required'); return; }
+            const data = {
+                name: name,
+                description: document.getElementById('scenarioDesc').value,
+                scenarioData: JSON.parse(document.getElementById('scenarioData').value || '{}')
+            };
+            fetch('/api/mrp/scenarios/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(() => {
+                const modalEl = document.getElementById('createScenarioModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+                loadScenarios();
+                loadKPIs();
+            })
+            .catch(() => alert('Create failed'));
+        };
+    }
+
+    // ---------- Simulation ----------
+    const simBtn = document.getElementById('runSimulationBtn');
+    if (simBtn) {
+        simBtn.onclick = function() {
+            const horizon = parseInt(document.getElementById('simHorizon').value);
+            const startDate = document.getElementById('simStartDate').value;
+            const includeSales = document.getElementById('includeSalesOrders').checked;
+            const includeForecasts = document.getElementById('includeForecasts').checked;
+            const includePurchase = document.getElementById('includePurchaseOrders').checked;
+            const includeProduction = document.getElementById('includeProductionOrders').checked;
+
+            const payload = {
+                horizon_days: horizon,
+                start_date: startDate,
+                include_sales_orders: includeSales,
+                include_forecasts: includeForecasts,
+                include_purchase_orders: includePurchase,
+                include_production_orders: includeProduction
+            };
+
+            // Show loading indicators
+            document.getElementById('simPlannedBody').innerHTML = '<tr><td colspan="4">Loading planned orders...</td></tr>';
+            document.getElementById('simExceptionsBody').innerHTML = '<tr><td colspan="4">Loading exceptions...</td></tr>';
+            document.getElementById('simResults').style.display = 'block';
+
+            fetch('/api/mrp/simulate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                // Populate planned orders
+                const plannedBody = document.getElementById('simPlannedBody');
+                if (!data.planned_orders || data.planned_orders.length === 0) {
+                    plannedBody.innerHTML = '<tr><td colspan="4">No planned orders</td></tr>';
+                } else {
+                    let poHtml = '';
+                    data.planned_orders.forEach(po => {
+                        poHtml += `<tr><td>${escapeHtml(po.productId)}</td><td>${po.dateKey}</td><td>${po.quantity}</td><td>${escapeHtml(po.orderType)}</td></tr>`;
+                    });
+                    plannedBody.innerHTML = poHtml;
+                }
+                // Populate exceptions
+                const excBody = document.getElementById('simExceptionsBody');
+                if (!data.exceptions || data.exceptions.length === 0) {
+                    excBody.innerHTML = '<tr><td colspan="4">No exceptions</td></tr>';
+                } else {
+                    let exHtml = '';
+                    data.exceptions.forEach(ex => {
+                        exHtml += `<tr><td>${escapeHtml(ex.productId)}</td><td>${escapeHtml(ex.type)}</td><td>${escapeHtml(ex.details)}</td><td>${ex.dateKey}</td></tr>`;
+                    });
+                    excBody.innerHTML = exHtml;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Simulation failed. Check console for details.');
+                document.getElementById('simPlannedBody').innerHTML = '<tr><td colspan="4">Error loading data</td></tr>';
+                document.getElementById('simExceptionsBody').innerHTML = '<tr><td colspan="4">Error loading data</td></tr>';
+            });
+        };
+    }
+
+    // Helper: escape HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // Initial load
+    loadScenarios();
+    loadKPIs();
+})();
+</script>
+{% endblock %}

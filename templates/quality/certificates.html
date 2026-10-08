@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Certificate Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-file-certificate me-2"></i>{{ get_translation('auto.bf8f3735', 'Certificate Management') }}</h2>
+<div>
+<button class="btn btn-primary me-2" id="generateBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.76efc24a', 'Generate Certificate') }}</button>
+<button class="btn btn-success me-2" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.97b7779f', 'Refresh') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-6 mb-2">
+<div class="card border-info h-100">
+<div class="card-body text-center">
+<h5 class="text-info">{{ get_translation('auto.ce0ea3be', 'Generated This Month') }}</h5>
+<p class="display-6" id="kpiGenerated">{{ get_translation('auto.e981d446', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-6 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.3c1dc0a5', 'Pending Signatures') }}</h5>
+<p class="display-6" id="kpiPending">{{ get_translation('auto.a9ba8cc1', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.13c689ad', 'Product') }}</label>
+<select class="form-select" id="filterProduct">
+<option value="">{{ get_translation('auto.668542f2', 'All') }}</option>
+                        {% for p in products %}
+                        <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.253eabc2', 'Date From') }}</label>
+<input class="form-control" id="dateFrom" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.c60a6e31', 'Date To') }}</label>
+<input class="form-control" id="dateTo" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.ce8b78d3', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.a88d185b', 'All') }}</option>
+<option>{{ get_translation('auto.361fa150', 'Draft') }}</option><option>{{ get_translation('auto.9ff29b27', 'Signed') }}</option><option>{{ get_translation('auto.6b6f893c', 'Archived') }}</option>
+</select>
+</div>
+<div class="col-md-1">
+<div class="form-check mt-4">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.01e35fbf', 'Apply') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Certificates Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-list"></i>{{ get_translation('auto.ae841c9c', 'Certificates of Conformance') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="certsTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.330ec8d1', 'Certificate #') }}</th><th>{{ get_translation('auto.3d2dac31', 'Product') }}</th><th>{{ get_translation('auto.c3634b3a', 'Serial Numbers') }}</th><th>{{ get_translation('auto.31bb18b4', 'Generated Date') }}</th><th>{{ get_translation('auto.1151bb78', 'Status') }}</th><th>{{ get_translation('auto.8cd9b736', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="certsTableBody">
+<tr><td class="text-center py-4" colspan="6">{{ get_translation('auto.eababca5', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Generate Certificate Modal -->
+<div class="modal fade" id="generateModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.b0452345', 'Generate Certificate of Conformance') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form>
+<div class="mb-3">
+<label>{{ get_translation('auto.00249974', 'Product *') }}</label>
+<select class="form-select" id="genProduct" required="">
+<option value="">{{ get_translation('auto.cab99b70', 'Select Product') }}</option>
+                            {% for p in products %}
+                            <option value="{{ p.ProductId }}">{{ p.ProductId }} - {{ p.descEnglish }}</option>
+                            {% endfor %}
+                        </select>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.4ccebe4f', 'Serial Numbers') }}</label>
+<select class="form-select" id="genSerials" multiple="" size="5">
+<option value="">{{ get_translation('auto.d25e68c9', 'Select serials (Ctrl+Click for multiple)') }}</option>
+</select>
+<small class="text-muted">{{ get_translation('auto.76ffabc9', 'Hold Ctrl to select multiple serials') }}</small>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.a94a0ae4', 'Project (optional)') }}</label>
+<select class="form-select" id="genProject">
+<option value="">{{ get_translation('auto.7ba3b0cf', 'None') }}</option>
+                            {% for p in projects %}{% if p.ProjectID %}
+                            <option value="{{ p.ProjectID }}">{{ p.ProjectName }}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.ab277db6', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmGenerateBtn">{{ get_translation('auto.6ede8a36', 'Generate') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let generateModal = new bootstrap.Modal(document.getElementById('generateModal'));
+
+    function loadKPI() {
+        $.get('/api/quality/certificates/kpi', function(data) {
+            $('#kpiGenerated').text(data.generatedThisMonth);
+            $('#kpiPending').text(data.pendingSignatures);
+        }).fail(console.error);
+    }
+
+    function loadCertificates() {
+        let params = {
+            product: $('#filterProduct').val(),
+            date_from: $('#dateFrom').val(),
+            date_to: $('#dateTo').val(),
+            status: $('#filterStatus').val()
+        };
+        $.get('/api/quality/certificates/list', params, function(certs) {
+            let tbody = $('#certsTableBody').empty();
+            for (let c of certs) {
+                let date = c.generatedDateKey ? `${c.generatedDateKey.toString().slice(0,4)}-${c.generatedDateKey.toString().slice(4,6)}-${c.generatedDateKey.toString().slice(6,8)}` : '';
+                let serialsDisplay = c.serialNumbers.slice(0,2).join(', ') + (c.serialNumbers.length > 2 ? '...' : '');
+                let statusBadge = '';
+                if (c.status === 'Draft') statusBadge = '<span class="badge bg-secondary">Draft</span>';
+                else if (c.status === 'Signed') statusBadge = '<span class="badge bg-success">Signed</span>';
+                else statusBadge = '<span class="badge bg-info">Archived</span>';
+                let row = `<tr>
+                    <td><a href="/api/quality/certificates/${c.id}/view" target="_blank">${c.number}</a></td>
+                    <td>${c.product}</td>
+                    <td>${serialsDisplay}</td>
+                    <td>${date}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning sign-btn" data-id="${c.id}" ${c.status !== 'Draft' ? 'disabled' : ''}>Sign</button>
+                        <button class="btn btn-sm btn-info print-btn" data-id="${c.id}">Print</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(console.error);
+    }
+
+    $('#generateBtn').click(function() {
+        $('#genProduct').val('');
+        $('#genSerials').empty().append('<option value="">Select product first</option>');
+        $('#genProject').val('');
+        generateModal.show();
+    });
+
+    $('#genProduct').change(function() {
+        let product = $(this).val();
+        if (product) {
+            $.get(`/api/quality/certificates/serial-numbers/${product}`, function(serials) {
+                let options = '';
+                for (let s of serials) {
+                    options += `<option value="${s.serialNumber}">${s.serialNumber} (${s.status})</option>`;
+                }
+                $('#genSerials').html(options);
+            }).fail(console.error);
+        } else {
+            $('#genSerials').html('<option value="">Select product first</option>');
+        }
+    });
+
+    $('#confirmGenerateBtn').click(function() {
+        let product = $('#genProduct').val();
+        let serials = $('#genSerials').val();
+        let project = $('#genProject').val();
+        if (!product || !serials || serials.length === 0) {
+            alert('Please select product and at least one serial number.');
+            return;
+        }
+        let data = {
+            productId: product,
+            serialNumbers: serials,
+            projectId: project || null
+        };
+        $.ajax({
+            url: '/api/quality/certificates/generate',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(res) {
+                generateModal.hide();
+                loadCertificates();
+                loadKPI();
+                window.open(res.viewUrl, '_blank');
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+    $(document).on('click', '.sign-btn', function() {
+        let id = $(this).data('id');
+        if (confirm('Sign this certificate? It will be marked as Signed.')) {
+            $.ajax({
+                url: `/api/quality/certificates/${id}/status`,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({status: 'Signed'}),
+                success: function() {
+                    loadCertificates();
+                    loadKPI();
+                }
+            });
+        }
+    });
+
+    $(document).on('click', '.print-btn', function() {
+        let id = $(this).data('id');
+        window.open(`/api/quality/certificates/${id}/view`, '_blank');
+    });
+
+    $('#applyFiltersBtn').click(function() { loadCertificates(); });
+    $('#refreshBtn').click(function() { loadCertificates(); loadKPI(); });
+
+    loadKPI();
+    loadCertificates();
+});
+</script>
+{% endblock %}

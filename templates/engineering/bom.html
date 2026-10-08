@@ -1,0 +1,577 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('engineering.bom.title', 'BOM Management') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('home', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('engineering', 'Engineering') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('engineering.bom.title', 'BOM Management') }}</li>
+</ol>
+</nav>
+
+<!-- Top KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.bom.kpi.total_components', 'Total Components') }}</h5>
+<p class="card-text display-6" id="kpiTotalComponents">{{ stats.totalComponents | default(0) }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.bom.kpi.where_used', 'Where‑Used Refs') }}</h5>
+<p class="card-text display-6" id="kpiWhereUsed">{{ stats.whereUsedRefs | default(0) }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.bom.kpi.pending_ecos', 'Pending ECOs') }}</h5>
+<p class="card-text display-6" id="kpiPendingECOs">{{ stats.pendingECOs | default(0) }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 col-sm-6 mb-2">
+<div class="card text-white bg-danger">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('engineering.bom.kpi.locked_docs', 'Locked Documents') }}</h5>
+<p class="card-text display-6" id="kpiLockedDocs">{{ stats.lockedDocuments | default(0) }}</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Filters with APPLY BUTTON -->
+<div class="row mb-3 g-2">
+    <div class="col-md-4">
+        <label class="form-label">{{ get_translation('engineering.bom.filter.product', 'Product') }}</label>
+        <div class="d-flex gap-2">
+            <select id="productSelector" class="form-select">
+                {% for p in products %}
+                <option value="{{ p.ProductID }}" {% if loop.first %}selected{% endif %}>
+                    {% if p.hasBom %}📁 {% else %}📄 {% endif %}{{ p.ProductName }}
+                </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary" id="applyProductBtn" style="white-space: nowrap;">
+                {{ get_translation('apply', 'Apply') }}
+            </button>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">{{ get_translation('engineering.bom.filter.effectivity_date', 'Effectivity Date') }}</label>
+        <input class="form-control" id="effectivityDate" type="date"/>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <div class="form-check">
+            <input class="form-check-input" id="showLockedOnly" type="checkbox"/>
+            <label class="form-check-label">{{ get_translation('engineering.bom.filter.locked_only', 'Show only locked documents') }}</label>
+        </div>
+    </div>
+    <div class="col-md-2 d-flex align-items-end gap-2">
+        <button class="btn btn-secondary btn-sm" id="importBtn">{{ get_translation('import', 'Import CSV') }}</button>
+        <button class="btn btn-secondary btn-sm" id="exportBtn">{{ get_translation('export', 'Export CSV') }}</button>
+    </div>
+</div>
+
+<!-- BOM Tree -->
+<div class="card">
+<div class="card-header d-flex justify-content-between align-items-center">
+<span>{{ get_translation('engineering.bom.tree.title', 'Bill of Materials') }}</span>
+<button class="btn btn-primary btn-sm" id="addComponentBtn">{{ get_translation('engineering.bom.add_component', '+ Add Component') }}</button>
+</div>
+<div class="card-body" style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+<div id="bomTreeContainer">
+<div id="bomTree">
+    <p class="text-muted text-center">{{ get_translation('loading', 'Loading...') }}</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Side Panel (Offcanvas) -->
+<div aria-labelledby="bomSidePanelLabel" class="offcanvas offcanvas-end" id="bomSidePanel" style="width: 450px;" tabindex="-1">
+<div class="offcanvas-header">
+<h5 id="bomSidePanelLabel">{{ get_translation('engineering.bom.sidepanel.title', 'Component Details') }}</h5>
+<button class="btn-close" data-bs-dismiss="offcanvas" type="button"></button>
+</div>
+<div class="offcanvas-body">
+<ul class="nav nav-tabs" id="sidePanelTabs" role="tablist">
+<li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#summaryTab">{{ get_translation('engineering.bom.sidepanel.summary', 'Summary') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#detailsTab">{{ get_translation('engineering.bom.sidepanel.details', 'Details') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#actionsTab">{{ get_translation('engineering.bom.sidepanel.actions', 'Actions') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#whereUsedTab">{{ get_translation('engineering.bom.sidepanel.where_used', 'Where-Used') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ecoHistoryTab">{{ get_translation('engineering.bom.sidepanel.eco_history', 'ECO History') }}</a></li>
+<li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#docStatusTab">{{ get_translation('engineering.bom.sidepanel.doc_status', 'Doc Status') }}</a></li>
+</ul>
+<div class="tab-content mt-3">
+<!-- Summary Tab -->
+<div class="tab-pane fade show active" id="summaryTab">
+<div id="componentSummary">
+<p class="text-muted">{{ get_translation('engineering.bom.sidepanel.select_component', 'Click a component to view details') }}</p>
+</div>
+</div>
+<!-- Details Tab -->
+<div class="tab-pane fade" id="detailsTab">
+<p><strong>{{ get_translation('engineering.bom.sidepanel.name', 'Name:') }}</strong> <span id="detailName"></span></p>
+<p><strong>{{ get_translation('engineering.bom.sidepanel.quantity', 'Quantity:') }}</strong> <span id="detailQty"></span></p>
+<p><strong>{{ get_translation('engineering.bom.sidepanel.scrap', 'Scrap Factor:') }}</strong> <span id="detailScrap"></span></p>
+<p><strong>{{ get_translation('engineering.bom.sidepanel.effectivity', 'Effectivity:') }}</strong> <span id="detailEffectivity"></span></p>
+<button class="btn btn-sm btn-warning editComponentBtn">{{ get_translation('edit', 'Edit') }}</button>
+<button class="btn btn-sm btn-danger deleteComponentBtn">{{ get_translation('delete', 'Delete') }}</button>
+</div>
+<!-- Actions Tab -->
+<div class="tab-pane fade" id="actionsTab">
+<button class="btn btn-warning mb-2 w-100" id="actionRaiseNCR">{{ get_translation('engineering.bom.actions.raise_ncr', 'Raise NCR') }}</button>
+<button class="btn btn-success mb-2 w-100" id="actionCreatePO">{{ get_translation('engineering.bom.actions.create_po', 'Create PO') }}</button>
+<button class="btn btn-info mb-2 w-100" id="actionViewQualityPlan">{{ get_translation('engineering.bom.actions.view_quality', 'View Quality Plan') }}</button>
+<button class="btn btn-secondary mb-2 w-100" id="actionRequestECO">{{ get_translation('engineering.bom.actions.request_eco', 'Request ECO') }}</button>
+<button class="btn btn-primary mb-2 w-100" id="actionViewDocuments">{{ get_translation('engineering.bom.actions.view_docs', 'View Documents') }}</button>
+</div>
+<!-- Where-Used Tab -->
+<div class="tab-pane fade" id="whereUsedTab">
+<ul class="list-group" id="whereUsedList"></ul>
+</div>
+<!-- ECO History Tab -->
+<div class="tab-pane fade" id="ecoHistoryTab">
+<div id="ecoHistoryList">{{ get_translation('loading', 'Loading...') }}</div>
+</div>
+<!-- Doc Status Tab -->
+<div class="tab-pane fade" id="docStatusTab">
+<div id="docStatusContent">{{ get_translation('loading', 'Loading...') }}</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Modals -->
+<div class="modal fade" id="addComponentModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('engineering.bom.modal.add_component', 'Add Component') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<select class="form-select mb-2" disabled id="compParentId"></select>
+<select class="form-select mb-2" id="compComponentId">
+<option value="">{{ get_translation('engineering.bom.modal.select_product', 'Select Product') }}</option>
+                    {% for p in products %}<option value="{{ p.ProductID }}">{{ p.ProductName }}</option>{% endfor %}
+                </select>
+<input class="form-control mb-2" id="compQuantity" placeholder="{{ get_translation('engineering.bom.modal.quantity', 'Quantity') }}" type="number"/>
+<input class="form-control mb-2" id="compScrap" placeholder="{{ get_translation('engineering.bom.modal.scrap', 'Scrap Factor') }}" step="0.01" type="number"/>
+<input class="form-control mb-2" id="compEffectivity" type="date"/>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="saveComponentBtn">{{ get_translation('save', 'Save') }}</button></div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="assignQualityModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('engineering.bom.modal.assign_quality', 'Assign Quality Plan') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><select class="form-select" id="qualityPlanSelect"></select></div><div class="modal-footer"><button class="btn btn-primary" id="saveQualityBtn">{{ get_translation('assign', 'Assign') }}</button></div></div></div>
+</div>
+<div class="modal fade" id="ecoHistoryModal" tabindex="-1">
+<div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('engineering.bom.modal.eco_history', 'ECO History') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><ul id="ecoHistoryModalList"></ul></div></div></div>
+</div>
+
+<style>
+.tree-node-link.selected {
+    background-color: #e3f2fd;
+    border-left: 3px solid #2196f3;
+    padding-left: 5px;
+    border-radius: 4px;
+    display: block;
+    padding: 4px 8px;
+}
+.tree-node-link {
+    display: block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #0d6efd;
+    text-decoration: none;
+}
+.tree-node-link:hover {
+    background-color: #f0f0f0;
+}
+.tree-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+.toggle-icon {
+    cursor: pointer;
+    margin-right: 5px;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ========================================================================
+// TRANSLATIONS - Server-injected
+// ========================================================================
+var trans = {
+    // General
+    loading: {{ get_translation('loading', 'Loading...')|tojson }},
+    apply: {{ get_translation('apply', 'Apply')|tojson }},
+    save: {{ get_translation('save', 'Save')|tojson }},
+    edit: {{ get_translation('edit', 'Edit')|tojson }},
+    delete: {{ get_translation('delete', 'Delete')|tojson }},
+    assign: {{ get_translation('assign', 'Assign')|tojson }},
+    import: {{ get_translation('import', 'Import CSV')|tojson }},
+    export: {{ get_translation('export', 'Export CSV')|tojson }},
+    
+    // BOM specific
+    no_components: {{ get_translation('engineering.bom.tree.no_components', 'No components found for this product')|tojson }},
+    loading_tree: {{ get_translation('engineering.bom.tree.loading', 'Loading BOM tree...')|tojson }},
+    loading_summary: {{ get_translation('engineering.bom.sidepanel.loading_summary', 'Loading summary...')|tojson }},
+    select_component: {{ get_translation('engineering.bom.sidepanel.select_component', 'Click a component to view details')|tojson }},
+    failed_to_load: {{ get_translation('engineering.bom.tree.failed', 'Failed to load BOM tree')|tojson }},
+    
+    // Action messages
+    add_component: {{ get_translation('engineering.bom.add_component', '+ Add Component')|tojson }},
+    component_added: {{ get_translation('engineering.bom.toast.added', 'Component added')|tojson }},
+    component_updated: {{ get_translation('engineering.bom.toast.updated', 'Updated')|tojson }},
+    component_deleted: {{ get_translation('engineering.bom.toast.deleted', 'Deleted')|tojson }},
+    
+    // Side panel labels
+    summary_tab: {{ get_translation('engineering.bom.sidepanel.summary', 'Summary')|tojson }},
+    details_tab: {{ get_translation('engineering.bom.sidepanel.details', 'Details')|tojson }},
+    actions_tab: {{ get_translation('engineering.bom.sidepanel.actions', 'Actions')|tojson }},
+    where_used_tab: {{ get_translation('engineering.bom.sidepanel.where_used', 'Where-Used')|tojson }},
+    
+    // Labels
+    name_label: {{ get_translation('engineering.bom.sidepanel.name', 'Name:')|tojson }},
+    qty_label: {{ get_translation('engineering.bom.sidepanel.quantity', 'Quantity:')|tojson }},
+    scrap_label: {{ get_translation('engineering.bom.sidepanel.scrap', 'Scrap Factor:')|tojson }},
+    effectivity_label: {{ get_translation('engineering.bom.sidepanel.effectivity', 'Effectivity:')|tojson }},
+    
+    // Actions
+    raise_ncr: {{ get_translation('engineering.bom.actions.raise_ncr', 'Raise NCR')|tojson }},
+    create_po: {{ get_translation('engineering.bom.actions.create_po', 'Create PO')|tojson }},
+    view_quality: {{ get_translation('engineering.bom.actions.view_quality', 'View Quality Plan')|tojson }},
+    request_eco: {{ get_translation('engineering.bom.actions.request_eco', 'Request ECO')|tojson }},
+    view_docs: {{ get_translation('engineering.bom.actions.view_docs', 'View Documents')|tojson }},
+};
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, defaultText);
+    }
+    return defaultText || key;
+}
+
+// ========================================================================
+// 1. GLOBAL FUNCTIONS
+// ========================================================================
+
+// Helper: get selected project(s) from sidebar
+function getSelectedProjects() {
+    var projectSelector = $('#projectSelector');
+    if (projectSelector.length === 0) return '';
+    var val = projectSelector.val();
+    if (!val) return '';
+    if (Array.isArray(val)) {
+        return val.join(',');
+    }
+    return val;
+}
+
+// RENDER TREE - GLOBAL
+window.renderTree = function(nodes, $parent) {
+    console.log("🔍 renderTree called with nodes:", nodes ? nodes.length : 0, "nodes");
+    var $container = $parent || $('#bomTree');
+    if (!$parent) $container.empty();
+    if (!nodes || nodes.length === 0) {
+        $container.html('<div class="text-muted text-center">' + t('no_components', 'No components found for this product') + '</div>');
+        return;
+    }
+
+    var $ul = $('<ul class="list-unstyled ms-3"></ul>');
+    nodes.forEach(function(node) {
+        var $li = $('<li class="mt-2"></li>');
+        var hasChildren = node.children && node.children.length > 0;
+        var iconClass = hasChildren ? 'fa-folder' : 'fa-file-alt';
+        var icon = '<i class="fas ' + iconClass + ' toggle-icon me-1"></i>';
+        var lockIcon = node.locked ? '<i class="fas fa-lock text-danger ms-2"></i>' : '';
+        var $link = $('<a href="#" class="tree-node-link text-decoration-none">' + icon + ' ' + node.name + ' (' + node.quantity + ')' + lockIcon + '</a>');
+        $link.data('node', node);
+        $li.append($link);
+
+        if (hasChildren) {
+            var $childUl = $('<ul class="list-unstyled ms-4" style="display: none;"></ul>');
+            $li.append($childUl);
+            window.renderTree(node.children, $childUl);
+            $link.find('.toggle-icon').on('click', function(e) {
+                e.stopPropagation();
+                $childUl.toggle();
+                $(this).toggleClass('fa-folder fa-folder-open');
+            });
+        }
+        $ul.append($li);
+    });
+    $container.append($ul);
+    console.log("🔍 renderTree: Tree build complete");
+};
+
+// LOAD STATS - GLOBAL
+window.loadStats = function() {
+    var productId = $('#productSelector').val();
+    var effDate = $('#effectivityDate').val();
+    var lockedOnly = $('#showLockedOnly').is(':checked');
+    var projectId = getSelectedProjects();
+    
+    var url = '/api/bom/stats?product_id=' + encodeURIComponent(productId) + 
+              '&effectivity_date=' + effDate + 
+              '&show_locked_only=' + lockedOnly;
+    if (projectId) {
+        url += '&project_id=' + encodeURIComponent(projectId);
+    }
+    console.log("📊 loadStats URL:", url);
+    $.get(url)
+        .done(function(stats) {
+            $('#kpiTotalComponents').text(stats.totalComponents || 0);
+            $('#kpiWhereUsed').text(stats.whereUsedRefs || 0);
+            $('#kpiPendingECOs').text(stats.pendingECOs || 0);
+            $('#kpiLockedDocs').text(stats.lockedDocuments || 0);
+            console.log("✅ Stats loaded:", stats);
+        })
+        .fail(function(err) {
+            console.error("❌ Stats error:", err);
+        });
+};
+
+// LOAD TREE - GLOBAL
+window.loadTree = function() {
+    console.log("🌳 loadTree() called");
+    var productId = $('#productSelector').val();
+    var effDate = $('#effectivityDate').val();
+    var lockedOnly = $('#showLockedOnly').is(':checked');
+    var projectId = getSelectedProjects();
+    
+    var url = '/api/bom/tree/' + encodeURIComponent(productId) + 
+              '?effectivity_date=' + effDate + 
+              '&show_locked_only=' + lockedOnly;
+    if (projectId) {
+        url += '&project_id=' + encodeURIComponent(projectId);
+    }
+    console.log("🌳 loadTree URL:", url);
+    console.log("🌳 Project filter:", projectId || 'None');
+    $('#bomTree').html('<p class="text-center text-muted">' + t('loading_tree', 'Loading BOM tree...') + '</p>');
+    $.get(url)
+        .done(function(data) {
+            console.log("✅ Tree data received, nodes:", data ? data.length : 0);
+            window.renderTree(data);
+        })
+        .fail(function(err) {
+            console.error("❌ Tree load error:", err);
+            $('#bomTree').html('<div class="alert alert-danger">' + t('failed_to_load', 'Failed to load BOM tree') + ': ' + (err.responseText || err.statusText) + '</div>');
+        });
+};
+
+// SIDE PANEL - GLOBAL
+window.showSidePanel = function(node) {
+    if (!node) return;
+    window.currentNodeData = node;
+    $('#detailName').text(node.name);
+    $('#detailQty').text(node.quantity);
+    $('#detailScrap').text(node.scrap_factor);
+    $('#detailEffectivity').text(node.effectivity || 'N/A');
+
+    $('#componentSummary').html('<p class="text-muted">' + t('loading_summary', 'Loading summary...') + '</p>');
+    $.get('/api/bom/component/' + encodeURIComponent(node.component_id) + '/summary')
+        .done(function(data) {
+            var html = '';
+            html += `<div><h6>📦 Inventory</h6><p>On Hand: ${data.inventory.on_hand} | Available: ${data.inventory.available}</p></div>`;
+            html += `<div><h6>✅ Quality</h6><p>Assigned QC Ops: ${data.quality.assigned_operations_count}<br>Last Inspection: ${data.quality.last_inspection_result}</p></div>`;
+            html += `<div><h6>🛒 Purchasing</h6><p>Open POs: ${data.purchasing.open_pos_count} | Overdue: ${data.purchasing.overdue_pos_count}</p></div>`;
+            html += `<div><h6>⚙️ Production</h6><p>Active Orders: ${data.production.active_orders_using_count}<br>Required Next 30 Days: ${data.production.required_next_30_days}</p></div>`;
+            html += `<div><h6>⚠️ Non-Conformance</h6><p>Open NCRs: ${data.non_conformance.open_ncrs_count} | Closed: ${data.non_conformance.closed_ncrs_count}</p></div>`;
+            html += `<div><h6>🔄 Engineering</h6><p>Documents: ${data.engineering.document_count}</p></div>`;
+            html += `<div><h6>📊 Sales & Service</h6><p>Sold as Spare: ${data.sales.sold_as_spare_ytd}</p></div>`;
+            $('#componentSummary').html(html);
+        })
+        .fail(function() {
+            $('#componentSummary').html('<p class="text-danger">Failed to load summary</p>');
+        });
+
+    var offcanvas = new bootstrap.Offcanvas($('#bomSidePanel'));
+    offcanvas.show();
+};
+
+// Toast notification
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+// ========================================================================
+// 2. DOM READY - Event Bindings
+// ========================================================================
+$(document).ready(function() {
+    console.log("🚀 BOM page ready, initial product:", $('#productSelector').val());
+
+    // Apply button - triggers load
+    $('#applyProductBtn').on('click', function() {
+        console.log("🔹 Apply clicked, product:", $('#productSelector').val());
+        console.log("🔹 Selected project(s):", getSelectedProjects());
+        window.loadTree();
+        window.loadStats();
+    });
+
+    // Enter key on product selector
+    $('#productSelector').on('keypress', function(e) {
+        if (e.which === 13) {
+            $('#applyProductBtn').click();
+        }
+    });
+
+    // Effectivity date and locked filter
+    $('#effectivityDate, #showLockedOnly').on('change', function() {
+        window.loadTree();
+        window.loadStats();
+    });
+
+    // Tree node click
+    $(document).on('click', '.tree-node-link', function(e) {
+        if ($(e.target).hasClass('toggle-icon')) return;
+        e.preventDefault();
+        var node = $(this).data('node');
+        if (node) window.showSidePanel(node);
+    });
+
+    // ADD COMPONENT
+    $('#addComponentBtn').click(function() {
+        var productId = window.currentProductId || $('#productSelector').val();
+        $('#compParentId').val(productId);
+        $('#addComponentModal').modal('show');
+    });
+
+    // IMPORT / EXPORT
+    $('#importBtn').click(function() { 
+        var input = $('<input type="file" accept=".csv">').on('change', function(e) {
+            var fd = new FormData();
+            fd.append('file', e.target.files[0]);
+            $.ajax({
+                url: '/api/bom/import',
+                method: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function() {
+                    window.loadTree();
+                    window.loadStats();
+                    showToast(t('component_added', 'Import completed'), 'success');
+                },
+                error: function() { showToast('Import failed', 'error'); }
+            });
+        });
+        input.click();
+    });
+    
+    $('#exportBtn').click(function() {
+        var productId = window.currentProductId || $('#productSelector').val();
+        if (productId) {
+            window.location.href = '/api/bom/export/' + encodeURIComponent(productId);
+        } else {
+            showToast('Please select a product first', 'warning');
+        }
+    });
+
+    // ACTION BUTTONS
+    $('#actionRaiseNCR').click(function() { 
+        var name = window.currentNodeData ? window.currentNodeData.name : 'component';
+        showToast(t('raise_ncr', 'Raise NCR for ') + name, 'info');
+    });
+    $('#actionCreatePO').click(function() { 
+        var name = window.currentNodeData ? window.currentNodeData.name : 'component';
+        showToast(t('create_po', 'Create PO for ') + name, 'info');
+    });
+    $('#actionViewQualityPlan').click(function() { 
+        showToast(t('view_quality', 'View Quality Plan'), 'info');
+    });
+    $('#actionRequestECO').click(function() { 
+        showToast(t('request_eco', 'Request ECO'), 'info');
+    });
+    $('#actionViewDocuments').click(function() { 
+        window.location.href = '/engineering/documents';
+    });
+
+    // SAVE COMPONENT
+    $('#saveComponentBtn').click(function() {
+        var data = {
+            parent_id: $('#compParentId').val(),
+            component_id: $('#compComponentId').val(),
+            quantity: $('#compQuantity').val(),
+            scrap_factor: $('#compScrap').val(),
+            effectivity_date: $('#compEffectivity').val()
+        };
+        $.post('/api/bom/component', JSON.stringify(data))
+            .done(function() {
+                $('#addComponentModal').modal('hide');
+                window.loadTree();
+                window.loadStats();
+                showToast(t('component_added', 'Component added'), 'success');
+            })
+            .fail(function() { showToast('Error adding component', 'error'); });
+    });
+
+    // EDIT / DELETE COMPONENT
+    $(document).on('click', '.editComponentBtn', function() {
+        var node = window.currentNodeData;
+        if (node) {
+            var newQty = prompt('New quantity', node.quantity);
+            if (newQty) {
+                $.ajax({
+                    url: '/api/bom/component/' + node.id,
+                    method: 'PUT',
+                    data: JSON.stringify({ quantity: newQty, scrap_factor: node.scrap_factor }),
+                    success: function() {
+                        window.loadTree();
+                        window.loadStats();
+                        showToast(t('component_updated', 'Updated'), 'success');
+                    }
+                });
+            }
+        }
+    });
+
+    $(document).on('click', '.deleteComponentBtn', function() {
+        var node = window.currentNodeData;
+        if (node && confirm('Delete this component?')) {
+            $.ajax({
+                url: '/api/bom/component/' + node.id,
+                method: 'DELETE',
+                success: function() {
+                    window.loadTree();
+                    window.loadStats();
+                    showToast(t('component_deleted', 'Deleted'), 'success');
+                }
+            });
+        }
+    });
+
+    // ========================================================================
+    // 3. INITIAL LOAD
+    // ========================================================================
+    window.loadStats();
+    window.loadTree();
+});
+</script>
+{% endblock %}

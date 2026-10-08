@@ -1,0 +1,604 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('workflow.my_tasks.title', 'My Tasks') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">{{ get_translation('nav.workflow', 'Workflow') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('workflow.my_tasks.title', 'My Tasks') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('workflow.my_tasks.title', 'My Tasks') }}</h2>
+        <div>
+            <button class="btn btn-secondary" id="refreshBtn">
+                <i class="fas fa-sync-alt"></i> {{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6>{{ get_translation('workflow.my_tasks.pending', 'Pending') }}</h6>
+                    <h3 id="kpiPending">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6>{{ get_translation('workflow.my_tasks.due_week', 'Due This Week') }}</h6>
+                    <h3 id="kpiDueWeek">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h6>{{ get_translation('workflow.my_tasks.overdue', 'Overdue') }}</h6>
+                    <h3 id="kpiOverdue">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6>{{ get_translation('workflow.my_tasks.completed_today', 'Completed Today') }}</h6>
+                    <h3 id="kpiCompletedToday">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label>{{ get_translation('workflow.my_tasks.search', 'Search') }}</label>
+                    <input type="text" class="form-control" id="filterSearch" 
+                           placeholder="{{ get_translation('workflow.my_tasks.search_placeholder', 'Search by task, workflow...') }}">
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('workflow.my_tasks.module', 'Module') }}</label>
+                    <select class="form-select" id="filterModule">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Manufacturing">Manufacturing</option>
+                        <option value="Quality">Quality</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Supply Chain">Supply Chain</option>
+                        <option value="Finance">Finance</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('workflow.my_tasks.status', 'Status') }}</label>
+                    <select class="form-select" id="filterStatus">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Pending">Pending</option>
+                        <option value="InProgress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('workflow.my_tasks.priority', 'Priority') }}</label>
+                    <select class="form-select" id="filterPriority">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Critical">Critical</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" id="applyFiltersBtn">
+                        <i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tasks Table -->
+    <div class="card">
+        <div class="card-body table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('workflow.my_tasks.workflow', 'Workflow') }}</th>
+                        <th>{{ get_translation('workflow.my_tasks.step', 'Step') }}</th>
+                        <th>{{ get_translation('workflow.my_tasks.entity', 'Entity') }}</th>
+                        <th>{{ get_translation('workflow.my_tasks.module', 'Module') }}</th>
+                        <th>{{ get_translation('workflow.my_tasks.due_date', 'Due Date') }}</th>
+                        <th>{{ get_translation('workflow.my_tasks.status', 'Status') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="tasksTableBody">
+                    <tr><td colspan="8" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delegate Modal -->
+<div class="modal fade" id="delegateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('workflow.my_tasks.delegate', 'Delegate Task') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="delegateTaskId">
+                <div class="mb-3">
+                    <label>{{ get_translation('workflow.my_tasks.new_assignee', 'New Assignee') }}</label>
+                    <select class="form-select" id="delegateNewUser">
+                        <option value="">{{ get_translation('global.select', 'Select...') }}</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('workflow.my_tasks.reason', 'Reason') }}</label>
+                    <textarea class="form-control" id="delegateReason" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmDelegateBtn">{{ get_translation('workflow.my_tasks.delegate', 'Delegate') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// TRANSLATIONS - Server-injected
+// ============================================================================
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Operation failed')|tojson }},
+    success: {{ get_translation('global.success', 'successfully')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    confirm: {{ get_translation('global.confirm', 'Confirm')|tojson }},
+    apply: {{ get_translation('global.apply', 'Apply')|tojson }},
+    select: {{ get_translation('global.select', 'Select...')|tojson }},
+    all: {{ get_translation('global.all', 'All')|tojson }},
+    refresh: {{ get_translation('global.refresh', 'Refresh')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    approve: {{ get_translation('workflow.my_tasks.approve', 'Approve')|tojson }},
+    reject: {{ get_translation('workflow.my_tasks.reject', 'Reject')|tojson }},
+    complete: {{ get_translation('workflow.my_tasks.complete', 'Complete')|tojson }},
+    delegate: {{ get_translation('workflow.my_tasks.delegate', 'Delegate')|tojson }},
+    workflow_my_tasks_view: {{ get_translation('workflow.my_tasks.view', 'View')|tojson }},
+    workflow_my_tasks_approve: {{ get_translation('workflow.my_tasks.approve', 'Approve')|tojson }},
+    workflow_my_tasks_reject: {{ get_translation('workflow.my_tasks.reject', 'Reject')|tojson }},
+    workflow_my_tasks_delegate: {{ get_translation('workflow.my_tasks.delegate', 'Delegate')|tojson }},
+    workflow_my_tasks_complete: {{ get_translation('workflow.my_tasks.complete', 'Complete')|tojson }},
+    
+    // Status translations
+    'workflow.pending': {{ get_translation('workflow.status.pending', 'Pending')|tojson }},
+    'workflow.in_progress': {{ get_translation('workflow.status.in_progress', 'In Progress')|tojson }},
+    'workflow.completed': {{ get_translation('workflow.status.completed', 'Completed')|tojson }},
+    'workflow.rejected': {{ get_translation('workflow.status.rejected', 'Rejected')|tojson }},
+    'workflow.approved': {{ get_translation('workflow.status.approved', 'Approved')|tojson }},
+    'workflow.closed': {{ get_translation('workflow.status.closed', 'Closed')|tojson }},
+    'workflow.open': {{ get_translation('workflow.status.open', 'Open')|tojson }}
+};
+
+console.log('✅ Translations loaded:', Object.keys(trans).length, 'keys');
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    return defaultText || key;
+}
+
+function getEl(id) {
+    return document.getElementById(id);
+}
+
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+function getStatusColor(status) {
+    var colors = {
+        'Pending': 'warning',
+        'InProgress': 'info',
+        'Completed': 'success',
+        'Rejected': 'danger',
+        'Overdue': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getPriorityColor(priority) {
+    var colors = {
+        'Critical': 'danger',
+        'High': 'warning',
+        'Medium': 'info',
+        'Low': 'secondary'
+    };
+    return colors[priority] || 'secondary';
+}
+
+// ============================================================================
+// loadTasks() - Added debug logging
+// ============================================================================
+function loadTasks() {
+    var tbody = getEl('tasksTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    var params = new URLSearchParams();
+    var searchFilter = getEl('filterSearch');
+    var moduleFilter = getEl('filterModule');
+    var statusFilter = getEl('filterStatus');
+    var priorityFilter = getEl('filterPriority');
+    
+    if (searchFilter && searchFilter.value) params.set('search', searchFilter.value);
+    if (moduleFilter && moduleFilter.value) params.set('module', moduleFilter.value);
+    if (statusFilter && statusFilter.value) params.set('status', statusFilter.value);
+    if (priorityFilter && priorityFilter.value) params.set('priority', priorityFilter.value);
+    
+    var url = '/api/workflow/my-tasks' + (params.toString() ? '?' + params.toString() : '');
+    
+    console.log('🔍 Fetching tasks from:', url);
+    
+    fetch(url)
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            console.log('📦 API Response:', data);
+            // Debug: Log the fields of the first task
+            if (data.tasks && data.tasks.length > 0) {
+                console.log('📦 First task fields:', Object.keys(data.tasks[0]));
+                console.log('📦 First task sample:', data.tasks[0]);
+            }
+            
+            if (data.tasks !== undefined) {
+                console.log('✅ Tasks found:', data.tasks.length);
+                renderTasks(data.tasks || []);
+                updateKPIs(data.tasks || []);
+            } else if (data.error) {
+                console.error('❌ API Error:', data.error);
+                if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-danger">' + t('error', 'Error') + ': ' + data.error + '</td></tr>';
+            } else {
+                console.warn('⚠️ Unknown response format:', data);
+                if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-danger">Unknown response format</td></tr>';
+            }
+        })
+        .catch(function(err) {
+            console.error('❌ Fetch Error:', err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-danger">' + t('error', 'Error') + ': ' + err.message + '</td></tr>';
+        });
+}
+
+// ============================================================================
+// FIXED: renderTasks() - Uses correct field names from the API
+// ============================================================================
+function renderTasks(tasks) {
+    var tbody = getEl('tasksTableBody');
+    if (!tbody) return;
+    if (!tasks || tasks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">' + t('no_data', 'No tasks available') + '</td></tr>';
+        return;
+    }
+    
+    var statusKeys = {
+        'Pending': 'pending',
+        'InProgress': 'in_progress',
+        'Completed': 'completed',
+        'Rejected': 'rejected',
+        'Approved': 'approved',
+        'Closed': 'closed',
+        'Open': 'open'
+    };
+    
+    var html = '';
+    tasks.forEach(function(task, idx) {
+        var rowNumber = idx + 1;
+        
+        // FIX: Use the correct field names from the API
+        // API returns: workflowName (lowercase), currentStep, entityType, entityId, status, priority, dueDateKey
+        var workflowName = task.workflowName || '-';
+        var stepName = 'Step ' + (task.currentStep || 1);
+        var stepType = 'Approval';
+        
+        // Try to get step name from steps array if available
+        if (task.steps && task.steps.length > 0) {
+            var currentStep = task.currentStep || 1;
+            var stepIndex = currentStep - 1;
+            if (stepIndex < task.steps.length) {
+                stepName = task.steps[stepIndex].name || stepName;
+                stepType = task.steps[stepIndex].type || 'Approval';
+            }
+        }
+        
+        var entityDisplay = task.entityType + ' #' + task.entityId;
+        if (task.entityDisplay) {
+            entityDisplay = task.entityDisplay;
+        }
+        
+        var moduleDisplay = task.module || '-';
+        var dueDate = task.dueDate || task.dueDateKey || '-';
+        
+        var status = task.status || 'Pending';
+        var statusKey = statusKeys[status] || status.toLowerCase();
+        var statusDisplay = t('workflow.' + statusKey, status);
+        var statusColor = getStatusColor(status);
+        var statusBadge = '<span class="badge bg-' + statusColor + '">' + statusDisplay + '</span>';
+        
+        var priorityDisplay = task.priority || 'Medium';
+        var priorityColor = getPriorityColor(priorityDisplay);
+        var priorityBadge = '<span class="badge bg-' + priorityColor + '">' + priorityDisplay + '</span>';
+        
+        var actions = '';
+        var stepId = task.workflowId || task.StepID;
+        actions += '<button class="btn btn-outline-secondary btn-sm view-task me-1" data-id="' + stepId + '">' + t('view', 'View') + '</button> ';
+        if (status === 'Pending' || status === 'InProgress') {
+            actions += '<button class="btn btn-success btn-sm approve-task me-1" data-id="' + stepId + '">' + t('approve', 'Approve') + '</button> ';
+            actions += '<button class="btn btn-danger btn-sm reject-task me-1" data-id="' + stepId + '">' + t('reject', 'Reject') + '</button> ';
+            actions += '<button class="btn btn-primary btn-sm delegate-task me-1" data-id="' + stepId + '">' + t('delegate', 'Delegate') + '</button> ';
+        }
+        
+        html += '<tr>' +
+            '<td class="text-center text-muted">' + rowNumber + '</td>' +
+            '<td>' + workflowName + '</td>' +
+            '<td>' + stepName + ' <small class="text-muted">(' + stepType + ')</small></td>' +
+            '<td>' + entityDisplay + '</td>' +
+            '<td>' + moduleDisplay + '</td>' +
+            '<td>' + dueDate + '</td>' +
+            '<td>' + statusBadge + ' ' + priorityBadge + '</td>' +
+            '<td>' + actions + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+// ============================================================================
+// FIXED: updateKPIs() - Handles dueDateKey correctly
+// ============================================================================
+function updateKPIs(tasks) {
+    if (!tasks) tasks = [];
+    var pending = 0, dueWeek = 0, overdue = 0, completedToday = 0;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var oneWeekLater = new Date(today);
+    oneWeekLater.setDate(today.getDate() + 7);
+    
+    tasks.forEach(function(task) {
+        var status = task.status || 'Pending';
+        if (status === 'Pending' || status === 'InProgress') pending++;
+        if (status === 'Completed') completedToday++;
+        
+        var dueDateKey = task.dueDateKey || task.dueDate;
+        if (dueDateKey) {
+            var dueStr = String(dueDateKey);
+            if (dueStr.length === 8) {
+                var due = new Date(dueStr.substring(0, 4), dueStr.substring(4, 6) - 1, dueStr.substring(6, 8));
+                due.setHours(0, 0, 0, 0);
+                if (due < today && status !== 'Completed' && status !== 'Rejected') overdue++;
+                else if (due >= today && due <= oneWeekLater && status !== 'Completed' && status !== 'Rejected') dueWeek++;
+            }
+        }
+    });
+    
+    var els = ['kpiPending', 'kpiDueWeek', 'kpiOverdue', 'kpiCompletedToday'];
+    var vals = [pending, dueWeek, overdue, completedToday];
+    els.forEach(function(id, i) {
+        var el = getEl(id);
+        if (el) el.textContent = vals[i];
+    });
+}
+
+// ============================================================================
+// Approve/Reject handlers - Check for success OR message property
+// ============================================================================
+function approveTask(stepId) {
+    if (!confirm(t('approve', 'Approve') + ' this task?')) return;
+    fetch('/api/workflow/complete-step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_id: stepId, action: 'approve', comment: '' })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        console.log('📦 Approve Response:', data);
+        if (data.success === true || data.message) {
+            showToast(t('approve', 'Approved') + ' ' + t('success', 'successfully'), 'success');
+            loadTasks();
+        } else {
+            showToast(t('error', 'Error') + ': ' + (data.error || 'Failed'), 'error');
+        }
+    })
+    .catch(function(err) {
+        console.error('❌ Approve Error:', err);
+        showToast(t('error', 'Error') + ': ' + err.message, 'error');
+    });
+}
+
+function rejectTask(stepId) {
+    var reason = prompt('Reason for rejection:');
+    if (reason === null) return;
+    fetch('/api/workflow/complete-step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_id: stepId, action: 'reject', comment: reason })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        console.log('📦 Reject Response:', data);
+        if (data.success === true || data.message) {
+            showToast(t('reject', 'Rejected') + ' ' + t('success', 'successfully'), 'success');
+            loadTasks();
+        } else {
+            showToast(t('error', 'Error') + ': ' + (data.error || 'Failed'), 'error');
+        }
+    })
+    .catch(function(err) {
+        console.error('❌ Reject Error:', err);
+        showToast(t('error', 'Error') + ': ' + err.message, 'error');
+    });
+}
+
+function delegateTask(stepId) {
+    var modal = new bootstrap.Modal(document.getElementById('delegateModal'));
+    var taskIdInput = getEl('delegateTaskId');
+    if (taskIdInput) taskIdInput.value = stepId;
+    
+    var userSelect = getEl('delegateNewUser');
+    if (userSelect) {
+        userSelect.innerHTML = '<option value="">' + t('loading', 'Loading...') + '</option>';
+        fetch('/api/workflow/users')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                console.log('📦 Users Response:', data);
+                var opts = '<option value="">' + t('select', 'Select...') + '</option>';
+                if (data.users) {
+                    data.users.forEach(function(u) {
+                        opts += '<option value="' + u.id + '">' + (u.name || u.username) + '</option>';
+                    });
+                } else if (Array.isArray(data)) {
+                    data.forEach(function(u) {
+                        opts += '<option value="' + u.id + '">' + (u.name || u.username) + '</option>';
+                    });
+                }
+                userSelect.innerHTML = opts;
+            })
+            .catch(function(err) {
+                console.error('❌ Users Error:', err);
+                userSelect.innerHTML = '<option value="">Error loading users</option>';
+            });
+    }
+    modal.show();
+}
+
+function confirmDelegate() {
+    var taskId = getEl('delegateTaskId') ? getEl('delegateTaskId').value : '';
+    var newUser = getEl('delegateNewUser') ? getEl('delegateNewUser').value : '';
+    var reason = getEl('delegateReason') ? getEl('delegateReason').value : '';
+    
+    if (!newUser) {
+        showToast('Please select a user', 'warning');
+        return;
+    }
+    
+    fetch('/api/workflow/delegate-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_id: taskId, new_user_id: newUser, reason: reason })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        console.log('📦 Delegate Response:', data);
+        if (data.success === true || data.message) {
+            var modal = bootstrap.Modal.getInstance(document.getElementById('delegateModal'));
+            if (modal) modal.hide();
+            showToast(t('delegate', 'Delegated') + ' ' + t('success', 'successfully'), 'success');
+            loadTasks();
+        } else {
+            showToast(t('error', 'Error') + ': ' + (data.error || 'Failed'), 'error');
+        }
+    })
+    .catch(function(err) {
+        console.error('❌ Delegate Error:', err);
+        showToast(t('error', 'Error') + ': ' + err.message, 'error');
+    });
+}
+
+// ============================================================================
+// DOM READY
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 My Tasks page loaded');
+    loadTasks();
+    
+    var refreshBtn = getEl('refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', loadTasks);
+    
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) applyBtn.addEventListener('click', loadTasks);
+    
+    var searchInput = getEl('filterSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(loadTasks, 300));
+    }
+    
+    var moduleFilter = getEl('filterModule');
+    var statusFilter = getEl('filterStatus');
+    var priorityFilter = getEl('filterPriority');
+    
+    if (moduleFilter) moduleFilter.addEventListener('change', loadTasks);
+    if (statusFilter) statusFilter.addEventListener('change', loadTasks);
+    if (priorityFilter) priorityFilter.addEventListener('change', loadTasks);
+    
+    // Confirm delegate
+    var confirmDelegateBtn = getEl('confirmDelegateBtn');
+    if (confirmDelegateBtn) {
+        confirmDelegateBtn.addEventListener('click', confirmDelegate);
+    }
+    
+    // Event delegation for task actions
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        
+        if (btn.classList.contains('approve-task')) {
+            var stepId = btn.getAttribute('data-id');
+            approveTask(stepId);
+            return;
+        }
+        if (btn.classList.contains('reject-task')) {
+            var stepId = btn.getAttribute('data-id');
+            rejectTask(stepId);
+            return;
+        }
+        if (btn.classList.contains('delegate-task')) {
+            var stepId = btn.getAttribute('data-id');
+            delegateTask(stepId);
+            return;
+        }
+        if (btn.classList.contains('view-task')) {
+            var stepId = btn.getAttribute('data-id');
+            showToast('View task ' + stepId + ' - Feature coming soon', 'info');
+            return;
+        }
+    });
+    
+    setInterval(loadTasks, 60000);
+});
+
+function debounce(func, wait) {
+    var timeout;
+    return function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(func, wait);
+    };
+}
+</script>
+{% endblock %}

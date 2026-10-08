@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}Subcontract Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.275151ea', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.63fe59a7', 'Subcontract Dashboard') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.04515889', 'Subcontract Order Dashboard') }}</h2>
+<a class="btn btn-info" href="#" id="exportBtn"><i class="fas fa-download"></i>{{ get_translation('auto.98605ec7', 'Export CSV') }}</a>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4 g-3">
+<div class="col-md-3">
+<div class="card text-white bg-secondary">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.5551f890', 'Open') }}</h6>
+<h3 id="kpiOpen">{{ get_translation('auto.3c826983', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-3">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.1ceba318', 'In Progress') }}</h6>
+<h3 id="kpiInProgress">{{ get_translation('auto.91b4bf7f', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-3">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.175aed71', 'Completed') }}</h6>
+<h3 id="kpiCompleted">{{ get_translation('auto.a4bcc8c8', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-3">
+<div class="card text-white bg-danger">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.a4d6cd10', 'Overdue') }}</h6>
+<h3 id="kpiOverdue">{{ get_translation('auto.8b764319', '0') }}</h3>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body row g-2 align-items-end">
+<div class="col-md-3">
+<label>{{ get_translation('auto.83b3dc46', 'Supplier') }}</label>
+<select class="form-select" id="supplierFilter">
+<option value="">{{ get_translation('auto.032e5920', 'All Suppliers') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.20b7b6ea', 'Status') }}</label>
+<select class="form-select" id="statusFilter">
+<option value="">{{ get_translation('auto.78b046bd', 'All') }}</option>
+<option>{{ get_translation('auto.76601cc0', 'Released') }}</option>
+<option>{{ get_translation('auto.b053a1cf', 'InProgress') }}</option>
+<option>{{ get_translation('auto.35cc4fc3', 'Completed') }}</option>
+<option>{{ get_translation('auto.ec15e9ec', 'Closed') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.0d2bc48f', 'Due Date From') }}</label>
+<input class="form-control" id="dateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.c9efe6cc', 'Due Date To') }}</label>
+<input class="form-control" id="dateTo" type="date"/>
+</div>
+<div class="col-md-3 d-flex justify-content-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.2d72dc8e', 'Refresh') }}</button>
+</div>
+</div>
+</div>
+<!-- Orders Table -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.77ef4491', 'Subcontract Orders') }}</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead class="table-light">
+<tr>
+<th>{{ get_translation('auto.45394889', 'PO#') }}</th>
+<th>{{ get_translation('auto.389ac995', 'Production Order (link)') }}</th>
+<th>{{ get_translation('auto.15831cbf', 'Operation') }}</th>
+<th>{{ get_translation('auto.1e87d237', 'Supplier (link)') }}</th>
+<th>{{ get_translation('auto.94a95cac', 'Status') }}</th>
+<th>{{ get_translation('auto.bd3788f4', 'Due Date') }}</th>
+<th>{{ get_translation('auto.c2dbb6a9', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="ordersBody">
+<tr><td class="text-center" colspan="7">{{ get_translation('auto.d9c07d72', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Send Reminder Modal -->
+<div class="modal fade" id="reminderModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.22f704ac', 'Send Reminder') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.3f3c61f8', 'Send reminder for PO:') }}<strong id="reminderPoId"></strong></p>
+<div class="mb-3">
+<label>{{ get_translation('auto.134e2537', 'Message (optional)') }}</label>
+<textarea class="form-control" id="reminderMessage" placeholder="Your message here..." rows="3"></textarea>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.8ac2d233', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmReminderBtn">{{ get_translation('auto.4905dab9', 'Send Reminder') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Expedite Request Modal -->
+<div class="modal fade" id="expediteModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.904693ca', 'Expedite Request') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.b4292ee5', 'Expedite request for PO:') }}<strong id="expeditePoId"></strong></p>
+<div class="mb-3">
+<label>{{ get_translation('auto.36d0c267', 'Reason') }}</label>
+<textarea class="form-control" id="expediteReason" placeholder="Why expedite?" rows="3"></textarea>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.374fcbca', 'Requested New Due Date') }}</label>
+<input class="form-control" id="expediteDate" type="date"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.9d462014', 'Cancel') }}</button>
+<button class="btn btn-warning" id="confirmExpediteBtn">{{ get_translation('auto.aa2c8ad9', 'Request Expedite') }}</button>
+</div>
+</div>
+</div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+// Pure JavaScript implementation with debug logging
+(function() {
+    console.log('Subcontract Dashboard script started');
+
+    function loadSuppliers() {
+        console.log('Loading suppliers...');
+        return fetch('/api/subcontract/production-list')
+            .then(r => r.json())
+            .then(orders => {
+                console.log('Suppliers data received:', orders.length, 'orders');
+                const suppliers = new Map();
+                orders.forEach(o => {
+                    if (o.supplierId && o.supplierName) {
+                        suppliers.set(o.supplierId, o.supplierName);
+                    }
+                });
+                let opts = '<option value="">All Suppliers</option>';
+                for (let [id, name] of suppliers) {
+                    opts += `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`;
+                }
+                document.getElementById('supplierFilter').innerHTML = opts;
+                console.log('Suppliers dropdown populated');
+            })
+            .catch(err => console.error('Error loading suppliers:', err));
+    }
+
+    function loadKPIs() {
+        console.log('Loading KPIs...');
+        fetch('/api/subcontract/kpi')
+            .then(r => r.json())
+            .then(res => {
+                document.getElementById('kpiOpen').innerText = res.Open || 0;
+                document.getElementById('kpiInProgress').innerText = res.InProgress || 0;
+                document.getElementById('kpiCompleted').innerText = res.Completed || 0;
+                document.getElementById('kpiOverdue').innerText = res.Overdue || 0;
+                console.log('KPIs updated');
+            })
+            .catch(err => console.error('Error loading KPIs:', err));
+    }
+
+    function loadOrders() {
+        const supplier = document.getElementById('supplierFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        let url = `/api/production-subcontract/list?supplier=${encodeURIComponent(supplier)}&status=${encodeURIComponent(status)}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+        console.log('Loading orders with URL:', url);
+        fetch(url)
+            .then(r => r.json())
+            .then(orders => {
+                console.log('Orders received:', orders.length);
+                const tbody = document.getElementById('ordersBody');
+                if (!orders.length) {
+                    tbody.innerHTML = '<tr><td colspan="7">No subcontract orders found</td></tr>';
+                    return;
+                }
+                let html = '';
+                orders.forEach(o => {
+                    let dueDate = o.dueDateKey ? formatDateKey(o.dueDateKey) : '';
+                    let statusBadge = '';
+                    if (o.status === 'Released') statusBadge = '<span class="badge bg-secondary">Open</span>';
+                    else if (o.status === 'InProgress') statusBadge = '<span class="badge bg-primary">In Progress</span>';
+                    else if (o.status === 'Completed') statusBadge = '<span class="badge bg-success">Completed</span>';
+                    else statusBadge = `<span class="badge bg-secondary">${o.status}</span>`;
+                    html += `<tr>
+                        <td>${o.purchaseOrderId || '-'}</td>
+                        <td><a href="/production/production-orders/${o.productionOrderId}" target="_blank">${o.productionOrderId}</a></td>
+                        <td>${escapeHtml(o.operation)}</td>
+                        <td><a href="/suppliers/${o.supplierId}" target="_blank">${escapeHtml(o.supplierName || o.supplierId)}</a></td>
+                        <td>${statusBadge}</td>
+                        <td>${dueDate}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info reminder-btn" data-po="${o.purchaseOrderId}">Send Reminder</button>
+                            <button class="btn btn-sm btn-warning expedite-btn" data-po="${o.purchaseOrderId}">Expedite</button>
+                         </td>
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
+                attachButtonEvents();
+                console.log('Table populated');
+            })
+            .catch(err => console.error('Error loading orders:', err));
+    }
+
+    function attachButtonEvents() {
+        document.querySelectorAll('.reminder-btn').forEach(btn => {
+            btn.onclick = () => {
+                const poId = btn.getAttribute('data-po');
+                document.getElementById('reminderPoId').innerText = poId;
+                document.getElementById('reminderModal').setAttribute('data-po', poId);
+                const modal = new bootstrap.Modal(document.getElementById('reminderModal'));
+                modal.show();
+            };
+        });
+        document.querySelectorAll('.expedite-btn').forEach(btn => {
+            btn.onclick = () => {
+                const poId = btn.getAttribute('data-po');
+                document.getElementById('expeditePoId').innerText = poId;
+                document.getElementById('expediteModal').setAttribute('data-po', poId);
+                const modal = new bootstrap.Modal(document.getElementById('expediteModal'));
+                modal.show();
+            };
+        });
+    }
+
+    function formatDateKey(key) {
+        if (!key) return '';
+        const s = key.toString();
+        return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function refreshAll() {
+        console.log('Refreshing all data');
+        loadKPIs();
+        loadOrders();
+    }
+
+    // Export CSV
+    document.getElementById('exportBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        let url = '/api/subcontract/export-csv?';
+        url += `supplier=${encodeURIComponent(document.getElementById('supplierFilter').value)}`;
+        url += `&status=${encodeURIComponent(document.getElementById('statusFilter').value)}`;
+        url += `&date_from=${encodeURIComponent(document.getElementById('dateFrom').value)}`;
+        url += `&date_to=${encodeURIComponent(document.getElementById('dateTo').value)}`;
+        window.location.href = url;
+    });
+
+    // Send reminder
+    document.getElementById('confirmReminderBtn').addEventListener('click', function() {
+        const poId = document.getElementById('reminderModal').getAttribute('data-po');
+        fetch('/api/subcontract/send-reminder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ purchaseOrderId: poId })
+        }).then(() => {
+            alert('Reminder sent');
+            bootstrap.Modal.getInstance(document.getElementById('reminderModal')).hide();
+        }).catch(() => alert('Failed to send reminder'));
+    });
+
+    // Expedite
+    document.getElementById('confirmExpediteBtn').addEventListener('click', function() {
+        const poId = document.getElementById('expediteModal').getAttribute('data-po');
+        const reason = document.getElementById('expediteReason').value;
+        const newDate = document.getElementById('expediteDate').value;
+        fetch('/api/subcontract/expedite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ purchaseOrderId: poId, reason: reason, requestedDueDate: newDate })
+        }).then(() => {
+            alert('Expedite request sent');
+            bootstrap.Modal.getInstance(document.getElementById('expediteModal')).hide();
+        }).catch(() => alert('Failed to send expedite request'));
+    });
+
+    // Bind refresh events
+    document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+    document.getElementById('supplierFilter').addEventListener('change', refreshAll);
+    document.getElementById('statusFilter').addEventListener('change', refreshAll);
+    document.getElementById('dateFrom').addEventListener('change', refreshAll);
+    document.getElementById('dateTo').addEventListener('change', refreshAll);
+
+    // Initial load: first load suppliers, then refresh all
+    loadSuppliers().then(() => {
+        console.log('Suppliers loaded, now refreshing all');
+        refreshAll();
+    });
+})();
+</script>
+{% endblock %}

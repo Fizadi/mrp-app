@@ -1,0 +1,357 @@
+
+
+Manufacturing module- 2026-09-16
+**********************************************
+
+PART A — Update PROJECT CONTEXT (v46 → v47)
+Apply these edits surgically to your v46 document.
+
+A.1 — Version History
+Find: the last row of the Version History table (the v45+ entry about NVARCHAR patterns).
+
+Add a new row after it:
+
+text
+v47 | Current | MTS Batch Manufacturing support. Added Section 20 
+            (MTS Batch/Lot Manufacturing Model). Added Section 21 
+            (6th Demo Industry: Motor MTS). Extended Section 3 (Industry 
+            Switcher) to 6 industries. Extended Section 8.20 (NVARCHAR 
+            patterns) with lot/batch cast patterns. Extended Section 9 
+            (Module Checklist) with lot/batch items. Added new errors to 
+            Section 10. Updated Page Count Summary to 73 pages. 
+            Deprecated auto.HASH keys in favor of motor.* semantic keys.
+A.2 — Section 1.1 (Tech Stack post-migration note)
+Find: the last sentence of Section 1.1:
+
+"Boolean NVARCHAR in Python → is_active_true(value) helper (see Section 8.20)"
+
+Add immediately after:
+
+text
+**Batch/Lot columns (v47)**: When lot/batch tracking is enabled, 
+t_ProductionOrder and t_ProductionOrderDetail gain numeric columns 
+(BatchQuantity, GoodQuantity, ScrapQuantity, YieldPercent). These are 
+also declared NVARCHAR in the current schema, so the same CAST rules 
+apply (see Section 8.20).
+A.3 — Section 3.2 (Industry Data table)
+Find: the Industry Data table (5 rows: valve, furniture, jobshop, gauge, paint).
+
+Add a 6th row:
+
+Code	Name	Icon	Scenario	Sample Company
+motor	Motor Manufacturing (MTS/CTO)	fa-bolt	MTS/CTO	Pars Electric Motors Co.
+Also update the section title:
+
+FROM: "between five demo industries"
+
+TO: "between six demo industries"
+
+A.4 — Section 3.4 (INDUSTRY_DATA dict)
+Find: the Python dict ending with the 'paint' block:
+
+python
+'paint': {
+    'name': 'Paint Manufacturing (MTS/CTO)',
+    'name_fa': 'تولید رنگ (MTS/CTO)',
+    'icon': 'fa-paint-roller',
+    'description': 'MTS/CTO - Paint and Coatings Manufacturing',
+    'scenario': 'MTS',
+    'sample_company': 'Pars Alborz Poushesh Co.'
+}
+Add a comma after the closing } of 'paint', then append:
+
+python
+'motor': {
+    'name': 'Motor Manufacturing (MTS/CTO)',
+    'name_fa': 'تولید الکتروموتور (MTS/CTO)',
+    'icon': 'fa-bolt',
+    'description': 'MTS/CTO - Electric Motor Manufacturing',
+    'scenario': 'MTS',
+    'sample_company': 'Pars Electric Motors Co.'
+}
+A.5 — Section 3.5 (Industry Filtering table)
+Find: the Module/Table/Filter Column table.
+
+No change needed — all rows already mention DemoIndustryCode. But add a note underneath:
+
+text
+**v47 note:** If a module's primary table lacks DemoIndustryCode 
+(e.g., t_EquipmentMaintenance in its current form), add it via:
+ALTER TABLE t_EquipmentMaintenance ADD DemoIndustryCode NVARCHAR(50) NULL;
+then populate with 'valve' as the safe default, and filter 
+downstream records via joins on their parent entity (e.g., via 
+t_Machine → t_WorkCenter → DemoIndustryCode).
+A.6 — Section 7.7 (Translation Key Convention) — CRITICAL ADDITION
+Find: Section 7.7.5 ("Why not auto.HASH?")
+
+Replace the entire subsection 7.7.5 with the following extended version:
+
+text
+#### 7.7.5 Why not auto.HASH? (v47 — STRICTLY DEPRECATED)
+
+Auto.HASH keys (auto.xxxxxxxx) are produced by the translation sync 
+tool when it scans unwrapped English strings. They pollute the DB, 
+break convention, and make it impossible to reason about which 
+module owns a key.
+
+**Rule (v47)**: NEVER write new code that inserts auto.HASH keys. 
+NEVER accept auto.HASH keys in new page configs. If they already 
+exist in t_Translations, they are considered legacy and may be 
+deleted once their page has been migrated to semantic keys.
+
+#### 7.7.5.1 Mandatory Key Conventions (v47)
+
+  global.*            → reusable (Save, Cancel, Actions, Status, Loading, …)
+  <module>.*          → module-level pages, e.g. crm.dashboard.*
+  <module>.<page>.*   → page-specific, e.g. manufacturing.job_orders.*
+  <module>.<page>.kpi.*       → KPI card labels
+  <module>.<page>.table.*     → table column headers
+  <module>.<page>.filters.*   → filter labels
+  <module>.<page>.form.*      → modal form labels
+  <module>.<page>.action.*    → action buttons
+  <module>.<page>.modal.*     → modal titles
+  <module>.<page>.msg.*       → toast / empty-state messages
+  <module>.<page>.<entity>.*  → entity-specific (e.g. motor.assembly.*)
+
+#### 7.7.5.2 No Numbers in Semantic Keys (v47)
+
+Wrong:  motor.part01.name, line.1.label
+Right:  motor.rotor.name,  motor.line_casting.label
+
+Numbers in keys make renaming and searching painful. Use words.
+A.7 — Section 8.20 (NVARCHAR Handling Patterns) — ADD LOT/BATCH SUBSECTION
+Find: Section 8.20.5 ("Known Migration Bugs")
+
+After it, add:
+
+text
+#### 8.20.6 Batch / Lot NVARCHAR Patterns (v47)
+
+All batch/lot quantities (BatchQuantity, GoodQuantity, ScrapQuantity, 
+YieldPercent, InputQuantity, OutputQuantity) are NVARCHAR in the 
+current SQL Server schema. Rules:
+
+**SQL**: always CAST to DECIMAL(18,4) before arithmetic:
+  CAST(GoodQuantity  AS DECIMAL(18,4)) 
+  CAST(ScrapQuantity AS DECIMAL(18,4))
+
+**Python**: always safe_float() before comparison:
+  yield_pct = safe_float(row[6])
+  if yield_pct < 95.0:  # flag low yield
+      ...
+
+**Boolean lot flags** (IsBatchTracked, IsLotTracked, Backflush):
+  SQL:    WHERE IsBatchTracked = '1'
+  Python: if is_active_true(row[12]): ...
+
+**Yield calculation** (safe pattern):
+  good   = safe_float(row_good)
+  input_ = safe_float(row_input)
+  yield_ = round(good / input_ * 100, 2) if input_ > 0 else 0.0
+A.8 — Section 9 (Module Creation Checklist) — ADD LOT/BATCH ITEMS
+Find: Section 9.1 (Database Checks).
+
+Add these checkboxes at the bottom:
+
+text
+□ Add BatchNumber / LotNumber columns to t_ProductionOrder (nullable)
+□ Add InputQuantity / OutputQuantity / ScrapQuantity to 
+  t_ProductionOrderDetail (nullable, NVARCHAR)
+□ Create t_Lot table (LotID PK, ProductionOrderID, BatchNumber, 
+  Quantity, GoodQuantity, ScrapQuantity, Status, DemoIndustryCode)
+□ Create t_ScrapReason reference table (Code, Name, NameLocal, Category)
+□ Add LotID column to t_ShopFloorTransactions and t_InventoryTransactions
+□ Add Backflush / IsBatchTracked / IsLotTracked flags to t_Product
+□ Add DemoIndustryCode to t_EquipmentMaintenance if missing
+Find: Section 9.2 (API Endpoints).
+
+Add these checkboxes at the bottom:
+
+text
+□ Batch/Lot endpoints use CAST() for all quantity comparisons
+□ Yield endpoint returns yield_pct as float (not string)
+□ Backflush endpoint deducts via BOM × good_qty, respecting scrap factor
+□ Lot genealogy endpoint traverses ParentLotID chains safely
+A.9 — Section 10 (Common Errors) — ADD NEW ERROR ROWS
+Find: the last row of the error table (currently the "ImportError: cannot import name" row).
+
+Add these rows to the table:
+
+Error	Cause	Solution
+TypeError: '>' not supported between 'str' and 'int'	SQL Server returns numeric column as NVARCHAR	CAST in SQL or int() / float() in Python
+Invalid column name 'DemoIndustryCode'	Table lacks industry filter column	ALTER TABLE ... ADD DemoIndustryCode NVARCHAR(50) NULL then backfill
+NameError: name 'get_order_workflow_status' is not defined	Helper function missing or renamed	Add helper to api.py or update caller
+'<' not supported between instances of 'int' and 'str' (in workflow steps)	CurrentStep returned as string	current_step = int(workflow[2] or 0) with try/except
+Duplicate view function mapping (workflow)	Same route defined twice	Keep one definition; remove duplicate
+TypeError: unsupported operand type(s) for -: 'str' and 'int'	RequiredQuantity NVARCHAR	CAST(RequiredQuantity AS DECIMAL(18,4))
+Table shows "Error loading data" but API returns 200	NVARCHAR numeric comparison in JS	Return numeric from API; parse with parseFloat() on client
+LIMIT 1 used in SQL Server	SQLite syntax carried over	Replace with SELECT TOP 1
+strftime('%Y%m%d','now') used	SQLite syntax	Replace with (YEAR(GETDATE())*10000+MONTH(GETDATE())*100+DAY(GETDATE()))
+PRAGMA table_info used on SQL Server	SQLite-specific	Use INFORMATION_SCHEMA.COLUMNS
+A.10 — Section 11 (Page Count Summary)
+Find: the Page Count Summary table (currently 72 pages).
+
+Update:
+
+FROM: TOTAL 72
+
+TO: TOTAL 73
+
+Reason: add Maintenance Management as a distinct page (some prior counts merged it with Machines). Alternatively, if you prefer to keep 72 and treat Maintenance as part of Machines, leave as-is — but be consistent with the page config doc.
+
+A.11 — NEW SECTION 20 — MTS Batch/Lot Manufacturing Model
+Insert as Section 20, before "END OF PROJECT CONTEXT".
+
+text
+20. MTS BATCH / LOT MANUFACTURING MODEL (v47)
+
+### 20.1 Why Batch/Lot Matters
+
+In MTS (Make to Stock) industries — motors, pumps, castings, paint, 
+electronics — production happens in BATCHES at each workstation, not 
+one unit at a time. A 500-unit order may pass through:
+
+  10 Casting        → 500 in  → 495 out   (5 scrap)
+  20 Machining      → 495 in  → 490 out   (3 scrap, 2 rework)
+  30 Winding (sub)  → 490 in  → 487 out
+  40 Assembly       → 487 in  → 485 out
+  50 Testing        → 485 in  → 480 pass, 5 fail → NCR
+  60 Packing        → 480 in  → 480 ready
+
+### 20.2 Definitions
+
+BATCH  = one production run of a specific operation 
+         (all items made in one setup on one machine)
+LOT    = one traceable quantity of material at a specific stage
+         (may split from a batch, or join a shipment)
+
+Relationship: 1 Batch → N Lots. Each Lot has a ParentLotID chain.
+
+### 20.3 Database Model
+
+t_ProductionOrder
+  + BatchNumber, LotNumber, ParentBatchID, GoodQuantity,
+    ScrapQuantity, YieldPercent
+
+t_ProductionOrderDetail (1 row per operation per order)
+  + InputQuantity, OutputQuantity, ScrapQuantity, LotID,
+    OperatorID, MachineID
+
+t_Lot (NEW)
+  LotID (PK), ProductionOrderID, BatchNumber, ParentLotID,
+  ProductID, Quantity, GoodQuantity, ScrapQuantity,
+  CurrentStation, Status, CustomerID,
+  CreatedDateKey, ClosedDateKey, DemoIndustryCode
+
+t_ScrapReason (NEW)
+  ScrapReasonID (PK), Code, Name, NameLocal, Category,
+  IsActive, DemoIndustryCode
+
+t_ShopFloorTransactions
+  + LotID, BatchNumber, InputQty, OutputQty, ScrapQty, ScrapReason
+
+t_Product
+  + Backflush, IsBatchTracked, IsLotTracked, DefaultBatchSize
+
+t_InventoryOnHand / t_InventoryTransactions
+  + LotID (nullable)
+
+### 20.4 Operator-Facing Model (Two Layers)
+
+LAYER 1 — Operator sees physical lots (barcode / traveler card).
+          Reports: Lot, Station, Good Qty, Scrap Qty, Machine.
+          Total time: 10 seconds per operation.
+
+LAYER 2 — System resolves to Job Order via LotID lookup.
+          Updates t_ProductionOrderDetail, triggers backflush,
+          rolls up yield to t_ProductionOrder.
+
+### 20.5 Backflushing vs MRP (do not confuse)
+
+MRP           → BEFORE production. "How much do I need?"
+Backflushing  → AFTER production.  "What did I consume?"
+
+Both use the BOM. Both write to t_Inventory*.
+MRP plans. Backflush records.
+
+### 20.6 Yield Formula
+
+  InputQuantity  = previous operation's OutputQuantity
+  OutputQuantity = good pieces at this operation
+  YieldPercent   = Output / Input × 100
+  ScrapQuantity  = Input - Output - ReworkQuantity
+
+### 20.7 Workstation Reporting Rules
+
+Rule 1: Input for station N = Output of station N-1 (chain integrity)
+Rule 2: Every operation creates a t_ProductionOrderDetail row
+Rule 3: Scrap always requires a reason code from t_ScrapReason
+Rule 4: Rework is a distinct status, not counted as scrap
+Rule 5: Yield < threshold → flag for QC Manager review
+A.12 — NEW SECTION 21 — 6th Demo Industry: Motor MTS
+Insert as Section 21, after Section 20.
+
+text
+21. SIXTH DEMO INDUSTRY — MOTOR MTS (v47)
+
+### 21.1 Overview
+
+Industry Code: motor
+Scenario:      MTS (Make to Stock) with CTO variant
+Company:       Pars Electric Motors Co.
+Product Focus: 5kW and 10kW industrial electric motors
+Routing:       6 stations (Casting, Machining, Winding, 
+               Assembly, Testing, Packing)
+Workflow:      MTS_JOB_ORDER (3 steps) + CTO_JOB_ORDER (3 steps)
+
+### 21.2 Purpose
+
+Demonstrates:
+  - Mass-production batch/lot flow
+  - Per-station reporting
+  - Subcontracting (winding)
+  - NCR + CAPA triggered by testing failure
+  - Full traceability Batch → Lot → Customer
+
+### 21.3 Sample Routing
+
+  Seq 10  Casting         WC-CASTING    1 setup + 0.05 hrs/unit
+  Seq 20  Machining       WC-CNC-01     0.5 setup + 0.15 hrs/unit
+  Seq 30  Winding         WC-WIND-01    0.3 setup + 0.20 hrs/unit
+          (subcontractable → t_Suppliers SUPP-MOTOR-WIND)
+  Seq 40  Assembly        WC-ASSY-01    0.2 setup + 0.10 hrs/unit
+  Seq 50  Testing         WC-TEST-01    0.1 setup + 0.05 hrs/unit
+  Seq 60  Packing         WC-PACK-01    0.05 setup + 0.02 hrs/unit
+
+### 21.4 Sample BOM (MOTOR-5KW)
+
+  MOTOR-5KW (Make, Backflush OFF, BatchTracked ON)
+   ├─ HOUSING-CAST (Make from Foundry, Batch 500)
+   ├─ STATOR-CORE  (Make from lamination line, Batch 500)
+   ├─ ROTOR-ASSY   (Make from machining, Batch 500)
+   ├─ WINDING-CU   (Buy from supplier, ordered per batch)
+   ├─ BOLT-M8      (Buy, Backflush ON — auto-deduct)
+   ├─ BEARING-6205 (Buy, Backflush ON)
+   ├─ FAN-PLASTIC  (Buy, Backflush ON)
+   └─ TERMINAL-BOX (Buy, Backflush ON)
+
+### 21.5 Translation Key Prefixes
+
+  motor.dashboard.*       motor products overview
+  motor.job_orders.*      inherits manufacturing.job_orders.*
+  motor.subcontract.*     winding-specific
+  motor.quality.*         motor test specs
+  motor.scrap.*           motor-specific scrap reasons
+A.13 — Section 14.4 (Column Name Verification) — ADD NEW ENTRIES
+Find: the column-verification table.
+
+Add these rows:
+
+Table	Column Issue	Correct Column
+t_EquipmentMaintenance	No DemoIndustryCode	Add via ALTER TABLE
+t_EquipmentMaintenance	MaintenanceID nullable, no PK	Make NOT NULL, add PK
+t_EquipmentMaintenance	NextDueDateKey	Actually NextMaintenanceDate (nvarchar)
+t_EquipmentMaintenance	ActualCompletionDateKey	Actually ActualDate (nvarchar)
+t_Suppliers	QualityRating NVARCHAR	Use CAST(... AS DECIMAL(18,4))
+t_Suppliers	No ServiceType FK	Link via t_ServiceType
+t_ServiceType	ServiceTypeNameLocal missing	Add *Local column

@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}Product Categories{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.f4b2ca44', 'Home') }}</a></li>
+            <li class="breadcrumb-item">{{ get_translation('auto.e4a0f8ea', 'Engineering') }}</li>
+            <li class="breadcrumb-item active">{{ get_translation('engineering.product_categories', 'Product Categories') }}</li>
+        </ol>
+    </nav>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 col-sm-6 mb-2">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.categories.total', 'Total Categories') }}</h5>
+                    <p class="card-text display-6" id="kpiTotal">{{ get_translation('auto.251a501c', '0') }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-2">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.categories.active', 'Active Categories') }}</h5>
+                    <p class="card-text display-6" id="kpiActive">{{ get_translation('auto.251a501c', '0') }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-2">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.categories.with_parameters', 'With Parameters') }}</h5>
+                    <p class="card-text display-6" id="kpiWithParams">{{ get_translation('auto.251a501c', '0') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Actions -->
+    <div class="row mb-3 g-2">
+        <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check">
+                <input class="form-check-input" id="filterActiveOnly" type="checkbox"/>
+                <label class="form-check-label">{{ get_translation('engineering.categories.active_only', 'Show Active Only') }}</label>
+            </div>
+        </div>
+        <div class="col-md-6"></div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+            <button class="btn btn-success" id="addCategoryBtn">{{ get_translation('engineering.categories.add', '+ Add Category') }}</button>
+            <button class="btn btn-secondary" id="importBtn">{{ get_translation('auto.b37b4224', 'Import CSV') }}</button>
+            <button class="btn btn-secondary" id="exportBtn">{{ get_translation('auto.d3cc1def', 'Export CSV') }}</button>
+        </div>
+    </div>
+
+    <!-- Categories Table with Sticky Headers -->
+    <div class="card">
+        <div class="card-header">{{ get_translation('engineering.categories.list', 'Product Categories') }}</div>
+        <div class="card-body" style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+            <table class="table table-striped table-hover table-sticky">
+                <thead>
+                    <tr>
+                        <th>{{ get_translation('auto.56eaec74', '#') }}</th>
+                        <th>{{ get_translation('engineering.categories.code', 'Code') }}</th>
+                        <th>{{ get_translation('engineering.categories.name', 'Name') }}</th>
+                        <th>{{ get_translation('engineering.categories.description', 'Description') }}</th>
+                        <th>{{ get_translation('engineering.categories.has_parameters', 'Has Parameters') }}</th>
+                        <th>{{ get_translation('engineering.categories.suffix', 'Suffix') }}</th>
+                        <th>{{ get_translation('engineering.categories.status', 'Status') }}</th>
+                        <th>{{ get_translation('auto.ff9f1e3e', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="categoriesTableBody">
+                    <tr><td colspan="8" class="text-center">{{ get_translation('auto.474660de', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Category Modal -->
+<div class="modal fade" data-bs-backdrop="static" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="categoryModalTitle">{{ get_translation('engineering.categories.add_modal', 'Add Category') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editCategoryCode"/>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.categories.code', 'Code') }} *</label>
+                    <input class="form-control" id="categoryCode" required="" placeholder="e.g., CV"/>
+                    <small class="text-muted">{{ get_translation('engineering.categories.code_help', 'Unique identifier, e.g., CV, SV, GAUGE') }}</small>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.categories.name', 'Name') }} (EN) *</label>
+                    <input class="form-control" id="categoryName" required="" placeholder="e.g., Control Valves"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.categories.name_local', 'Name') }} (FA)</label>
+                    <input class="form-control" id="categoryNameLocal" dir="rtl" placeholder="نام دسته‌بندی به فارسی"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.categories.description', 'Description') }} (EN)</label>
+                    <textarea class="form-control" id="categoryDescription" rows="2" placeholder="Description in English"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.categories.description_local', 'Description') }} (FA)</label>
+                    <textarea class="form-control" id="categoryDescriptionLocal" rows="2" dir="rtl" placeholder="توضیحات به فارسی"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.categories.suffix', 'Parameter Table Suffix') }}</label>
+                    <input class="form-control" id="parameterSuffix" placeholder="e.g., _CV"/>
+                    <small class="text-muted">{{ get_translation('engineering.categories.suffix_help', 'Table suffix for parameter storage, must start with underscore') }}</small>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" id="hasParameters" type="checkbox" checked=""/>
+                    <label class="form-check-label">{{ get_translation('engineering.categories.has_engineering_parameters', 'Has Engineering Parameters') }}</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" id="isActive" type="checkbox" checked=""/>
+                    <label class="form-check-label">{{ get_translation('engineering.categories.is_active', 'Is Active') }}</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.a5674199', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveCategoryBtn">{{ get_translation('auto.e3b7614f', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.table-sticky thead th {
+    position: sticky;
+    top: 56px;
+    z-index: 10;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var editingCode = null;
+
+    // Get project from sidebar
+    function getProjectId() {
+        var sidebarProject = $('#sidebarProject').val();
+        var urlParams = new URLSearchParams(window.location.search);
+        var projectId = urlParams.get('project_id') || sidebarProject || '';
+        return projectId;
+    }
+
+    // Helper translation function for JavaScript
+    function getTranslation(key, defaultText) {
+        if (window.trans && window.trans[key]) {
+            return window.trans[key];
+        }
+        return defaultText || key;
+    }
+
+    // ============= UPDATED: Use /api/bom/categories =============
+    function loadStats() {
+        var params = {};
+        var projectId = getProjectId();
+        if (projectId && projectId !== 'All' && projectId !== '') {
+            params.project_id = projectId;
+        }
+        $.get('/api/bom/categories/stats', params)
+            .done(function(s) {
+                $('#kpiTotal').text(s.totalCategories || 0);
+                $('#kpiActive').text(s.activeCategories || 0);
+                $('#kpiWithParams').text(s.withParameters || 0);
+            })
+            .fail(function() { console.error("Failed to load stats"); });
+    }
+
+    function loadCategories() {
+        var activeOnly = $('#filterActiveOnly').is(':checked');
+        var params = { active_only: activeOnly };
+        var projectId = getProjectId();
+        if (projectId && projectId !== 'All' && projectId !== '') {
+            params.project_id = projectId;
+        }
+        $.get('/api/bom/categories', params)
+            .done(function(categories) {
+                var $tbody = $('#categoriesTableBody');
+                $tbody.empty();
+                if (!categories.length) {
+                    $tbody.html('<tr><td colspan="8" class="text-center">' + getTranslation('auto.09f6c4b5', 'No categories found') + '</td></tr>');
+                    return;
+                }
+                categories.forEach(function(c, i) {
+                    var statusBadge = c.isActive ? '<span class="badge bg-success">' + getTranslation('auto.585a7e93', 'Active') + '</span>' : '<span class="badge bg-secondary">' + getTranslation('auto.058f1fa3', 'Inactive') + '</span>';
+                    var paramsBadge = c.hasParameters ? '<span class="badge bg-info">' + getTranslation('auto.ecd7b1d7', 'Yes') + '</span>' : '<span class="badge bg-light text-dark">' + getTranslation('auto.af4f8ba6', 'No') + '</span>';
+                    var row = '<tr>' +
+                        '<td>' + (i+1) + '</td>' +
+                        '<td><strong>' + escapeHtml(c.categoryCode) + '</strong></td>' +
+                        '<td>' + escapeHtml(c.categoryName) + '</td>' +
+                        '<td>' + escapeHtml(c.description || '') + '</td>' +
+                        '<td>' + paramsBadge + '</td>' +
+                        '<td>' + escapeHtml(c.parameterTableSuffix || '-') + '</td>' +
+                        '<td>' + statusBadge + '</td>' +
+                        '<td>' +
+                        '<button class="btn btn-sm btn-warning edit-category me-1" data-code="' + escapeHtml(c.categoryCode) + '"><i class="fas fa-edit"></i></button>' +
+                        '<button class="btn btn-sm btn-danger delete-category" data-code="' + escapeHtml(c.categoryCode) + '"><i class="fas fa-trash"></i></button>' +
+                        '</td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() { $('#categoriesTableBody').html('<tr><td colspan="8" class="text-danger">' + getTranslation('auto.12dc432e', 'Error loading categories') + '</td></tr>'); });
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    function openModal(code) {
+        editingCode = code;
+        $('#categoryModalTitle').text(code ? getTranslation('engineering.categories.edit_modal', 'Edit Category') : getTranslation('engineering.categories.add_modal', 'Add Category'));
+        if (code) {
+            $.get('/api/bom/categories', { active_only: false })
+                .done(function(categories) {
+                    var c = categories.find(function(x) { return x.categoryCode === code; });
+                    if (c) {
+                        $('#editCategoryCode').val(c.categoryCode);
+                        $('#categoryCode').val(c.categoryCode).prop('disabled', true);
+                        $('#categoryName').val(c.categoryName);
+                        $('#categoryNameLocal').val(c.categoryNameLocal || '');
+                        $('#categoryDescription').val(c.description || '');
+                        $('#categoryDescriptionLocal').val(c.descriptionLocal || '');
+                        $('#parameterSuffix').val(c.parameterTableSuffix || '');
+                        $('#hasParameters').prop('checked', c.hasParameters);
+                        $('#isActive').prop('checked', c.isActive);
+                        $('#categoryModal').modal('show');
+                    }
+                })
+                .fail(function() { alert(getTranslation('auto.9d8f9f5b', 'Error loading category details')); });
+        } else {
+            $('#editCategoryCode').val('');
+            $('#categoryCode').prop('disabled', false).val('');
+            $('#categoryName').val('');
+            $('#categoryNameLocal').val('');
+            $('#categoryDescription').val('');
+            $('#categoryDescriptionLocal').val('');
+            $('#parameterSuffix').val('');
+            $('#hasParameters').prop('checked', true);
+            $('#isActive').prop('checked', true);
+            $('#categoryModal').modal('show');
+        }
+    }
+
+    function saveCategory() {
+        var data = {
+            categoryCode: $('#categoryCode').val().toUpperCase().trim(),
+            categoryName: $('#categoryName').val(),
+            categoryNameLocal: $('#categoryNameLocal').val(),
+            description: $('#categoryDescription').val(),
+            descriptionLocal: $('#categoryDescriptionLocal').val(),
+            parameterTableSuffix: $('#parameterSuffix').val(),
+            hasEngineeringParameters: $('#hasParameters').is(':checked'),
+            isActive: $('#isActive').is(':checked')
+        };
+        if (!data.categoryCode) { 
+            alert(getTranslation('engineering.categories.code_required', 'Category Code is required')); 
+            return;
+        }
+        if (!data.categoryName) { 
+            alert(getTranslation('engineering.categories.name_required', 'Category Name is required')); 
+            return;
+        }
+        // Validate suffix format
+        if (data.hasEngineeringParameters && data.parameterTableSuffix && !data.parameterTableSuffix.startsWith('_')) {
+            alert(getTranslation('engineering.categories.suffix_format', 'Parameter Table Suffix must start with an underscore (e.g., _CV)'));
+            return;
+        }
+        var code = $('#editCategoryCode').val();
+        // ============= UPDATED: Use /api/bom/categories =============
+        var url = code ? '/api/bom/categories/' + encodeURIComponent(code) : '/api/bom/categories';
+        var method = code ? 'PUT' : 'POST';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                $('#categoryModal').modal('hide');
+                loadCategories();
+                loadStats();
+                alert(code ? getTranslation('auto.bb4343fb', 'Category updated') : getTranslation('auto.9aa25926', 'Category created'));
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON?.error || getTranslation('auto.9f7cf0c7', 'Unknown error');
+                alert(getTranslation('auto.ed67c9fb', 'Error') + ': ' + msg);
+            }
+        });
+    }
+
+    function deleteCategory(code) {
+        if (confirm(getTranslation('engineering.categories.delete_confirm', 'Delete category') + ' ' + code + '?')) {
+            // ============= UPDATED: Use /api/bom/categories =============
+            $.ajax({
+                url: '/api/bom/categories/' + encodeURIComponent(code),
+                method: 'DELETE',
+                success: function() {
+                    loadCategories();
+                    loadStats();
+                    alert(getTranslation('auto.e5c9c4b1', 'Category deleted'));
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON?.error || getTranslation('auto.9f7cf0c7', 'Unknown error');
+                    alert(getTranslation('auto.ed67c9fb', 'Error') + ': ' + msg);
+                }
+            });
+        }
+    }
+
+    // Import CSV
+    function importCSV() {
+        var input = $('<input type="file" accept=".csv">').on('change', function(e) {
+            var fd = new FormData();
+            fd.append('file', e.target.files[0]);
+            // ============= UPDATED: Use /api/bom/categories =============
+            $.ajax({
+                url: '/api/bom/categories/import',
+                method: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function() {
+                    loadCategories();
+                    loadStats();
+                    alert(getTranslation('auto.ef9b2409', 'Import completed'));
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON?.error || getTranslation('auto.9f7cf0c7', 'Unknown error');
+                    alert(getTranslation('auto.ed67c9fb', 'Error') + ': ' + msg);
+                }
+            });
+        });
+        input.click();
+    }
+
+    // Export CSV
+    function exportCSV() {
+        var projectId = getProjectId();
+        // ============= UPDATED: Use /api/bom/categories =============
+        var url = '/api/bom/categories/export';
+        if (projectId && projectId !== 'All' && projectId !== '') {
+            url += '?project_id=' + encodeURIComponent(projectId);
+        }
+        window.location.href = url;
+    }
+
+    // Event bindings
+    $('#addCategoryBtn').click(function() { openModal(null); });
+    $('#saveCategoryBtn').click(saveCategory);
+    $(document).on('click', '.edit-category', function() { openModal($(this).data('code')); });
+    $(document).on('click', '.delete-category', function() { deleteCategory($(this).data('code')); });
+    $('#filterActiveOnly').change(loadCategories);
+    $('#importBtn').click(importCSV);
+    $('#exportBtn').click(exportCSV);
+
+    // Listen for project change events
+    $(document).on('projectChanged', function() {
+        loadStats();
+        loadCategories();
+    });
+
+    loadStats();
+    loadCategories();
+});
+</script>
+{% endblock %}

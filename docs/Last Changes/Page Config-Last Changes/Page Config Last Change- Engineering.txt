@@ -1,0 +1,161 @@
+PART B — Engineering Module Page Config Update (v2, 2026‑09‑16)
+Merge the following into your existing Engineering Module Page Config document.
+
+B1. Module Overview
+Element	Specification
+Module	Engineering
+Pages	8
+Purpose	Master data + transactional pages supporting product design, BOM, routing, parameters, ECO, handover, and document management
+Role	Design the process — not execute it (execution belongs to Manufacturing)
+B2. Page List (Current)
+#	Page	URL	Type
+1	Product Management	/engineering/products	Master Data
+2	BOM Management	/engineering/bom	Master Data (tree)
+3	Routings & Work Instructions	/engineering/routings	Master Data (multi‑view)
+4	Engineering Parameters	/engineering/parameters	Master Data
+5	Product Categories	/engineering/product-categories	Master Data
+6	Engineering Change Order	/engineering/eco	Transactional (workflow)
+7	Engineering Handover	/engineering/handover	Transactional
+8	Engineering Documents	/engineering/documents	Transactional (DMS)
+B3. Routings & Work Instructions — Four Tabs (2026‑09‑16)
+Page: /engineering/routings
+
+KPI Cards: Total Routings, Active Routings, Inactive Routings.
+
+Tabs:
+
+Table View — classic row‑based routing list with Edit / Delete / View Work Instructions.
+
+Gantt View — sequential vs parallel timeline. Parallel operations share the same OperationSequence. Read‑only. Displays S/R/Q/M breakdown below each bar.
+
+Process Flow — multi‑product horizontal flow showing which products share each work center. Responsive (horizontal on desktop, vertical on mobile).
+
+Join Map — component join map showing which components meet at each workstation, with a color‑coded join type (Weld / Bolt / Press / Glue / Screw / None). Interactive — clicking a node opens a detail modal.
+
+Data sources: t_WorkCenterRouting, t_WorkCenter, t_Product, t_BOM, t_WorkInstructions.
+
+SQL Server notes: All queries include every non‑aggregated column in GROUP BY. Dates passed as string parameters.
+
+B4. Engineering Documents — DMS Page (2026‑09‑16)
+Page: /engineering/documents
+
+KPI Cards: Draft, Under Review, Approved, Obsolete, Checked Out.
+
+Table columns: Doc Number (link), Title, Rev, Status, Checked Out By, Checked Out Date, Last Modified, Actions.
+
+Modals:
+
+Upload / New Revision
+
+Check Out
+
+Check In (optional new revision file)
+
+Share Externally
+
+Preview (iframe)
+
+Actions per row: Preview, Check Out, Check In, Share.
+
+Data sources: t_EngineeringDocument (+ t_DocumentRevisions for future history).
+
+Document storage strategy:
+
+Generated HTML: static/documents/generated/engineering/<PROJECT_ID>/<DOC>-Rev<N>.html — bilingual, print‑ready, self‑contained.
+
+Uploaded (legacy) files: static/uploads/ (or static/uploads/legacy/) — one language per file.
+
+API endpoints:
+
+GET /api/bom/documents — list with filters (doc_type, status, checkout_status, project)
+
+GET /api/bom/documents/<string:doc_id> — detail
+
+POST /api/bom/documents/<string:doc_id>/checkout
+
+POST /api/bom/documents/<string:doc_id>/checkin
+
+POST /api/bom/documents/<string:doc_id>/share
+
+GET /api/bom/documents/stats
+
+Critical: DocumentID is a string (nvarchar). All routes use <string:doc_id>, not <int:doc_id>.
+
+Sample Documents (valve industry, generated 2026‑09‑16):
+
+Doc Number	Type	Project
+GA-DWG-1001	Drawing	PROJ-GACH-2024
+TECH-SPEC-2001	Specification	PROJ-GACH-2024
+DOC-RISK-3001	Risk	PROJ-GACH-2024
+TEST-REP-4001	Test Report	PROJ-GACH-2024
+CERT-ORIG-5001	Certificate	PROJ-GACH-2024
+For the remaining industries (furniture, jobshop, gauge, paint), generate 5 similar documents each using the brief in A4.5 and the folder pattern in A4.3.
+
+B5. Page Translation Keys — Pattern (2026‑09‑16)
+For each Engineering page, translation keys follow this structure:
+
+text
+engineering.<page>.<element>
+Examples:
+
+engineering.products.title
+
+engineering.bom.kpi.total_components
+
+engineering.routings.tab.gantt
+
+engineering.routings.joinmap.bolt
+
+engineering.eco.status.approved
+
+engineering.handover.actions.release
+
+Every key must have both en and fa rows in t_Translations.
+
+B6. Common UI Patterns for Engineering Pages
+Breadcrumb: Home → Engineering → <Page>
+
+Sticky table headers: .table-sticky class.
+
+Filter row above table: 3–5 filter controls + Apply / Reset.
+
+Action buttons in top‑right of card header.
+
+Modals with tabs where appropriate (Add/Edit with General / Cost / Manufacturing tabs, etc.).
+
+Industry + project filtering applied to every API call.
+
+No CDN — all assets local.
+
+B7. Lessons Learned — Engineering Page‑Specific
+Route routings must pass both products (for Gantt/Flow/Join Map product dropdowns) and work_centers (for the Add/Edit routing modal).
+
+Route eco must pass both products (affected product filter) and projects (project filter).
+
+Route bom calls get_products_for_selector(request) — must receive the request object.
+
+Do not duplicate routes in __init__.py. The package initializer should only re‑export engineering_bp.
+
+DocumentID is a string — all document routes and JS must treat it as a string.
+
+HTML documents are previewed in an iframe — the FilePath must include the static/ prefix so the URL resolves.
+
+Generated HTML files do not need a shared JS library — each file carries its own bilingual toggle.
+
+B8. Future Work (noted 2026‑09‑16)
+Generate 5 documents per industry for the 4 remaining industries.
+
+Add workflow approval integration for documents (link to t_Workflow).
+
+Add revision history view (using t_DocumentRevisions).
+
+Add document relations (parent/child) via t_DocumentRelations.
+
+Bulk operations (bulk approve, bulk obsolete) on the documents page.
+
+Optional: "Generate from Template" workflow using templates/ folder.
+
+Optional: convert HTML documents to PDF on the fly for a locked format.
+
+END OF PART B — Engineering Module Page Config v2 (2026‑09‑16)
+

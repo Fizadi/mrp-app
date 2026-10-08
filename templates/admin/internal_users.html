@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Internal Users Administration{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<!-- Page header -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+<h1 class="h3 mb-0"><i class="fas fa-users-gear me-2"></i>{{ get_translation('auto.08ff309c', 'Internal Users') }}</h1>
+<div>
+<button class="btn btn-outline-secondary me-2" id="exportBtn"><i class="fas fa-file-export"></i>{{ get_translation('auto.372b5ed6', 'Export') }}</button>
+<button class="btn btn-outline-primary me-2" id="importBtn"><i class="fas fa-upload"></i>{{ get_translation('auto.7542cefd', 'Import CSV') }}</button>
+<button class="btn btn-primary" id="addUserBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.34e183f0', 'Add User') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+<div class="col-md-4 col-lg-3">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<div class="d-flex justify-content-between align-items-center">
+<div>
+<h6 class="card-title">{{ get_translation('auto.a169a1bd', 'Active Users') }}</h6>
+<h2 class="mb-0" id="kpiActive">{{ get_translation('auto.147be47c', '0') }}</h2>
+</div>
+<i class="fas fa-user-check fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="col-md-8 col-lg-9">
+<div class="card">
+<div class="card-body">
+<h6 class="card-title"><i class="fas fa-chart-pie"></i>{{ get_translation('auto.66485857', 'Users by Role') }}</h6>
+<div class="d-flex flex-wrap gap-3" id="kpiRolesContainer">
+<!-- roles will be injected -->
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-4">
+<div class="card-body row g-3 align-items-end">
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.35652573', 'Department') }}</label>
+<input class="form-control" id="filterDept" placeholder="e.g. Quality Control" type="text"/>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.54ec25cf', 'Role') }}</label>
+<select class="form-select" id="filterRole">
+<option value="">{{ get_translation('auto.3edc3dba', 'All roles') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label">{{ get_translation('auto.d8395668', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.9116dbe1', 'All') }}</option>
+<option value="1">{{ get_translation('auto.ed89bd20', 'Active') }}</option>
+<option value="0">{{ get_translation('auto.95794290', 'Inactive') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<button class="btn btn-secondary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i>{{ get_translation('auto.95b5cdf0', 'Apply') }}</button>
+</div>
+<div class="col-md-2">
+<button class="btn btn-outline-secondary w-100" id="clearFiltersBtn"><i class="fas fa-undo-alt"></i>{{ get_translation('auto.74f9ec82', 'Clear') }}</button>
+</div>
+</div>
+</div>
+<!-- Main Table -->
+<div class="card">
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0" id="usersTable">
+<thead class="table-light">
+<tr>
+<th>{{ get_translation('auto.3e1ad4a0', 'Username') }}</th><th>{{ get_translation('auto.f17034c5', 'Full Name') }}</th><th>{{ get_translation('auto.949e8e1a', 'Department') }}</th><th>{{ get_translation('auto.2954d8b3', 'Roles') }}</th><th>{{ get_translation('auto.7dcedf71', 'Status') }}</th><th>{{ get_translation('auto.e7ab7dd2', 'Last Login') }}</th><th style="width: 100px">{{ get_translation('auto.02c3af41', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="usersTableBody">
+<tr><td class="text-center py-4" colspan="7">{{ get_translation('auto.5eb0beb5', 'Loading users...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- ================= MODALS ================= -->
+<!-- Add/Edit User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header bg-primary text-white">
+<h5 class="modal-title" id="userModalTitle">{{ get_translation('auto.91238bcc', 'Add User') }}</h5>
+<button class="btn-close btn-close-white" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="userForm">
+<input id="editUserId" type="hidden"/>
+<div class="row g-3">
+<div class="col-md-6"><label>{{ get_translation('auto.e6edded4', 'Username *') }}</label><input class="form-control" id="username" required="" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.a4dabff3', 'Email *') }}</label><input class="form-control" id="email" required="" type="email"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.c39022e1', 'Full Name *') }}</label><input class="form-control" id="fullname" required="" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.6d3d5dbb', 'Employee ID') }}</label><input class="form-control" id="employeeId" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.29f9dbaa', 'Department') }}</label><input class="form-control" id="department" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.dedf3bf3', 'Position') }}</label><input class="form-control" id="position" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.9dac341c', 'Password (new user only)') }}</label><input class="form-control" id="password" placeholder="Leave blank to keep current (edit mode)" type="password"/></div>
+<div class="col-md-6">
+<div class="form-check mt-4"><input checked="" class="form-check-input" id="isActive" type="checkbox"/> <label class="form-check-label">{{ get_translation('auto.8a018405', 'Active') }}</label></div>
+<div class="form-check"><input class="form-check-input" id="mustChangePwd" type="checkbox"/> <label class="form-check-label">{{ get_translation('auto.92450238', 'Must change password at next login') }}</label></div>
+</div>
+<div class="col-12">
+<label>{{ get_translation('auto.b9c033a7', 'Roles') }}</label><br/>
+<div class="d-flex flex-wrap gap-2" id="rolesCheckboxes"></div>
+</div>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.23e0056e', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveUserBtn" type="button">{{ get_translation('auto.143f3f21', 'Save User') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPwdModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header bg-warning">
+<h5 class="modal-title">{{ get_translation('auto.97a537eb', 'Reset Password') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<input id="resetUserId" type="hidden"/>
+<label>{{ get_translation('auto.683cef31', 'New Password (min. 6 characters)') }}</label>
+<input class="form-control" id="newPassword" type="password"/>
+<label class="mt-2">{{ get_translation('auto.180bcd1f', 'Confirm Password') }}</label>
+<input class="form-control" id="confirmPassword" type="password"/>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.5691f97c', 'Cancel') }}</button>
+<button class="btn btn-warning" id="confirmResetBtn">{{ get_translation('auto.ceab0e19', 'Reset Password') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Sessions Modal -->
+<div class="modal fade" id="sessionsModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header bg-info text-white">
+<h5 class="modal-title">{{ get_translation('auto.6b0e21ef', 'Active Sessions') }}</h5>
+<button class="btn-close btn-close-white" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body" id="sessionsList">
+<p class="text-muted">{{ get_translation('auto.c71d98bb', 'Loading sessions...') }}</p>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.27a12eb3', 'Close') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Import CSV Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.2f5e65c9', 'Import Users (CSV)') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<p>{{ get_translation('auto.f6b48242', 'CSV must contain columns:') }}<code>{{ get_translation('auto.30faf881', 'Username, Email, FullName, Department, Position, EmployeeID, IsActive, Roles') }}</code><br/>{{ get_translation('auto.34f86750', 'Roles: pipe-separated, e.g.') }}<code>{{ get_translation('auto.d3778fa7', 'QC_INSPECTOR|PROD_MANAGER') }}</code></p>
+<input accept=".csv" class="form-control" id="importFile" type="file"/>
+<div class="mt-2 small" id="importFeedback"></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.cfac5d9e', 'Cancel') }}</button>
+<button class="btn btn-primary" id="doImportBtn">{{ get_translation('auto.f8947b2b', 'Upload &amp; Import') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let allRoles = [];  // store {code, name}
+    let currentFilters = { department: '', role: '', active_status: '' };
+
+    // Load roles for dropdowns and checkboxes
+    function loadRoles() {
+        $.get('/api/admin/roles', function(data) {
+            allRoles = data;
+            // populate filter dropdown
+            let roleSelect = $('#filterRole');
+            roleSelect.empty().append('<option value="">All roles</option>');
+            let rolesDiv = $('#rolesCheckboxes');
+            rolesDiv.empty();
+            data.forEach(r => {
+                roleSelect.append(`<option value="${r.code}">${r.name}</option>`);
+                rolesDiv.append(`
+                    <div class="form-check">
+                        <input class="form-check-input role-checkbox" type="checkbox" value="${r.code}" id="role_${r.code}">
+                        <label class="form-check-label" for="role_${r.code}">${r.name}</label>
+                    </div>
+                `);
+            });
+        });
+    }
+
+    // Load users table & KPI
+    function loadUsers() {
+        let params = $.param(currentFilters);
+        $.get(`/api/admin/users?${params}`, function(resp) {
+            // KPI
+            $('#kpiActive').text(resp.kpi.active_users);
+            let roleHtml = '';
+            resp.kpi.by_role.forEach(item => {
+                roleHtml += `<span class="badge bg-secondary fs-6 p-2">${item.role}: ${item.count}</span> `;
+            });
+            $('#kpiRolesContainer').html(roleHtml || '<span class="text-muted">No roles assigned</span>');
+            // Table rows
+            let tbody = $('#usersTableBody');
+            if (resp.users.length === 0) {
+                tbody.html('<tr><td colspan="7" class="text-center">No users found</td></tr>');
+                return;
+            }
+            let html = '';
+            resp.users.forEach(u => {
+                let statusBadge = u.IsActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                let lastLogin = u.LastLogin ? new Date(u.LastLogin).toLocaleString() : 'Never';
+                let rolesSpan = u.RoleNames.map(rn => `<span class="badge bg-info me-1">${rn}</span>`).join('');
+                html += `
+                    <tr>
+                        <td><strong>${escapeHtml(u.Username)}</strong><br><small class="text-muted">${escapeHtml(u.Email || '')}</small></td>
+                        <td>${escapeHtml(u.FullName)}<br><small>${escapeHtml(u.Position || '')}</small></td>
+                        <td>${escapeHtml(u.Department || '-')}</td>
+                        <td>${rolesSpan || '-'}</td>
+                        <td>${statusBadge}</td>
+                        <td><small>${lastLogin}</small></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary edit-user" data-id="${u.UserID}" data-username="${escapeHtml(u.Username)}"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger reset-pwd" data-id="${u.UserID}" data-name="${escapeHtml(u.Username)}"><i class="fas fa-key"></i></button>
+                            <button class="btn btn-sm btn-outline-info sessions-view" data-id="${u.UserID}" data-name="${escapeHtml(u.Username)}"><i class="fas fa-wifi"></i></button>
+                            <button class="btn btn-sm btn-outline-warning toggle-active" data-id="${u.UserID}" data-active="${u.IsActive}"><i class="fas ${u.IsActive ? 'fa-ban' : 'fa-check-circle'}"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.html(html);
+        });
+    }
+
+    // Helper: escape HTML
+    function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+    // Apply filters
+    $('#applyFiltersBtn').click(function() {
+        currentFilters.department = $('#filterDept').val();
+        currentFilters.role = $('#filterRole').val();
+        currentFilters.active_status = $('#filterStatus').val();
+        loadUsers();
+    });
+    $('#clearFiltersBtn').click(function() {
+        $('#filterDept').val('');
+        $('#filterRole').val('');
+        $('#filterStatus').val('');
+        currentFilters = { department: '', role: '', active_status: '' };
+        loadUsers();
+    });
+
+    // Add/Edit User modal
+    let userModal = new bootstrap.Modal(document.getElementById('userModal'));
+    $('#addUserBtn').click(function() {
+        $('#userModalTitle').text('Add New User');
+        $('#userForm')[0].reset();
+        $('#editUserId').val('');
+        $('#password').prop('required', true);
+        $('#rolesCheckboxes input').prop('checked', false);
+        $('#isActive').prop('checked', true);
+        $('#mustChangePwd').prop('checked', false);
+        userModal.show();
+    });
+    $(document).on('click', '.edit-user', function() {
+        let uid = $(this).data('id');
+        $.get(`/api/admin/users`, function(resp) {
+            let user = resp.users.find(u => u.UserID == uid);
+            if(user) {
+                $('#userModalTitle').text('Edit User');
+                $('#editUserId').val(user.UserID);
+                $('#username').val(user.Username).prop('readonly', true);
+                $('#email').val(user.Email);
+                $('#fullname').val(user.FullName);
+                $('#employeeId').val(user.EmployeeID);
+                $('#department').val(user.Department);
+                $('#position').val(user.Position);
+                $('#isActive').prop('checked', user.IsActive);
+                $('#mustChangePwd').prop('checked', user.MustChangePassword);
+                $('#password').val('').prop('required', false);
+                $('#rolesCheckboxes input').prop('checked', false);
+                if(user.Roles) user.Roles.forEach(r => $(`#role_${r}`).prop('checked', true));
+                userModal.show();
+            }
+        });
+    });
+    $('#saveUserBtn').click(function() {
+        let uid = $('#editUserId').val();
+        let payload = {
+            Username: $('#username').val(),
+            Email: $('#email').val(),
+            FullName: $('#fullname').val(),
+            EmployeeID: $('#employeeId').val(),
+            Department: $('#department').val(),
+            Position: $('#position').val(),
+            IsActive: $('#isActive').is(':checked'),
+            MustChangePassword: $('#mustChangePwd').is(':checked'),
+            Roles: $('.role-checkbox:checked').map(function(){ return $(this).val(); }).get()
+        };
+        let url = uid ? `/api/admin/users/${uid}` : '/api/admin/users';
+        let method = uid ? 'PUT' : 'POST';
+        if(!uid) payload.Password = $('#password').val();
+        if(!uid && !payload.Password) { alert('Password is required for new user'); return; }
+        $.ajax({ url, method, contentType: 'application/json', data: JSON.stringify(payload), success: function() { userModal.hide(); loadUsers(); }, error: function(xhr) { alert(xhr.responseJSON?.error || 'Error saving user'); } });
+    });
+
+    // Reset password
+    let resetModal = new bootstrap.Modal(document.getElementById('resetPwdModal'));
+    $(document).on('click', '.reset-pwd', function() {
+        $('#resetUserId').val($(this).data('id'));
+        $('#newPassword').val('');
+        $('#confirmPassword').val('');
+        resetModal.show();
+    });
+    $('#confirmResetBtn').click(function() {
+        let uid = $('#resetUserId').val();
+        let pwd = $('#newPassword').val();
+        let confirm = $('#confirmPassword').val();
+        if(pwd !== confirm) { alert('Passwords do not match'); return; }
+        if(pwd.length < 6) { alert('Minimum 6 characters'); return; }
+        $.ajax({ url: `/api/admin/users/${uid}/reset-password`, method: 'POST', contentType: 'application/json', data: JSON.stringify({ new_password: pwd }), success: function() { resetModal.hide(); alert('Password reset successful'); loadUsers(); }, error: function(xhr) { alert(xhr.responseJSON?.error || 'Error'); } });
+    });
+
+    // Sessions management
+    let sessionsModal = new bootstrap.Modal(document.getElementById('sessionsModal'));
+    $(document).on('click', '.sessions-view', function() {
+        let uid = $(this).data('id');
+        let name = $(this).data('name');
+        $('#sessionsModal .modal-title').text(`Active Sessions - ${name}`);
+        $.get(`/api/admin/users/${uid}/sessions`, function(sessions) {
+            if(sessions.length === 0) $('#sessionsList').html('<div class="alert alert-info">No active sessions</div>');
+            else {
+                let html = '<ul class="list-group">';
+                sessions.forEach(s => {
+                    html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div><i class="fas fa-laptop"></i> ${s.IPAddress}<br><small>${s.UserAgent || ''}</small><br><small>Last activity: ${s.LastActivity ? new Date(s.LastActivity).toLocaleString() : 'unknown'}</small></div>
+                                <button class="btn btn-sm btn-danger terminate-session" data-sid="${s.SessionID}" data-uid="${uid}">Terminate</button>
+                            </li>`;
+                });
+                html += '</ul>';
+                $('#sessionsList').html(html);
+            }
+            sessionsModal.show();
+        });
+    });
+    $(document).on('click', '.terminate-session', function() {
+        let uid = $(this).data('uid');
+        let sid = $(this).data('sid');
+        $.ajax({ url: `/api/admin/users/${uid}/sessions/${sid}`, method: 'DELETE', success: function() { alert('Session terminated'); $(this).closest('.list-group-item').remove(); location.reload(); } });
+    });
+
+    // Toggle active status (deactivate/reactivate)
+    $(document).on('click', '.toggle-active', function() {
+        let uid = $(this).data('id');
+        let currentlyActive = $(this).data('active') === true;
+        let newActive = !currentlyActive;
+        $.ajax({ url: `/api/admin/users/${uid}`, method: 'PUT', contentType: 'application/json', data: JSON.stringify({ IsActive: newActive }), success: loadUsers });
+    });
+
+    // Export CSV
+    $('#exportBtn').click(function() { window.location.href = '/api/admin/users/export'; });
+
+    // Import modal
+    let importModal = new bootstrap.Modal(document.getElementById('importModal'));
+    $('#importBtn').click(function() { importModal.show(); });
+    $('#doImportBtn').click(function() {
+        let file = $('#importFile')[0].files[0];
+        if(!file) { alert('Select a CSV file'); return; }
+        let formData = new FormData();
+        formData.append('file', file);
+        $.ajax({ url: '/api/admin/users/import', method: 'POST', data: formData, processData: false, contentType: false, success: function(resp) { alert(resp.message + '\n' + (resp.errors?.join('\n') || '')); importModal.hide(); loadUsers(); }, error: function(xhr) { alert('Import failed'); } });
+    });
+
+    // Initial load
+    loadRoles();
+    loadUsers();
+});
+</script>
+{% endblock %}

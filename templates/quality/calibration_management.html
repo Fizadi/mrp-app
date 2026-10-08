@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}Calibration Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-calendar-alt me-2"></i>{{ get_translation('auto.0384d7ca', 'Calibration Management') }}</h2>
+<div>
+<button class="btn btn-primary me-2" id="addEquipmentBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.8bc62c2c', 'Add Equipment') }}</button>
+<button class="btn btn-success me-2" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.be06e1e1', 'Refresh') }}</button>
+<button class="btn btn-info" id="exportCsvBtn"><i class="fas fa-file-csv"></i>{{ get_translation('auto.1b9d23c0', 'Export CSV') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-danger h-100">
+<div class="card-body text-center">
+<h5 class="text-danger">{{ get_translation('auto.9b4f7920', 'Overdue') }}</h5>
+<p class="display-6" id="kpiOverdue">{{ get_translation('auto.054345a7', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.e1eb560b', 'Due This Month') }}</h5>
+<p class="display-6" id="kpiDueThisMonth">{{ get_translation('auto.a1cb4936', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="text-success">{{ get_translation('auto.d0b0974b', 'Calibrated') }}</h5>
+<p class="display-6" id="kpiCalibrated">{{ get_translation('auto.c8983731', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.d3e2d68a', 'Equipment Type') }}</label>
+<select class="form-select" id="filterType">
+<option value="">{{ get_translation('auto.614155d4', 'All') }}</option>
+                        {% for t in types %}
+                        <option value="{{ t.type }}">{{ t.type }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.9440f434', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.39c2501f', 'All') }}</option>
+<option>{{ get_translation('auto.3d674e0a', 'Scheduled') }}</option><option>{{ get_translation('auto.b7bf9adc', 'Completed') }}</option><option>{{ get_translation('auto.015ac2a2', 'Out of Tolerance') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.5ab72113', 'Next Due From (YYYY-MM-DD)') }}</label>
+<input class="form-control" id="dueFrom" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.e5eee9ee', 'Next Due To (YYYY-MM-DD)') }}</label>
+<input class="form-control" id="dueTo" type="date"/>
+</div>
+</div>
+<div class="row mt-3">
+<div class="col-md-12">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.674ee12e', 'Apply Filters') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Equipment Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-tools"></i>{{ get_translation('auto.8b6a5ef2', 'Inspection &amp; Test Equipment') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="equipmentTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.d2cc3913', 'Equipment Name') }}</th><th>{{ get_translation('auto.c303ec38', 'Last Calibration') }}</th><th>{{ get_translation('auto.9da15286', 'Next Due') }}</th><th>{{ get_translation('auto.58bb8a3c', 'Status') }}</th><th>{{ get_translation('auto.811a3fac', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="equipmentTableBody">
+<tr><td class="text-center py-4" colspan="5">{{ get_translation('auto.2a40ddcd', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Add Equipment Modal -->
+<div class="modal fade" id="addModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.5d362be4', 'Add Equipment') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-3">
+<label>{{ get_translation('auto.38fdf252', 'Equipment ID (unique)') }}</label>
+<input class="form-control" id="eqId" required="" type="text"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.e320ebf7', 'Equipment Name') }}</label>
+<input class="form-control" id="eqName" required="" type="text"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.fb44b945', 'Last Calibration Date (YYYY-MM-DD)') }}</label>
+<input class="form-control" id="lastCal" type="date"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.70a66ae3', 'Next Due Date (YYYY-MM-DD)') }}</label>
+<input class="form-control" id="nextDue" type="date"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.491df81d', 'Notes') }}</label>
+<textarea class="form-control" id="notes"></textarea>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.eb663141', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveEquipmentBtn">{{ get_translation('auto.439afe89', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Record Calibration Modal -->
+<div class="modal fade" id="calibrateModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.a3e33df0', 'Record Calibration') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="calEqId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.6d6909f6', 'Last Calibration Date (YYYY-MM-DD)') }}</label>
+<input class="form-control" id="calLastDate" type="date"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.132279a6', 'Next Due Date (YYYY-MM-DD)') }}</label>
+<input class="form-control" id="calNextDate" type="date"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.c0d05583', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveCalibrationBtn">{{ get_translation('auto.5e3efe9b', 'Save') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Out of Tolerance Modal -->
+<div class="modal fade" id="oocModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.9b060745', 'Out of Tolerance Action') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="oocEqId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.8e1a92ba', 'Action Taken (e.g., repair, replace, raise NCR)') }}</label>
+<textarea class="form-control" id="oocAction" rows="3"></textarea>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.14103f11', 'Cancel') }}</button>
+<button class="btn btn-danger" id="saveOocBtn">{{ get_translation('auto.2d985c6a', 'Record Action') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let addModal = new bootstrap.Modal(document.getElementById('addModal'));
+    let calibrateModal = new bootstrap.Modal(document.getElementById('calibrateModal'));
+    let oocModal = new bootstrap.Modal(document.getElementById('oocModal'));
+
+    function loadKPI() {
+        $.get('/api/quality/calibration/kpi', function(data) {
+            $('#kpiOverdue').text(data.overdue);
+            $('#kpiDueThisMonth').text(data.dueThisMonth);
+            $('#kpiCalibrated').text(data.calibrated);
+        }).fail(console.error);
+    }
+
+    function loadEquipment() {
+        let params = {
+            type: $('#filterType').val(),
+            status: $('#filterStatus').val(),
+            due_from: $('#dueFrom').val(),
+            due_to: $('#dueTo').val()
+        };
+        $.get('/api/quality/calibration/list', params, function(items) {
+            let tbody = $('#equipmentTableBody').empty();
+            for (let eq of items) {
+                let statusBadge = '';
+                if (eq.status === 'Completed') statusBadge = '<span class="badge bg-success">Calibrated</span>';
+                else if (eq.status === 'Out of Tolerance') statusBadge = '<span class="badge bg-danger">Out of Tolerance</span>';
+                else statusBadge = '<span class="badge bg-warning">Due</span>';
+                let row = `<tr>
+                    <td>${eq.name || ''}</td>
+                    <td>${eq.lastCalibration || ''}</td>
+                    <td>${eq.nextDue || ''}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info calibrate-btn" data-id="${eq.id}" ${eq.status === 'Out of Tolerance' ? 'disabled' : ''}>Record Calibration</button>
+                        <button class="btn btn-sm btn-warning ooc-btn" data-id="${eq.id}">Out of Tolerance</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(console.error);
+    }
+
+    $('#addEquipmentBtn').click(function() {
+        $('#eqId').val('');
+        $('#eqName').val('');
+        $('#lastCal').val('');
+        $('#nextDue').val('');
+        $('#notes').val('');
+        addModal.show();
+    });
+    $('#saveEquipmentBtn').click(function() {
+        let data = {
+            equipmentId: $('#eqId').val(),
+            equipmentName: $('#eqName').val(),
+            lastCalibration: $('#lastCal').val() || null,
+            nextDue: $('#nextDue').val() || null,
+            notes: $('#notes').val()
+        };
+        $.ajax({
+            url: '/api/quality/calibration/equipment',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                addModal.hide();
+                loadEquipment();
+                loadKPI();
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+    $(document).on('click', '.calibrate-btn', function(e) {
+        let id = $(this).data('id');
+        $('#calEqId').val(id);
+        $('#calLastDate').val('');
+        $('#calNextDate').val('');
+        calibrateModal.show();
+    });
+    $('#saveCalibrationBtn').click(function() {
+        let id = $('#calEqId').val();
+        let data = {
+            equipmentId: id,
+            lastCalibration: $('#calLastDate').val(),
+            nextDue: $('#calNextDate').val()
+        };
+        $.ajax({
+            url: '/api/quality/calibration/record',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                calibrateModal.hide();
+                loadEquipment();
+                loadKPI();
+            }
+        });
+    });
+
+    $(document).on('click', '.ooc-btn', function() {
+        let id = $(this).data('id');
+        $('#oocEqId').val(id);
+        $('#oocAction').val('');
+        oocModal.show();
+    });
+    $('#saveOocBtn').click(function() {
+        let id = $('#oocEqId').val();
+        let data = { action: $('#oocAction').val() };
+        $.ajax({
+            url: `/api/quality/calibration/${id}/out-of-tolerance`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                oocModal.hide();
+                loadEquipment();
+                loadKPI();
+            }
+        });
+    });
+
+    $('#applyFiltersBtn').click(function() { loadEquipment(); });
+    $('#refreshBtn').click(function() { loadEquipment(); loadKPI(); });
+    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/calibration/export'; });
+
+    loadKPI();
+    loadEquipment();
+});
+</script>
+{% endblock %}

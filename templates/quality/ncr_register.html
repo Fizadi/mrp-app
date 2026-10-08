@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}NCR Register - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-file-alt me-2"></i>{{ get_translation('auto.5aadfcec', 'NCR Register') }}</h2>
+<div>
+<button class="btn btn-primary me-2" id="raiseNcrBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.97e24d9a', 'Raise NCR') }}</button>
+<button class="btn btn-success me-2" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.febb1962', 'Refresh') }}</button>
+<button class="btn btn-info" id="exportCsvBtn"><i class="fas fa-file-csv"></i>{{ get_translation('auto.23d35778', 'Export CSV') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-3 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.31f747ee', 'Open') }}</h5>
+<p class="display-6" id="kpiOpen">{{ get_translation('auto.2c5882a0', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="text-success">{{ get_translation('auto.8d8ca004', 'Closed') }}</h5>
+<p class="display-6" id="kpiClosed">{{ get_translation('auto.0362bec8', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 mb-2">
+<div class="card border-danger h-100">
+<div class="card-body text-center">
+<h5 class="text-danger">{{ get_translation('auto.31da1fa8', 'Critical / Major / Minor') }}</h5>
+<p class="h6" id="kpiSeverity">{{ get_translation('auto.426b11ca', '- / - / -') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-3 mb-2">
+<div class="card border-danger h-100">
+<div class="card-body text-center">
+<h5 class="text-danger">{{ get_translation('auto.ea05343d', 'Unsigned Critical') }}</h5>
+<p class="display-6" id="kpiUnsignedCritical">{{ get_translation('auto.ad4f7b3f', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-2">
+<label>{{ get_translation('auto.35e5d26d', 'Severity') }}</label>
+<select class="form-select" id="filterSeverity">
+<option value="">{{ get_translation('auto.b248a779', 'All') }}</option>
+<option>{{ get_translation('auto.33d422e1', 'Critical') }}</option><option>{{ get_translation('auto.48452451', 'Major') }}</option><option>{{ get_translation('auto.cb21c401', 'Minor') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.c08673b6', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.e5f41fe2', 'All') }}</option>
+<option>{{ get_translation('auto.015f4194', 'Open') }}</option><option>{{ get_translation('auto.840f5e9b', 'Closed') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.03d14d3a', 'Source') }}</label>
+<select class="form-select" id="filterSource">
+<option value="">{{ get_translation('auto.6ff9b4bb', 'All') }}</option>
+                        {% for s in sources %}
+                        <option value="{{ s.SourceType }}">{{ s.SourceType }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.409081f8', 'Signature Status') }}</label>
+<select class="form-select" id="filterSignature">
+<option value="">{{ get_translation('auto.e7eb8733', 'All') }}</option>
+<option value="signed">{{ get_translation('auto.db1f48f5', 'Signed') }}</option>
+<option value="unsigned">{{ get_translation('auto.d136573c', 'Unsigned') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<div class="form-check mt-4">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.1afdd830', 'Apply') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- NCR Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-list"></i>{{ get_translation('auto.e631456e', 'Non‑Conformance Reports') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="ncrTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.e46a26d3', 'NCR #') }}</th><th>{{ get_translation('auto.e16396a4', 'Source') }}</th><th>{{ get_translation('auto.a546e563', 'Product') }}</th><th>{{ get_translation('auto.9374c3c1', 'Severity') }}</th><th>{{ get_translation('auto.8789ef98', 'Status') }}</th><th>{{ get_translation('auto.9531b015', 'Signed') }}</th><th>{{ get_translation('auto.d112df6a', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="ncrTableBody">
+<tr><td class="text-center py-4" colspan="7">{{ get_translation('auto.d1fd293c', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Raise NCR Modal -->
+<div class="modal fade" id="raiseNcrModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.7f337bc1', 'Raise New NCR') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.a43d1e6d', 'Source Type') }}</label>
+<select class="form-select" id="newSource">
+                                {% for s in sources %}
+                                <option value="{{ s.SourceType }}">{{ s.SourceType }}</option>
+                                {% endfor %}
+                            </select>
+</div>
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.2a6efd81', 'Product') }}</label>
+<select class="form-select" id="newProduct">
+<option value="">{{ get_translation('auto.f155f459', 'Select Product') }}</option>
+                                {% for p in products %}
+                                <option value="{{ p.ProductID }}">{{ p.ProductID }}</option>
+                                {% endfor %}
+                            </select>
+</div>
+</div>
+<div class="row">
+<div class="col-md-4 mb-3">
+<label>{{ get_translation('auto.0ee9ba7d', 'Batch/Lot Number') }}</label>
+<input class="form-control" id="newBatch" type="text"/>
+</div>
+<div class="col-md-4 mb-3">
+<label>{{ get_translation('auto.2b5498f8', 'Quantity') }}</label>
+<input class="form-control" id="newQuantity" type="number"/>
+</div>
+<div class="col-md-4 mb-3">
+<label>{{ get_translation('auto.2d4edd30', 'Defect Code') }}</label>
+<input class="form-control" id="newDefectCode" type="text"/>
+</div>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.404644aa', 'Defect Description') }}</label>
+<textarea class="form-control" id="newDescription" rows="2"></textarea>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.6d41d234', 'Severity') }}</label>
+<select class="form-select" id="newSeverity">
+<option>{{ get_translation('auto.bd75dfa4', 'Critical') }}</option><option>{{ get_translation('auto.203409ab', 'Major') }}</option><option>{{ get_translation('auto.836acb13', 'Minor') }}</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.c6407dce', 'Project ID (optional)') }}</label>
+<input class="form-control" id="newProject" type="text"/>
+</div>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.e309c0b8', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveNcrBtn">{{ get_translation('auto.d91f7c9a', 'Raise NCR') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Close NCR Modal -->
+<div class="modal fade" id="closeNcrModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.cbd97543', 'Close NCR') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="closeNcrId" type="hidden"/>
+<p>{{ get_translation('auto.72137d0c', 'Are you sure you want to close this NCR?') }}</p>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.abcc61e3', 'Cancel') }}</button>
+<button class="btn btn-success" id="confirmCloseBtn">{{ get_translation('auto.08afe228', 'Close') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Sign Disposition Modal -->
+<div class="modal fade" id="signModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.b4bfe51c', 'Sign Disposition') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="signNcrId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.1612bdaa', 'Digital Signature (PIN or password)') }}</label>
+<input class="form-control" id="signatureValue" type="password"/>
+</div>
+<p class="text-muted">{{ get_translation('auto.0cdee02c', 'This signature confirms the disposition decision.') }}</p>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.cb5c4e16', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmSignBtn">{{ get_translation('auto.06a6184d', 'Sign') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let raiseModal = new bootstrap.Modal(document.getElementById('raiseNcrModal'));
+    let closeModal = new bootstrap.Modal(document.getElementById('closeNcrModal'));
+    let signModal = new bootstrap.Modal(document.getElementById('signModal'));
+    let currentNcrId = null;
+
+    function loadKPI() {
+        $.get('/api/quality/ncr/kpi', function(data) {
+            $('#kpiOpen').text(data.open);
+            $('#kpiClosed').text(data.closed);
+            $('#kpiSeverity').text(`${data.critical} / ${data.major} / ${data.minor}`);
+            $('#kpiUnsignedCritical').text(data.unsignedCritical);
+        }).fail(console.error);
+    }
+
+
+
+    function loadNCRs() {
+        let params = {
+            severity: $('#filterSeverity').val(),
+            status: $('#filterStatus').val(),
+            source: $('#filterSource').val(),
+            signature_status: $('#filterSignature').val()
+        };
+        $.get('/api/quality/ncr/list', params, function(ncrs) {
+            let tbody = $('#ncrTableBody').empty();
+            for (let n of ncrs) {
+                let signedBadge = n.DispositionSigned === 'Yes' ? 
+                    '<span class="badge bg-success">Yes</span>' : 
+                    '<span class="badge bg-danger">No</span>';
+                let severityClass = n.Severity === 'Critical' ? 'text-danger fw-bold' : '';
+                let row = `<tr>
+                    <td><a href="#" class="ncr-detail" data-id="${n.NCRID}">${n.NCRNumber}</a></td>
+                    <td>${n.SourceType}</td><td>${n.ProductID || ''}</td>
+                    <td class="${severityClass}">${n.Severity || ''}</td>
+                    <td>${n.Status}</td><td>${signedBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning sign-btn" data-id="${n.NCRID}" ${n.DispositionSigned === 'Yes' ? 'disabled' : ''}>Sign</button>
+                        <button class="btn btn-sm btn-danger close-btn" data-id="${n.NCRID}" ${n.Status === 'Closed' ? 'disabled' : ''}>Close</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(console.error);
+    }
+
+    $('#raiseNcrBtn').click(function() {
+        $('#newSource').val('');
+        $('#newProduct').val('');
+        $('#newBatch').val('');
+        $('#newQuantity').val('');
+        $('#newDefectCode').val('');
+        $('#newDescription').val('');
+        $('#newSeverity').val('Major');
+        $('#newProject').val('');
+        raiseModal.show();
+    });
+
+    $('#saveNcrBtn').click(function() {
+        let data = {
+            sourceType: $('#newSource').val(),
+            productId: $('#newProduct').val(),
+            batchNumber: $('#newBatch').val(),
+            quantity: $('#newQuantity').val(),
+            defectCode: $('#newDefectCode').val(),
+            description: $('#newDescription').val(),
+            severity: $('#newSeverity').val(),
+            projectId: $('#newProject').val()
+        };
+        $.ajax({
+            url: '/api/quality/ncr',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                raiseModal.hide();
+                loadNCRs();
+                loadKPI();
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+
+$(document).on('click', '.sign-disposition-btn', function() {
+    var ncrId = $(this).data('id');
+    showSignatureModal({
+        title: 'Sign NCR Disposition',
+        recordId: ncrId,
+        recordType: 'ncr',
+        onConfirm: function(data) {
+            $.post('/api/quality/sign/ncr/' + data.recordId + '/disposition', {
+                password: data.password,
+                comment: data.comment
+            }, function() {
+                // Refresh page or update status
+                location.reload();
+            }).fail(function() { alert('Signature failed'); });
+        }
+    });
+});
+
+
+
+
+    $(document).on('click', '.close-btn', function() {
+        currentNcrId = $(this).data('id');
+        $('#closeNcrId').val(currentNcrId);
+        closeModal.show();
+    });
+    $('#confirmCloseBtn').click(function() {
+        let data = { closedDateKey: parseInt(new Date().toISOString().slice(0,10).replace(/-/g,'')) };
+        $.ajax({
+            url: `/api/quality/ncr/${currentNcrId}/close`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                closeModal.hide();
+                loadNCRs();
+                loadKPI();
+            }
+        });
+    });
+
+    $(document).on('click', '.sign-btn', function() {
+        currentNcrId = $(this).data('id');
+        $('#signNcrId').val(currentNcrId);
+        $('#signatureValue').val('');
+        signModal.show();
+    });
+    $('#confirmSignBtn').click(function() {
+        let data = { signature: $('#signatureValue').val() };
+        $.ajax({
+            url: `/api/quality/ncr/${currentNcrId}/sign`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                signModal.hide();
+                loadNCRs();
+                loadKPI();
+            }
+        });
+    });
+
+    $('#applyFiltersBtn').click(function() { loadNCRs(); });
+    $('#refreshBtn').click(function() { loadNCRs(); loadKPI(); });
+    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/ncr/export'; });
+
+    // Optional: detail page on click NCR number (can navigate to a detail view)
+    $(document).on('click', '.ncr-detail', function(e) {
+        e.preventDefault();
+        let id = $(this).data('id');
+        alert('Detail page not yet implemented. You can add a separate route for NCR detail.');
+        // window.open(`/quality/ncr/${id}/detail`, '_blank');
+    });
+
+    loadKPI();
+    loadNCRs();
+});
+</script>
+{% endblock %}

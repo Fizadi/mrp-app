@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}AI Parser Test{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">
+            <i class="fas fa-flask me-2"></i>AI Parser — Proof of Concept
+        </h2>
+        <small class="text-muted">Phase 1: test only. Nothing is saved to the DB.</small>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-keyboard me-1"></i>Input Text</span>
+                    <select id="contextSel" class="form-select form-select-sm" style="width:auto;">
+                        <option value="opportunity">Opportunity</option>
+                        <option value="customer">Customer</option>
+                        <option value="activity">Activity</option>
+                        <option value="task">Task</option>
+                        <option value="quote">Quote</option>
+                    </select>
+                </div>
+                <div class="card-body">
+                    <textarea id="inputText" class="form-control" rows="18"
+                        placeholder="Paste free-form text here...&#10;&#10;Example:&#10;I contacted Petrofanavr company, here is their contacts from website: Tel: 021-88776655. I called Mr. Ahladi, who is sales engineer, mobile 0912-3456789. Set a meeting on 2026-09-25 about the new ball valve project."></textarea>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small id="charCount" class="text-muted">0 chars</small>
+                        <div>
+                            <button id="loadSampleBtn" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-vial me-1"></i>Load sample
+                            </button>
+                            <button id="parseBtn" class="btn btn-sm btn-primary">
+                                <i class="fas fa-magic me-1"></i>Parse with AI
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-code me-1"></i>Parsed JSON</span>
+                    <span id="statusBadge" class="badge bg-secondary">idle</span>
+                </div>
+                <div class="card-body">
+                    <pre id="outputJson" class="bg-light p-3 rounded" style="max-height:600px; overflow:auto; font-size:12px;">Waiting for input...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function el(id) { return document.getElementById(id); }
+
+function showStatus(text, color) {
+    var b = el('statusBadge');
+    b.className = 'badge bg-' + color;
+    b.textContent = text;
+}
+
+function loadSample() {
+    el('inputText').value = "I contacted Petrofanavr company, here is their contacts from website:\n" +
+        "Tel: 021-88776655 (Main), 021-88776656 (Sales)\n" +
+        "Website: petrofanavr.ir\n" +
+        "Address: Tehran, Valiasr St.\n\n" +
+        "I called Mr. Ahladi, who is sales engineer, mobile 0912-3456789.\n" +
+        "Set a meeting on 2026-09-25 about the new ball valve project.\n" +
+        "Budget is around 200 million tomans.";
+    updateCharCount();
+}
+
+function updateCharCount() {
+    var n = el('inputText').value.length;
+    el('charCount').textContent = n + ' chars';
+}
+
+function parseText() {
+    var text = el('inputText').value.trim();
+    if (!text) { alert('Please enter some text first'); return; }
+
+    showStatus('parsing...', 'warning');
+    el('outputJson').textContent = 'Calling LLM...';
+
+    var t0 = Date.now();
+    fetch('/crm/ai/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+            text: text,
+            context: el('contextSel').value,
+        }),
+    })
+    .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+    .then(function (res) {
+        var elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+        if (res.status === 200 && res.body.ok) {
+            el('outputJson').textContent = JSON.stringify(res.body.parsed, null, 2);
+            showStatus('OK · ' + elapsed + 's', 'success');
+        } else {
+            el('outputJson').textContent = 'ERROR:\n\n' + (res.body.error || JSON.stringify(res.body, null, 2));
+            showStatus('error · ' + elapsed + 's', 'danger');
+        }
+    })
+    .catch(function (err) {
+        el('outputJson').textContent = 'FETCH ERROR:\n\n' + err.message;
+        showStatus('fetch failed', 'danger');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    el('parseBtn').addEventListener('click', parseText);
+    el('loadSampleBtn').addEventListener('click', loadSample);
+    el('inputText').addEventListener('input', updateCharCount);
+    updateCharCount();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.58916454', 'Home') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/project_portfolio">{{ get_translation('auto.e28e952e', 'Projects') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/dashboard/{{ project_id }}">{{ project_id }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.f2863a12', 'Deliverables') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.ca2b7fb6', '📦 Project Deliverables') }}</h2>
+<div>
+<button class="btn btn-outline-primary me-2" id="dl-import-btn">{{ get_translation('auto.79dbe1ca', '📂 Import CSV') }}</button>
+<button class="btn btn-outline-secondary me-2" id="dl-export-btn">{{ get_translation('auto.6742d47c', '📎 Export CSV') }}</button>
+<input accept=".csv" id="dl-import-file" style="display: none;" type="file"/>
+<a class="btn btn-secondary" href="/project/dashboard/{{ project_id }}">{{ get_translation('auto.4c8c5795', '← Back to Dashboard') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-2 mb-4">
+<div class="col-md-2"><div class="card text-center p-2 bg-secondary text-white"><h6>{{ get_translation('auto.30f6b8ae', 'Total') }}</h6><h3 id="kpi-total">{{ get_translation('auto.0d21e35a', '0') }}</h3></div></div>
+<div class="col-md-2"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('auto.302ae543', 'Pending') }}</h6><h3 id="kpi-pending">{{ get_translation('auto.a2a6663b', '0') }}</h3></div></div>
+<div class="col-md-2"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('auto.7e64472d', 'Submitted') }}</h6><h3 id="kpi-submitted">{{ get_translation('auto.161a21b4', '0') }}</h3></div></div>
+<div class="col-md-2"><div class="card text-center p-2 bg-success text-white"><h6>{{ get_translation('auto.3059249c', 'Approved') }}</h6><h3 id="kpi-approved">{{ get_translation('auto.bc669132', '0') }}</h3></div></div>
+<div class="col-md-2"><div class="card text-center p-2 bg-danger text-white"><h6>{{ get_translation('auto.2c6ae334', 'Rejected') }}</h6><h3 id="kpi-rejected">{{ get_translation('auto.bac9e80f', '0') }}</h3></div></div>
+<div class="col-md-2 d-flex align-items-stretch">
+<button class="btn btn-primary w-100" id="dl-add-sample" type="button">{{ get_translation('auto.b872fb07', '+ Add Sample') }}</button>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3 p-3">
+<div class="row g-2 align-items-end">
+<div class="col-md-3">
+<label>{{ get_translation('auto.848c6d98', 'Status') }}</label>
+<select class="form-select" id="dl-filter-status">
+<option value="">{{ get_translation('auto.18245109', 'All') }}</option>
+<option value="Pending">{{ get_translation('auto.16a2eee4', 'Pending') }}</option>
+<option value="Submitted">{{ get_translation('auto.7ad86ee3', 'Submitted') }}</option>
+<option value="Approved">{{ get_translation('auto.edfff447', 'Approved') }}</option>
+<option value="Rejected">{{ get_translation('auto.e62a1aea', 'Rejected') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.52713fd7', 'Responsible') }}</label>
+<select class="form-select" id="dl-filter-responsible">
+<option value="">{{ get_translation('auto.117f3f31', 'All') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<button class="btn btn-secondary w-100" id="dl-apply-filters" type="button">{{ get_translation('auto.f8dbbc3b', 'Apply Filters') }}</button>
+</div>
+</div>
+</div>
+<!-- Deliverables Table -->
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+<thead class="table-dark">
+<tr><th>{{ get_translation('auto.1306ee5c', 'Deliverable Name') }}</th><th>{{ get_translation('auto.f0f2c058', 'Due Date') }}</th><th>{{ get_translation('auto.5206fa0d', 'Responsible') }}</th><th>{{ get_translation('auto.2c3929e5', 'Status') }}</th><th>{{ get_translation('auto.59564f34', 'Approved?') }}</th><th>{{ get_translation('auto.47882925', 'Actions') }}</th></tr>
+</thead>
+<tbody id="dl-tbody"></tbody>
+</table>
+</div>
+</div>
+<!-- Submit Modal -->
+<div class="modal fade" id="submitModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.ea453b3a', 'Submit for Approval') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.711c5d61', 'Submit "') }}<span id="submit-name"></span>{{ get_translation('auto.a1c387ac', '" for customer approval?') }}</p>
+<input id="submit-id" type="hidden"/>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="confirm-submit">{{ get_translation('auto.7cc1abbb', 'Submit') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.b9fccdaf', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Approve/Reject Modal (for internal approver) -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.ae060d48', 'Approve or Reject') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.8aabf1cb', 'Decide on "') }}<span id="approve-name"></span>{{ get_translation('auto.29b5cc11', '"') }}</p>
+<input id="approve-id" type="hidden"/>
+</div>
+<div class="modal-footer">
+<button class="btn btn-success" id="confirm-approve">{{ get_translation('auto.da7b338d', 'Approve') }}</button>
+<button class="btn btn-danger" id="confirm-reject">{{ get_translation('auto.c5062514', 'Reject') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.405d2ba2', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    all:                 {{ get_translation('global.all', 'All')|tojson }},
+    error:               {{ get_translation('global.error', 'Error')|tojson }},
+    unknown:             {{ get_translation('global.unknown', 'Unknown')|tojson }},
+    load_error:          {{ get_translation('ms.deliverables.load_error', 'Load error')|tojson }},
+    submit_btn:          {{ get_translation('ms.deliverables.submit_btn', 'Submit')|tojson }},
+    review_btn:          {{ get_translation('ms.deliverables.review_btn', 'Review')|tojson }},
+    approved_label:      {{ get_translation('ms.deliverables.approved_label', 'Approved')|tojson }},
+    rejected_label:      {{ get_translation('ms.deliverables.rejected_label', 'Rejected')|tojson }},
+    checkmark:           {{ get_translation('ms.deliverables.checkmark', '✓')|tojson }},
+    xmark:               {{ get_translation('ms.deliverables.xmark', '✗')|tojson }},
+    imported_prefix:     {{ get_translation('ms.deliverables.imported_prefix', 'Imported')|tojson }},
+    imported_suffix:     {{ get_translation('ms.deliverables.imported_suffix', 'deliverables.')|tojson }},
+    errors_label:        {{ get_translation('ms.deliverables.errors_label', 'Errors')|tojson }},
+    import_failed:       {{ get_translation('ms.deliverables.import_failed', 'Import failed')|tojson }},
+    prompt_product:      {{ get_translation('ms.deliverables.prompt_product', 'Product ID (e.g., VALVE-500-CTRL):')|tojson }},
+    prompt_product_default: {{ get_translation('ms.deliverables.prompt_product_default', 'SAMPLE-DEL')|tojson }},
+    prompt_due:          {{ get_translation('ms.deliverables.prompt_due', 'Due date (YYYYMMDD):')|tojson }},
+    prompt_due_default:  {{ get_translation('ms.deliverables.prompt_due_default', '20251231')|tojson }},
+    prompt_resp:         {{ get_translation('ms.deliverables.prompt_resp', 'Responsible:')|tojson }},
+    prompt_resp_default: {{ get_translation('ms.deliverables.prompt_resp_default', 'Project Manager')|tojson }}
+};
+
+// ============================================================
+// 2. State — TOP LEVEL
+// ============================================================
+var projectId = "{{ project_id }}";
+
+// ============================================================
+// 3. Helper functions — TOP LEVEL
+// ============================================================
+function formatDateKey(dateKey) {
+    if (!dateKey) return '-';
+    var s = dateKey.toString();
+    if (s.length !== 8) return s;
+    return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+}
+
+function showModal(id) {
+    var el = document.getElementById(id);
+    if (el) new bootstrap.Modal(el).show();
+}
+
+function hideModal(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        var inst = bootstrap.Modal.getInstance(el);
+        if (inst) inst.hide();
+    }
+}
+
+// ============================================================
+// 4. Data loading — TOP LEVEL, fetch()
+// ============================================================
+function loadDeliverables() {
+    var statusEl = document.getElementById('dl-filter-status');
+    var responsibleEl = document.getElementById('dl-filter-responsible');
+    var status = statusEl ? statusEl.value : '';
+    var responsible = responsibleEl ? responsibleEl.value : '';
+
+    var url = '/api/project/deliverables/' + projectId;
+    var params = [];
+    if (status) params.push('status=' + encodeURIComponent(status));
+    if (responsible) params.push('responsible=' + encodeURIComponent(responsible));
+    if (params.length) url += '?' + params.join('&');
+
+    console.log('Fetching deliverables:', url);
+
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var kpiTotal = document.getElementById('kpi-total');
+            var kpiPending = document.getElementById('kpi-pending');
+            var kpiSubmitted = document.getElementById('kpi-submitted');
+            var kpiApproved = document.getElementById('kpi-approved');
+            var kpiRejected = document.getElementById('kpi-rejected');
+            if (kpiTotal) kpiTotal.innerText = data.kpis.total;
+            if (kpiPending) kpiPending.innerText = data.kpis.pending;
+            if (kpiSubmitted) kpiSubmitted.innerText = data.kpis.submitted;
+            if (kpiApproved) kpiApproved.innerText = data.kpis.approved;
+            if (kpiRejected) kpiRejected.innerText = data.kpis.rejected;
+
+            // Update responsible filter dropdown
+            var respSelect = document.getElementById('dl-filter-responsible');
+            if (respSelect) {
+                var currentResp = respSelect.value;
+                respSelect.innerHTML = '<option value="">' + trans.all + '</option>';
+                (data.filter_options.responsibles || []).forEach(function(r) {
+                    var opt = document.createElement('option');
+                    opt.value = r;
+                    opt.innerText = r;
+                    if (r === currentResp) opt.selected = true;
+                    respSelect.appendChild(opt);
+                });
+            }
+
+            var tbody = document.getElementById('dl-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            (data.deliverables || []).forEach(function(d) {
+                var row = tbody.insertRow();
+                row.insertCell(0).innerText = d.name;
+                row.insertCell(1).innerText = formatDateKey(d.due_date);
+                row.insertCell(2).innerText = d.responsible || '-';
+                row.insertCell(3).innerText = d.status;
+                row.insertCell(4).innerHTML = d.customer_approval ? trans.checkmark : trans.xmark;
+
+                var actions = row.insertCell(5);
+                if (d.status === 'Pending') {
+                    var submitBtn = document.createElement('button');
+                    submitBtn.className = 'btn btn-sm btn-primary submit-deliverable';
+                    submitBtn.innerText = trans.submit_btn;
+                    submitBtn.dataset.id = d.id;
+                    submitBtn.dataset.name = d.name;
+                    actions.appendChild(submitBtn);
+                } else if (d.status === 'Submitted') {
+                    var reviewBtn = document.createElement('button');
+                    reviewBtn.className = 'btn btn-sm btn-warning review-deliverable';
+                    reviewBtn.innerText = trans.review_btn;
+                    reviewBtn.dataset.id = d.id;
+                    reviewBtn.dataset.name = d.name;
+                    actions.appendChild(reviewBtn);
+                } else {
+                    actions.innerText = d.status === 'Approved' ? trans.approved_label : trans.rejected_label;
+                }
+            });
+        })
+        .catch(function(err) {
+            console.error(trans.load_error + ':', err);
+        });
+}
+
+// ============================================================
+// 5. Action handlers — TOP LEVEL
+// ============================================================
+function openSubmitModal(id, name) {
+    document.getElementById('submit-id').value = id;
+    document.getElementById('submit-name').innerText = name;
+    showModal('submitModal');
+}
+
+function openReviewModal(id, name) {
+    document.getElementById('approve-id').value = id;
+    document.getElementById('approve-name').innerText = name;
+    showModal('approveModal');
+}
+
+function confirmSubmit() {
+    var id = document.getElementById('submit-id').value;
+    if (!id) return;
+
+    fetch('/api/project/deliverable/submit_approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliverable_id: id })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            hideModal('submitModal');
+            loadDeliverables();
+        } else {
+            alert(trans.error + ': ' + (res.error || trans.unknown));
+        }
+    })
+    .catch(function(err) {
+        alert(trans.error + ': ' + err.message);
+    });
+}
+
+function confirmApprove() {
+    var id = document.getElementById('approve-id').value;
+    if (!id) return;
+
+    fetch('/api/project/deliverable/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliverable_id: id })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            hideModal('approveModal');
+            loadDeliverables();
+        } else {
+            alert(trans.error);
+        }
+    })
+    .catch(function(err) {
+        alert(trans.error + ': ' + err.message);
+    });
+}
+
+function confirmReject() {
+    var id = document.getElementById('approve-id').value;
+    if (!id) return;
+
+    fetch('/api/project/deliverable/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliverable_id: id })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            hideModal('approveModal');
+            loadDeliverables();
+        } else {
+            alert(trans.error);
+        }
+    })
+    .catch(function(err) {
+        alert(trans.error + ': ' + err.message);
+    });
+}
+
+function handleImportFile(e) {
+    var fd = new FormData();
+    fd.append('file', e.target.files[0]);
+
+    fetch('/api/project/deliverables/import', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var errs = (res.errors || []).join(', ');
+                alert(trans.imported_prefix + ' ' + res.created + ' ' + trans.imported_suffix + '\n' + trans.errors_label + ': ' + errs);
+                loadDeliverables();
+            } else {
+                alert(trans.import_failed);
+            }
+        })
+        .catch(function(err) {
+            alert(trans.import_failed + ': ' + err.message);
+        });
+
+    e.target.value = ''; // allow re-upload
+}
+
+function exportCSV() {
+    window.location.href = '/api/project/deliverables/export/' + projectId;
+}
+
+function addSampleDeliverable() {
+    var prod = prompt(trans.prompt_product, trans.prompt_product_default);
+    if (!prod) return;
+
+    var due = prompt(trans.prompt_due, trans.prompt_due_default);
+    if (!due) return;
+
+    var resp = prompt(trans.prompt_resp, trans.prompt_resp_default);
+
+    fetch('/api/project/deliverable/sample', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            project_id: projectId,
+            product_id: prod,
+            due_date_key: parseInt(due),
+            responsible: resp
+        })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) loadDeliverables();
+        else alert(trans.error);
+    })
+    .catch(function(err) {
+        alert(trans.error + ': ' + err.message);
+    });
+}
+
+// ============================================================
+// 6. Init — DOMContentLoaded
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadDeliverables();
+
+    // Apply filters
+    var applyBtn = document.getElementById('dl-apply-filters');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadDeliverables();
+        });
+    }
+
+    // Submit / Approve / Reject confirmations
+    var confirmSubmitBtn = document.getElementById('confirm-submit');
+    if (confirmSubmitBtn) confirmSubmitBtn.addEventListener('click', confirmSubmit);
+
+    var confirmApproveBtn = document.getElementById('confirm-approve');
+    if (confirmApproveBtn) confirmApproveBtn.addEventListener('click', confirmApprove);
+
+    var confirmRejectBtn = document.getElementById('confirm-reject');
+    if (confirmRejectBtn) confirmRejectBtn.addEventListener('click', confirmReject);
+
+    // Import / Export
+    var importBtn = document.getElementById('dl-import-btn');
+    var importFile = document.getElementById('dl-import-file');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function() { importFile.click(); });
+        importFile.addEventListener('change', handleImportFile);
+    }
+
+    var exportBtn = document.getElementById('dl-export-btn');
+    if (exportBtn) exportBtn.addEventListener('click', exportCSV);
+
+    // Add Sample
+    var addSampleBtn = document.getElementById('dl-add-sample');
+    if (addSampleBtn) addSampleBtn.addEventListener('click', addSampleDeliverable);
+
+    // Delegated handlers for dynamically-rendered row buttons
+    document.addEventListener('click', function(e) {
+        var submitBtn = e.target.closest('.submit-deliverable');
+        if (submitBtn) {
+            openSubmitModal(submitBtn.dataset.id, submitBtn.dataset.name);
+            return;
+        }
+
+        var reviewBtn = e.target.closest('.review-deliverable');
+        if (reviewBtn) {
+            openReviewModal(reviewBtn.dataset.id, reviewBtn.dataset.name);
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

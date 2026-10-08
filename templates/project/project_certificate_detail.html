@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+        <h2 id="cert-number">{{ get_translation('certificate.loading', 'Loading...') }}</h2>
+        <div>
+            <button class="btn btn-success" id="submitBtn" style="display:none;">{{ get_translation('certificate.submit_approval', 'Submit for Approval') }}</button>
+            <button class="btn btn-primary" id="approveBtn" style="display:none;">{{ get_translation('certificate.approve', 'Approve') }}</button>
+            <button class="btn btn-primary" id="addProductLineBtn" style="display:none;">+ Add Product Line</button>
+            <button class="btn btn-info" id="addServiceLineBtn" style="display:none;">+ Add Service Line</button>
+            <button class="btn btn-secondary" id="printPdfBtn">{{ get_translation('certificate.print_pdf', 'Print PDF') }}</button>
+            <a href="/project/certificates/PROJ-GACH-2024" class="btn btn-secondary ms-2">{{ get_translation('certificate.back_to_list', '← Back to List') }}</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">{{ get_translation('certificate.info', 'Certificate Information') }}</div>
+                <div class="card-body" id="cert-info">{{ get_translation('certificate.loading', 'Loading...') }}</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">{{ get_translation('certificate.financial_summary', 'Financial Summary') }}</div>
+                <div class="card-body" id="cert-summary">{{ get_translation('certificate.loading', 'Loading...') }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>{{ get_translation('certificate.boq_items', 'BOQ Items & Quantities') }}</span>
+            <div>
+                <button class="btn btn-sm btn-primary" id="addProductLineBtn2" style="display:none;">+ Add Product</button>
+                <button class="btn btn-sm btn-info" id="addServiceLineBtn2" style="display:none;">+ Add Service</button>
+            </div>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>{{ get_translation('certificate.type', 'Type') }}</th>
+                        <th>{{ get_translation('certificate.item_description', 'Item Description') }}</th>
+                        <th>{{ get_translation('certificate.unit', 'Unit') }}</th>
+                        <th>{{ get_translation('certificate.previous_qty', 'Previous Qty') }}</th>
+                        <th>{{ get_translation('certificate.completed_qty', 'Completed Qty') }}</th>
+                        <th>{{ get_translation('certificate.total_qty', 'Total Qty') }}</th>
+                        <th>{{ get_translation('certificate.unit_price', 'Unit Price') }}</th>
+                        <th>{{ get_translation('certificate.amount', 'Amount') }}</th>
+                        <th>{{ get_translation('certificate.actions', 'Actions') }}</th>
+                    </table>
+                </thead>
+                <tbody id="lines-tbody"></tbody>
+                <tfoot id="lines-tfoot" style="font-weight:bold;"></tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Product Line Modal -->
+<div class="modal fade" id="addProductLineModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('certificate.add_product_line', 'Add Product Line') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label>{{ get_translation('project.product_tree.product', 'Product') }}</label><select id="productLineSelect" class="form-select"></select></div>
+                <div class="mb-2"><label>{{ get_translation('certificate.completed_qty', 'Completed Quantity') }}</label><input type="number" id="productLineQty" class="form-control" step="0.01" value="0"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" id="saveProductLineBtn">{{ get_translation('global.add', 'Add') }}</button><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Service Line Modal -->
+<div class="modal fade" id="addServiceLineModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('certificate.add_service_line', 'Add Service Line') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label>{{ get_translation('certificate.description', 'Description') }}</label><input type="text" id="serviceDesc" class="form-control"></div>
+                <div class="mb-2"><label>{{ get_translation('certificate.unit', 'Unit') }}</label><select id="serviceUnit" class="form-select"><option>Hour</option><option>Day</option><option>Month</option><option>Lump Sum</option></select></div>
+                <div class="mb-2"><label>{{ get_translation('certificate.unit_price', 'Unit Price') }}</label><input type="number" id="serviceUnitPrice" class="form-control" step="0.01" value="0"></div>
+                <div class="mb-2"><label>{{ get_translation('certificate.completed_qty', 'Completed Quantity') }}</label><input type="number" id="serviceQty" class="form-control" step="0.01" value="0"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" id="saveServiceLineBtn">{{ get_translation('global.add', 'Add') }}</button><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button></div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/jquery-3.6.0.min.js"></script>
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+<script>
+const certId = {{ cert_id }};
+const projectId = "{{ project_id }}";
+let certificateLines = [];
+
+function formatNumber(num) {
+    return Number(num).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+function escapeHtml(str) { return $('<div/>').text(str).html(); }
+
+function loadProductsForDropdown() {
+    $.get(`/api/project/products/${projectId}`, function(products) {
+        let select = $('#productLineSelect');
+        select.empty().append('<option value="">Select product...</option>');
+        products.forEach(p => {
+            select.append(`<option value="${p.id}" data-price="${p.unit_price}">${p.id} - ${p.name || p.id}</option>`);
+        });
+    });
+}
+
+function loadCertificate() {
+    $.get(`/api/project/certificate/${certId}`)
+        .done(function(data) {
+            const cert = data.certificate;
+            const statusBadge = cert.status === 'Approved' ? 'success' : (cert.status === 'Submitted' ? 'warning' : 'secondary');
+            const statusText = cert.status === 'Draft' ? 'Draft' : (cert.status === 'Submitted' ? 'Submitted' : 'Approved');
+            
+            $('#cert-number').text(`Certificate: ${cert.number}`);
+            $('#cert-info').html(`
+                <p><strong>{{ get_translation('certificate.period', 'Period') }}:</strong> ${cert.start} to ${cert.end}</p>
+                <p><strong>{{ get_translation('certificate.status', 'Status') }}:</strong> <span class="badge bg-${statusBadge}">${statusText}</span></p>
+                <p><strong>{{ get_translation('certificate.retention', 'Retention') }}:</strong> ${cert.retention_percent}%</p>
+                <p><strong>{{ get_translation('certificate.advance_recovery', 'Advance Recovery') }}:</strong> ${formatNumber(cert.advance_recovery)}</p>
+                <p><strong>{{ get_translation('certificate.notes', 'Notes') }}:</strong> ${cert.notes || '-'}</p>
+            `);
+            
+            $('#cert-summary').html(`
+                <p><strong>{{ get_translation('certificate.total_completed', 'Total Completed Amount') }}:</strong> ${formatNumber(cert.total_completed)}</p>
+                <p><strong>{{ get_translation('certificate.retention_amount', 'Retention Amount') }}:</strong> ${formatNumber(cert.retention_amount)}</p>
+                <p><strong>{{ get_translation('certificate.net_payable', 'Net Payable') }}:</strong> <strong class="text-success">${formatNumber(cert.net_payable)}</strong></p>
+            `);
+            
+            // Store lines from API (already have unit_price, etc.)
+            certificateLines = data.lines.map(line => ({
+                id: line.id,
+                type: 'product', // API currently returns only products
+                description: line.description,
+                unit: line.unit,
+                previous_qty: line.previous_qty,
+                completed_qty: line.completed_qty,
+                unit_price: line.unit_price,
+                amount: line.amount
+            }));
+            renderLinesTable();
+            
+            // Show/hide buttons based on status
+            if (cert.status === 'Draft') {
+                $('#submitBtn, #addProductLineBtn, #addServiceLineBtn, #addProductLineBtn2, #addServiceLineBtn2').show();
+            }
+            if (cert.status === 'Submitted') {
+                $('#approveBtn').show();
+            }
+        })
+        .fail(function(xhr) {
+            console.error('API error:', xhr.responseText);
+            $('#cert-info').html(`<p class="text-danger">{{ get_translation('certificate.failed_load', 'Failed to load certificate data') }}</p>`);
+        });
+}
+
+function renderLinesTable() {
+    let html = '';
+    let totalAmount = 0;
+    certificateLines.forEach((line, idx) => {
+        const currentQty = (line.completed_qty || 0) - (line.previous_qty || 0);
+        const amount = currentQty * (line.unit_price || 0);
+        totalAmount += amount;
+        html += `<tr>
+                    <td>${line.type === 'product' ? '📦 Product' : '🔧 Service'}</td>
+                    <td>${escapeHtml(line.description)}</td>
+                    <td>${line.unit || 'EA'}</td>
+                    <td>${(line.previous_qty || 0).toFixed(2)}</td>
+                    <td><input type="number" class="form-control form-control-sm completed-qty" value="${(line.completed_qty || 0).toFixed(2)}" step="0.01" data-idx="${idx}" style="width:100px;"></td>
+                    <td>${currentQty.toFixed(2)}</td>
+                    <td>${(line.unit_price || 0).toFixed(2)}</td>
+                    <td class="line-amount">${amount.toFixed(2)}</td>
+                    <td><button class="btn btn-sm btn-danger remove-line" data-idx="${idx}">Remove</button></td>
+                </tr>`;
+    });
+    $('#lines-tbody').html(html);
+    $('#lines-tfoot').html(`<tr><td colspan="7" class="text-end"><strong>{{ get_translation('certificate.total_amount', 'Total Amount') }}:</strong></td><td colspan="2"><strong>${totalAmount.toFixed(2)}</strong>｝`);
+    
+    // Bind events
+    $('.completed-qty').off('change').on('change', function() {
+        const idx = $(this).data('idx');
+        certificateLines[idx].completed_qty = parseFloat($(this).val()) || 0;
+        renderLinesTable();
+        saveLines();
+    });
+    
+    $('.remove-line').off('click').on('click', function() {
+        const idx = $(this).data('idx');
+        certificateLines.splice(idx, 1);
+        renderLinesTable();
+        saveLines();
+    });
+}
+
+function saveLines() {
+    const linesToSave = certificateLines.map(line => ({
+        id: line.id,
+        completed_qty: line.completed_qty
+    }));
+    $.ajax({
+        url: `/api/project/certificate/${certId}/lines`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ lines: linesToSave }),
+        success: function(res) {
+            if (!res.success) console.error('Save error:', res.error);
+        },
+        error: function() { console.error('Error saving lines'); }
+    });
+}
+
+function addProductLine() {
+    loadProductsForDropdown();
+    $('#addProductLineModal').modal('show');
+}
+
+function addServiceLine() {
+    $('#serviceDesc').val('');
+    $('#serviceUnit').val('Hour');
+    $('#serviceUnitPrice').val(0);
+    $('#serviceQty').val(0);
+    $('#addServiceLineModal').modal('show');
+}
+
+function saveProductLine() {
+    const productId = $('#productLineSelect').val();
+    const selectedOption = $('#productLineSelect option:selected');
+    if (!productId) { alert('Select a product'); return; }
+    const completedQty = parseFloat($('#productLineQty').val()) || 0;
+    
+    certificateLines.push({
+        id: null,
+        type: 'product',
+        description: selectedOption.text(),
+        unit: 'EA',
+        previous_qty: 0,
+        completed_qty: completedQty,
+        unit_price: parseFloat(selectedOption.data('price')) || 0,
+        amount: 0
+    });
+    renderLinesTable();
+    saveLines();
+    $('#addProductLineModal').modal('hide');
+    $('#productLineQty').val(0);
+}
+
+function saveServiceLine() {
+    const description = $('#serviceDesc').val();
+    if (!description) { alert('Enter service description'); return; }
+    const completedQty = parseFloat($('#serviceQty').val()) || 0;
+    const unitPrice = parseFloat($('#serviceUnitPrice').val()) || 0;
+    
+    certificateLines.push({
+        id: null,
+        type: 'service',
+        description: description,
+        unit: $('#serviceUnit').val(),
+        previous_qty: 0,
+        completed_qty: completedQty,
+        unit_price: unitPrice,
+        amount: completedQty * unitPrice
+    });
+    renderLinesTable();
+    saveLines();
+    $('#addServiceLineModal').modal('hide');
+    $('#serviceDesc').val('');
+    $('#serviceQty').val(0);
+    $('#serviceUnitPrice').val(0);
+}
+
+function updateStatus(status) {
+    $.ajax({
+        url: `/api/project/certificate/${certId}/status`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({status: status}),
+        success: function() { location.reload(); },
+        error: function() { alert('Error updating status'); }
+    });
+}
+
+$(document).ready(function() {
+    loadCertificate();
+    
+    $('#submitBtn').click(() => updateStatus('Submitted'));
+    $('#approveBtn').click(() => updateStatus('Approved'));
+    $('#addProductLineBtn, #addProductLineBtn2').click(addProductLine);
+    $('#addServiceLineBtn, #addServiceLineBtn2').click(addServiceLine);
+    $('#saveProductLineBtn').click(saveProductLine);
+    $('#saveServiceLineBtn').click(saveServiceLine);
+    $('#printPdfBtn').click(() => alert('PDF generation will be implemented later'));
+});
+</script>
+{% endblock %}

@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('engineering.eco.title', 'Engineering Change Orders') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('home', 'Home') }}</a></li>
+            <li class="breadcrumb-item">{{ get_translation('engineering', 'Engineering') }}</li>
+            <li class="breadcrumb-item active">{{ get_translation('engineering.eco.title', 'Engineering Change Orders') }}</li>
+        </ol>
+    </nav>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-2 col-sm-4 mb-2">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('engineering.eco.kpi.total', 'Total ECOs') }}</h6>
+                    <p class="card-text display-6" id="kpiTotal">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4 mb-2">
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('engineering.eco.kpi.draft', 'Draft') }}</h6>
+                    <p class="card-text display-6" id="kpiDraft">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4 mb-2">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('engineering.eco.kpi.review', 'Review') }}</h6>
+                    <p class="card-text display-6" id="kpiReview">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4 mb-2">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('engineering.eco.kpi.approved', 'Approved') }}</h6>
+                    <p class="card-text display-6" id="kpiApproved">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4 mb-2">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('engineering.eco.kpi.implemented', 'Implemented') }}</h6>
+                    <p class="card-text display-6" id="kpiImplemented">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4 mb-2">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('engineering.eco.kpi.rejected', 'Rejected') }}</h6>
+                    <p class="card-text display-6" id="kpiRejected">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Actions -->
+    <div class="row mb-3 g-2">
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.eco.filter.status', 'Status') }}</label>
+            <select class="form-select" id="filterStatus">
+                <option value="">{{ get_translation('all', 'All') }}</option>
+                <option value="Draft">{{ get_translation('engineering.eco.status.draft', 'Draft') }}</option>
+                <option value="Review">{{ get_translation('engineering.eco.status.review', 'In Review') }}</option>
+                <option value="Approved">{{ get_translation('engineering.eco.status.approved', 'Approved') }}</option>
+                <option value="Implemented">{{ get_translation('engineering.eco.status.implemented', 'Implemented') }}</option>
+                <option value="Rejected">{{ get_translation('engineering.eco.status.rejected', 'Rejected') }}</option>
+                <option value="Cancelled">{{ get_translation('engineering.eco.status.cancelled', 'Cancelled') }}</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.eco.filter.priority', 'Priority') }}</label>
+            <select class="form-select" id="filterPriority">
+                <option value="">{{ get_translation('all', 'All') }}</option>
+                <option value="Critical">{{ get_translation('engineering.eco.priority.critical', 'Critical') }}</option>
+                <option value="High">{{ get_translation('engineering.eco.priority.high', 'High') }}</option>
+                <option value="Medium">{{ get_translation('engineering.eco.priority.medium', 'Medium') }}</option>
+                <option value="Low">{{ get_translation('engineering.eco.priority.low', 'Low') }}</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.eco.filter.product', 'Affected Product') }}</label>
+            <select class="form-select" id="filterProduct">
+                <option value="">{{ get_translation('all', 'All') }}</option>
+                <!-- Products will be loaded dynamically -->
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary me-2" id="applyFiltersBtn">{{ get_translation('apply', 'Apply') }}</button>
+            <button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('reset', 'Reset') }}</button>
+        </div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+            <button class="btn btn-success" id="addEcoBtn">{{ get_translation('engineering.eco.add', '+ Add ECO') }}</button>
+            <button class="btn btn-secondary" id="exportBtn">{{ get_translation('export', 'Export') }}</button>
+        </div>
+    </div>
+
+    <!-- ECO Table -->
+    <div class="card">
+        <div class="card-header">{{ get_translation('engineering.eco.list', 'ECO List') }}</div>
+        <div class="card-body" style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+            <table class="table table-striped table-hover table-sticky">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('engineering.eco.number', 'ECO Number') }}</th>
+                        <th>{{ get_translation('engineering.eco.title_field', 'Title') }}</th>
+                        <th>{{ get_translation('engineering.eco.affected_product', 'Affected Product') }}</th>
+                        <th>{{ get_translation('engineering.eco.priority', 'Priority') }}</th>
+                        <th>{{ get_translation('engineering.eco.status', 'Status') }}</th>
+                        <th>{{ get_translation('engineering.eco.requested_by', 'Requested By') }}</th>
+                        <th>{{ get_translation('engineering.eco.requested_date', 'Requested Date') }}</th>
+                        <th>{{ get_translation('actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="ecoTableBody">
+                    <tr><td colspan="9" class="text-center">{{ get_translation('loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit ECO Modal -->
+<div class="modal fade" id="ecoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="ecoModalTitle">{{ get_translation('engineering.eco.add_modal', 'Add ECO') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editEcoId"/>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.eco.number', 'ECO Number') }}</label>
+                        <input class="form-control" id="ecoNumber" readonly/>
+                        <small class="text-muted">{{ get_translation('engineering.eco.number_hint', 'Auto-generated on save') }}</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.eco.status', 'Status') }}</label>
+                        <input class="form-control" id="ecoStatus" readonly/>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.title_field', 'Title') }} *</label>
+                    <input class="form-control" id="ecoTItle" required/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.title_local', 'Title (FA)') }}</label>
+                    <input class="form-control" id="ecoTItleLocal" dir="rtl"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.description', 'Description') }}</label>
+                    <textarea class="form-control" id="ecoDescription" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.description_local', 'Description (FA)') }}</label>
+                    <textarea class="form-control" id="ecoDescriptionLocal" rows="2" dir="rtl"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.eco.affected_product', 'Affected Product') }} *</label>
+                        <select class="form-select" id="ecoAffectedProduct">
+                            <option value="">{{ get_translation('select', 'Select a product...') }}</option>
+                            {% for p in products %}
+                            <option value="{{ p.ProductID }}">{{ p.ProductID }} - {{ p.descEnglish }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>{{ get_translation('engineering.eco.priority', 'Priority') }}</label>
+                        <select class="form-select" id="ecoPriority">
+                            <option value="Critical">{{ get_translation('engineering.eco.priority.critical', 'Critical') }}</option>
+                            <option value="High">{{ get_translation('engineering.eco.priority.high', 'High') }}</option>
+                            <option value="Medium" selected>{{ get_translation('engineering.eco.priority.medium', 'Medium') }}</option>
+                            <option value="Low">{{ get_translation('engineering.eco.priority.low', 'Low') }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.reason', 'Reason for Change') }}</label>
+                    <textarea class="form-control" id="ecoReason" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.impact_analysis', 'Impact Analysis') }}</label>
+                    <textarea class="form-control" id="ecoImpactAnalysis" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.risk_assessment', 'Risk Assessment') }}</label>
+                    <textarea class="form-control" id="ecoRiskAssessment" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.project', 'Project') }}</label>
+                    <select class="form-select" id="ecoProject">
+                        <option value="">{{ get_translation('none', 'None') }}</option>
+                        {% for proj in projects %}
+                        <option value="{{ proj.ProjectID }}">{{ proj.ProjectName }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveEcoBtn">{{ get_translation('save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ECO Action Modal (Approve/Reject/Implement) -->
+<div class="modal fade" id="ecoActionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="ecoActionTitle">{{ get_translation('engineering.eco.action', 'ECO Action') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="actionEcoId"/>
+                <input type="hidden" id="actionType"/>
+                <p><strong>{{ get_translation('engineering.eco.number', 'ECO Number') }}:</strong> <span id="actionEcoNumber"></span></p>
+                <p><strong>{{ get_translation('engineering.eco.title_field', 'Title') }}:</strong> <span id="actionEcoTitle"></span></p>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.eco.comments', 'Comments (optional)') }}</label>
+                    <textarea class="form-control" id="actionComments" rows="2"></textarea>
+                </div>
+                <div class="alert alert-warning" id="actionConfirmMsg">
+                    <i class="fas fa-exclamation-triangle"></i> {{ get_translation('engineering.eco.confirm_action', 'Are you sure you want to perform this action?') }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmActionBtn">{{ get_translation('confirm', 'Confirm') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ECO View Modal -->
+<div class="modal fade" id="ecoViewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('engineering.eco.view', 'ECO Details') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body" id="ecoViewContent">
+                <p class="text-muted">{{ get_translation('loading', 'Loading...') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('close', 'Close') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var editingId = null;
+
+    // ================================================================
+    // LOAD KPI STATS
+    // ================================================================
+    function loadStats() {
+        $.get('/api/bom/eco/stats')
+            .done(function(s) {
+                $('#kpiTotal').text(s.total || 0);
+                $('#kpiDraft').text(s.draft || 0);
+                $('#kpiReview').text(s.review || 0);
+                $('#kpiApproved').text(s.approved || 0);
+                $('#kpiImplemented').text(s.implemented || 0);
+                $('#kpiRejected').text(s.rejected || 0);
+            })
+            .fail(console.error);
+    }
+
+    // ================================================================
+    // LOAD ECO LIST
+    // ================================================================
+    function loadEcoList() {
+        var params = {
+            status: $('#filterStatus').val(),
+            priority: $('#filterPriority').val(),
+            product_id: $('#filterProduct').val()
+        };
+        $.get('/api/bom/eco', params)
+            .done(function(ecos) {
+                var $tbody = $('#ecoTableBody');
+                $tbody.empty();
+                if (!ecos || !ecos.length) {
+                    $tbody.html('<tr><td colspan="9" class="text-center">No ECOs found</td></tr>');
+                    return;
+                }
+                ecos.forEach(function(e, i) {
+                    var statusBadge = getStatusBadge(e.status);
+                    var priorityBadge = getPriorityBadge(e.priority);
+                    var row = '<tr>' +
+                        '<td>' + (i+1) + '</td>' +
+                        '<td><a href="#" class="view-eco" data-id="' + e.ecoId + '">' + escapeHtml(e.ecoNumber) + '</a></td>' +
+                        '<td>' + escapeHtml(e.title) + '</td>' +
+                        '<td>' + escapeHtml(e.affectedProductId) + '</td>' +
+                        '<td>' + priorityBadge + '</td>' +
+                        '<td>' + statusBadge + '</td>' +
+                        '<td>' + (e.requestedBy || '-') + '</td>' +
+                        '<td>' + (e.requestedDateKey ? formatDateKey(e.requestedDateKey) : '-') + '</td>' +
+                        '<td>' + getActionButtons(e) + '</td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() {
+                $('#ecoTableBody').html('<tr><td colspan="9" class="text-danger">Error loading ECOs</td></tr>');
+            });
+    }
+
+    function getStatusBadge(status) {
+        var colors = {
+            'Draft': 'secondary',
+            'Review': 'warning',
+            'Approved': 'success',
+            'Implemented': 'info',
+            'Rejected': 'danger',
+            'Cancelled': 'secondary'
+        };
+        var labels = {
+            'Draft': 'Draft',
+            'Review': 'In Review',
+            'Approved': 'Approved',
+            'Implemented': 'Implemented',
+            'Rejected': 'Rejected',
+            'Cancelled': 'Cancelled'
+        };
+        return '<span class="badge bg-' + (colors[status] || 'secondary') + '">' + (labels[status] || status) + '</span>';
+    }
+
+    function getPriorityBadge(priority) {
+        var colors = {
+            'Critical': 'danger',
+            'High': 'warning',
+            'Medium': 'info',
+            'Low': 'secondary'
+        };
+        return '<span class="badge bg-' + (colors[priority] || 'secondary') + '">' + (priority || 'Medium') + '</span>';
+    }
+
+    function getActionButtons(eco) {
+        var buttons = '';
+        // View always available
+        buttons += '<button class="btn btn-sm btn-info view-eco me-1" data-id="' + eco.ecoId + '" title="View"><i class="fas fa-eye"></i></button> ';
+        
+        // Edit only in Draft
+        if (eco.status === 'Draft') {
+            buttons += '<button class="btn btn-sm btn-warning edit-eco me-1" data-id="' + eco.ecoId + '" title="Edit"><i class="fas fa-edit"></i></button> ';
+            buttons += '<button class="btn btn-sm btn-primary submit-eco me-1" data-id="' + eco.ecoId + '" title="Submit for Review"><i class="fas fa-paper-plane"></i></button> ';
+        }
+        
+        // Approve/Reject only in Review
+        if (eco.status === 'Review') {
+            buttons += '<button class="btn btn-sm btn-success approve-eco me-1" data-id="' + eco.ecoId + '" title="Approve"><i class="fas fa-check"></i></button> ';
+            buttons += '<button class="btn btn-sm btn-danger reject-eco me-1" data-id="' + eco.ecoId + '" title="Reject"><i class="fas fa-times"></i></button> ';
+        }
+        
+        // Implement only in Approved
+        if (eco.status === 'Approved') {
+            buttons += '<button class="btn btn-sm btn-primary implement-eco me-1" data-id="' + eco.ecoId + '" title="Implement"><i class="fas fa-play"></i></button> ';
+        }
+        
+        // Cancel for Draft/Review/Approved
+        if (['Draft', 'Review', 'Approved'].includes(eco.status)) {
+            buttons += '<button class="btn btn-sm btn-secondary cancel-eco me-1" data-id="' + eco.ecoId + '" title="Cancel"><i class="fas fa-ban"></i></button> ';
+        }
+        
+        // Delete for Draft/Rejected/Cancelled
+        if (['Draft', 'Rejected', 'Cancelled'].includes(eco.status)) {
+            buttons += '<button class="btn btn-sm btn-danger delete-eco me-1" data-id="' + eco.ecoId + '" title="Delete"><i class="fas fa-trash"></i></button> ';
+        }
+        
+        return buttons;
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    function formatDateKey(key) {
+        if (!key) return '-';
+        var s = key.toString();
+        if (s.length === 8) {
+            return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+        }
+        return s;
+    }
+
+    // ================================================================
+    // OPEN ECO MODAL
+    // ================================================================
+    function openEcoModal(id) {
+        editingId = id;
+        $('#ecoModalTitle').text(id ? 'Edit ECO' : 'Add ECO');
+        if (id) {
+            $.get('/api/bom/eco/' + id)
+                .done(function(eco) {
+                    $('#editEcoId').val(eco.ecoId);
+                    $('#ecoNumber').val(eco.ecoNumber);
+                    $('#ecoStatus').val(eco.status);
+                    $('#ecoTItle').val(eco.title);
+                    $('#ecoTItleLocal').val(eco.titleLocal || '');
+                    $('#ecoDescription').val(eco.description || '');
+                    $('#ecoDescriptionLocal').val(eco.descriptionLocal || '');
+                    $('#ecoAffectedProduct').val(eco.affectedProductId);
+                    $('#ecoPriority').val(eco.priority || 'Medium');
+                    $('#ecoReason').val(eco.reason || '');
+                    $('#ecoImpactAnalysis').val(eco.impactAnalysis || '');
+                    $('#ecoRiskAssessment').val(eco.riskAssessment || '');
+                    $('#ecoProject').val(eco.projectId || '');
+                    $('#ecoModal').modal('show');
+                })
+                .fail(function() { alert('Error loading ECO details'); });
+        } else {
+            $('#editEcoId').val('');
+            $('#ecoNumber').val('Auto-generated');
+            $('#ecoStatus').val('Draft');
+            $('#ecoTItle').val('');
+            $('#ecoTItleLocal').val('');
+            $('#ecoDescription').val('');
+            $('#ecoDescriptionLocal').val('');
+            $('#ecoAffectedProduct').val('');
+            $('#ecoPriority').val('Medium');
+            $('#ecoReason').val('');
+            $('#ecoImpactAnalysis').val('');
+            $('#ecoRiskAssessment').val('');
+            $('#ecoProject').val('');
+            $('#ecoModal').modal('show');
+        }
+    }
+
+    // ================================================================
+    // SAVE ECO
+    // ================================================================
+    function saveEco() {
+        var data = {
+            title: $('#ecoTItle').val(),
+            titleLocal: $('#ecoTItleLocal').val(),
+            description: $('#ecoDescription').val(),
+            descriptionLocal: $('#ecoDescriptionLocal').val(),
+            affectedProductId: $('#ecoAffectedProduct').val(),
+            priority: $('#ecoPriority').val(),
+            reason: $('#ecoReason').val(),
+            impactAnalysis: $('#ecoImpactAnalysis').val(),
+            riskAssessment: $('#ecoRiskAssessment').val(),
+            projectId: $('#ecoProject').val()
+        };
+        if (!data.title) { alert('Title is required'); return; }
+        if (!data.affectedProductId) { alert('Affected Product is required'); return; }
+
+        var id = $('#editEcoId').val();
+        var url = id ? '/api/bom/eco/' + id : '/api/bom/eco';
+        var method = id ? 'PUT' : 'POST';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(resp) {
+                $('#ecoModal').modal('hide');
+                loadEcoList();
+                loadStats();
+                alert(id ? 'ECO updated' : 'ECO created: ' + (resp.ecoNumber || ''));
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown error')); }
+        });
+    }
+
+    // ================================================================
+    // ECO ACTION HANDLERS
+    // ================================================================
+    function showActionModal(ecoId, actionType, ecoNumber, title) {
+        $('#actionEcoId').val(ecoId);
+        $('#actionType').val(actionType);
+        $('#actionEcoNumber').text(ecoNumber);
+        $('#actionEcoTitle').text(title);
+        $('#actionComments').val('');
+        
+        var actionLabels = {
+            'submit': 'Submit for Review',
+            'approve': 'Approve',
+            'reject': 'Reject',
+            'implement': 'Implement',
+            'cancel': 'Cancel'
+        };
+        $('#ecoActionTitle').text(actionLabels[actionType] || 'ECO Action');
+        $('#actionConfirmMsg').html('<i class="fas fa-exclamation-triangle"></i> ' + 
+            'Are you sure you want to ' + (actionLabels[actionType] || 'perform this action') + ' this ECO?');
+        $('#ecoActionModal').modal('show');
+    }
+
+    function confirmAction() {
+        var ecoId = $('#actionEcoId').val();
+        var actionType = $('#actionType').val();
+        var comments = $('#actionComments').val();
+        
+        var endpointMap = {
+            'submit': '/api/bom/eco/' + ecoId + '/submit',
+            'approve': '/api/bom/eco/' + ecoId + '/approve',
+            'reject': '/api/bom/eco/' + ecoId + '/reject',
+            'implement': '/api/bom/eco/' + ecoId + '/implement',
+            'cancel': '/api/bom/eco/' + ecoId + '/cancel'
+        };
+        var url = endpointMap[actionType];
+        if (!url) return;
+        
+        $.post(url, JSON.stringify({ comments: comments }), { contentType: 'application/json' })
+            .done(function() {
+                $('#ecoActionModal').modal('hide');
+                loadEcoList();
+                loadStats();
+                alert('Action completed successfully');
+            })
+            .fail(function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Action failed')); });
+    }
+
+    // ================================================================
+    // VIEW ECO
+    // ================================================================
+    function viewEco(ecoId) {
+        $.get('/api/bom/eco/' + ecoId)
+            .done(function(eco) {
+                var html = '';
+                html += '<div class="row"><div class="col-md-6"><p><strong>ECO Number:</strong> ' + escapeHtml(eco.ecoNumber) + '</p></div>';
+                html += '<div class="col-md-6"><p><strong>Status:</strong> ' + getStatusBadge(eco.status) + '</p></div></div>';
+                html += '<p><strong>Title:</strong> ' + escapeHtml(eco.title) + '</p>';
+                if (eco.titleLocal) html += '<p><strong>Title (FA):</strong> <span dir="rtl">' + escapeHtml(eco.titleLocal) + '</span></p>';
+                html += '<p><strong>Description:</strong> ' + escapeHtml(eco.description || 'N/A') + '</p>';
+                html += '<p><strong>Affected Product:</strong> ' + escapeHtml(eco.affectedProductId) + '</p>';
+                html += '<p><strong>Priority:</strong> ' + getPriorityBadge(eco.priority) + '</p>';
+                html += '<p><strong>Reason:</strong> ' + escapeHtml(eco.reason || 'N/A') + '</p>';
+                html += '<p><strong>Impact Analysis:</strong> ' + escapeHtml(eco.impactAnalysis || 'N/A') + '</p>';
+                html += '<p><strong>Risk Assessment:</strong> ' + escapeHtml(eco.riskAssessment || 'N/A') + '</p>';
+                html += '<p><strong>Project:</strong> ' + escapeHtml(eco.projectId || 'None') + '</p>';
+                html += '<hr><p><strong>Requested By:</strong> ' + (eco.requestedBy || 'N/A') + '</p>';
+                html += '<p><strong>Requested Date:</strong> ' + (eco.requestedDateKey ? formatDateKey(eco.requestedDateKey) : 'N/A') + '</p>';
+                if (eco.approvedBy) html += '<p><strong>Approved By:</strong> ' + eco.approvedBy + '</p>';
+                if (eco.approvedDateKey) html += '<p><strong>Approved Date:</strong> ' + formatDateKey(eco.approvedDateKey) + '</p>';
+                if (eco.implementedBy) html += '<p><strong>Implemented By:</strong> ' + eco.implementedBy + '</p>';
+                if (eco.implementedDateKey) html += '<p><strong>Implemented Date:</strong> ' + formatDateKey(eco.implementedDateKey) + '</p>';
+                $('#ecoViewContent').html(html);
+                $('#ecoViewModal').modal('show');
+            })
+            .fail(function() { alert('Error loading ECO details'); });
+    }
+
+    // ================================================================
+    // EVENT BINDINGS
+    // ================================================================
+    $('#addEcoBtn').click(function() { openEcoModal(null); });
+    $('#saveEcoBtn').click(saveEco);
+
+    $(document).on('click', '.view-eco', function(e) {
+        e.preventDefault();
+        viewEco($(this).data('id'));
+    });
+
+    $(document).on('click', '.edit-eco', function() {
+        openEcoModal($(this).data('id'));
+    });
+
+    $(document).on('click', '.submit-eco', function() {
+        var id = $(this).data('id');
+        var number = $(this).closest('tr').find('td:eq(1)').text();
+        var title = $(this).closest('tr').find('td:eq(2)').text();
+        showActionModal(id, 'submit', number, title);
+    });
+
+    $(document).on('click', '.approve-eco', function() {
+        var id = $(this).data('id');
+        var number = $(this).closest('tr').find('td:eq(1)').text();
+        var title = $(this).closest('tr').find('td:eq(2)').text();
+        showActionModal(id, 'approve', number, title);
+    });
+
+    $(document).on('click', '.reject-eco', function() {
+        var id = $(this).data('id');
+        var number = $(this).closest('tr').find('td:eq(1)').text();
+        var title = $(this).closest('tr').find('td:eq(2)').text();
+        showActionModal(id, 'reject', number, title);
+    });
+
+    $(document).on('click', '.implement-eco', function() {
+        var id = $(this).data('id');
+        var number = $(this).closest('tr').find('td:eq(1)').text();
+        var title = $(this).closest('tr').find('td:eq(2)').text();
+        showActionModal(id, 'implement', number, title);
+    });
+
+    $(document).on('click', '.cancel-eco', function() {
+        var id = $(this).data('id');
+        var number = $(this).closest('tr').find('td:eq(1)').text();
+        var title = $(this).closest('tr').find('td:eq(2)').text();
+        showActionModal(id, 'cancel', number, title);
+    });
+
+    $(document).on('click', '.delete-eco', function() {
+        var id = $(this).data('id');
+        if (confirm('Delete this ECO?')) {
+            $.ajax({
+                url: '/api/bom/eco/' + id + '/delete',
+                method: 'DELETE',
+                success: function() {
+                    loadEcoList();
+                    loadStats();
+                    alert('ECO deleted');
+                },
+                error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Delete failed')); }
+            });
+        }
+    });
+
+    $('#confirmActionBtn').click(confirmAction);
+
+    $('#applyFiltersBtn').click(function() { loadEcoList(); });
+    $('#resetFiltersBtn').click(function() {
+        $('#filterStatus').val('');
+        $('#filterPriority').val('');
+        $('#filterProduct').val('');
+        loadEcoList();
+    });
+
+    $('#exportBtn').click(function() {
+        window.location.href = '/api/bom/eco/export';
+    });
+
+    // ================================================================
+    // LOAD PRODUCT DROPDOWN
+    // ================================================================
+    $.get('/api/bom/products')
+        .done(function(products) {
+            var $select = $('#filterProduct');
+            var opts = '<option value="">{{ get_translation("all", "All") }}</option>';
+            products.forEach(function(p) {
+                opts += '<option value="' + p.ProductId + '">' + p.ProductId + '</option>';
+            });
+            $select.html(opts);
+        })
+        .fail(console.error);
+
+    // ================================================================
+    // INITIAL LOAD
+    // ================================================================
+    loadStats();
+    loadEcoList();
+});
+</script>
+{% endblock %}

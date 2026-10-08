@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('finance.sales_forecast.edit.title', 'Sales Forecast') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">{{ get_translation('nav.finance', 'Finance') }}</a></li>
+            <li class="breadcrumb-item"><a href="/finance/sales-forecast">{{ get_translation('finance.sales_forecast.title', 'Sales Forecast') }}</a></li>
+            <li class="breadcrumb-item active">
+                {% if view_mode %}
+                    {{ get_translation('global.view', 'View') }}
+                {% elif forecast_id %}
+                    {{ get_translation('global.edit', 'Edit') }}
+                {% else %}
+                    {{ get_translation('global.new', 'New') }}
+                {% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>
+            {% if view_mode %}
+                <i class="fas fa-eye me-2"></i>{{ get_translation('finance.sales_forecast.view.title', 'View Sales Forecast') }}
+            {% elif forecast_id %}
+                <i class="fas fa-edit me-2"></i>{{ get_translation('finance.sales_forecast.edit.title', 'Edit Sales Forecast') }}
+            {% else %}
+                <i class="fas fa-plus me-2"></i>{{ get_translation('finance.sales_forecast.new.title', 'New Sales Forecast') }}
+            {% endif %}
+        </h2>
+        <div>
+            {% if not view_mode and (not forecast_id or status == 'Draft') %}
+            <button type="button" class="btn btn-success" id="saveBtn">
+                <i class="fas fa-save"></i> {{ get_translation('global.save', 'Save') }}
+            </button>
+            {% endif %}
+            <a href="/finance/sales-forecast" class="btn btn-secondary">
+                <i class="fas fa-times"></i> {{ get_translation('global.cancel', 'Cancel') }}
+            </a>
+        </div>
+    </div>
+
+    {% if view_mode %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> {{ get_translation('global.view_mode', 'View Mode - Read Only') }}
+    </div>
+    {% endif %}
+
+    <!-- Form -->
+    <form id="forecastForm">
+        <input type="hidden" id="forecastId" value="{{ forecast_id if forecast_id else '' }}">
+        <input type="hidden" id="viewMode" value="{{ 'true' if view_mode else 'false' }}">
+
+        <!-- Header Section -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">{{ get_translation('finance.sales_forecast.header', 'General Information') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.sales_forecast.form.name', 'Forecast Name') }} *</label>
+                            <input type="text" class="form-control" id="forecastName" 
+                                   {% if view_mode %}disabled{% endif %}
+                                   placeholder="{{ get_translation('finance.sales_forecast.form.name_placeholder', 'Enter forecast name') }}">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.sales_forecast.form.year', 'Year') }} *</label>
+                            <select class="form-select" id="periodYear" {% if view_mode %}disabled{% endif %}>
+                                <option value="1405">1405</option>
+                                <option value="1406">1406</option>
+                                <option value="1407">1407</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.sales_forecast.form.season', 'Season') }} *</label>
+                            <select class="form-select" id="periodSeason" {% if view_mode %}disabled{% endif %}>
+                                <option value="بهار">{{ get_translation('finance.season.spring', 'بهار') }}</option>
+                                <option value="تابستان">{{ get_translation('finance.season.summer', 'تابستان') }}</option>
+                                <option value="پاییز">{{ get_translation('finance.season.autumn', 'پاییز') }}</option>
+                                <option value="زمستان">{{ get_translation('finance.season.winter', 'زمستان') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.sales_forecast.form.description', 'Description') }}</label>
+                            <textarea class="form-control" id="description" rows="2" {% if view_mode %}disabled{% endif %}></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lines Table -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">{{ get_translation('finance.sales_forecast.table_title', 'Sales Forecast Lines') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped" id="linesTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th rowspan="2">#</th>
+                                <th rowspan="2">{{ get_translation('finance.sales_forecast.table.category', 'Category') }}</th>
+                                <th colspan="2" class="text-center" id="month1Header">فروردین</th>
+                                <th colspan="2" class="text-center" id="month2Header">اردیبهشت</th>
+                                <th colspan="2" class="text-center" id="month3Header">خرداد</th>
+                                <th rowspan="2">{{ get_translation('finance.sales_forecast.table.total_qty', 'Total Qty') }}</th>
+                                <th rowspan="2">{{ get_translation('finance.sales_forecast.table.total_amount', 'Total Amount') }}</th>
+                            </tr>
+                            <tr>
+                                <th>{{ get_translation('finance.sales_forecast.table.quantity', 'Qty') }}</th>
+                                <th>{{ get_translation('finance.sales_forecast.table.price', 'Price') }}</th>
+                                <th>{{ get_translation('finance.sales_forecast.table.quantity', 'Qty') }}</th>
+                                <th>{{ get_translation('finance.sales_forecast.table.price', 'Price') }}</th>
+                                <th>{{ get_translation('finance.sales_forecast.table.quantity', 'Qty') }}</th>
+                                <th>{{ get_translation('finance.sales_forecast.table.price', 'Price') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="linesBody">
+                            <tr><td colspan="10" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td colspan="8" class="text-end">{{ get_translation('finance.sales_forecast.grand_total', 'Grand Total') }}</td>
+                                <td id="grandTotalQty">0</td>
+                                <td id="grandTotalAmount">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Terms -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">{{ get_translation('finance.sales_forecast.payment.title', 'Payment Terms Distribution') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.sales_forecast.payment.cash', 'Cash') }} %</label>
+                        <input type="number" class="form-control payment-input" id="cashPct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.sales_forecast.payment.days30', '30 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days30Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.sales_forecast.payment.days60', '60 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days60Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.sales_forecast.payment.days90', '90 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days90Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.sales_forecast.payment.days120', '120 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days120Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.sales_forecast.payment.days150', '150 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days150Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-info" id="paymentSum">Total: 0%</span>
+                    <span class="text-danger" id="paymentError" style="display:none;">{{ get_translation('finance.sales_forecast.validation.sum', 'Payment terms must sum to 100%') }}</span>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Error')|tojson }},
+    success: {{ get_translation('global.success', 'Success')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }}
+};
+
+function t(key, defaultText) {
+    return trans[key] || defaultText || key;
+}
+
+function showToast(message, type) {
+    var container = document.getElementById('toastContainer');
+    if (!container) {
+        var c = document.createElement('div');
+        c.id = 'toastContainer';
+        c.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(c);
+        container = c;
+    }
+    var id = 'toast-' + Date.now();
+    var bg = type === 'success' ? '#28a745' : '#dc3545';
+    var html = '<div id="' + id + '" class="toast show" style="background:white; border-left:4px solid ' + bg + '; margin-bottom:10px;">' +
+        '<div class="toast-header"><strong>' + (type === 'success' ? 'Success' : 'Error') + '</strong>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="toast"></button></div>' +
+        '<div class="toast-body">' + message + '</div></div>';
+    container.insertAdjacentHTML('beforeend', html);
+    setTimeout(function() { var el = document.getElementById(id); if (el) el.remove(); }, 5000);
+}
+
+// ============================================================================
+// LOAD DATA
+// ============================================================================
+var forecastId = document.getElementById('forecastId').value;
+var viewMode = document.getElementById('viewMode').value === 'true';
+
+function loadCategories() {
+    fetch('/api/finance/product-categories')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                renderCategories(data.categories);
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading categories:', err);
+        });
+}
+
+function renderCategories(categories) {
+    var tbody = document.getElementById('linesBody');
+    if (!categories || categories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('no_data', 'No categories available') + '</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    categories.forEach(function(cat, idx) {
+        var lineNum = idx + 1;
+        var readOnly = viewMode ? 'readonly' : '';
+        var disabled = viewMode ? 'disabled' : '';
+        
+        html += '<tr data-category-id="' + cat.CategoryID + '">' +
+            '<td class="text-center">' + lineNum + '</td>' +
+            '<td>' + cat.DisplayName + '</td>' +
+            '<td><input type="number" class="form-control form-control-sm qty-input" data-month="1" value="0" min="0" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td><input type="number" class="form-control form-control-sm price-input" data-month="1" value="0" min="0" step="0.01" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td><input type="number" class="form-control form-control-sm qty-input" data-month="2" value="0" min="0" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td><input type="number" class="form-control form-control-sm price-input" data-month="2" value="0" min="0" step="0.01" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td><input type="number" class="form-control form-control-sm qty-input" data-month="3" value="0" min="0" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td><input type="number" class="form-control form-control-sm price-input" data-month="3" value="0" min="0" step="0.01" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td class="row-total-qty text-center">0</td>' +
+            '<td class="row-total-amount text-center">0</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+    
+    if (forecastId) {
+        loadForecastData();
+    }
+}
+
+function loadForecastData() {
+    if (!forecastId) return;
+    
+    fetch('/api/finance/sales-forecast/' + forecastId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                populateForm(data.header, data.lines);
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading forecast:', err);
+        });
+}
+
+function populateForm(header, lines) {
+    // Header
+    document.getElementById('forecastName').value = header.ForecastName || '';
+    document.getElementById('periodYear').value = header.PeriodPersianYear || '';
+    document.getElementById('periodSeason').value = header.PeriodPersianSeason || '';
+    document.getElementById('description').value = header.Description || '';
+    
+    // Payment terms (from first line)
+    if (lines && lines.length > 0) {
+        var first = lines[0];
+        document.getElementById('cashPct').value = first.CashPct || 0;
+        document.getElementById('days30Pct').value = first.Days30Pct || 0;
+        document.getElementById('days60Pct').value = first.Days60Pct || 0;
+        document.getElementById('days90Pct').value = first.Days90Pct || 0;
+        document.getElementById('days120Pct').value = first.Days120Pct || 0;
+        document.getElementById('days150Pct').value = first.Days150Pct || 0;
+    }
+    
+    // Lines
+    var rows = document.querySelectorAll('#linesBody tr');
+    rows.forEach(function(row, idx) {
+        var catId = row.dataset.categoryId;
+        var line = lines ? lines.find(function(l) { return l.ProductCategoryID == catId; }) : null;
+        if (line) {
+            var qtyInputs = row.querySelectorAll('.qty-input');
+            var priceInputs = row.querySelectorAll('.price-input');
+            qtyInputs[0].value = line.Month1Quantity || 0;
+            priceInputs[0].value = line.Month1Price || 0;
+            qtyInputs[1].value = line.Month2Quantity || 0;
+            priceInputs[1].value = line.Month2Price || 0;
+            qtyInputs[2].value = line.Month3Quantity || 0;
+            priceInputs[2].value = line.Month3Price || 0;
+        }
+    });
+    
+    calculateAll();
+    updatePaymentSum();
+}
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+function calculateAll() {
+    var grandQty = 0;
+    var grandAmount = 0;
+    
+    document.querySelectorAll('#linesBody tr').forEach(function(row) {
+        var qtyInputs = row.querySelectorAll('.qty-input');
+        var priceInputs = row.querySelectorAll('.price-input');
+        
+        var totalQty = 0;
+        var totalAmount = 0;
+        
+        for (var i = 0; i < 3; i++) {
+            var qty = parseFloat(qtyInputs[i].value) || 0;
+            var price = parseFloat(priceInputs[i].value) || 0;
+            var amount = qty * price;
+            totalQty += qty;
+            totalAmount += amount;
+        }
+        
+        row.querySelector('.row-total-qty').textContent = totalQty.toLocaleString();
+        row.querySelector('.row-total-amount').textContent = totalAmount.toLocaleString();
+        
+        grandQty += totalQty;
+        grandAmount += totalAmount;
+    });
+    
+    document.getElementById('grandTotalQty').textContent = grandQty.toLocaleString();
+    document.getElementById('grandTotalAmount').textContent = grandAmount.toLocaleString();
+}
+
+function updatePaymentSum() {
+    var cash = parseFloat(document.getElementById('cashPct').value) || 0;
+    var d30 = parseFloat(document.getElementById('days30Pct').value) || 0;
+    var d60 = parseFloat(document.getElementById('days60Pct').value) || 0;
+    var d90 = parseFloat(document.getElementById('days90Pct').value) || 0;
+    var d120 = parseFloat(document.getElementById('days120Pct').value) || 0;
+    var d150 = parseFloat(document.getElementById('days150Pct').value) || 0;
+    
+    var total = cash + d30 + d60 + d90 + d120 + d150;
+    document.getElementById('paymentSum').textContent = 'Total: ' + total + '%';
+    
+    var error = document.getElementById('paymentError');
+    if (Math.abs(total - 100) > 0.01) {
+        error.style.display = 'inline';
+    } else {
+        error.style.display = 'none';
+    }
+}
+
+// ============================================================================
+// SAVE
+// ============================================================================
+function saveForecast() {
+    var name = document.getElementById('forecastName').value.trim();
+    var year = document.getElementById('periodYear').value;
+    var season = document.getElementById('periodSeason').value;
+    var description = document.getElementById('description').value;
+    
+    if (!name) {
+        showToast('Please enter a forecast name', 'error');
+        return;
+    }
+    
+    // Build lines
+    var lines = [];
+    var rows = document.querySelectorAll('#linesBody tr');
+    rows.forEach(function(row, idx) {
+        var catId = row.dataset.categoryId;
+        var qtyInputs = row.querySelectorAll('.qty-input');
+        var priceInputs = row.querySelectorAll('.price-input');
+        
+        lines.push({
+            ProductCategoryID: parseInt(catId),
+            LineNumber: idx + 1,
+            Month1Quantity: parseFloat(qtyInputs[0].value) || 0,
+            Month1Price: parseFloat(priceInputs[0].value) || 0,
+            Month2Quantity: parseFloat(qtyInputs[1].value) || 0,
+            Month2Price: parseFloat(priceInputs[1].value) || 0,
+            Month3Quantity: parseFloat(qtyInputs[2].value) || 0,
+            Month3Price: parseFloat(priceInputs[2].value) || 0,
+            CashPct: parseFloat(document.getElementById('cashPct').value) || 0,
+            Days30Pct: parseFloat(document.getElementById('days30Pct').value) || 0,
+            Days60Pct: parseFloat(document.getElementById('days60Pct').value) || 0,
+            Days90Pct: parseFloat(document.getElementById('days90Pct').value) || 0,
+            Days120Pct: parseFloat(document.getElementById('days120Pct').value) || 0,
+            Days150Pct: parseFloat(document.getElementById('days150Pct').value) || 0
+        });
+    });
+    
+    var data = {
+        ForecastName: name,
+        PeriodPersianYear: parseInt(year),
+        PeriodPersianSeason: season,
+        Description: description,
+        CurrencyCode: 'IRR',
+        lines: lines
+    };
+    
+    var url = '/api/finance/sales-forecast';
+    var method = 'POST';
+    if (forecastId) {
+        url += '/' + forecastId;
+        method = 'PUT';
+    }
+    
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast('Forecast saved successfully', 'success');
+            if (data.ForecastID) {
+                window.location.href = '/finance/sales-forecast/' + data.ForecastID + '/view';
+            } else {
+                window.location.href = '/finance/sales-forecast';
+            }
+        } else {
+            showToast('Error: ' + (data.error || 'Failed to save'), 'error');
+        }
+    })
+    .catch(function(err) {
+        showToast('Error: ' + err.message, 'error');
+    });
+}
+
+// ============================================================================
+// EVENT LISTENERS
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Load categories
+    loadCategories();
+    
+    // Auto-calculate on input change
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('qty-input') || e.target.classList.contains('price-input')) {
+            calculateAll();
+        }
+        if (e.target.classList.contains('payment-input')) {
+            updatePaymentSum();
+        }
+    });
+    
+    // Save button
+    document.getElementById('saveBtn').addEventListener('click', function() {
+        saveForecast();
+    });
+    
+    // Persian month names based on season
+    function updateMonthHeaders() {
+        var season = document.getElementById('periodSeason').value;
+        var months = {
+            'بهار': ['فروردین', 'اردیبهشت', 'خرداد'],
+            'تابستان': ['تیر', 'مرداد', 'شهریور'],
+            'پاییز': ['مهر', 'آبان', 'آذر'],
+            'زمستان': ['دی', 'بهمن', 'اسفند']
+        };
+        var m = months[season] || ['Month 1', 'Month 2', 'Month 3'];
+        document.getElementById('month1Header').textContent = m[0] + ' ' + document.getElementById('periodYear').value;
+        document.getElementById('month2Header').textContent = m[1] + ' ' + document.getElementById('periodYear').value;
+        document.getElementById('month3Header').textContent = m[2] + ' ' + document.getElementById('periodYear').value;
+    }
+    
+    document.getElementById('periodSeason').addEventListener('change', updateMonthHeaders);
+    document.getElementById('periodYear').addEventListener('change', updateMonthHeaders);
+    
+    // Initial month headers
+    setTimeout(updateMonthHeaders, 100);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,407 @@
+PART B — CRM & SALES MODULE CONFIGURATION (v47)
+Replace the existing "Page Config – CRM MODULE" document with this. Retains all v41 structure; adds missing pages and v47 conventions.
+
+CRM & SALES MODULE — COMPLETE PAGE CONFIGURATIONS
+Pages 33–41 · Version v47
+
+MODULE OVERVIEW
+Element	Specification
+Module Code	crm
+Module Name	CRM & Sales
+Total Pages	9 (was 4)
+URL Prefix	/crm
+API Prefix	/api/crm
+Dependencies	Projects, Product Management, User Management, Finance
+Industry Filtering	Yes (via DemoIndustryCode)
+Project Filtering	Yes (via ProjectID on t_Opportunity, t_Quote)
+Calendar Support	Dual (Gregorian + Persian) via format_date()
+Page List (v47)
+#	Page	URL	Type
+33	Opportunities Pipeline	/crm/opportunities	Transactional
+34	Opportunity Detail	/crm/opportunity/<id>	Transactional
+35	Quotes & Estimates	/crm/quotes	Transactional
+36	Quote Detail	/crm/quote/<quote_id>	Transactional
+37	Customer Pricing Overrides	/crm/customer-pricing	Master Data
+38	Sales Dashboard	/crm/sales-dashboard	Dashboard
+39	Customers	/crm/customers	Master Data
+40	Activity Log	/crm/activities	Reporting
+41	Sales Forecast	/crm/forecast	Reporting
+PAGE 33 — OPPORTUNITIES PIPELINE
+(retained from v41 with v47 additions)
+
+1. PAGE OVERVIEW
+Element	Specification
+Page Type	Transactional
+URL	/crm/opportunities
+Purpose	Track sales opportunities through pipeline stages
+Industry Filtering	Yes (via Customers, Products)
+Project Filtering	Yes (via Company Projects)
+2. KEY FEATURES
+Feature	Description
+Opportunity CRUD	Create, edit, view, delete
+Pipeline Stages	Prospecting → Qualification → Proposal → Negotiation → Closed Won/Lost
+Probability Tracking	Per-stage default probability
+Value Tracking	Monetary value
+List / Kanban Toggle	Two views, no external drag-drop library
+Kanban Stage Movement	Move Up / Move Down buttons per card (lesson #13)
+Activities Log	Calls, emails, meetings, notes
+Conversion	To Quote or Project
+Assigned To	Salesperson
+Full Translation	EN/FA
+Dual Calendar	Gregorian/Persian via format_date()
+Sticky Headers	.table-sticky-dark
+Export	CSV
+3. KPI CARDS
+KPI	Color	Calculation
+Pipeline Value	primary	SUM(CAST(Value AS DECIMAL(18,2))) WHERE Status = 'Open'
+Weighted Pipeline	info	SUM(CAST(Value AS DECIMAL(18,2)) * Probability / 100) WHERE Status = 'Open'
+Win Rate	success	Closed Won / (Closed Won + Closed Lost) * 100
+Open Opportunities	warning	COUNT(*) WHERE Status = 'Open'
+All KPI cards respect industry + project filters.
+
+4. MAIN TABLE COLUMNS
+Column	Description	Link	v47
+#	Row number	—	—
+Opportunity Name	Title	Detail page	—
+Customer	Name	Customer page	—
+Value	Currency	—	—
+Probability	% with color	—	—
+Stage	Colored badge	—	—
+Expected Close	expected_close_date_formatted	—	✅
+Assigned To	Salesperson	—	—
+Status	Colored badge	—	—
+Actions	View / Log / Convert	—	—
+5. PIPELINE STAGES
+Stage	Probability	Color
+Prospecting	20%	secondary
+Qualification	25%	info
+Proposal	50%	primary
+Negotiation	75%	warning
+Closed Won	100%	success
+Closed Lost	0%	danger
+6. ACTION BUTTONS (status-based)
+Status	Available Actions	Permission
+All	View	CRM_OPPORTUNITY_VIEW
+Open	Edit, Log Activity	CRM_OPPORTUNITY_EDIT
+Open	Convert to Quote	CRM_OPPORTUNITY_CONVERT
+Open	Convert to Project	CRM_OPPORTUNITY_CONVERT
+Closed Won/Lost	View Only	CRM_OPPORTUNITY_VIEW
+7. MODALS
+(retained from v41)
+
+7.1 Create/Edit Opportunity Modal — tabs: General, Details, Contacts. Includes Expected Close date field → auto-picker via date-utils.js.
+
+7.2 Log Activity Modal — Type / Subject / Date / Notes / Attachments.
+
+7.3 Convert to Quote Modal — read-only display + Quote Name + Valid Until.
+
+7.4 Convert to Project Modal — read-only display + Project Name + Type + Start Date.
+
+v47 addition — modal re-init hook (mandatory on every modal with a date input):
+
+javascript
+$('#opportunityModal').on('shown.bs.modal', function () {
+    if (window.reinitDatePickers) window.reinitDatePickers();
+});
+8. KANBAN BOARD VIEW
+(retained — Move Up/Down buttons per card, no drag-and-drop)
+
+9. FILTERS
+Search / Stage / Assigned To / Status / Expected Close range.
+
+v47 addition: filter inputs are <input type="date">. The picker switches calendar automatically. Filter values always sent as Gregorian ISO.
+
+10. URL PARAMETERS
+(unchanged)
+
+11. DATABASE TABLES
+Table	Purpose	Key Columns
+t_Opportunity	Header	OpportunityID, OpportunityName, CustomerID, Value, Probability, Stage, ExpectedCloseDateKey, AssignedToUserID, Status, DemoIndustryCode
+t_OpportunityActivity	Activities	ActivityID, OpportunityID, ActivityType, Subject, Notes, ActivityDateKey, CreatedBy
+t_Users	Salesperson	UserID, FullName
+t_companies	Customer	companyID, Name
+12. API ENDPOINTS
+Method	Endpoint	Description
+GET	/api/crm/opportunities	List with filters
+GET	/api/crm/opportunities/stats	KPI counts
+POST	/api/crm/opportunities	Create
+PUT	/api/crm/opportunities/<id>	Update
+POST	/api/crm/opportunities/<id>/activity	Log activity
+GET	/api/crm/opportunities/<id>/activities	List activities
+PATCH	/api/crm/opportunities/<id>/inline	Inline edit
+GET	/api/crm/opportunities/export	CSV export
+POST	/api/crm/opportunities/<id>/convert	Convert to Quote/Project
+GET	/api/crm/stages	Stage list
+GET	/api/crm/users	Salespersons
+GET	/api/crm/customers	Customer list
+v47 mandatory: every response field ending in _date_key also returns a _date_formatted twin.
+
+13. TRANSLATION KEYS
+Key	English	Farsi
+auto.crm_title	Opportunities Pipeline	فرصت‌های فروش
+auto.crm_total_value	Total Pipeline Value	ارزش کل
+auto.crm_weighted	Weighted Pipeline	ارزش وزنی
+auto.crm_win_rate	Win Rate	نرخ موفقیت
+auto.crm_open_count	Open Opportunities	تعداد فرصت‌های باز
+auto.crm_expected_close	Expected Close	تاریخ پیش‌بینی بسته شدن
+crm.stage.prospecting	Prospecting	شناسایی
+(…full list per v41)		
+PAGE 34 — OPPORTUNITY DETAIL
+v47 — NEW PAGE (was not in v41)
+
+1. PAGE OVERVIEW
+Element	Specification
+Page Type	Transactional
+URL	/crm/opportunity/<int:opportunity_id>
+Purpose	Full view of a single opportunity with activities timeline
+Filtering	Inherits customer/project from the opportunity
+2. KEY FEATURES
+Summary (customer, value, probability, stage, expected close, assigned to, notes)
+
+Activity timeline (chronological)
+
+Add Activity inline form
+
+Delete
+
+Quick links to Convert
+
+3. LAYOUT
+Two-column: left = Opportunity Details table; right = Recent Activities + Log New Activity form.
+
+4. DATES ON THE PAGE (v47)
+All dates rendered via format_date(). Example: Expected Close: {{ display_date(opp.expected_close_date_key) }}.
+
+5. API ENDPOINTS USED
+Method	Endpoint
+GET	/api/crm/opportunities (filtered by ID client-side)
+GET	/api/crm/opportunities/<id>/activities
+POST	/api/crm/opportunities/<id>/activity
+6. TRANSLATION KEYS
+Key	English	Farsi
+crm.quote.detail.title	Opportunity Detail	جزئیات فرصت
+crm.quote.opportunity	Opportunity	فرصت فروش
+crm.quote.notes	Notes	یادداشت‌ها
+crm.quote.no_lines	No line items	هیچ ردیفی وجود ندارد
+PAGE 35 — QUOTES & ESTIMATES
+(retained from v41 with v47 additions)
+
+(Full page spec: KPI cards Draft/Submitted/Approved/Converted; table columns Quote#/Customer/Subject/Total/Status/Source Opportunity/Rev/Valid Until/Created By; modals Create/Edit, Send, Revise; filters Status/Customer/Opportunity/Search.)
+
+v47 additions:
+
+ValidUntilDateKey → valid_until_date_formatted in API
+
+Table column "Valid Until" renders valid_until_date_formatted
+
+Create modal's Valid Until uses the auto-picker
+
+Modal re-init: $('#quoteModal').on('shown.bs.modal', ...) — only if the modal is dynamically added; if inline, not needed
+
+DATABASE TABLES
+Table	Key Columns
+t_Quote	QuoteID, QuoteNumber, OpportunityID, CustomerID, Revision, Status, Subject, ValidUntilDateKey, TotalAmount, Notes, ParentQuoteID, CreatedDateKey, CreatedBy, SentDateKey, SentTo
+t_QuoteLine	LineID, QuoteID, ProductID, Quantity, UnitPrice, TotalPrice, DiscountPercent, Notes
+API ENDPOINTS
+Method	Endpoint
+GET	/api/crm/quotes
+GET	/api/crm/quotes/<quote_id>
+POST	/api/crm/quotes
+POST	/api/crm/quotes/<id>/revise
+POST	/api/crm/quotes/<id>/send
+PAGE 36 — QUOTE DETAIL
+v47 — NEW PAGE
+
+1. OVERVIEW
+Element	Specification
+URL	/crm/quote/<string:quote_id>
+Purpose	Full view of a quote with lines
+Data source	/api/crm/quotes/<quote_id>
+2. LAYOUT
+Quote Information card (badge-styled status, revision, valid until) + Quote Lines table (Product / Qty / Unit Price / Total).
+
+3. v47 DATE RENDERING
+Valid Until field on this page displays quote.valid_until_date_formatted, NOT a sliced key.
+
+4. TRANSLATION KEYS
+(same family as opportunities; see v41)
+
+PAGE 37 — CUSTOMER PRICING OVERRIDES
+v47 — NEW PAGE
+
+1. OVERVIEW
+Element	Specification
+URL	/crm/customer-pricing
+Purpose	Manage per-customer price overrides
+Type	Master Data
+2. KPI CARDS
+KPI	Color
+Active Overrides	primary
+Total Overrides	success
+Customers Affected	info
+3. TABLE COLUMNS
+Customer · Product · Override Price · Min Qty · Valid Period · Reason · Actions (Delete).
+
+v47: "Valid Period" renders valid_from_formatted → valid_to_formatted.
+
+4. MODAL — Add Price Override
+Customer / Product / Override Price / Min Order Qty / Valid From / Valid To / Reason.
+
+v47: Valid From/To are <input type="date"> — auto-picker.
+
+5. DATABASE TABLE
+t_CustomerPriceOverride: OverrideID, CustomerID, ProductID, OverridePrice, MinOrderQty, ValidFromDateKey, ValidToDateKey, Reason, CreatedDateKey, CreatedBy, ModifiedDateKey, ModifiedBy, IsActive.
+
+6. API ENDPOINTS
+Method	Endpoint
+GET	/api/crm/customer-pricing
+POST	/api/crm/customer-pricing
+DELETE	/api/crm/customer-pricing/<int:override_id>
+GET	/api/crm/customer-pricing/export
+7. JS NOTE (v47)
+This page must use pure JavaScript + fetch (no jQuery) for the customer-pricing list rendering — proven pattern from v41 §13.
+
+PAGE 38 — SALES DASHBOARD
+(retained from v41 with v47 additions)
+
+1. OVERVIEW
+Element	Specification
+URL	/crm/sales-dashboard
+Type	Dashboard
+Purpose	Executive view of sales performance
+2. KPI CARDS
+Pipeline Value · Weighted Pipeline · Win Rate · Open Opportunities.
+
+3. CHARTS
+Pipeline by Stage (bar)
+
+Sales Trend — last 6 months (line)
+
+Top 5 Customers (bar)
+
+Top 5 Products (bar)
+
+4. v47 SQL Server Compatibility
+All chart queries use:
+
+SELECT TOP N (not LIMIT)
+
+CAST(... AS DECIMAL(18,2)) on numeric NVARCHAR
+
+DATEFROMPARTS(...) for month grouping (not FORMAT)
+
+5. FORECAST SECTION
+Next 30 / 60 / 90 days totals.
+
+6. API ENDPOINTS
+Method	Endpoint
+GET	/api/crm/dashboard/stats
+GET	/api/crm/dashboard/charts
+GET	/api/crm/dashboard/top-customers
+GET	/api/crm/dashboard/top-products
+GET	/api/crm/forecast
+PAGE 39 — CUSTOMERS
+(retained from v41 with v47 additions)
+
+1. OVERVIEW
+Element	Specification
+URL	/crm/customers
+Type	Master Data
+2. KPI CARDS
+Total Customers · Active Opportunities · Total Lifetime Value.
+
+3. TABLE COLUMNS
+Customer Name · Telephone · Open Pipeline · Total Revenue · Opportunities count.
+
+4. CUSTOMER DETAIL MODAL
+Shows contact info + opportunities list.
+
+5. v47 API NOTE
+/api/crm/all-customers uses GROUP BY c.companyID, c.Name, c.Telephone, c.IsCustomer — all non-aggregated columns must be listed.
+
+6. JS NOTE (v47)
+Rendering must use pure JavaScript + fetch. jQuery-rendered version was unreliable (proven v41 §13).
+
+7. CUSTOMER DETAIL MODAL DATE FIELDS
+If the modal displays "Last Order Date", "Created Date", etc., those must come from a *_formatted API field.
+
+PAGE 40 — ACTIVITY LOG
+v47 — NEW PAGE
+
+1. OVERVIEW
+Element	Specification
+URL	/crm/activities
+Type	Reporting
+Purpose	Cross-opportunity activity timeline with filters
+2. KPI CARDS
+Total Activities · This Month · Last 30 Days.
+
+3. FILTERS
+Activity Type (Call/Meeting/Email/Note) · Date From · Date To · Limit (20/50/100/200).
+
+4. LAYOUT
+Vertical timeline with icon per activity type.
+
+5. v47 DATE FIELDS
+Each item's activity_date_formatted is displayed (not the raw key).
+
+6. API
+Method	Endpoint
+GET	/api/crm/all-activities
+Server query uses SELECT TOP :limit (SQL Server, not LIMIT).
+
+PAGE 41 — SALES FORECAST
+v47 — NEW PAGE
+
+1. OVERVIEW
+Element	Specification
+URL	/crm/forecast
+Type	Reporting
+Purpose	30/60/90-day forecast + monthly chart
+2. KPI CARDS
+Next 30 Days · Next 60 Days · Next 90 Days.
+
+3. BREAKDOWN
+High / Medium / Low confidence forecast cards.
+
+4. CHARTS
+Monthly forecast bar chart (Chart.js, local).
+
+5. OPPORTUNITIES TABLE
+Filtered to next-90-day close dates, with expected_close_date_formatted.
+
+6. API
+Method	Endpoint
+GET	/api/crm/forecast
+v47 SQL Server: monthly grouping uses DATEFROMPARTS (not FORMAT).
+
+MODULE-WIDE v47 RULES
+Rule	Detail
+Storage	All CRM dates are DateKey INTEGER
+Display	format_date() (server) or *_formatted (API)
+Entry	<input type="date"> → auto-picker via date-utils.js
+Modals	Add shown.bs.modal re-init
+Language switch	Single route /switch_language/<lang> (no /api/set-language)
+
+Sales CRM- 2026-09-16
+*******************
+
+Project filter	session['current_project_id'] (sidebar) unless explicit ?project_id=
+Industry filter	session['demo_industry']
+JS DOM	Prefer pure JS + fetch for new pages
+Picker libs	flatpickr (EN) + mds.bs.datetimepicker (FA) — both local
+MODULE INITIALIZATION CHECKLIST (v47)
+□ Register crm_bp + crm_api_bp in app/__init__.py
+□ Verify DB tables: t_Opportunity, t_OpportunityActivity, t_Quote, t_QuoteLine, t_CustomerPriceOverride
+□ Confirm each table uses DateKey INTEGER for all date columns
+□ Confirm DimDate has PersianStr for the operational date range
+□ Import from app.core.date_helpers import format_date in crm/api.py
+□ Every list endpoint returns *_date_formatted twins
+□ Every modal with a date input has shown.bs.modal re-init
+□ Translation keys inserted via MERGE (no auto.* keys)
+□ Language switch works both directions
+□ Sticky headers use .table-sticky-dark
+□ Sidebar includes "Sales & CRM" section (7 links)
+□ Test in both languages + both calendars
+END OF CRM & SALES MODULE — v47
+

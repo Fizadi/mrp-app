@@ -1,0 +1,382 @@
+PART B — Modifications to PAGE CONFIG-Project MODULE (v41 → v42)
+Target file: Page Config-Project MODULE-v41.docx
+New version: v42
+Date: 2026-09-16
+
+These are the changes specific to the Projects module page-configuration document. They implement the general rules from Part A for this module.
+
+#	Where	Action
+B.1	Top of document, main header	Bump title to v42
+B.2	After Module Overview table	Insert "JavaScript Pattern" + "Translation Key Prefixes" subsections
+B.3	"Actual Page Inventory" table	Replace entirely
+B.4	After the updated inventory table	Insert "Sidebar Project Selector Behavior" + "Translation Status"
+B.5	Page 4 (Project Portfolio)	Replace API Endpoints + Translation Keys subsections
+B.6	Page 5 (Customer Projects)	Replace content entirely
+B.7	Page 7 (Product Tree)	Replace API Endpoints + Translation Keys subsections
+B.8	Page 8 (MS Project Integration)	Replace URL/route + API sections
+B.9	Before closing summary	Insert "Known Issues Fixed" + updated Module Summary
+B.1 — Header / Title
+Where: Top of document, main header
+Action: Replace with
+
+text
+PROJECTS MODULE - COMPLETE PAGE CONFIGURATIONS (v42)
+Dated: 2026-09-16
+B.2 — After Module Overview table
+Where: Immediately after the Module Overview table
+Action: Insert this new subsection
+
+text
+JavaScript Pattern (v42)
+
+Every page in this module follows the JavaScript contract defined in
+PROJECT CONTEXT Section 1.2. Do not deviate.
+
+Key points:
+- No jQuery in {% block scripts %}
+- fetch() for all API calls
+- Top-level var trans = {...}
+- document.addEventListener('DOMContentLoaded', ...) for init only
+- Semantic translation keys only — never auto.HASH
+
+Translation Key Prefixes (v42)
+
+project.portfolio.*              → project_portfolio.html
+project.dashboard.*              → project_dashboard.html
+project.customer_projects.*      → customer_projects_list.html
+project.customer_project_detail.* → customer_project_detail.html
+project.product_tree.*           → product_tree.html
+project.milestones.*             → project_milestones.html
+project.resources.*              → project_resources.html
+project.bom.*                    → project_bom.html
+project.deliverables.*           → project_deliverables.html
+project.boq.*                    → project_boq.html
+project.certificates.*           → project_certificates_list.html
+project.certificate_detail.*     → project_certificate_detail.html
+ms_project.*                     → project_ms_integration.html
+
+Reusable keys are under global.* (Home, Save, Cancel, Apply, Status,
+Actions, Loading, etc.).
+B.3 — "Actual Page Inventory" table (replace)
+Where: Replace the entire existing table
+
+text
+Sidebar-linked (main):
+
+URL Template Status
+/project/project_portfolio               project_portfolio.html          ✅ Fully translated
+/project/customer_projects               customer_projects_list.html     ✅ Fully translated
+/project/product-tree                    product_tree.html               ✅ Fully translated
+/project/ms-project-integration          → redirects to portfolio when no project selected
+/project/ms-project-integration/<id>     project_ms_integration.html     ✅ Fully translated
+
+Sub-pages (accessed from dashboard):
+
+URL Template Status
+/project/dashboard/<id>                  project_dashboard.html          ✅ Fully translated
+/project/customer_projects/<cp_id>       customer_project_detail.html    ✅ Fully translated
+/project/milestones/<id>                 project_milestones.html         ✅ Fully translated
+/project/resources/<id>                  project_resources.html          ✅ Fully translated
+/project/bom/<id>                        project_bom.html                ✅ Fully translated
+/project/deliverables/<id>               project_deliverables.html       ✅ Fully translated
+/project/boq/<id>                        project_boq.html                ✅ Fully translated
+/project/certificates/<id>               project_certificates_list.html  ✅ Fully translated
+/project/certificate/<cert_id>           project_certificate_detail.html ✅ Fully translated
+
+Removed:
+/project/dashboard_standalone/<id>
+Route existed but template dashboard_standalone.html is missing.
+Removed from routes.py in v42.
+B.4 — New subsections after updated inventory
+Where: Immediately after the updated inventory table
+Action: Insert these two subsections
+
+text
+Sidebar Project Selector Behavior (v42)
+
+The sidebar project selector (in sidebar.html) is implemented in pure
+JavaScript (see PROJECT CONTEXT Section 7.9). When the user selects a
+project:
+
+- A POST is sent to /api/set-current-project with {project_id: "..."}
+- The server stores session['current_project_id']
+- The page reloads with cache-busting (?t=timestamp)
+- Every subsequent API call reads session['current_project_id']
+- Pages that use project filtering (BOM, MS Project, deliverables, etc.)
+  filter their data accordingly
+
+The MS Project Integration index route reads session['current_project_id']:
+
+- If "All" → redirects to /project/project_portfolio
+- Otherwise → redirects to /project/ms-project-integration/<project_id>
+
+This is defined in app/modules/project/routes.py.
+
+Translation Status (v42)
+
+All project module pages have 100% EN/FA translation parity. The
+following counts were verified on 2026-09-16:
+
+project.* keys:    211 EN = 211 FA ✅
+global.* keys:      77 EN =  77 FA ✅
+ms_project.* keys:  verified ✅
+
+If new pages are added, run check_translations.py to detect gaps, then
+apply a composite-key MERGE (see PROJECT CONTEXT Section 7.8).
+B.5 — Page 4 (Project Portfolio) subsections (replace)
+Where: Replace the API Endpoints and Translation Keys sections of Page 4
+
+text
+11. API Endpoints (v42)
+
+Method Endpoint Description
+GET    /api/project/data                        List projects with filters
+GET    /api/project/filter-options              Dropdown options (statuses, PMs, types)
+GET    /api/project/dashboard_data/<id>         Project KPIs + details
+POST   /api/project/create                      Create project
+POST   /api/project/update/<id>                 Update project
+POST   /api/project/<id>/status                 Change status
+POST   /api/project/<id>/unsuccessful           Record unsuccessful attempt
+GET    /api/project/required_documents/<id>     Get required documents
+GET    /api/project/document_types_list         List document types
+POST   /api/project/import                      Import from CSV
+
+12. Translation Keys (v42)
+
+Key                                           English                          Farsi
+project.portfolio.title                       📊 Project Portfolio             📊 پرتفوی پروژه
+project.portfolio.breadcrumb                  Project Portfolio                پرتفوی پروژه
+project.portfolio.kpi.active                  Active                           فعال
+project.portfolio.kpi.on_hold                 On Hold                          در انتظار
+project.portfolio.kpi.completed               Completed                        تکمیل شده
+project.portfolio.kpi.total_value             Total Value                      ارزش کل
+project.portfolio.kpi.lost                    Lost                             از دست رفته
+project.portfolio.btn.create                  + Create Project                 + ایجاد پروژه
+project.portfolio.btn.import                  📂 Import CSV                    📂 وارد کردن CSV
+project.portfolio.btn.save                    Save Project                     ذخیره پروژه
+project.portfolio.btn.add_doc_type            + Add Document Type              + افزودن نوع سند
+project.portfolio.col.project_id              Project ID                       شناسه پروژه
+project.portfolio.col.customer                Customer                         مشتری
+project.portfolio.col.value                   Value                            ارزش
+project.portfolio.col.percent                 % Complete                       % تکمیل
+project.portfolio.col.status                  Status                           وضعیت
+project.portfolio.col.winloss                 Win/Loss Reason                  دلیل برد/باخت
+project.portfolio.col.created_by              Created By                       ایجاد شده توسط
+project.portfolio.filter.status               Status                           وضعیت
+project.portfolio.filter.pm                   Project Manager                  مدیر پروژه
+project.portfolio.filter.type                 Project Type                     نوع پروژه
+project.portfolio.filter.wonlost              Won/Lost                         برنده/باخته
+project.portfolio.filter.start                Start Date ≥                     تاریخ شروع ≥
+project.portfolio.filter.end                  End Date ≤                       تاریخ پایان ≤
+project.portfolio.search_placeholder          🔍 Search by Project ID,         🔍 جستجو...
+                                              Name, or Customer...
+project.portfolio.modal.new                   New Project                      پروژه جدید
+project.portfolio.modal.edit                  Edit Project                     ویرایش پروژه
+project.portfolio.tab.general                 General                          عمومی
+project.portfolio.tab.budget                  Budget                           بودجه
+project.portfolio.tab.team                    Team                             تیم
+project.portfolio.tab.docs                    Required Documents               اسناد مورد نیاز
+project.portfolio.field.project_id            Project ID *                     شناسه پروژه *
+project.portfolio.field.project_name          Project Name *                   نام پروژه *
+project.portfolio.field.company_id            Company ID *                     شناسه شرکت *
+project.portfolio.field.customer_id           Customer (CompanyID)             مشتری (CompanyID)
+project.portfolio.field.winloss               Win/Loss Reason                  دلیل برد/باخت
+project.portfolio.field.pm                    Project Manager                  مدیر پروژه
+project.portfolio.field.type                  Project Type                     نوع پروژه
+project.portfolio.field.percent               % Complete                       % تکمیل
+project.portfolio.field.start_date            Start Date                       تاریخ شروع
+project.portfolio.field.end_date              End Date                         تاریخ پایان
+project.portfolio.field.budget                Budget                           بودجه
+project.portfolio.field.actual_cost           Actual Cost                      هزینه واقعی
+project.portfolio.field.committed_cost        Committed Cost                   هزینه تعهد شده
+project.portfolio.field.currency              Currency                         واحد پول
+project.portfolio.field.team                  Team Members                     اعضای تیم
+project.portfolio.msg.*                       [JS messages]                    [پیام‌های JS]
+B.6 — Page 5 (Customer Projects) content (replace)
+Where: Replace the Page 5 content entirely
+
+text
+Page 5 — Customer Projects (v42)
+
+URL (list):   /project/customer_projects
+URL (detail): /project/customer_projects/<cp_id>
+
+Primary Translation Keys
+  project.customer_projects.*
+  project.customer_project_detail.*
+
+API Endpoints (v42)
+
+Method  Endpoint                                             Description
+GET     /api/project/customer_projects                      List customer projects
+GET     /api/project/customer_project/<id>                  Get project details
+POST    /api/project/customer_project/create                Create
+POST    /api/project/customer_project/<id>/link_internal    Link internal project
+POST    /api/project/customer_project/<id>/add_contact      Add contact
+DELETE  /api/project/customer_project/contact/<id>          Remove contact
+GET     /api/project/customer_projects/export               Export CSV
+POST    /api/project/customer_projects/import               Import CSV
+
+Translation Keys — Reference
+
+See DB for full list. Keys used in customer_projects_list.html:
+  project.customer_projects.title, .kpi., .col., .btn., .modal., .field.,
+  .filter.company, .msg., .linked_suffix, .select.company
+
+Keys used in customer_project_detail.html:
+  project.customer_project_detail.section., .field., .btn., .modal., .msg.*
+B.7 — Page 7 (Product Tree) subsections (replace)
+Where: Replace the API Endpoints and Translation Keys sections of Page 7
+
+text
+11. API Endpoints (v42)
+
+Method  Endpoint                                       Description
+GET     /api/project/<project_id>/products            Full tree for a project
+GET     /api/project/products                         Product list (for dropdown)
+GET     /api/project/products/<id>                    Single product details
+POST    /api/project/products                         Add product to project
+PUT     /api/project/products/<id>                    Update product
+DELETE  /api/project/products/<id>                    Delete product
+GET     /api/project/internal_projects                Project dropdown options
+GET     /api/bom/products                             BOM products for dropdown
+
+12. Translation Keys (v42)
+
+Key                                           English                          Farsi
+project.product_tree.title                    Project Product Tree             درخت محصول پروژه
+project.product_tree.total_products           Total Products                   کل محصولات
+project.product_tree.total_quantity           Total Quantity                   کل مقدار
+project.product_tree.low_stock                Low Stock Components             قطعات کم‌موجود
+project.product_tree.open_ncrs                Open NCRs                        NCR های باز
+project.product_tree.select_project           Select Project                   انتخاب پروژه
+project.product_tree.search_placeholder       Search product...                جستجوی محصول...
+project.product_tree.product_tree             Product Tree                     درخت محصول
+project.product_tree.component_details        Component Details                جزئیات قطعه
+project.product_tree.add_product              + Add Product                    + افزودن محصول
+project.product_tree.add_product_modal        Add Product                      افزودن محصول
+project.product_tree.edit_product             Edit Product                     ویرایش محصول
+project.product_tree.planned                  Planned                          برنامه‌ریزی شده
+project.product_tree.in_production            InProduction                     در حال تولید
+project.product_tree.confirm_remove           Confirm Remove                   تأیید حذف
+project.product_tree.confirm_remove_message   Are you sure...                  آیا اطمینان دارید...
+project.product_tree.qty_label                Qty:                             تعداد:
+project.product_tree.product                  Product                          محصول
+project.product_tree.required_quantity        Required Quantity                مقدار مورد نیاز
+project.product_tree.unit_price               Unit Price                       قیمت واحد
+project.product_tree.delivery_date            Delivery Date                    تاریخ تحویل
+project.product_tree.responsible              Responsible                      مسئول
+project.product_tree.is_custom                Is Custom Component              قطعه سفارشی است
+project.product_tree.alternative_component    Alternative Component            قطعه جایگزین
+project.product_tree.custom_spec              Custom Specification             مشخصات سفارشی
+project.product_tree.quantity_bom             Quantity (in BOM):               مقدار (در BOM):
+project.product_tree.scrap_factor             Scrap Factor:                    ضریب ضایعات:
+project.product_tree.effectivity              Effectivity:                     تاریخ اعتبار:
+project.product_tree.raise_ncr                Raise NCR                        ثبت NCR
+project.product_tree.create_po                Create PO                        ایجاد سفارش خرید
+project.product_tree.view_quality_plan        View Quality Plan                مشاهده طرح کیفی
+project.product_tree.request_eco              Request ECO                      درخواست ECO
+project.product_tree.view_documents           View Documents                   مشاهده اسناد
+project.product_tree.msg.*                    [JS messages]                    [پیام‌های JS]
+B.8 — Page 8 (MS Project Integration) sections (replace)
+Where: Replace the Page 8 URL/route and API sections
+
+text
+Page 8 — MS Project Integration (v42)
+
+URL (with ID): /project/ms-project-integration/<project_id>
+Index route:   /project/ms-project-integration
+               Redirects to portfolio if session['current_project_id'] is 'All'
+               Redirects to <id> route otherwise
+
+Behavior (v42)
+
+This page requires a specific project. When the user clicks the sidebar
+link with no project selected, they are redirected to
+/project/project_portfolio to choose a project first.
+
+API Endpoints (v42)
+
+Method  Endpoint                                                Description
+GET     /api/project/ms-project/tasks/<project_id>              Task list
+POST    /api/project/ms-project/upload                          Upload MPP/XML
+POST    /api/project/ms-project/export-supplier                 Export supplier CSV
+POST    /api/project/ms-project/import-supplier                 Import supplier update
+GET     /api/project/ms-project/export-mpp/<project_id>         Generate XML
+POST    /api/project/ms-project/link-component                  Link task to BOM
+GET     /api/project/ms-project/export                          Export tasks CSV
+
+Notes (v42)
+
+- t_ScheduleTask.PlannedPercent and t_ScheduleTask.ActualPercent are NVARCHAR
+  → queries must use CAST(column AS DECIMAL(18,4)) and Python must use
+  float() with try/except.
+
+- The get_schedule_tasks endpoint had a TypeError ('>' between str and int)
+  which was fixed by CASTing in SQL and using safe float conversion.
+
+Translation Keys — Reference
+
+ms_project.* keys cover title, KPIs, columns, modals, actions.
+See DB for full list.
+B.9 — New "Known Issues Fixed" section (insert before closing summary)
+Where: Before the closing summary of the document
+Action: Insert this new section
+
+text
+Known Issues Fixed During This Module's Development (v42)
+
+1.  Type mismatch in get_schedule_tasks (r[6] > 0 on nvarchar)
+    → Fixed with CAST(PlannedPercent AS DECIMAL(18,4)) + float() in Python.
+
+2.  ISNULL(SUM(AllocationPercent), 0) failed on nvarchar
+    → Fixed with SUM(CAST(AllocationPercent AS DECIMAL(18,4))).
+
+3.  IsActive = 1 silently failed on nvarchar columns
+    → Fixed with IsActive = '1' (string literal).
+
+4.  bool(row[i]) returned True for '0' values
+    → Replaced with is_active_true(row[i]) helper.
+
+5.  Duplicate /api/set-current-project route (in core/routes.py AND
+    init.py) caused nondeterministic behavior
+    → Kept only the core/routes.py version.
+
+6.  Sidebar project selector used jQuery delegated handler
+    → Rewritten in pure JS (see PROJECT CONTEXT Section 7.9).
+
+7.  Language switching broken on customer_projects_list.html
+    → Root cause: duplicate jQuery load in {% block scripts %}.
+    Fixed by removing the duplicate.
+
+8.  Project portfolio table empty even though API returned data
+    → Root cause: same duplicate jQuery load breaking the ready queue.
+    Fixed by rewriting the page with the standard pattern.
+
+9.  LLM-invented translation values broke engineering BOM page
+    → Rolled back using backup table. See PROJECT CONTEXT Section 8.23.
+
+10. The auto.* hash key audit showed ~1,600 spurious keys
+    → Filtered out; only ~270 real semantic keys needed insertion.
+
+Summary of Projects Module (v42)
+
+Page Name                              Type            Status
+4  Project Portfolio                   Master Data     ✅ Implemented, fully translated
+5  Customer Projects                   Master Data     ✅ Implemented, fully translated
+6  Project Items                       Transactional   ◇ Planned (not implemented)
+7  Project Product Tree                Hierarchical    ✅ Implemented, fully translated
+8  MS Project Integration              Transactional   ✅ Implemented, fully translated
+9  MS Project Integration (Detail)     Transactional   ◇ Planned (not implemented)
+
+Sub-pages (all ✅ Implemented, fully translated):
+
+  /project/dashboard/<id>
+  /project/customer_projects/<cp_id>
+  /project/milestones/<id>
+  /project/resources/<id>
+  /project/bom/<id>
+  /project/deliverables/<id>
+  /project/boq/<id>
+  /project/certificates/<id>
+  /project/certificate/<cert_id>

@@ -1,0 +1,233 @@
+📘 GLOBAL FILTER STRATEGY (2026‑09‑17)
+1. The Two Global Filters
+Filter	Where stored	Written by	Read by
+Industry	session['demo_industry']	/api/set-demo-industry (already working)	Every API query
+Project	session['current_project_id']	/api/set-current-project (currently commented out)	Every API query
+Both filters must be visible on every page via the sidebar, and every API endpoint must read them unless the request explicitly overrides them.
+
+2. The Rules (apply everywhere)
+Every list/tree/stats endpoint must accept ?project_id= and ?industry= (both optional).
+
+If the request doesn't send them, fall back to session.get(...), defaulting to 'All' / 'valve'.
+
+If the value is 'All' or empty, skip that filter in the SQL.
+
+Industry filter is always applied.
+
+Project filter is applied via a sub‑query to t_ProjectProducts (products), t_Project (projects), or t_CompanyProject (internal projects).
+
+Never re‑check the project inside recursive queries (e.g. BOM tree recursion). The project filter applies to the root only.
+
+If the session project doesn't belong to the current industry, treat it as 'All' (avoid empty pages when switching industry).
+
+3. The Sidebar (single source of truth)
+In templates/sidebar.html, the project selector must:
+
+Load the list of projects filtered by the current industry (from the context processor).
+
+Mark the current session project as selected.
+
+POST to /api/set-current-project on change, then reload the page.
+
+html
+<select class="form-control" id="projectSelector">
+    <option value="All" {% if not current_project %}selected{% endif %}>All Projects</option>
+    {% for project in projects %}
+    <option value="{{ project.ProjectID }}"
+            {% if current_project and current_project.ProjectID == project.ProjectID %}selected{% endif %}>
+        {{ project.ProjectCode }} - {{ project.ProjectName }}
+    </option>
+    {% endfor %}
+</select>
+
+<script>
+$(document).ready(function() {
+    $('#projectSelector').on('change', function() {
+        var projectId = $(this).val();
+        $.ajax({
+            url: '/api/set-current-project',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ project_id: projectId }),
+            success: function() { window.location.reload(); },
+            error: function(xhr) { console.error('Failed to set project:', xhr.responseText); }
+        });
+    });
+});
+</script>
+Also, the sidebar should provide an explicit way to reset to "All Projects" — the first <option value="All"> already does this.
+
+4. The Routes (backend)
+In app/__init__.py (or wherever industry routes live), uncomment/add:
+
+python
+@app.route('/api/set-current-project', methods=['POST'])
+def api_set_current_project():
+    data = request.get_json(silent=True) or {}
+    project_id = data.get('project_id')
+    if project_id is None:
+        return jsonify({'status': 'error', 'message': 'Missing project_id'}), 400
+    session['current_project_id'] = project_id
+    session.modified = True
+    return jsonify({'status': 'ok'})
+In app/core/demo_industry.py — reset project on industry change:
+
+python
+session['demo_industry'] = industry
+session['current_project_id'] = 'All'   # ← critical
+session.modified = True
+The context processor that supplies projects to the sidebar:
+
+python
+@app.context_processor
+def inject_projects():
+    from app import db
+    from sqlalchemy.sql import text
+    from types import SimpleNamespace
+
+    industry = session.get('demo_industry', 'valve')
+
+    try:
+        with db.engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT ProjectID, ProjectName, ProjectCode
+                FROM t_Project
+                WHERE DemoIndustryCode = :industry
+            """), {'industry': industry}).fetchall()
+            projects = [{'ProjectID': r[0], 'ProjectName': r[1], 'ProjectCode': r[2]} for r in rows]
+    except Exception as e:
+        print(f"Error loading projects: {e}")
+        projects = []
+
+    current_id = session.get('current_project_id', 'All')
+    current_project = None
+    if current_id != 'All':
+        for p in projects:
+            if p['ProjectID'] == current_id:
+                current_project = SimpleNamespace(**p)
+                break
+
+    return {'projects': projects, 'current_project': current_project}
+5. The API Helper (reuse everywhere)
+In app/modules/<module>/api.py, define once per module (or centralize):
+
+python
+def get_industry_and_project(req):
+    industry = session.get('demo_industry', 'valve')
+    project_id = req.args.get('project_id', '')
+    if not project_id:
+        project_id = session.get('current_project_id', 'All')
+
+    # If the session project doesn't belong to this industry, ignore it
+    if project_id and project_id != 'All':
+        from app import db
+        from sqlalchemy.sql import text
+        try:
+            with db.engine.connect() as conn:
+                ok = conn.execute(text("""
+                    SELECT COUNT(*) FROM t_Project
+                    WHERE ProjectID = :p AND DemoIndustryCode = :i
+                """), {'p': project_id, 'i': industry}).fetchone()[0]
+            if not ok:
+                project_id = 'All'
+        except Exception:
+            project_id = 'All'
+
+    return industry, project_id
+Pattern for every SQL query:
+
+python
+industry, project_id = get_industry_and_project(request)
+
+query = """
+    SELECT ...
+    FROM t_Something s
+    WHERE s.DemoIndustryCode = :industry
+"""
+params = {'industry': industry}
+
+# Product-linked project filter (most common)
+if project_id and project_id != 'All':
+    project_list = [x.strip() for x in project_id.split(',') if x.strip()]
+    placeholders = ','.join([f':p{i}' for i in range(len(project_list))])
+    query += f"""
+        AND s.ProductID IN (
+            SELECT ProductID FROM t_ProjectProducts WHERE ProjectID IN ({placeholders})
+        )
+    """
+    for i, pid in enumerate(project_list):
+        params[f'p{i}'] = pid
+
+query += " ORDER BY ..."
+
+with db.engine.connect() as conn:
+    rows = conn.execute(text(query), params).fetchall()
+For recursion (BOM tree):
+
+Apply the project filter to the root product only.
+
+Recursive calls apply only the industry filter.
+
+6. The Frontend (every page)
+Always include a hidden input on every page to expose the session project:
+
+html
+<input type="hidden" id="sidebarProject" value="{{ current_project.ProjectID if current_project else 'All' }}">
+In every page's JS, use one helper:
+
+javascript
+function getSelectedProjects() {
+    var v = $('#projectSelector').val();
+    return (v === null || v === undefined) ? '' : v;
+}
+Every AJAX call must append project_id and industry:
+
+javascript
+var params = { project_id: getSelectedProjects() };
+// $.get('/api/.../list', params) ...
+7. Behaviour Matrix (expected)
+Industry	Project	What every page shows
+valve	All	All valve products / BOMs / docs
+valve	PROJ-GACH-2024	Only valve products linked to that project
+furniture	All	All furniture products / BOMs / docs
+furniture	PROJ-HOTEL-2024	Only furniture products linked to that project
+furniture	PROJ-GACH-2024	Empty (mismatched project/industry) → falls back to All (industry filter only)
+8. Migration Checklist for Each of the 70+ Pages
+For every page, confirm:
+
+□ The API endpoint calls get_industry_and_project(request) and applies both filters.
+□ The frontend JS sends project_id from #projectSelector on every data call.
+□ The list/detail/tree/stats endpoints all accept project_id.
+□ The page loads correctly with project_id=All.
+□ The page loads correctly with a specific project.
+□ The page correctly falls back when project/industry mismatch.
+□ The sidebar <select> shows the current project as selected.
+□ Switching industry resets session['current_project_id'] to 'All'.
+9. Known Pitfalls (from the BOM page experience)
+Commented‑out /api/set-current-project — the session never gets updated. Never leave it commented.
+
+Duplicate #projectSelector — if there are two elements with the same ID, $('#projectSelector').val() returns the wrong one.
+
+Recursive queries with project filter — always apply the project filter to the root, not every level.
+
+Missing industry reset on project mismatch — leads to empty pages.
+
+Frontend not sending project_id — the API falls back to session, which may still be stale. Always send it explicitly.
+
+t_ProjectProducts empty for a project — the page will legitimately be empty. Populate the table or accept empty results.
+
+10. What to Do (in Order)
+Uncomment /api/set-current-project in app/__init__.py. ✅ prerequisite.
+
+Add the sidebar change handler if it doesn't exist. ✅ prerequisite.
+
+Update the context processor so current_project is set for the sidebar. ✅ prerequisite.
+
+Ensure session['current_project_id'] is reset to 'All' on industry change (in demo_industry.py). ✅ prerequisite.
+
+For each module, apply the get_industry_and_project + query pattern to all list/tree/stats endpoints. Ongoing work per module.
+
+For each page, ensure the JS sends project_id. Ongoing work per page.
+
+This is the canonical reference for the rest of your app. You can paste it into any future chat that touches filtering.
+

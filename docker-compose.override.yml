@@ -1,0 +1,23 @@
+# docker-compose.override.yml — DEV ONLY
+services:
+  web:
+    ports:
+      - "5002:5001"          # host 5002 → container 5001 (workaround for Docker Desktop port bug)
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+    volumes:
+      - ./app:/app/app
+      - ./run.py:/app/run.py
+      - ./config.py:/app/config.py
+      - uploads_data:/app/static/uploads
+      - generated_docs_data:/app/static/documents/generated
+    command: >
+      gunicorn
+        --bind 0.0.0.0:5001
+        --workers 2
+        --threads 4
+        --reload
+        --access-logfile -
+        --error-logfile -
+        "app:create_app()"

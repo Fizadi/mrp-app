@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}Shop Floor Layout{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">Manufacturing</a></li>
+            <li class="breadcrumb-item active">Shop Floor Layout</li>
+        </ol>
+    </nav>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Shop Floor Layout</h2>
+        <div>
+            <button class="btn btn-secondary me-2" id="refreshBtn"><i class="fas fa-sync"></i> Refresh</button>
+            <button class="btn btn-success" id="exportBtn"><i class="fas fa-download"></i> Export SVG</button>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-12">
+                    <span class="badge bg-success me-2">● Idle</span>
+                    <span class="badge bg-primary me-2">● Active</span>
+                    <span class="badge bg-warning me-2">● Setup</span>
+                    <span class="badge bg-danger me-2">● Overloaded</span>
+                    <span class="badge bg-secondary me-2">● Down</span>
+                    <span class="badge bg-dark me-2">● No Orders</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SVG Container -->
+    <div class="card">
+        <div class="card-body">
+            <div id="svgContainer" style="min-height: 700px; border: 1px solid #ddd; border-radius: 4px; overflow: auto; background: #f5f5f5; padding: 20px;">
+                <div id="svgWrapper">
+                    <p class="text-center text-muted py-5">Loading shop floor layout...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Work Center Detail Modal -->
+<div class="modal fade" id="wcDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="wcModalTitle">Work Center Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="wcModalBody">
+                <p>Loading...</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Wait for DOM to be ready using a simple function
+function whenReady(fn) {
+    if (document.readyState !== 'loading') {
+        fn();
+    } else {
+        document.addEventListener('DOMContentLoaded', fn);
+    }
+}
+
+// Make functions globally accessible
+var ShopFloorLayout = {
+    loadLayout: function() {
+        console.log('Loading layout data...');
+        var wrapper = document.getElementById('svgWrapper');
+        if (!wrapper) {
+            console.error('svgWrapper not found!');
+            return;
+        }
+        wrapper.innerHTML = '<p class="text-center text-muted py-5">Loading shop floor layout...</p>';
+        
+        $.ajax({
+            url: '/api/shop-floor-layout',
+            method: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                console.log('Layout data received:', data);
+                if (!data || !data.workCenters) {
+                    console.error('Invalid data structure:', data);
+                    var wrapper = document.getElementById('svgWrapper');
+                    if (wrapper) {
+                        wrapper.innerHTML = '<p class="text-center text-danger py-5">Invalid data received from server</p>';
+                    }
+                    return;
+                }
+                ShopFloorLayout.renderSvgLayout(data);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading layout:', status, error);
+                var wrapper = document.getElementById('svgWrapper');
+                if (wrapper) {
+                    wrapper.innerHTML = '<p class="text-center text-danger py-5">Error loading layout: ' + (xhr.statusText || 'Unknown error') + '</p>';
+                }
+            }
+        });
+    },
+
+    renderSvgLayout: function(data) {
+        console.log('Rendering SVG layout...');
+        var wrapper = document.getElementById('svgWrapper');
+        if (!wrapper) {
+            console.error('SVG wrapper not found!');
+            return;
+        }
+
+        var workCenters = data.workCenters;
+        console.log('Work centers:', Object.keys(workCenters));
+
+        // Work center positions
+        var positions = {
+            'FOUNDRY': { x: 120, y: 80, w: 160, h: 140 },
+            'MACHINE-1': { x: 380, y: 60, w: 140, h: 120 },
+            'MACHINE-2': { x: 380, y: 280, w: 140, h: 120 },
+            'ASSEMBLY': { x: 620, y: 150, w: 160, h: 140 },
+            'TEST-AREA': { x: 840, y: 80, w: 120, h: 120 },
+            'PAINT': { x: 840, y: 280, w: 120, h: 120 }
+        };
+
+        // Color mapping
+        var colors = {
+            'Active': { fill: '#0d6efd', stroke: '#0a58ca', text: '#ffffff' },
+            'Idle': { fill: '#28a745', stroke: '#1e7e34', text: '#ffffff' },
+            'Setup': { fill: '#ffc107', stroke: '#d39e00', text: '#212529' },
+            'Overloaded': { fill: '#dc3545', stroke: '#b02a37', text: '#ffffff' },
+            'Down': { fill: '#6c757d', stroke: '#565e64', text: '#ffffff' },
+            'No Orders': { fill: '#e9ecef', stroke: '#6c757d', text: '#212529' }
+        };
+
+        // Build SVG string
+        var svg = '<svg viewBox="0 0 1050 650" width="100%" height="650" style="background:#f0f0f0; border-radius:4px; border:1px solid #ccc;">';
+        
+        // Floor background
+        svg += '<rect x="10" y="10" width="1030" height="630" fill="#e8e8e8" stroke="#999" stroke-width="2" rx="4"/>';
+        svg += '<text x="30" y="35" font-size="14" fill="#666" font-family="Arial, sans-serif">Shop Floor: 100m × 60m</text>';
+
+        // Arrow marker
+        svg += '<defs><marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#666"/></marker></defs>';
+
+        // Draw each work center
+        for (var id in positions) {
+            if (!positions.hasOwnProperty(id)) continue;
+            
+            var pos = positions[id];
+            var center = workCenters[id] || { name: id, orders: [], count: 0, status: 'No Orders' };
+            var status = center.status || 'No Orders';
+            var color = colors[status] || colors['No Orders'];
+            var count = center.count || 0;
+
+            console.log('Drawing:', id, 'Status:', status, 'Count:', count);
+
+            // Work center rectangle
+            svg += '<rect x="' + pos.x + '" y="' + pos.y + '" width="' + pos.w + '" height="' + pos.h + '" rx="8" ry="8" fill="' + color.fill + '" stroke="' + color.stroke + '" stroke-width="2" class="wc-node" data-wc="' + id + '" cursor="pointer"/>';
+
+            // Work center name
+            var name = center.name || id;
+            var displayName = name.length > 18 ? name.substring(0, 15) + '...' : name;
+            svg += '<text x="' + (pos.x + pos.w/2) + '" y="' + (pos.y + 30) + '" text-anchor="middle" fill="' + color.text + '" font-size="14" font-weight="bold" font-family="Arial, sans-serif" pointer-events="none">' + displayName + '</text>';
+
+            // Status badge
+            var statusDisplay = status === 'No Orders' ? 'Idle' : status;
+            svg += '<rect x="' + (pos.x + pos.w/2 - 40) + '" y="' + (pos.y + pos.h - 30) + '" width="80" height="20" rx="10" fill="rgba(0,0,0,0.2)" pointer-events="none"/>';
+            svg += '<text x="' + (pos.x + pos.w/2) + '" y="' + (pos.y + pos.h - 15) + '" text-anchor="middle" fill="' + color.text + '" font-size="10" font-family="Arial, sans-serif" pointer-events="none">' + statusDisplay + '</text>';
+
+            // Order count
+            var countColor = count > 0 ? '#ffffff' : '#999';
+            svg += '<text x="' + (pos.x + pos.w - 15) + '" y="' + (pos.y + 20) + '" text-anchor="end" fill="' + countColor + '" font-size="16" font-weight="bold" font-family="Arial, sans-serif" pointer-events="none">' + count + '</text>';
+            svg += '<text x="' + (pos.x + pos.w - 15) + '" y="' + (pos.y + 35) + '" text-anchor="end" fill="' + countColor + '" font-size="8" font-family="Arial, sans-serif" pointer-events="none">orders</text>';
+
+            // Order IDs
+            if (center.orders && center.orders.length > 0) {
+                var orderText = center.orders.slice(0, 3).join(', ');
+                if (center.orders.length > 3) orderText += '...';
+                svg += '<text x="' + (pos.x + pos.w/2) + '" y="' + (pos.y + pos.h - 50) + '" text-anchor="middle" fill="' + color.text + '" font-size="10" font-family="Arial, sans-serif" pointer-events="none">' + orderText + '</text>';
+            }
+
+            // Material flow arrows
+            if (id === 'FOUNDRY') {
+                svg += '<line x1="' + (pos.x + pos.w) + '" y1="' + (pos.y + pos.h/2) + '" x2="' + (positions['MACHINE-1'].x) + '" y2="' + (positions['MACHINE-1'].y + positions['MACHINE-1'].h/2) + '" stroke="#666" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)"/>';
+            }
+            if (id === 'MACHINE-1') {
+                svg += '<line x1="' + (pos.x + pos.w) + '" y1="' + (pos.y + pos.h/2) + '" x2="' + (positions['ASSEMBLY'].x) + '" y2="' + (positions['ASSEMBLY'].y + positions['ASSEMBLY'].h/2) + '" stroke="#666" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)"/>';
+            }
+            if (id === 'MACHINE-2') {
+                svg += '<line x1="' + (pos.x + pos.w) + '" y1="' + (pos.y + pos.h/2) + '" x2="' + (positions['ASSEMBLY'].x) + '" y2="' + (positions['ASSEMBLY'].y + positions['ASSEMBLY'].h/2) + '" stroke="#666" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)"/>';
+            }
+            if (id === 'ASSEMBLY') {
+                svg += '<line x1="' + (pos.x + pos.w) + '" y1="' + (pos.y + pos.h/2) + '" x2="' + (positions['TEST-AREA'].x) + '" y2="' + (positions['TEST-AREA'].y + positions['TEST-AREA'].h/2) + '" stroke="#666" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)"/>';
+                svg += '<line x1="' + (pos.x + pos.w) + '" y1="' + (pos.y + pos.h/2) + '" x2="' + (positions['PAINT'].x) + '" y2="' + (positions['PAINT'].y + positions['PAINT'].h/2) + '" stroke="#666" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)"/>';
+            }
+        }
+
+        // Legend
+        svg += '<rect x="20" y="600" width="400" height="40" rx="6" fill="white" stroke="#ddd" opacity="0.9"/>';
+        svg += '<circle cx="40" cy="620" r="8" fill="#28a745"/><text x="55" y="625" font-size="11" fill="#333">Idle</text>';
+        svg += '<circle cx="110" cy="620" r="8" fill="#0d6efd"/><text x="125" y="625" font-size="11" fill="#333">Active</text>';
+        svg += '<circle cx="185" cy="620" r="8" fill="#ffc107"/><text x="200" y="625" font-size="11" fill="#333">Setup</text>';
+        svg += '<circle cx="255" cy="620" r="8" fill="#dc3545"/><text x="270" y="625" font-size="11" fill="#333">Overloaded</text>';
+        svg += '<circle cx="345" cy="620" r="8" fill="#6c757d"/><text x="360" y="625" font-size="11" fill="#333">Down</text>';
+
+        svg += '</svg>';
+        
+        wrapper.innerHTML = svg;
+        console.log('SVG rendered successfully');
+
+        // Click handler on work center nodes
+        $('.wc-node').on('click', function() {
+            var wcId = $(this).data('wc');
+            ShopFloorLayout.showWorkCenterDetail(wcId, data);
+        });
+    },
+
+    showWorkCenterDetail: function(wcId, data) {
+        var center = data.workCenters[wcId];
+        if (!center) {
+            $('#wcModalTitle').text('Work Center: ' + wcId);
+            $('#wcModalBody').html('<p>No data available for this work center.</p>');
+            $('#wcDetailModal').modal('show');
+            return;
+        }
+
+        $('#wcModalTitle').text('Work Center: ' + (center.name || wcId));
+        var html = '<div class="row">';
+        html += '<div class="col-md-6"><strong>Status:</strong> ' + center.status + '</div>';
+        html += '<div class="col-md-6"><strong>Active Orders:</strong> ' + (center.count || 0) + '</div>';
+        html += '</div><hr/>';
+        html += '<h6>Orders:</h6><ul>';
+        if (center.orders && center.orders.length > 0) {
+            center.orders.forEach(function(order) {
+                html += '<li><a href="#" onclick="alert(\'Order details for ' + order + '\')">' + order + '</a></li>';
+            });
+        } else {
+            html += '<li>No active orders</li>';
+        }
+        html += '</ul>';
+        $('#wcModalBody').html(html);
+        $('#wcDetailModal').modal('show');
+    }
+};
+
+// Use whenReady to ensure DOM is loaded
+whenReady(function() {
+    console.log('DOM ready - initializing Shop Floor Layout');
+    
+    // Refresh button
+    $('#refreshBtn').click(function() {
+        ShopFloorLayout.loadLayout();
+    });
+
+    // Export SVG button
+    $('#exportBtn').click(function() {
+        var svgContent = document.querySelector('#svgWrapper svg');
+        if (!svgContent) { alert('No diagram to export'); return; }
+        var serializer = new XMLSerializer();
+        var svgStr = serializer.serializeToString(svgContent);
+        var blob = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'shop_floor_layout.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    });
+
+    // Initial load
+    ShopFloorLayout.loadLayout();
+
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        ShopFloorLayout.loadLayout();
+    }, 30000);
+});
+</script>
+{% endblock %}

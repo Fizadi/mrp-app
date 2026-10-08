@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.workstations.title', 'Workstations') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.workstations.breadcrumb', 'Workstations') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.workstations.title', 'Workstations') }}</h2>
+        <div>
+            <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#workstationModal" onclick="clearModal()">
+                <i class="fas fa-plus"></i> {{ get_translation('manufacturing.workstations.add', 'Add Workstation') }}
+            </button>
+            <button class="btn btn-secondary me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="fas fa-upload"></i> {{ get_translation('global.import_csv', 'Import CSV') }}
+            </button>
+            <a href="{{ url_for('manufacturing_api.export_workstations_csv') }}" class="btn btn-info">
+                <i class="fas fa-download"></i> {{ get_translation('global.export_csv', 'Export CSV') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('manufacturing.workstations.kpi.total', 'Total') }}</h6>
+                    <h3 id="kpiTotal">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('manufacturing.workstations.kpi.internal', 'Internal') }}</h6>
+                    <h3 id="kpiInternal">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('manufacturing.workstations.kpi.external', 'External') }}</h6>
+                    <h3 id="kpiExternal">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6 class="card-title">{{ get_translation('manufacturing.workstations.kpi.pending_ecos', 'Pending ECOs') }}</h6>
+                    <h3 id="kpiEcos">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.workstations.filters.type', 'Type') }}</label>
+                <select class="form-select" id="typeFilter">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option>Internal</option>
+                    <option>External</option>
+                </select>
+            </div>
+            <div class="col-md-2 form-check mt-4">
+                <input type="checkbox" class="form-check-input" id="activeOnly">
+                <label class="form-check-label">{{ get_translation('manufacturing.workstations.filters.active_only', 'Active Only') }}</label>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">{{ get_translation('manufacturing.workstations.filters.search', 'Search') }}</label>
+                <input type="text" class="form-control" id="searchInput" placeholder="{{ get_translation('global.search', 'Search...') }}">
+            </div>
+            <div class="col-md-3 d-flex justify-content-end">
+                <button class="btn btn-primary w-100" id="refreshBtn"><i class="fas fa-sync"></i> {{ get_translation('global.refresh', 'Refresh') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workstations Table -->
+    <div class="card">
+        <div class="card-header">{{ get_translation('manufacturing.workstations.table.title', 'Workstation List') }}</div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ get_translation('manufacturing.workstations.table.code', 'Code') }}</th>
+                        <th>{{ get_translation('manufacturing.workstations.table.name', 'Name') }}</th>
+                        <th>{{ get_translation('manufacturing.workstations.table.type', 'Type') }}</th>
+                        <th>{{ get_translation('manufacturing.workstations.table.location', 'Location') }}</th>
+                        <th>{{ get_translation('manufacturing.workstations.table.capacity', 'Capacity (hrs/day)') }}</th>
+                        <th>{{ get_translation('manufacturing.workstations.table.rate', 'Hourly Rate') }}</th>
+                        <th>{{ get_translation('manufacturing.workstations.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="workstationsBody">
+                    <tr><td colspan="8" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="workstationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">{{ get_translation('manufacturing.workstations.add_modal.title', 'Add Workstation') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="workstationForm">
+                    <input type="hidden" id="editId">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabGeneral">{{ get_translation('manufacturing.workstations.add_modal.general', 'General') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCapacity">{{ get_translation('manufacturing.workstations.add_modal.capacity', 'Capacity') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabSkills">{{ get_translation('manufacturing.workstations.add_modal.skills', 'Skills') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCost">{{ get_translation('manufacturing.workstations.add_modal.cost', 'Cost') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabDates">{{ get_translation('manufacturing.workstations.add_modal.dates', 'Effective Dates') }}</a></li>
+                    </ul>
+                    <div class="tab-content mt-3">
+                        <div class="tab-pane fade show active" id="tabGeneral">
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.code', 'Code') }}</label><input type="text" class="form-control" id="wcCode" required></div>
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.name', 'Name') }}</label><input type="text" class="form-control" id="wcName" required></div>
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.type', 'Type') }}</label><select class="form-select" id="wcType"><option>Internal</option><option>External</option></select></div>
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.location', 'Location') }}</label><input type="text" class="form-control" id="wcLocation"></div>
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.description', 'Description') }}</label><textarea class="form-control" id="wcDesc" rows="2"></textarea></div>
+                        </div>
+                        <div class="tab-pane fade" id="tabCapacity">
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.capacity_hours', 'Capacity Hours per Day') }}</label><input type="number" class="form-control" id="wcCapacity" step="0.5"></div>
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.max_jobs', 'Max Concurrent Jobs') }}</label><input type="number" class="form-control" id="wcMaxJobs" value="1"></div>
+                        </div>
+                        <div class="tab-pane fade" id="tabSkills">
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.skills_json', 'Required Skills (JSON array)') }}</label><textarea class="form-control" id="wcSkills" rows="3" placeholder='["Welding", "CNC"]'></textarea></div>
+                        </div>
+                        <div class="tab-pane fade" id="tabCost">
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.hourly_rate', 'Hourly Rate') }}</label><input type="number" class="form-control" id="wcRate" step="0.01"></div>
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.currency', 'Currency Code') }}</label><input type="text" class="form-control" id="wcCurrency" value="USD"></div>
+                        </div>
+                        <div class="tab-pane fade" id="tabDates">
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.start_date', 'Effective Start (YYYYMMDD)') }}</label><input type="number" class="form-control" id="wcStartDate"></div>
+                            <div class="mb-2"><label class="form-label">{{ get_translation('manufacturing.workstations.add_modal.end_date', 'Effective End (YYYYMMDD)') }}</label><input type="number" class="form-control" id="wcEndDate"></div>
+                            <div class="form-check"><input type="checkbox" class="form-check-input" id="wcActive" checked><label class="form-check-label">{{ get_translation('manufacturing.workstations.add_modal.is_active', 'Is Active') }}</label></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="saveWorkstationBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Archive Confirmation Modal -->
+<div class="modal fade" id="archiveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('manufacturing.workstations.archive.title', 'Archive Workstation') }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="archiveId">
+                <label>{{ get_translation('manufacturing.workstations.archive.reason', 'Reason (optional)') }}</label>
+                <textarea class="form-control" id="archiveReason" rows="2"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-danger" id="confirmArchiveBtn">{{ get_translation('manufacturing.workstations.archive.confirm', 'Archive') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Copy Modal -->
+<div class="modal fade" id="copyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('manufacturing.workstations.copy.title', 'Copy Workstation') }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="copySourceId">
+                <label>{{ get_translation('manufacturing.workstations.copy.new_code', 'New Code') }}</label>
+                <input type="text" class="form-control" id="newCode" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="confirmCopyBtn">{{ get_translation('global.copy', 'Copy') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('global.import_csv', 'Import CSV') }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><input type="file" class="form-control" id="csvFile" accept=".csv"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="importBtn">{{ get_translation('global.upload', 'Upload') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// WORKSTATIONS PAGE - MAIN JAVASCRIPT
+// ============================================================================
+
+$(document).ready(function() {
+    // --- Translations ---
+    var trans = {
+        edit: {{ get_translation('global.edit', 'Edit')|tojson }},
+        delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+        save: {{ get_translation('global.save', 'Save')|tojson }},
+        cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+        add: {{ get_translation('global.add', 'Add')|tojson }},
+        copy: {{ get_translation('global.copy', 'Copy')|tojson }},
+        archive: {{ get_translation('global.archive', 'Archive')|tojson }},
+        view_routing: {{ get_translation('manufacturing.workstations.view_routing', 'View Routing')|tojson }}
+    };
+
+    // --- Load KPI ---
+    function loadKPIs() {
+        var params = {
+            type: $('#typeFilter').val(),
+            active_only: $('#activeOnly').is(':checked')
+        };
+        $.get('/api/manufacturing/workstations/stats', params, function(res) {
+            $('#kpiTotal').text(res.total || 0);
+            $('#kpiInternal').text(res.internal || 0);
+            $('#kpiExternal').text(res.external || 0);
+            $('#kpiEcos').text(res.pendingEcos || 0);
+        });
+    }
+
+    // --- Load Table ---
+    function loadTable() {
+        var params = {
+            type: $('#typeFilter').val(),
+            active_only: $('#activeOnly').is(':checked'),
+            search: $('#searchInput').val()
+        };
+        $.get('/api/manufacturing/workstations', params, function(items) {
+            var html = '';
+            items.forEach(function(w) {
+                var activeBadge = w.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                var archived = w.isArchived ? 'table-secondary' : '';
+                html += '<tr class="' + archived + '">' +
+                    '<td><a href="/manufacturing/workstations/' + w.id + '">' + w.id + '</a></td>' +
+                    '<td>' + w.name + '</td>' +
+                    '<td>' + w.type + '</td>' +
+                    '<td>' + (w.location || '-') + '</td>' +
+                    '<td>' + (w.capacityHours || '-') + '</td>' +
+                    '<td>' + (w.hourlyRate ? '$' + w.hourlyRate : '-') + '</td>' +
+                    '<td>' + activeBadge + '</td>' +
+                    '<td>' +
+                        '<button class="btn btn-warning btn-sm edit-wc" data-id="' + w.id + '"><i class="fas fa-edit"></i> ' + trans.edit + '</button> ' +
+                        '<button class="btn btn-secondary btn-sm copy-wc" data-id="' + w.id + '"><i class="fas fa-copy"></i> ' + trans.copy + '</button> ' +
+                        '<button class="btn btn-danger btn-sm archive-wc" data-id="' + w.id + '"><i class="fas fa-archive"></i> ' + trans.archive + '</button> ' +
+                        '<button class="btn btn-info btn-sm routing-wc" data-id="' + w.id + '"><i class="fas fa-route"></i> ' + trans.view_routing + '</button>' +
+                    '</td>' +
+                '</tr>';
+            });
+            $('#workstationsBody').html(html || '<tr><td colspan="8">No workstations found</td></tr>');
+            attachActionEvents();
+        });
+    }
+
+    // --- Attach action events ---
+    function attachActionEvents() {
+        $('.edit-wc').on('click', function() { editWorkstation($(this).data('id')); });
+        $('.copy-wc').on('click', function() { showCopyModal($(this).data('id')); });
+        $('.archive-wc').on('click', function() { showArchiveModal($(this).data('id')); });
+        $('.routing-wc').on('click', function() {
+            window.location.href = '/manufacturing/work-center-routing?work_center_id=' + $(this).data('id');
+        });
+    }
+
+    // --- Edit workstation ---
+    function editWorkstation(id) {
+        $.get('/api/manufacturing/workstations/' + id, function(data) {
+            $('#modalTitle').text('{{ get_translation("manufacturing.workstations.edit_modal.title", "Edit Workstation") }}');
+            $('#editId').val(id);
+            $('#wcCode').val(data.WorkCenterID).prop('disabled', true);
+            $('#wcName').val(data.Name);
+            $('#wcType').val(data.Type || 'Internal');
+            $('#wcLocation').val(data.Location || '');
+            $('#wcDesc').val(data.Description || '');
+            $('#wcCapacity').val(data.CapacityHours || '');
+            $('#wcMaxJobs').val(data.MaxConcurrentJobs || 1);
+            $('#wcSkills').val(JSON.stringify(data.SkillsRequired || []));
+            $('#wcRate').val(data.HourlyRate || '');
+            $('#wcCurrency').val(data.CurrencyCode || 'USD');
+            $('#wcStartDate').val(data.EffectiveStartDateKey || '');
+            $('#wcEndDate').val(data.EffectiveEndDateKey || '');
+            $('#wcActive').prop('checked', data.IsActive == 1);
+            $('#workstationModal').modal('show');
+        });
+    }
+
+    // --- Clear modal for add ---
+    function clearModal() {
+        $('#modalTitle').text('{{ get_translation("manufacturing.workstations.add_modal.title", "Add Workstation") }}');
+        $('#editId').val('');
+        $('#wcCode').val('').prop('disabled', false);
+        $('#wcName').val('');
+        $('#wcType').val('Internal');
+        $('#wcLocation').val('');
+        $('#wcDesc').val('');
+        $('#wcCapacity').val('');
+        $('#wcMaxJobs').val('1');
+        $('#wcSkills').val('');
+        $('#wcRate').val('');
+        $('#wcCurrency').val('USD');
+        $('#wcStartDate').val('');
+        $('#wcEndDate').val('');
+        $('#wcActive').prop('checked', true);
+    }
+
+    // --- Save workstation ---
+    function saveWorkstation() {
+        var id = $('#editId').val();
+        var payload = {
+            workstationId: $('#wcCode').val(),
+            name: $('#wcName').val(),
+            type: $('#wcType').val(),
+            location: $('#wcLocation').val(),
+            description: $('#wcDesc').val(),
+            capacityHours: parseFloat($('#wcCapacity').val()) || null,
+            maxConcurrentJobs: parseInt($('#wcMaxJobs').val()) || 1,
+            skillsRequired: JSON.parse($('#wcSkills').val() || '[]'),
+            hourlyRate: parseFloat($('#wcRate').val()) || null,
+            currencyCode: $('#wcCurrency').val(),
+            effectiveStartDateKey: parseInt($('#wcStartDate').val()) || null,
+            effectiveEndDateKey: parseInt($('#wcEndDate').val()) || null,
+            isActive: $('#wcActive').is(':checked')
+        };
+        var method = id ? 'PUT' : 'POST';
+        var url = id ? '/api/manufacturing/workstations/' + id : '/api/manufacturing/workstations';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function() {
+                $('#workstationModal').modal('hide');
+                refreshAll();
+                showToast('{{ get_translation("manufacturing.workstations.save_success", "Workstation saved") }}', 'success');
+            },
+            error: function(err) { alert('Error: ' + (err.responseJSON?.error || 'Save failed')); }
+        });
+    }
+
+    // --- Archive ---
+    function showArchiveModal(id) { $('#archiveId').val(id); $('#archiveModal').modal('show'); }
+    function confirmArchive() {
+        var id = $('#archiveId').val();
+        var reason = $('#archiveReason').val();
+        $.post('/api/manufacturing/workstations/' + id + '/archive', JSON.stringify({ reason: reason }), function() {
+            $('#archiveModal').modal('hide');
+            refreshAll();
+            showToast('{{ get_translation("manufacturing.workstations.archive_success", "Workstation archived") }}', 'success');
+        });
+    }
+
+    // --- Copy ---
+    function showCopyModal(id) { $('#copySourceId').val(id); $('#newCode').val(''); $('#copyModal').modal('show'); }
+    function confirmCopy() {
+        var source = $('#copySourceId').val();
+        var newId = $('#newCode').val().trim();
+        if (!newId) { alert('New code required'); return; }
+        $.post('/api/manufacturing/workstations/' + source + '/copy', JSON.stringify({ newId: newId }), function() {
+            $('#copyModal').modal('hide');
+            refreshAll();
+            showToast('{{ get_translation("manufacturing.workstations.copy_success", "Workstation copied") }}', 'success');
+        });
+    }
+
+    // --- Import ---
+    function importCSV() {
+        var file = $('#csvFile')[0].files[0];
+        if (!file) { alert('Select a file'); return; }
+        var formData = new FormData();
+        formData.append('file', file);
+        $.ajax({
+            url: '/api/manufacturing/workstations/import-csv',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function() {
+                $('#importModal').modal('hide');
+                refreshAll();
+                showToast('{{ get_translation("manufacturing.workstations.import_success", "Import completed") }}', 'success');
+            },
+            error: function() { alert('Import failed'); }
+        });
+    }
+
+    // --- Toast notification ---
+    function showToast(message, type) {
+        type = type || 'success';
+        var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+        var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+        var textClass = type === 'warning' ? 'text-dark' : 'text-white';
+        var toastHtml = '<div class="toast align-items-center ' + bgClass + ' ' + textClass + ' border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+            '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+        $('.toast').remove();
+        $('body').append(toastHtml);
+        var toast = new bootstrap.Toast(document.querySelector('.toast'), { delay: 4000 });
+        toast.show();
+        setTimeout(function() { $('.toast').remove(); }, 4500);
+    }
+
+    function refreshAll() { loadKPIs(); loadTable(); }
+
+    // --- Event bindings ---
+    $('#refreshBtn').on('click', refreshAll);
+    $('#typeFilter').on('change', refreshAll);
+    $('#activeOnly').on('change', refreshAll);
+    $('#searchInput').on('input', refreshAll);
+    $('#saveWorkstationBtn').on('click', saveWorkstation);
+    $('#confirmArchiveBtn').on('click', confirmArchive);
+    $('#confirmCopyBtn').on('click', confirmCopy);
+    $('#importBtn').on('click', importCSV);
+
+    // --- Initial load ---
+    refreshAll();
+
+    // --- Auto-refresh every 60 seconds ---
+    setInterval(refreshAll, 60000);
+});
+</script>
+{% endblock %}

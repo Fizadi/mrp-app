@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.material_planning.title', 'Material Planning') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.material_planning.breadcrumb', 'Material Planning') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.material_planning.title', 'Material Planning') }}</h2>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#runMRPModal">
+                <i class="fas fa-play"></i> {{ get_translation('manufacturing.material_planning.run_mrp', 'Run MRP') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('manufacturing.material_planning.kpi.requirements', 'Requirements') }}</h6><h3 id="kpiRequirements">0</h3></div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('manufacturing.material_planning.kpi.planned_orders', 'Planned Orders') }}</h6><h3 id="kpiPlannedOrders">0</h3></div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('manufacturing.material_planning.kpi.exceptions', 'Exceptions') }}</h6><h3 id="kpiExceptions">0</h3></div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger"><div class="card-body"><h6>{{ get_translation('manufacturing.material_planning.kpi.shortages', 'Shortages') }}</h6><h3 id="kpiShortages">0</h3></div></div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.material_planning.filters.run', 'MRP Run') }}</label>
+                <select class="form-select" id="filterRun">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation('manufacturing.material_planning.filters.status', 'Status') }}</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="On Track">{{ get_translation('manufacturing.material_planning.status.on_track', 'On Track') }}</option>
+                    <option value="Shortage">{{ get_translation('manufacturing.material_planning.status.shortage', 'Shortage') }}</option>
+                    <option value="Planned">{{ get_translation('manufacturing.material_planning.status.planned', 'Planned') }}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.material_planning.filters.product', 'Product') }}</label>
+                <input type="text" class="form-control" id="filterProduct" placeholder="{{ get_translation('global.search', 'Search...') }}">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}</button>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-secondary w-100" id="refreshBtn"><i class="fas fa-sync"></i> {{ get_translation('global.refresh', 'Refresh') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>{{ get_translation('manufacturing.material_planning.table.title', 'Planned Orders') }}</span>
+            <span id="resultCount" class="badge bg-secondary">0</span>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover align-middle table-sticky">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ get_translation('manufacturing.material_planning.table.product', 'Product') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.date', 'Date') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.gross', 'Gross') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.receipts', 'Receipts') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.on_hand', 'On Hand') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.net', 'Net') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.planned', 'Planned') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.type', 'Type') }}</th>
+                        <th>{{ get_translation('manufacturing.material_planning.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <tr><td colspan="10" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Run MRP Modal -->
+<div class="modal fade" id="runMRPModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.material_planning.run_mrp', 'Run MRP') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.material_planning.horizon', 'Planning Horizon (days)') }}</label>
+                    <input type="number" class="form-control" id="mrpHorizon" value="90" min="30" max="365">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.material_planning.description', 'Description') }}</label>
+                    <input type="text" class="form-control" id="mrpDescription" placeholder="MRP Run">
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="mrpSimulation">
+                    <label class="form-check-label">{{ get_translation('manufacturing.material_planning.simulation', 'Simulation (What-If)') }}</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmRunBtn">{{ get_translation('manufacturing.material_planning.run', 'Run') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Firm Modal -->
+<div class="modal fade" id="firmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.material_planning.firm.title', 'Firm Planned Order') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="firmResultId">
+                <p>{{ get_translation('manufacturing.material_planning.firm.confirm', 'This will create an actual order (Production Order or Purchase Order) from this planned order.') }}</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> {{ get_translation('manufacturing.material_planning.firm.warning', 'This action cannot be undone.') }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmFirmBtn">{{ get_translation('manufacturing.material_planning.firm.confirm_btn', 'Firm Order') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// MATERIAL PLANNING - JAVASCRIPT
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Material Planning page loaded');
+
+    // Translation function - uses global translations if available
+    function t(key, fallback) {
+        if (typeof window.t === 'function') {
+            return window.t(key, fallback);
+        }
+        // Fallback: try to get from trans object
+        if (typeof trans !== 'undefined' && trans[key]) {
+            return trans[key];
+        }
+        return fallback || key;
+    }
+
+    function getEl(id) { return document.getElementById(id); }
+
+    function showToast(message, type) {
+        type = type || 'success';
+        var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+        var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+            '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+        document.body.insertAdjacentHTML('beforeend', toastHtml);
+        var toastEl = document.querySelector('.toast');
+        var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        toast.show();
+        setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+    }
+
+    function keyToDate(key) {
+        if (!key) return '-';
+        var s = key.toString();
+        return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    }
+
+    // Updated getStatusBadge function with translations
+    function getStatusBadge(status) {
+        var colors = {
+            'On Track': 'success',
+            'Shortage': 'danger',
+            'Planned': 'warning',
+            'Firmed': 'primary'
+        };
+        var color = colors[status] || 'secondary';
+        
+        // Translate the status
+        var statusMap = {
+            'On Track': t('manufacturing.material_planning.status.on_track', 'On Track'),
+            'Shortage': t('manufacturing.material_planning.status.shortage', 'Shortage'),
+            'Planned': t('manufacturing.material_planning.status.planned', 'Planned'),
+            'Firmed': t('global.firmed', 'Firmed')
+        };
+        var displayText = statusMap[status] || status;
+        
+        return '<span class="badge bg-' + color + '">' + displayText + '</span>';
+    }
+
+    // Load runs dropdown
+    function loadRuns() {
+        fetch('/api/manufacturing/material-planning/runs')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var select = getEl('filterRun');
+                if (!select) return;
+                var opts = '<option value="">' + t('global.all', 'All') + '</option>';
+                data.forEach(function(run) {
+                    var label = run.id + ' - ' + run.status;
+                    opts += '<option value="' + run.id + '">' + label + '</option>';
+                });
+                select.innerHTML = opts;
+            })
+            .catch(function(err) { console.error('Runs error:', err); });
+    }
+
+    // Load KPIs
+    function loadKPIs() {
+        var params = new URLSearchParams();
+        var run = getEl('filterRun');
+        if (run && run.value) params.set('run_id', run.value);
+        
+        fetch('/api/manufacturing/material-planning/stats?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                getEl('kpiRequirements').textContent = res.requirements || 0;
+                getEl('kpiPlannedOrders').textContent = res.plannedOrders || 0;
+                getEl('kpiExceptions').textContent = res.exceptions || 0;
+                getEl('kpiShortages').textContent = res.shortages || 0;
+            })
+            .catch(function(err) { console.error('KPI error:', err); });
+    }
+
+    // Load results
+    function loadResults() {
+        var tbody = getEl('resultsBody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('global.loading', 'Loading...') + '</td></tr>';
+        
+        var params = new URLSearchParams();
+        var run = getEl('filterRun');
+        var status = getEl('filterStatus');
+        var product = getEl('filterProduct');
+        
+        if (run && run.value) params.set('run_id', run.value);
+        if (status && status.value) params.set('status', status.value);
+        if (product && product.value) params.set('product', product.value);
+        
+        if (!run || !run.value) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('manufacturing.material_planning.select_run', 'Please select an MRP run') + '</td></tr>';
+            return;
+        }
+        
+        fetch('/api/manufacturing/material-planning/results?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">' + data.error + '</td></tr>';
+                    return;
+                }
+                renderResults(data);
+                getEl('resultCount').textContent = data.total || 0;
+            })
+            .catch(function(err) {
+                console.error('Error:', err);
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">' + t('global.error', 'Error loading results') + '</td></tr>';
+            });
+    }
+
+    // Render results
+    function renderResults(data) {
+        var tbody = getEl('resultsBody');
+        if (!tbody) return;
+        
+        var results = data.results || [];
+        if (results.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center">' + t('global.no_results', 'No results found') + '</td></tr>';
+            return;
+        }
+        
+        var html = '';
+        results.forEach(function(r) {
+            var statusBadge = getStatusBadge(r.status);
+            var firmBadge = r.isFirm ? '<span class="badge bg-primary">' + t('global.firmed', 'Firmed') + '</span>' : '';
+            
+            // Use translated type
+            var typeDisplay = r.orderType === 'Manufacturing' ? 
+                t('manufacturing.material_planning.type.manufacturing', 'Manufacturing') : 
+                t('manufacturing.material_planning.type.purchase', 'Purchase');
+            
+            html += '<tr>' +
+                '<td>' + r.productId + '</td>' +
+                '<td>' + keyToDate(r.dateKey) + '</td>' +
+                '<td>' + r.grossRequirements + '</td>' +
+                '<td>' + r.scheduledReceipts + '</td>' +
+                '<td>' + r.projectedOnHand + '</td>' +
+                '<td class="' + (r.netRequirements > 0 ? 'text-danger fw-bold' : '') + '">' + r.netRequirements + '</td>' +
+                '<td>' + r.plannedOrderReceipts + '</td>' +
+                '<td>' + typeDisplay + '</td>' +
+                '<td>' + statusBadge + ' ' + firmBadge + '</td>' +
+                '<td>' +
+                    (r.netRequirements > 0 && !r.isFirm ? 
+                        '<button class="btn btn-sm btn-primary firm-order" data-result-id="' + r.rowid + '"><i class="fas fa-thumbtack"></i> ' + t('manufacturing.material_planning.firm.title', 'Firm') + '</button>' : 
+                        '<button class="btn btn-sm btn-secondary" disabled>' + t('manufacturing.material_planning.firmed', 'Firmed') + '</button>'
+                    ) +
+                '</td>' +
+            '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    // Load exceptions
+    function loadExceptions() {
+        var params = new URLSearchParams();
+        var run = getEl('filterRun');
+        if (run && run.value) params.set('run_id', run.value);
+        
+        fetch('/api/manufacturing/material-planning/exceptions?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                console.log('Exceptions:', data);
+            })
+            .catch(function(err) { console.error('Exceptions error:', err); });
+    }
+
+    // Run MRP
+    function runMRP() {
+        var horizon = parseInt(getEl('mrpHorizon').value) || 90;
+        var description = getEl('mrpDescription').value || 'MRP Run';
+        var isSimulation = getEl('mrpSimulation').checked;
+        
+        var btn = getEl('confirmRunBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('manufacturing.material_planning.running', 'Running...');
+        
+        fetch('/api/manufacturing/material-planning/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                planningHorizonDays: horizon,
+                description: description,
+                isSimulation: isSimulation
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(t('manufacturing.material_planning.run_started', 'MRP run started') + ': ' + result.planningNumber, 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('runMRPModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) {
+            showToast(t('manufacturing.material_planning.run_error', 'Error running MRP') + ': ' + err.message, 'error');
+            console.error(err);
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = t('manufacturing.material_planning.run', 'Run');
+        });
+    }
+
+    // Firm order
+    function firmOrder(resultId) {
+        getEl('firmResultId').value = resultId;
+        var modal = new bootstrap.Modal(getEl('firmModal'));
+        modal.show();
+    }
+
+    function confirmFirm() {
+        var resultId = getEl('firmResultId').value;
+        if (!resultId) return;
+        
+        var btn = getEl('confirmFirmBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('manufacturing.material_planning.firming', 'Firming...');
+        
+        fetch('/api/manufacturing/material-planning/firm/' + resultId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(t('manufacturing.material_planning.firm_success', 'Order firmed successfully'), 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('firmModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) {
+            showToast(t('manufacturing.material_planning.firm_error', 'Error firming order') + ': ' + err.message, 'error');
+            console.error(err);
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = t('manufacturing.material_planning.firm.confirm_btn', 'Firm Order');
+        });
+    }
+
+    // Refresh all
+    function refreshAll() {
+        loadKPIs();
+        loadResults();
+        loadExceptions();
+    }
+
+    // Event binding
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) applyBtn.addEventListener('click', refreshAll);
+
+    var refreshBtn = getEl('refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshAll);
+
+    var runBtn = getEl('confirmRunBtn');
+    if (runBtn) runBtn.addEventListener('click', runMRP);
+
+    var firmBtn = getEl('confirmFirmBtn');
+    if (firmBtn) firmBtn.addEventListener('click', confirmFirm);
+
+    // Run filter change
+    var runFilter = getEl('filterRun');
+    if (runFilter) runFilter.addEventListener('change', refreshAll);
+
+    // Enter key on product search
+    var productInput = getEl('filterProduct');
+    if (productInput) {
+        productInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') refreshAll();
+        });
+    }
+
+    // Event delegation for firm buttons
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        if (btn.classList.contains('firm-order')) {
+            var resultId = btn.getAttribute('data-result-id');
+            firmOrder(resultId);
+        }
+    });
+
+    // Initial load
+    loadRuns();
+    refreshAll();
+    setInterval(refreshAll, 30000);
+});
+
+// Translations object for use in JavaScript
+var trans = {
+    // Material Planning specific
+    'manufacturing.material_planning.title': {{ get_translation('manufacturing.material_planning.title', 'Material Planning')|tojson }},
+    'manufacturing.material_planning.run_mrp': {{ get_translation('manufacturing.material_planning.run_mrp', 'Run MRP')|tojson }},
+    'manufacturing.material_planning.kpi.requirements': {{ get_translation('manufacturing.material_planning.kpi.requirements', 'Requirements')|tojson }},
+    'manufacturing.material_planning.kpi.planned_orders': {{ get_translation('manufacturing.material_planning.kpi.planned_orders', 'Planned Orders')|tojson }},
+    'manufacturing.material_planning.kpi.exceptions': {{ get_translation('manufacturing.material_planning.kpi.exceptions', 'Exceptions')|tojson }},
+    'manufacturing.material_planning.kpi.shortages': {{ get_translation('manufacturing.material_planning.kpi.shortages', 'Shortages')|tojson }},
+    'manufacturing.material_planning.filters.run': {{ get_translation('manufacturing.material_planning.filters.run', 'MRP Run')|tojson }},
+    'manufacturing.material_planning.filters.status': {{ get_translation('manufacturing.material_planning.filters.status', 'Status')|tojson }},
+    'manufacturing.material_planning.filters.product': {{ get_translation('manufacturing.material_planning.filters.product', 'Product')|tojson }},
+    'manufacturing.material_planning.status.on_track': {{ get_translation('manufacturing.material_planning.status.on_track', 'On Track')|tojson }},
+    'manufacturing.material_planning.status.shortage': {{ get_translation('manufacturing.material_planning.status.shortage', 'Shortage')|tojson }},
+    'manufacturing.material_planning.status.planned': {{ get_translation('manufacturing.material_planning.status.planned', 'Planned')|tojson }},
+    'manufacturing.material_planning.table.product': {{ get_translation('manufacturing.material_planning.table.product', 'Product')|tojson }},
+    'manufacturing.material_planning.table.date': {{ get_translation('manufacturing.material_planning.table.date', 'Date')|tojson }},
+    'manufacturing.material_planning.table.gross': {{ get_translation('manufacturing.material_planning.table.gross', 'Gross')|tojson }},
+    'manufacturing.material_planning.table.receipts': {{ get_translation('manufacturing.material_planning.table.receipts', 'Receipts')|tojson }},
+    'manufacturing.material_planning.table.on_hand': {{ get_translation('manufacturing.material_planning.table.on_hand', 'On Hand')|tojson }},
+    'manufacturing.material_planning.table.net': {{ get_translation('manufacturing.material_planning.table.net', 'Net')|tojson }},
+    'manufacturing.material_planning.table.planned': {{ get_translation('manufacturing.material_planning.table.planned', 'Planned')|tojson }},
+    'manufacturing.material_planning.table.type': {{ get_translation('manufacturing.material_planning.table.type', 'Type')|tojson }},
+    'manufacturing.material_planning.table.status': {{ get_translation('manufacturing.material_planning.table.status', 'Status')|tojson }},
+    'manufacturing.material_planning.table.title': {{ get_translation('manufacturing.material_planning.table.title', 'Planned Orders')|tojson }},
+    'manufacturing.material_planning.horizon': {{ get_translation('manufacturing.material_planning.horizon', 'Planning Horizon (days)')|tojson }},
+    'manufacturing.material_planning.description': {{ get_translation('manufacturing.material_planning.description', 'Description')|tojson }},
+    'manufacturing.material_planning.simulation': {{ get_translation('manufacturing.material_planning.simulation', 'Simulation (What-If)')|tojson }},
+    'manufacturing.material_planning.run': {{ get_translation('manufacturing.material_planning.run', 'Run')|tojson }},
+    'manufacturing.material_planning.firm.title': {{ get_translation('manufacturing.material_planning.firm.title', 'Firm Planned Order')|tojson }},
+    'manufacturing.material_planning.firm.confirm': {{ get_translation('manufacturing.material_planning.firm.confirm', 'This will create an actual order (Production Order or Purchase Order) from this planned order.')|tojson }},
+    'manufacturing.material_planning.firm.warning': {{ get_translation('manufacturing.material_planning.firm.warning', 'This action cannot be undone.')|tojson }},
+    'manufacturing.material_planning.firm.confirm_btn': {{ get_translation('manufacturing.material_planning.firm.confirm_btn', 'Firm Order')|tojson }},
+    'global.firmed': {{ get_translation('global.firmed', 'Firmed')|tojson }},
+    'global.all': {{ get_translation('global.all', 'All')|tojson }},
+    'global.apply': {{ get_translation('global.apply', 'Apply')|tojson }},
+    'global.refresh': {{ get_translation('global.refresh', 'Refresh')|tojson }},
+    'global.cancel': {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    'global.search': {{ get_translation('global.search', 'Search...')|tojson }},
+    'global.loading': {{ get_translation('global.loading', 'Loading...')|tojson }},
+    'global.error': {{ get_translation('global.error', 'Error')|tojson }},
+    'global.no_results': {{ get_translation('global.no_results', 'No results found')|tojson }},
+    'global.actions': {{ get_translation('global.actions', 'Actions')|tojson }},
+    'manufacturing.material_planning.select_run': {{ get_translation('manufacturing.material_planning.select_run', 'Please select an MRP run')|tojson }},
+    'manufacturing.material_planning.type.manufacturing': {{ get_translation('manufacturing.material_planning.type.manufacturing', 'Manufacturing')|tojson }},
+    'manufacturing.material_planning.type.purchase': {{ get_translation('manufacturing.material_planning.type.purchase', 'Purchase')|tojson }},
+    'manufacturing.material_planning.running': {{ get_translation('manufacturing.material_planning.running', 'Running...')|tojson }},
+    'manufacturing.material_planning.run_started': {{ get_translation('manufacturing.material_planning.run_started', 'MRP run started')|tojson }},
+    'manufacturing.material_planning.run_error': {{ get_translation('manufacturing.material_planning.run_error', 'Error running MRP')|tojson }},
+    'manufacturing.material_planning.firming': {{ get_translation('manufacturing.material_planning.firming', 'Firming...')|tojson }},
+    'manufacturing.material_planning.firm_success': {{ get_translation('manufacturing.material_planning.firm_success', 'Order firmed successfully')|tojson }},
+    'manufacturing.material_planning.firm_error': {{ get_translation('manufacturing.material_planning.firm_error', 'Error firming order')|tojson }},
+    'manufacturing.material_planning.firmed': {{ get_translation('manufacturing.material_planning.firmed', 'Firmed')|tojson }}
+};
+
+// Set up t() function for use in JavaScript
+window.t = function(key, fallback) {
+    if (typeof trans !== 'undefined' && trans[key]) {
+        return trans[key];
+    }
+    return fallback || key;
+};
+
+</script>
+{% endblock %}

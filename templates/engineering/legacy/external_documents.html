@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Shared Documents Portal{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.95a9cb48', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('auto.0dab61cb', 'Engineering') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('auto.e2674c95', 'External Document Sharing') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.f5aeab1d', 'Shared Documents Library') }}</h2>
+<p class="lead">{{ get_translation('auto.fcae818e', 'Access documents shared with you by our engineering team.') }}</p>
+<!-- KPI Cards (optional) -->
+<div class="row mb-4">
+<div class="col-md-6 mb-2">
+<div class="card text-white bg-info">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.c352d335', 'Recently Shared') }}</h5>
+<p class="card-text display-6" id="recentCount">{{ get_translation('auto.6ce7dc37', '0') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-6 mb-2">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<h5 class="card-title">{{ get_translation('auto.e523a977', 'Expiring Soon (≤7 days)') }}</h5>
+<p class="card-text display-6" id="expiringCount">{{ get_translation('auto.e27c4661', '0') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="row mb-3 g-2">
+<div class="col-md-4">
+<label>{{ get_translation('auto.b78c3f00', 'Project ID') }}</label>
+<input class="form-control" id="filterProject" placeholder="e.g., PROJ-001" type="text"/>
+</div>
+<div class="col-md-4">
+<label>{{ get_translation('auto.9183105c', 'Product') }}</label>
+<input class="form-control" id="filterProduct" placeholder="Product ID or name" type="text"/>
+</div>
+<div class="col-md-4">
+<label>{{ get_translation('auto.a523ab0c', 'Document Type') }}</label>
+<select class="form-select" id="filterDocType">
+<option value="">{{ get_translation('auto.81c47d61', 'All') }}</option>
+<option value="Drawing">{{ get_translation('auto.4b226f77', 'Drawing') }}</option>
+<option value="Specification">{{ get_translation('auto.a0341f2e', 'Specification') }}</option>
+<option value="Work Instruction">{{ get_translation('auto.50d408b9', 'Work Instruction') }}</option>
+</select>
+</div>
+<div class="col-12 d-flex justify-content-end mt-2">
+<button class="btn btn-primary me-2" id="applyFiltersBtn">{{ get_translation('auto.49d72497', 'Apply') }}</button>
+<button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('auto.26ecc621', 'Reset') }}</button>
+</div>
+</div>
+<!-- Documents Table (Library View) -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.4ce54677', 'Available Documents') }}</div>
+<div class="card-body" style="overflow-x: auto;">
+<table class="table table-striped">
+<thead>
+<tr>
+<th>{{ get_translation('auto.b91db0dc', 'Document Number') }}</th><th>{{ get_translation('auto.540e68e8', 'Title') }}</th><th>{{ get_translation('auto.aa21cb81', 'Revision') }}</th><th>{{ get_translation('auto.f212f71e', 'Expiry Date') }}</th>
+<th>{{ get_translation('auto.d40d60f2', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="docsTableBody">
+<tr><td class="text-center" colspan="5">{{ get_translation('auto.0f087865', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Request Access Modal -->
+<div class="modal fade" id="requestModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.d0c00e0e', 'Request Access') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.ef4165fe', 'You are requesting access to:') }}<strong id="requestDocTitle"></strong></p>
+<label>{{ get_translation('auto.6ac56767', 'Your Email') }}</label>
+<input class="form-control" id="requestEmail" required="" type="email"/>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.659b4d6f', 'Cancel') }}</button>
+<button class="btn btn-primary" id="sendRequestBtn">{{ get_translation('auto.83333b47', 'Send Request') }}</button>
+</div>
+</div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var currentDocId = null;
+
+    // Load documents (simulate external user without token)
+    function loadDocuments() {
+        var userId = $('#externalUserId').val(); // or get from URL parameter
+		$.get('/api/bom/external/documents', { user_id: userId })
+            .done(function(docs) {
+                var $tbody = $('#docsTableBody');
+                $tbody.empty();
+                if (!docs.length) {
+                    $tbody.html('<tr><td colspan="5" class="text-center">No shared documents available</td></tr>');
+                    updateKPIs([]);
+                    return;
+                }
+                // Sort by expiry date?
+                docs.forEach(function(d) {
+                    var expiryClass = '';
+                    var daysLeft = getDaysLeft(d.expiryDate);
+                    if (daysLeft !== null && daysLeft <= 7) expiryClass = 'table-warning';
+                    var row = '<tr class="' + expiryClass + '">' +
+                        '<td>' + escapeHtml(d.docNumber) + '</td>' +
+                        '<td>' + escapeHtml(d.title) + '</td>' +
+                        '<td>' + escapeHtml(d.revision) + '</td>' +
+                        '<td>' + (d.expiryDate || 'Never') + '</td>' +
+                        '<td><button class="btn btn-sm btn-primary download-doc" data-id="' + d.docId + '">Download</button> ' +
+                        '<button class="btn btn-sm btn-info request-access" data-id="' + d.docId + '" data-title="' + escapeHtml(d.docNumber) + '">Request Access</button></td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+                updateKPIs(docs);
+            })
+            .fail(function() { $('#docsTableBody').html('<tr><td colspan="5" class="text-danger">Error loading documents</td></tr>'); });
+    }
+
+    function getDaysLeft(expiryDate) {
+        if (!expiryDate) return null;
+        var today = new Date();
+        var exp = new Date(expiryDate);
+        var diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+        return diff;
+    }
+
+    function updateKPIs(docs) {
+        // Recently shared (mock: if lastModified exists, but we don't have that here)
+        // For simplicity, count documents with expiry within 7 days as "expiring soon"
+        var expiringCount = 0;
+        docs.forEach(d => {
+            var days = getDaysLeft(d.expiryDate);
+            if (days !== null && days <= 7 && days >= 0) expiringCount++;
+        });
+        $('#recentCount').text(docs.length); // naive: all are "recently shared"
+        $('#expiringCount').text(expiringCount);
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    // Download document
+    function downloadDocument(docId) {
+        window.location.href = '/api/bom/external/documents/' + docId + '/download';
+    }
+
+    // Request access
+    function requestAccess(docId, docTitle) {
+        currentDocId = docId;
+        $('#requestDocTitle').text(docTitle);
+        $('#requestEmail').val('');
+        $('#requestModal').modal('show');
+    }
+
+    function sendAccessRequest() {
+        var email = $('#requestEmail').val();
+        if (!email) { alert('Email is required'); return; }
+        $.post('/api/bom/external/request-access', JSON.stringify({email: email, docId: currentDocId}), {contentType: 'application/json'})
+            .done(function() {
+                $('#requestModal').modal('hide');
+                alert('Request sent. You will be notified when access is granted.');
+            })
+            .fail(function() { alert('Request failed. Please try again.'); });
+    }
+
+    // Filters (client-side for simplicity)
+    function applyFilters() {
+        // In real app, send filters to server; here we do client-side filtering.
+        var project = $('#filterProject').val().toLowerCase();
+        var product = $('#filterProduct').val().toLowerCase();
+        var docType = $('#filterDocType').val();
+        $('#docsTableBody tr').each(function() {
+            var $row = $(this);
+            if ($row.find('td').length < 5) return;
+            var docNumber = $row.find('td:eq(0)').text().toLowerCase();
+            var title = $row.find('td:eq(1)').text().toLowerCase();
+            var match = true;
+            if (project && docNumber.indexOf(project) === -1 && title.indexOf(project) === -1) match = false;
+            if (product && docNumber.indexOf(product) === -1 && title.indexOf(product) === -1) match = false;
+            // Document type not in table, so we ignore; in real app, include type in API.
+            $row.toggle(match);
+        });
+    }
+
+    // Event bindings
+    $('#applyFiltersBtn').click(applyFilters);
+    $('#resetFiltersBtn').click(function() {
+        $('#filterProject').val('');
+        $('#filterProduct').val('');
+        $('#filterDocType').val('');
+        applyFilters();
+    });
+    $(document).on('click', '.download-doc', function() { downloadDocument($(this).data('id')); });
+    $(document).on('click', '.request-access', function() { requestAccess($(this).data('id'), $(this).data('title')); });
+    $('#sendRequestBtn').click(sendAccessRequest);
+
+    // Initial load
+    loadDocuments();
+});
+</script>
+{% endblock %}

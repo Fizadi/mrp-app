@@ -1,0 +1,179 @@
+PART A — Project Context Update (v46, 2026-09-16)
+Add/merge the following sections into your global Project Context document. These reflect everything learned and completed since v45, especially the migration from SQLite to SQL Server and the Engineering Documents strategy.
+
+A1. Version History — Append
+Version	Date	Changes
+v45	—	Prior baseline
+v46	2026-09-16	SQL Server migration finalized. All Engineering pages working. Engineering Documents DMS strategy formalized (generated HTML vs legacy uploads). Bilingual toggle added to generated HTML documents. Translation keys for Engineering module fully populated (EN + FA). Static folder structure for documents formalized.
+A2. Tech Stack — Replace Section
+Backend: Flask + Flask‑SQLAlchemy + Flask‑Login
+
+Database: SQL Server Express (migrated from SQLite on 2026‑09)
+
+Frontend: Bootstrap 5, jQuery 3.x, FontAwesome — all local, no CDN
+
+Multilingual: Custom t_Translations table + *Local columns on data tables
+
+Dual calendar: Gregorian + Persian (Hijri Shamsi); dates stored as integer DateKey (YYYYMMDD)
+
+Industry switcher: 5 demo industries — valve (ETO), furniture (CTO), jobshop (MTO), gauge (MTS), paint (MTS/CTO). Every query filters by DemoIndustryCode from session.
+
+A3. SQL Server Migration – Critical Rules (NEW section)
+Because all Engineering pages now run on SQL Server, apply these rules everywhere:
+
+A3.1 Data Types
+All columns migrated as nvarchar, even date keys and numeric-looking fields.
+→ Always pass values as strings, e.g. CreatedDateKey = '20260916', IsExternallyShared = '0'.
+
+Never assume INT unless confirmed via INFORMATION_SCHEMA.COLUMNS.
+
+A3.2 Query Rules
+Rule	SQLite	SQL Server
+Row limit	LIMIT 1	SELECT TOP 1
+Date "now"	date('now')	Python int(datetime.now().strftime('%Y%m%d')) passed as parameter
+String concatenation	||	+ or CONCAT()
+Boolean literals	0/1 (works)	0/1 (works) — but keep as strings if column is nvarchar
+Quotes	" or '	' only
+Schema introspection	PRAGMA table_info	INFORMATION_SCHEMA.COLUMNS
+Named parameters	:name	:name (same) — but never ?
+A3.3 GROUP BY Rule
+SQL Server requires all non‑aggregated columns in the GROUP BY clause. If a query in SQLite uses GROUP BY r.rowid, rewrite to include every selected column.
+
+A3.4 Pattern
+python
+today_key = int(datetime.now().strftime('%Y%m%d'))
+with db.engine.connect() as conn:
+    rows = conn.execute(text("""
+        SELECT ...
+        FROM t_...
+        WHERE ObsoleteDateKey IS NULL OR ObsoleteDateKey >= :today
+    """), {'today': str(today_key)}).fetchall()
+A4. Engineering Documents — DMS Strategy (NEW section)
+A4.1 Nature of the Module
+The Engineering module is a Document Management System, not a document generator.
+
+Users create drawings, specs, test reports, etc. externally (CAD, Word, Excel, HTML).
+
+They upload them into the app or the app generates them from templates.
+
+The app tracks metadata and the file path, not the file content.
+
+A4.2 Two Types of Documents
+Type	Created by	Format	Language	Location
+Generated documents	App (HTML templates)	HTML	EN + FA in‑file toggle	static/documents/generated/engineering/<PROJECT_ID>/
+Legacy / uploaded documents	External tools	PDF, DOCX, XLSX, DWG, JPG, PNG	One language per file	static/uploads/ (with optional legacy/ subfolder)
+Never mix these folders.
+
+A4.3 Folder Structure (canonical)
+text
+app/static/
+├── uploads/                          ← All externally created documents
+│   └── legacy/                       ← Bulk archive PDFs
+│
+└── documents/
+    ├── assets/                       ← Logos, stamps
+    ├── generated/
+    │   └── engineering/
+    │       └── <PROJECT_ID>/         ← App-generated HTML documents
+    └── templates/                    ← Master HTML templates (future)
+A4.4 Metadata
+All documents (generated or uploaded) are registered in t_EngineeringDocument with:
+DocumentID (= DocumentNumber), DocumentNumber, DocumentRevision, InternalProjectID, DocumentType, FilePath, FileName, Status, Title, Revision, CreatedDateKey, ProjectID, IsExternallyShared, DemoIndustryCode.
+
+Because the columns are nvarchar, DocumentID is set to the document number string (e.g., 'GA-DWG-1001'), and IsExternallyShared is set to '0' (string).
+
+A4.5 Generated HTML Document Style
+Each generated HTML document is:
+
+A single self‑contained HTML file (no external CSS/JS)
+
+Bilingual (EN + FA) with a floating toggle button
+
+Print‑ready (A4 layout + @media print rules)
+
+Realistic — mentions actual product ID, project, customer company, revision
+
+Consistent header/footer with company name and revision info
+
+A4.6 Legacy Uploads
+Uploaded through the Engineering Documents page (Upload modal).
+
+Stored under static/uploads/ with a timestamp prefix.
+
+Bilingual handling: one PDF per language (two rows in t_EngineeringDocument if needed), or TitleLocal column on a single row.
+
+No language toggle needed — PDF is static.
+
+A5. Translation System — Practical Notes
+Keys are inserted into t_Translations with columns TranslationKey, translation_key, Language, Value.
+
+TranslationKey is NOT NULL — always supply it (same value as translation_key).
+
+Column lengths: TranslationKey up to 100 chars, translation_key up to 255 chars.
+
+Always use INSERT ... SELECT * FROM (VALUES ...) AS t(...) with a WHERE NOT EXISTS guard, to keep the script idempotent.
+
+Both English and Farsi translations must be inserted. Inserting only English breaks language switching.
+
+For JavaScript‑injected translations, use {{ get_translation('key', 'Default')|tojson }}.
+
+A6. Industry Filtering — Mandatory
+Every query that returns data for the UI must filter by:
+
+sql
+WHERE DemoIndustryCode = :industry
+where :industry = session.get('demo_industry', 'valve').
+
+A7. Project Filtering — Mandatory
+Every query that can be scoped to a project should accept ProjectID from the request or session:
+
+python
+project_id = request.args.get('project_id') or session.get('current_project_id', 'All')
+For product‑linked queries, join through t_ProjectProducts — t_Product has no direct ProjectID.
+
+A8. Routing API — SQL Server Fix (record)
+The get_routings() endpoint now includes all non‑aggregated columns in the GROUP BY clause. Any future query with aggregates must follow the same pattern.
+
+A9. Lessons Learned — Append
+SQL Server GROUP BY — Include all non‑aggregated columns; SQLite leniency does not apply.
+
+DocumentID is nvarchar in t_EngineeringDocument — set it to the document number, not an auto‑increment.
+
+TranslationKey is NOT NULL — every INSERT into t_Translations must supply it.
+
+Every translation key needs both en and fa rows — otherwise switching fails silently.
+
+Generated HTML vs Uploaded PDF — keep separate folders and don't mix content types.
+
+Bilingual HTML documents — use a self‑contained toggle; do not depend on a shared JS library.
+
+Static file URLs must include /static/ — e.g., /static/documents/generated/..., not /documents/generated/....
+
+All date keys are strings in SQL Server — pass '20260916', not 20260916.
+
+Never run app‑internal SQL with ? placeholders in SSMS — those are ODBC/SQLite style. The app uses named :param parameters.
+
+Duplicate route definitions must not exist across routes.py and __init__.py — the package __init__.py only exports the blueprint.
+
+A10. Canonical Engineering Module Routes (2026‑09‑16)
+Registered only once in app/modules/engineering/routes.py:
+
+URL	Purpose
+/engineering/products	Product Management
+/engineering/bom	BOM Management
+/engineering/routings	Routings & Work Instructions
+/engineering/parameters	Engineering Parameters
+/engineering/product-categories	Product Categories
+/engineering/eco	Engineering Change Order
+/engineering/handover	Engineering Handover
+/engineering/documents	Engineering Documents
+The __init__.py only imports and re‑exports engineering_bp.
+
+A11. Files Kept / Discarded (Engineering Templates)
+Active templates (keep):
+products.html, bom.html, routings.html, parameters.html, product_categories.html, eco.html, handover.html, documents.html
+
+Discarded: document_checkout.html, document_control.html, document_detail.html, document_exchange.html, external_documents.html
+
+END OF PART A — Project Context v46 (2026‑09‑16)
+

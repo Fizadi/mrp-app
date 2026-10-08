@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Supplier Portal Login{% endblock %}
+{% block content %}
+<div class="container mt-5">
+<div class="row justify-content-center">
+<div class="col-md-6">
+<div class="card">
+<div class="card-header bg-primary text-white">
+<h4 class="mb-0">{{ get_translation('auto.4a4db0c2', 'Supplier Inspection Portal') }}</h4>
+</div>
+<div class="card-body">
+<form method="POST">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.25067203', 'Username or Email') }}</label>
+<input autofocus="" class="form-control" name="username" required="" type="text"/>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.960ee3d4', 'Password') }}</label>
+<input class="form-control" name="password" required="" type="password"/>
+</div>
+<div class="mb-3 form-check">
+<input class="form-check-input" id="remember" name="remember" type="checkbox"/>
+<label class="form-check-label" for="remember">{{ get_translation('auto.5a041ba6', 'Remember me') }}</label>
+</div>
+<button class="btn btn-primary w-100" type="submit">{{ get_translation('auto.059e4030', 'Login') }}</button>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}

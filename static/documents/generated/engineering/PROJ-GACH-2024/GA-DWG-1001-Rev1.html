@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GA Drawing - GA-DWG-1001</title>
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; background: #eef1f5; color: #222; }
+    .page { background: #fff; width: 210mm; min-height: 297mm; margin: 15px auto; padding: 15mm; box-shadow: 0 2px 12px rgba(0,0,0,0.15); position: relative; }
+    .lang-switch { position: fixed; top: 10px; left: 10px; z-index: 100; background: #1e40af; color: #fff; border: 0; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+    .lang-switch:hover { background: #1e3a8a; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e40af; padding-bottom: 10px; margin-bottom: 15px; }
+    .company { font-size: 18px; font-weight: 700; color: #1e40af; }
+    .company-sub { font-size: 11px; color: #666; margin-top: 2px; }
+    .doc-title { text-align: right; }
+    .doc-title h1 { margin: 0; font-size: 18px; color: #111; }
+    .doc-title .docnum { font-size: 13px; color: #444; margin-top: 4px; }
+    .meta-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 15px; }
+    .meta-table th { background: #f1f5f9; text-align: left; padding: 5px 8px; border: 1px solid #cbd5e1; width: 18%; color: #475569; font-weight: 600; }
+    .meta-table td { padding: 5px 8px; border: 1px solid #cbd5e1; }
+    .section { margin-bottom: 18px; }
+    .section h2 { font-size: 13px; color: #1e40af; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .drawing-area { border: 2px solid #334155; background: #fafbfc; padding: 10px; text-align: center; }
+    .drawing-area svg { max-width: 100%; height: auto; }
+    table.bom { width: 100%; border-collapse: collapse; font-size: 11px; }
+    table.bom th, table.bom td { border: 1px solid #cbd5e1; padding: 5px 8px; text-align: left; }
+    table.bom th { background: #1e40af; color: #fff; font-weight: 600; }
+    table.bom tr:nth-child(even) { background: #f8fafc; }
+    .bilingual-fa { direction: rtl; text-align: right; font-family: 'Tahoma', sans-serif; font-size: 11px; color: #555; display: block; margin-top: 2px; }
+    .footer { position: absolute; bottom: 10mm; left: 15mm; right: 15mm; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 9px; color: #888; display: flex; justify-content: space-between; }
+    .approval-row { display: flex; gap: 15px; margin-top: 10px; }
+    .approval-box { flex: 1; border: 1px solid #cbd5e1; padding: 8px; font-size: 10px; }
+    .approval-box strong { display: block; color: #475569; margin-bottom: 20px; }
+    .lang-en, .lang-fa { display: none; }
+    .lang-en.active, .lang-fa.active { display: block; }
+    .lang-inline-en, .lang-inline-fa { display: none; }
+    .lang-inline-en.active, .lang-inline-fa.active { display: inline; }
+    @media print {
+        body { background: #fff; }
+        .page { margin: 0; box-shadow: none; width: 100%; padding: 10mm; }
+        .lang-switch { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<button class="lang-switch" onclick="toggleLang()">🌐 Switch / تغییر زبان</button>
+
+<div class="page" id="docPage">
+
+    <!-- HEADER -->
+    <div class="header">
+        <div>
+            <div class="company lang-en active">Precision Valve Co.</div>
+            <div class="company lang-fa">شرکت شیرآلات دقیق</div>
+            <div class="company-sub lang-en active">Tehran, Iran | info@precisionvalve.com</div>
+            <div class="company-sub lang-fa">تهران، ایران | info@precisionvalve.com</div>
+        </div>
+        <div class="doc-title">
+            <h1 class="lang-en active">General Arrangement Drawing</h1>
+            <h1 class="lang-fa">نقشه چیدمان عمومی</h1>
+            <div class="docnum">Doc No: <strong>GA-DWG-1001</strong> | Rev: <strong>1</strong></div>
+        </div>
+    </div>
+
+    <!-- DOCUMENT META -->
+    <table class="meta-table">
+        <tr>
+            <th class="lang-en active">Project</th><th class="lang-fa">پروژه</th>
+            <td colspan="3">
+                <span class="lang-inline-en active">Gachsaran Oil Refinery Expansion</span>
+                <span class="lang-inline-fa">توسعه پالایشگاه گچساران</span>
+            </td>
+        </tr>
+        <tr>
+            <th class="lang-en active">Product</th><th class="lang-fa">محصول</th>
+            <td colspan="3"><strong>VALVE-500-CTRL</strong> — 
+                <span class="lang-inline-en active">500mm Control Valve</span>
+                <span class="lang-inline-fa">شیر کنترلی ۵۰۰ میلیمتر</span>
+            </td>
+        </tr>
+        <tr>
+            <th class="lang-en active">Customer</th><th class="lang-fa">مشتری</th>
+            <td>
+                <span class="lang-inline-en active">National Iranian Oil Company</span>
+                <span class="lang-inline-fa">شرکت ملی نفت ایران</span>
+            </td>
+            <th class="lang-en active">Date</th><th class="lang-fa">تاریخ</th>
+            <td>2026-09-12 / 1405/06/21</td>
+        </tr>
+        <tr>
+            <th class="lang-en active">Status</th><th class="lang-fa">وضعیت</th>
+            <td><span style="color:#059669;font-weight:600;">Approved</span></td>
+            <th class="lang-en active">Scale</th><th class="lang-fa">مقیاس</th>
+            <td>NTS (Not To Scale)</td>
+        </tr>
+    </table>
+
+    <!-- DRAWING -->
+    <div class="section">
+        <h2 class="lang-en active">Drawing / نقشه</h2>
+        <h2 class="lang-fa">نقشه / Drawing</h2>
+        <div class="drawing-area">
+            <svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg">
+                <!-- Title block -->
+                <text x="20" y="30" font-size="14" font-weight="bold" fill="#1e40af">VALVE-500-CTRL — 500mm Control Valve</text>
+                <text x="20" y="48" font-size="11" fill="#555">General Arrangement — Side View (Schematic)</text>
+
+                <!-- Valve body (main body) -->
+                <rect x="200" y="120" width="300" height="90" fill="#e2e8f0" stroke="#334155" stroke-width="2" rx="6"/>
+                <text x="330" y="170" font-size="13" font-weight="bold" fill="#334155" text-anchor="middle">VALVE BODY</text>
+
+                <!-- Inlet flange (left) -->
+                <rect x="120" y="135" width="80" height="60" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+                <line x1="120" y1="135" x2="200" y2="135" stroke="#334155" stroke-width="2"/>
+                <line x1="120" y1="195" x2="200" y2="195" stroke="#334155" stroke-width="2"/>
+                <text x="160" y="172" font-size="10" fill="#334155" text-anchor="middle">INLET</text>
+
+                <!-- Outlet flange (right) -->
+                <rect x="500" y="135" width="80" height="60" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+                <line x1="500" y1="135" x2="580" y2="135" stroke="#334155" stroke-width="2"/>
+                <line x1="500" y1="195" x2="580" y2="195" stroke="#334155" stroke-width="2"/>
+                <text x="540" y="172" font-size="10" fill="#334155" text-anchor="middle">OUTLET</text>
+
+                <!-- Actuator (top) -->
+                <rect x="310" y="30" width="80" height="90" fill="#bfdbfe" stroke="#334155" stroke-width="2" rx="4"/>
+                <text x="350" y="78" font-size="11" font-weight="bold" fill="#1e3a8a" text-anchor="middle">ACTUATOR</text>
+                <!-- Stem -->
+                <line x1="350" y1="120" x2="350" y2="140" stroke="#334155" stroke-width="3"/>
+
+                <!-- Bonnet -->
+                <rect x="320" y="100" width="60" height="25" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+
+                <!-- Dimension lines -->
+                <line x1="120" y1="230" x2="580" y2="230" stroke="#dc2626" stroke-width="1"/>
+                <line x1="120" y1="225" x2="120" y2="235" stroke="#dc2626" stroke-width="1"/>
+                <line x1="580" y1="225" x2="580" y2="235" stroke="#dc2626" stroke-width="1"/>
+                <text x="350" y="248" font-size="11" fill="#dc2626" text-anchor="middle">Face-to-Face: 500 mm</text>
+
+                <!-- Height dimension -->
+                <line x1="620" y1="30" x2="620" y2="210" stroke="#dc2626" stroke-width="1"/>
+                <line x1="615" y1="30" x2="625" y2="30" stroke="#dc2626" stroke-width="1"/>
+                <line x1="615" y1="210" x2="625" y2="210" stroke="#dc2626" stroke-width="1"/>
+                <text x="640" y="125" font-size="11" fill="#dc2626" text-anchor="middle" transform="rotate(90, 640, 125)">Height: 650 mm</text>
+
+                <!-- Callout balloons -->
+                <circle cx="200" cy="115" r="14" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+                <text x="200" y="120" font-size="11" fill="#92400e" text-anchor="middle" font-weight="bold">1</text>
+
+                <circle cx="350" cy="25" r="14" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+                <text x="350" y="30" font-size="11" fill="#92400e" text-anchor="middle" font-weight="bold">2</text>
+
+                <circle cx="540" cy="115" r="14" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+                <text x="540" y="120" font-size="11" fill="#92400e" text-anchor="middle" font-weight="bold">3</text>
+
+                <circle cx="350" cy="140" r="14" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+                <text x="350" y="145" font-size="11" fill="#92400e" text-anchor="middle" font-weight="bold">4</text>
+            </svg>
+        </div>
+    </div>
+
+    <!-- BOM -->
+    <div class="section">
+        <h2 class="lang-en active">Bill of Materials / لیست قطعات</h2>
+        <h2 class="lang-fa">لیست قطعات / Bill of Materials</h2>
+        <table class="bom">
+            <thead>
+                <tr>
+                    <th style="width:8%;">Item<br><span class="bilingual-fa">ردیف</span></th>
+                    <th style="width:22%;">Component ID<br><span class="bilingual-fa">شناسه قطعه</span></th>
+                    <th>Description<br><span class="bilingual-fa">شرح</span></th>
+                    <th style="width:10%;">Qty<br><span class="bilingual-fa">تعداد</span></th>
+                    <th style="width:10%;">UOM<br><span class="bilingual-fa">واحد</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>1</td><td>VALVE-BODY-500</td><td>Valve Body <span class="bilingual-fa">بدنه شیر</span></td><td>1</td><td>EA</td></tr>
+                <tr><td>2</td><td>ACTUATOR-ELEC</td><td>Electric Actuator <span class="bilingual-fa">اکچویتور برقی</span></td><td>1</td><td>EA</td></tr>
+                <tr><td>3</td><td>SEAT-RING</td><td>Seat Ring <span class="bilingual-fa">حلقه نشیمنگاه</span></td><td>2</td><td>EA</td></tr>
+                <tr><td>4</td><td>STEM-ASSY</td><td>Stem Assembly <span class="bilingual-fa">مجموعه میله</span></td><td>1</td><td>EA</td></tr>
+                <tr><td>5</td><td>BOLT-M16</td><td>M16 Bolts <span class="bilingual-fa">پیچ M16</span></td><td>16</td><td>EA</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- APPROVALS -->
+    <div class="section">
+        <h2 class="lang-en active">Approvals / تأییدات</h2>
+        <h2 class="lang-fa">تأییدات / Approvals</h2>
+        <div class="approval-row">
+            <div class="approval-box"><strong>Prepared By / تهیه کننده</strong>Ali Ahmadi — 2026-09-10</div>
+            <div class="approval-box"><strong>Checked By / بررسی کننده</strong>Reza Jafari — 2026-09-11</div>
+            <div class="approval-box"><strong>Approved By / تأیید کننده</strong>System Administrator — 2026-09-12</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div>Precision Valve Co. — Confidential / محرمانه</div>
+        <div>GA-DWG-1001 Rev 1 — Page 1 of 1</div>
+    </div>
+</div>
+
+<script>
+function toggleLang() {
+    document.querySelectorAll('.lang-en, .lang-inline-en').forEach(el => el.classList.toggle('active'));
+    document.querySelectorAll('.lang-fa, .lang-inline-fa').forEach(el => el.classList.toggle('active'));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.57ca5da3', 'Home') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/project_portfolio">{{ get_translation('auto.2238e59b', 'Projects') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/dashboard/{{ project_id }}">{{ project_id }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.bb275b98', 'Project BOM') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.a4a1025f', '📋 Project BOM') }}</h2>
+<div>
+<button class="btn btn-outline-primary me-2" id="bom-import-btn">{{ get_translation('auto.12347074', '📂 Import CSV') }}</button>
+<button class="btn btn-outline-secondary me-2" id="bom-export-btn">{{ get_translation('auto.b02023ba', '📎 Export CSV') }}</button>
+<input accept=".csv" id="bom-import-file" style="display: none;" type="file"/>
+<a class="btn btn-secondary" href="/project/dashboard/{{ project_id }}">{{ get_translation('auto.9dafa0c2', '← Back to Dashboard') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-2 mb-4">
+<div class="col-md-4"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('auto.a885cc03', 'Total Components') }}</h6><h3 id="kpi-total">{{ get_translation('auto.d9defc45', '0') }}</h3></div></div>
+<div class="col-md-4"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('auto.3a0eab03', 'Custom Components') }}</h6><h3 id="kpi-custom">{{ get_translation('auto.8ccdfb0f', '0') }}</h3></div></div>
+<div class="col-md-4 d-flex align-items-stretch">
+<button class="btn btn-success w-100" id="bom-add-btn" type="button">{{ get_translation('auto.b323ff71', '+ Add Custom Component') }}</button>
+</div>
+</div>
+<!-- BOM Table -->
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+<thead class="table-dark">
+<tr><th>{{ get_translation('auto.55f30b27', 'Component (ID)') }}</th><th>{{ get_translation('auto.d0b0eb71', 'Name') }}</th><th>{{ get_translation('auto.25de2646', 'Quantity') }}</th><th>{{ get_translation('auto.a64e4311', 'Custom?') }}</th><th>{{ get_translation('auto.6f4e3e14', 'Alternative') }}</th><th>{{ get_translation('auto.e91a90c2', 'Custom Spec') }}</th><th>{{ get_translation('auto.be4bdafd', 'Actions') }}</th></tr>
+</thead>
+<tbody id="bom-tbody"></tbody>
+</table>
+</div>
+</div>
+<!-- Add / Edit Component Modal -->
+<div class="modal fade" id="componentModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5 id="modal-title">{{ get_translation('auto.468ba51f', 'Add Custom Component') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="edit-id" type="hidden"/>
+<div class="mb-2">
+<label>{{ get_translation('auto.03ad2f35', 'Component (Product ID)') }}</label>
+<select class="form-select" id="comp-product-id">
+<option value="">{{ get_translation('auto.8df8abb4', 'Select product...') }}</option>
+</select>
+</div>
+<div class="mb-2">
+<label>{{ get_translation('auto.5d347749', 'Quantity') }}</label>
+<input class="form-control" id="comp-quantity" step="0.01" type="number" value="1"/>
+</div>
+<div class="mb-2 form-check">
+<input class="form-check-input" id="comp-is-custom" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.2da4ae21', 'Is Custom Component') }}</label>
+</div>
+<div class="mb-2 form-check">
+<input class="form-check-input" id="comp-override" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.0ced206a', 'Override Standard BOM Quantity') }}</label>
+</div>
+<div class="mb-2">
+<label>{{ get_translation('auto.50e2de85', 'Alternative Component (Product ID)') }}</label>
+<input class="form-control" id="comp-alternative" placeholder="e.g., VALVE-ALT" type="text"/>
+</div>
+<div class="mb-2">
+<label>{{ get_translation('auto.483b9164', 'Custom Specification') }}</label>
+<textarea class="form-control" id="comp-spec" rows="2"></textarea>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="save-component">{{ get_translation('auto.8d1d1728', 'Save') }}</button>
+<button class="btn btn-danger" id="delete-component" style="display:none;">{{ get_translation('auto.6c76c7b4', 'Delete') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.d3d6c782', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    select_product:      {{ get_translation('ms.bom.select_product', 'Please select a component')|tojson }},
+    delete_confirm:      {{ get_translation('ms.bom.delete_confirm', 'Delete this component?')|tojson }},
+    delete_perm_confirm: {{ get_translation('ms.bom.delete_perm_confirm', 'Remove this component permanently?')|tojson }},
+    error:               {{ get_translation('global.error', 'Error')|tojson }},
+    unknown:             {{ get_translation('global.unknown', 'Unknown')|tojson }},
+    load_error:          {{ get_translation('ms.bom.load_error', 'Load error')|tojson }},
+    edit_btn:            {{ get_translation('ms.bom.edit_btn', 'Edit')|tojson }},
+    del_btn:             {{ get_translation('ms.bom.del_btn', 'Del')|tojson }},
+    imported_prefix:     {{ get_translation('ms.bom.imported_prefix', 'Imported')|tojson }},
+    imported_suffix:     {{ get_translation('ms.bom.imported_suffix', 'items.')|tojson }},
+    errors_label:        {{ get_translation('ms.bom.errors_label', 'Errors')|tojson }},
+    import_failed:       {{ get_translation('ms.bom.import_failed', 'Import failed')|tojson }},
+    modal_add_title:     {{ get_translation('auto.468ba51f', 'Add Custom Component')|tojson }},
+    modal_edit_title:    {{ get_translation('ms.bom.modal_edit_title', 'Edit Component')|tojson }},
+    checkmark:           {{ get_translation('ms.bom.checkmark', '✓')|tojson }}
+};
+
+// ============================================================
+// 2. State — TOP LEVEL
+// ============================================================
+var projectId = "{{ project_id }}";
+var productList = [];
+
+// ============================================================
+// 3. Helper functions — TOP LEVEL
+// ============================================================
+function showModal(id) {
+    var el = document.getElementById(id);
+    if (el) new bootstrap.Modal(el).show();
+}
+
+function hideModal(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        var inst = bootstrap.Modal.getInstance(el);
+        if (inst) inst.hide();
+    }
+}
+
+// ============================================================
+// 4. Data loading — TOP LEVEL, fetch()
+// ============================================================
+function loadBOM() {
+    fetch('/api/project/bom/' + projectId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var kpiTotal = document.getElementById('kpi-total');
+            var kpiCustom = document.getElementById('kpi-custom');
+            if (kpiTotal) kpiTotal.innerText = data.kpis.total_components;
+            if (kpiCustom) kpiCustom.innerText = data.kpis.custom_components;
+
+            var tbody = document.getElementById('bom-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            (data.components || []).forEach(function(c) {
+                var row = tbody.insertRow();
+                row.insertCell(0).innerText = c.component_id;
+                row.insertCell(1).innerText = c.name;
+                row.insertCell(2).innerText = c.quantity;
+                row.insertCell(3).innerText = c.is_custom ? trans.checkmark : '';
+                row.insertCell(4).innerText = c.alternative || '-';
+                row.insertCell(5).innerText = c.custom_spec || '-';
+
+                var actions = row.insertCell(6);
+
+                var editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-sm btn-primary me-1 edit-bom';
+                editBtn.innerText = trans.edit_btn;
+                editBtn.dataset.id = c.id;
+                actions.appendChild(editBtn);
+
+                var delBtn = document.createElement('button');
+                delBtn.className = 'btn btn-sm btn-danger delete-bom';
+                delBtn.innerText = trans.del_btn;
+                delBtn.dataset.id = c.id;
+                actions.appendChild(delBtn);
+            });
+        })
+        .catch(function(err) {
+            console.error(trans.load_error + ':', err);
+        });
+}
+
+function loadProductList() {
+    fetch('/api/project/products/list')
+        .then(function(r) { return r.json(); })
+        .then(function(products) {
+            productList = products || [];
+            var select = document.getElementById('comp-product-id');
+            if (!select) return;
+            // Preserve the first "Select product..." option and append
+            (productList).forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.innerText = p.id + ' - ' + p.name;
+                select.appendChild(opt);
+            });
+        })
+        .catch(function(err) {
+            console.error(trans.load_error + ':', err);
+        });
+}
+
+// ============================================================
+// 5. Action handlers — TOP LEVEL
+// ============================================================
+function openAddModal() {
+    var titleEl = document.getElementById('modal-title');
+    if (titleEl) titleEl.innerText = trans.modal_add_title;
+
+    document.getElementById('edit-id').value = '';
+    document.getElementById('comp-product-id').value = '';
+    document.getElementById('comp-quantity').value = '1';
+    document.getElementById('comp-is-custom').checked = true;
+    document.getElementById('comp-override').checked = false;
+    document.getElementById('comp-alternative').value = '';
+    document.getElementById('comp-spec').value = '';
+
+    var delBtn = document.getElementById('delete-component');
+    if (delBtn) delBtn.style.display = 'none';
+
+    showModal('componentModal');
+}
+
+function openEditModal(id) {
+    fetch('/api/project/bom/' + projectId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var comp = (data.components || []).find(function(c) { return c.id == id; });
+            if (!comp) return;
+
+            var titleEl = document.getElementById('modal-title');
+            if (titleEl) titleEl.innerText = trans.modal_edit_title;
+
+            document.getElementById('edit-id').value = comp.id;
+
+            var select = document.getElementById('comp-product-id');
+            if (select) {
+                for (var i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === comp.component_id) {
+                        select.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            document.getElementById('comp-quantity').value = comp.quantity;
+            document.getElementById('comp-is-custom').checked = comp.is_custom;
+            document.getElementById('comp-override').checked = comp.override_standard;
+            document.getElementById('comp-alternative').value = comp.alternative || '';
+            document.getElementById('comp-spec').value = comp.custom_spec || '';
+
+            var delBtn = document.getElementById('delete-component');
+            if (delBtn) {
+                delBtn.style.display = 'inline-block';
+                delBtn.dataset.id = comp.id;
+            }
+
+            showModal('componentModal');
+        });
+}
+
+function saveComponent() {
+    var editId = document.getElementById('edit-id').value;
+    var productId = document.getElementById('comp-product-id').value;
+    if (!productId) { alert(trans.select_product); return; }
+
+    var data = {
+        project_id: projectId,
+        component_id: productId,
+        quantity: parseFloat(document.getElementById('comp-quantity').value),
+        is_custom: document.getElementById('comp-is-custom').checked,
+        override_standard: document.getElementById('comp-override').checked,
+        alternative: document.getElementById('comp-alternative').value,
+        custom_spec: document.getElementById('comp-spec').value
+    };
+
+    var url = editId ? '/api/project/bom/update/' + editId : '/api/project/bom/add';
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            hideModal('componentModal');
+            loadBOM();
+        } else {
+            alert(trans.error + ': ' + (res.error || trans.unknown));
+        }
+    })
+    .catch(function(err) {
+        alert(trans.error + ': ' + err.message);
+    });
+}
+
+function deleteFromModal() {
+    var delBtn = document.getElementById('delete-component');
+    var id = delBtn ? delBtn.dataset.id : '';
+    if (!id) return;
+    if (!confirm(trans.delete_perm_confirm)) return;
+
+    fetch('/api/project/bom/delete/' + id, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                hideModal('componentModal');
+                loadBOM();
+            } else {
+                alert(trans.error);
+            }
+        });
+}
+
+function deleteFromRow(id) {
+    if (!confirm(trans.delete_confirm)) return;
+    fetch('/api/project/bom/delete/' + id, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) loadBOM();
+            else alert(trans.error);
+        });
+}
+
+function handleImportFile(e) {
+    var fd = new FormData();
+    fd.append('file', e.target.files[0]);
+
+    fetch('/api/project/bom/import', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var errs = (res.errors || []).join(', ');
+                alert(trans.imported_prefix + ' ' + res.created + ' ' + trans.imported_suffix + '\n' + trans.errors_label + ': ' + errs);
+                loadBOM();
+            } else {
+                alert(trans.import_failed);
+            }
+        })
+        .catch(function(err) {
+            alert(trans.import_failed + ': ' + err.message);
+        });
+
+    e.target.value = ''; // allow re-upload
+}
+
+function exportCSV() {
+    window.location.href = '/api/project/bom/export/' + projectId;
+}
+
+// ============================================================
+// 6. Init — DOMContentLoaded
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadBOM();
+    loadProductList();
+
+    // Add component button
+    var addBtn = document.getElementById('bom-add-btn');
+    if (addBtn) addBtn.addEventListener('click', openAddModal);
+
+    // Save button
+    var saveBtn = document.getElementById('save-component');
+    if (saveBtn) saveBtn.addEventListener('click', saveComponent);
+
+    // Delete from modal
+    var delBtn = document.getElementById('delete-component');
+    if (delBtn) delBtn.addEventListener('click', deleteFromModal);
+
+    // Import
+    var importBtn = document.getElementById('bom-import-btn');
+    var importFile = document.getElementById('bom-import-file');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function() { importFile.click(); });
+        importFile.addEventListener('change', handleImportFile);
+    }
+
+    // Export
+    var exportBtn = document.getElementById('bom-export-btn');
+    if (exportBtn) exportBtn.addEventListener('click', exportCSV);
+
+    // Delegated handler for Edit / Delete buttons in table
+    document.addEventListener('click', function(e) {
+        var editBtn = e.target.closest('.edit-bom');
+        if (editBtn) {
+            openEditModal(editBtn.dataset.id);
+            return;
+        }
+
+        var delRowBtn = e.target.closest('.delete-bom');
+        if (delRowBtn) {
+            deleteFromRow(delRowBtn.dataset.id);
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

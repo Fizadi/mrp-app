@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Supplier NCR - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-truck me-2"></i>{{ get_translation('auto.58eb278c', 'Supplier NCR') }}</h2>
+<div>
+<button class="btn btn-success me-2" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.f617012f', 'Refresh') }}</button>
+<button class="btn btn-info" id="exportCsvBtn"><i class="fas fa-file-csv"></i>{{ get_translation('auto.471078be', 'Export CSV') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.5db933d1', 'Open') }}</h5>
+<p class="display-6" id="kpiOpen">{{ get_translation('auto.e0677775', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-info h-100">
+<div class="card-body text-center">
+<h5 class="text-info">{{ get_translation('auto.8dd341f4', 'Responded') }}</h5>
+<p class="display-6" id="kpiResponded">{{ get_translation('auto.aad5340f', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="text-success">{{ get_translation('auto.37edf06f', 'Closed') }}</h5>
+<p class="display-6" id="kpiClosed">{{ get_translation('auto.c476c56b', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-5">
+<label>{{ get_translation('auto.1e7fe5b0', 'Supplier') }}</label>
+<select class="form-select" id="filterSupplier">
+<option value="">{{ get_translation('auto.c8e8fdd0', 'All') }}</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.SupplierID }}">{{ s.SupplierName }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-5">
+<label>{{ get_translation('auto.2c161bb9', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.c3c88113', 'All') }}</option>
+<option>{{ get_translation('auto.c2c1611b', 'Open') }}</option><option>{{ get_translation('auto.4306d30d', 'Closed') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<div class="form-check mt-4">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.bae8040f', 'Apply') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- NCR Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-list"></i>{{ get_translation('auto.4ae309db', 'Supplier NCRs') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="ncrTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.19efaf71', 'NCR #') }}</th><th>{{ get_translation('auto.0b85829e', 'Supplier') }}</th><th>{{ get_translation('auto.c5fbd11c', 'Product') }}</th><th>{{ get_translation('auto.7b61b9d0', 'Severity') }}</th><th>{{ get_translation('auto.bf1d7ed6', 'Status') }}</th><th>{{ get_translation('auto.547448f0', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="ncrTableBody">
+<tr><td class="text-center py-4" colspan="6">{{ get_translation('auto.1c0b3362', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Send to Supplier Modal -->
+<div class="modal fade" id="sendModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.5e95bc35', 'Send NCR to Supplier') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="sendNcrId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.e26b8948', 'Select Supplier') }}</label>
+<select class="form-select" id="sendSupplierId">
+                        {% for s in suppliers %}
+                        <option value="{{ s.SupplierID }}">{{ s.SupplierName }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<p class="text-muted">{{ get_translation('auto.1783d30e', 'The supplier will be notified via portal/email.') }}</p>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.d376363e', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmSendBtn">{{ get_translation('auto.464691e6', 'Send') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Supplier Response Modal -->
+<div class="modal fade" id="responseModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.ba819f11', 'Supplier Response') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="responseNcrId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.f1fccd02', 'Response Comments') }}</label>
+<textarea class="form-control" id="responseText" rows="4"></textarea>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.e4e7ca5e', 'Debit/Credit Amount') }}</label>
+<input class="form-control" id="debitCredit" step="0.01" type="number"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.4f796278', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveResponseBtn">{{ get_translation('auto.f0d795d3', 'Save Response') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let sendModal = new bootstrap.Modal(document.getElementById('sendModal'));
+    let responseModal = new bootstrap.Modal(document.getElementById('responseModal'));
+    let currentNcrId = null;
+
+    function loadKPI() {
+        $.get('/api/quality/supplier-ncr/kpi', function(data) {
+            $('#kpiOpen').text(data.open);
+            $('#kpiResponded').text(data.responded);
+            $('#kpiClosed').text(data.closed);
+        }).fail(console.error);
+    }
+
+    function loadNCRs() {
+        let params = {
+            supplier: $('#filterSupplier').val(),
+            status: $('#filterStatus').val()
+        };
+        $.get('/api/quality/supplier-ncr/list', params, function(ncrs) {
+            let tbody = $('#ncrTableBody').empty();
+            for (let n of ncrs) {
+                let row = `<tr>
+                    <td><a href="#" class="ncr-detail" data-id="${n.NCRID}">${n.NCRNumber}</a></td>
+                    <td>${n.SupplierName || n.SupplierID || ''}</td>
+                    <td>${n.ProductID || ''}</td>
+                    <td>${n.Severity || ''}</td>
+                    <td>${n.Status}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info send-btn" data-id="${n.NCRID}">Send to Supplier</button>
+                        <button class="btn btn-sm btn-warning response-btn" data-id="${n.NCRID}">Enter Response</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(console.error);
+    }
+
+    $(document).on('click', '.send-btn', function() {
+        currentNcrId = $(this).data('id');
+        $('#sendNcrId').val(currentNcrId);
+        sendModal.show();
+    });
+    $('#confirmSendBtn').click(function() {
+        let data = {
+            ncrId: currentNcrId,
+            supplierId: $('#sendSupplierId').val()
+        };
+        $.ajax({
+            url: '/api/quality/supplier-ncr/send',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                sendModal.hide();
+                loadNCRs();
+                loadKPI();
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+    $(document).on('click', '.response-btn', function() {
+        currentNcrId = $(this).data('id');
+        $('#responseNcrId').val(currentNcrId);
+        $('#responseText').val('');
+        $('#debitCredit').val('');
+        responseModal.show();
+    });
+    $('#saveResponseBtn').click(function() {
+        let data = {
+            response: $('#responseText').val(),
+            debitCredit: $('#debitCredit').val()
+        };
+        $.ajax({
+            url: `/api/quality/supplier-ncr/${currentNcrId}/response`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                responseModal.hide();
+                loadNCRs();
+                loadKPI();
+            }
+        });
+    });
+
+    $('#applyFiltersBtn').click(function() { loadNCRs(); });
+    $('#refreshBtn').click(function() { loadNCRs(); loadKPI(); });
+    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/supplier-ncr/export'; });
+
+    loadKPI();
+    loadNCRs();
+});
+</script>
+{% endblock %}

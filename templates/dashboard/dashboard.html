@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('dashboard.title', 'Executive Dashboard') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-md-4">
+    <!-- Page Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-4">
+        <h1 class="page-title mb-2 mb-md-0">
+            <i class="fas fa-chart-line me-2"></i>{{ get_translation('dashboard.title', 'Executive Dashboard') }}
+        </h1>
+        <div>
+            <small class="text-muted">
+                <i class="far fa-calendar-alt me-1"></i>{{ get_translation('dashboard.last_updated', 'Last updated') }}:
+                <span id="dashboardTimestamp">{{ now.strftime('%Y-%m-%d %H:%M') if now else '' }}</span>
+            </small>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="row g-3 mb-4">
+        <!-- Production Orders KPI -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-primary h-100 dashboard-card" data-module="manufacturing">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">{{ get_translation('dashboard.kpi.open_production_orders', 'Open Production Orders') }}</h6>
+                            <h2 class="display-6 mb-0" id="kpiProdOrders">--</h2>
+                        </div>
+                        <i class="fas fa-industry fa-2x text-primary opacity-50"></i>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('manufacturing.production_orders') }}" class="stretched-link text-decoration-none small">
+                            {{ get_translation('dashboard.view_details', 'View Details') }} <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Purchase Orders KPI -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-success h-100 dashboard-card" data-module="supply_chain">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">{{ get_translation('dashboard.kpi.open_purchase_orders', 'Open Purchase Orders') }}</h6>
+                            <h2 class="display-6 mb-0" id="kpiPurchaseOrders">--</h2>
+                        </div>
+                        <i class="fas fa-shopping-cart fa-2x text-success opacity-50"></i>
+                    </div>
+                    <div class="mt-3">
+                        <a href="/supply-chain/purchase-orders" class="stretched-link text-decoration-none small">
+                            {{ get_translation('dashboard.view_details', 'View Details') }} <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NCR Register KPI -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-danger h-100 dashboard-card" data-module="quality">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">{{ get_translation('dashboard.kpi.open_ncrs', 'Open NCRs') }}</h6>
+                            <h2 class="display-6 mb-0" id="kpiNcrs">--</h2>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger opacity-50"></i>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('quality.ncr_register') }}" class="stretched-link text-decoration-none small">
+                            {{ get_translation('dashboard.view_details', 'View Details') }} <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Projects KPI -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-info h-100 dashboard-card" data-module="projects">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">{{ get_translation('dashboard.kpi.active_projects', 'Active Projects') }}</h6>
+                            <h2 class="display-6 mb-0" id="kpiProjects">--</h2>
+                        </div>
+                        <i class="fas fa-tasks fa-2x text-info opacity-50"></i>
+                    </div>
+                    <div class="mt-3">
+                        <a href="/project/project_portfolio" class="stretched-link text-decoration-none small">
+                            {{ get_translation('dashboard.view_details', 'View Details') }} <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">{{ get_translation('dashboard.chart.production_vs_plan', 'Production vs Plan') }}</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="productionChart" height="200"></canvas>
+                    <div class="text-center text-muted mt-2 small">
+                        {{ get_translation('dashboard.chart.placeholder', 'Chart data will be loaded dynamically') }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">{{ get_translation('dashboard.chart.supplier_performance', 'Supplier Performance') }}</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="supplierChart" height="200"></canvas>
+                    <div class="text-center text-muted mt-2 small">
+                        {{ get_translation('dashboard.chart.placeholder', 'Chart data will be loaded dynamically') }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links / Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">{{ get_translation('dashboard.recent_activity', 'Recent Activity') }}</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="recentActivityTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ get_translation('dashboard.activity.type', 'Type') }}</th>
+                                    <th>{{ get_translation('dashboard.activity.reference', 'Reference') }}</th>
+                                    <th>{{ get_translation('dashboard.activity.status', 'Status') }}</th>
+                                    <th>{{ get_translation('dashboard.activity.date', 'Date') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentActivityBody">
+                                <tr><td colspan="4" class="text-center">{{ get_translation('dashboard.loading', 'Loading...') }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+    $(document).ready(function() {
+        function loadKPIs() {
+            $.get('/api/dashboard/kpis', function(data) {
+                $('#kpiProdOrders').text(data.open_production_orders || 0);
+                $('#kpiPurchaseOrders').text(data.open_purchase_orders || 0);
+                $('#kpiNcrs').text(data.open_ncrs || 0);
+                $('#kpiProjects').text(data.active_projects || 0);
+            }).fail(function() {
+                console.warn('KPI API not available – using placeholders');
+                $('#kpiProdOrders').text('12');
+                $('#kpiPurchaseOrders').text('8');
+                $('#kpiNcrs').text('3');
+                $('#kpiProjects').text('5');
+            });
+        }
+
+        function loadRecentActivity() {
+            $.get('/api/dashboard/recent-activity', function(data) {
+                var tbody = $('#recentActivityBody');
+                if (data.length === 0) {
+                    tbody.html('<tr><td colspan="4" class="text-center">{{ get_translation('dashboard.no_activity', 'No recent activity') | safe }}</td></tr>');
+                    return;
+                }
+                var html = '';
+                data.forEach(function(item) {
+                    html += `<tr>
+                        <td>${item.type || ''}</td>
+                        <td><a href="${item.link || '#'}">${item.reference || ''}</a></td>
+                        <td><span class="badge ${item.status_class || 'bg-secondary'}">${item.status || ''}</span></td>
+                        <td>${item.date || ''}</td>
+                    </tr>`;
+                });
+                tbody.html(html);
+            }).fail(function() {
+                $('#recentActivityBody').html('<tr><td colspan="4" class="text-center">{{ get_translation('dashboard.activity_unavailable', 'Activity feed temporarily unavailable') | safe }}</td></tr>');
+            });
+        }
+
+        loadKPIs();
+        loadRecentActivity();
+
+        // Check if Chart is loaded (from local file)
+        if (typeof Chart !== 'undefined') {
+            new Chart(document.getElementById('productionChart'), {
+                type: 'line',
+                data: { 
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], 
+                    datasets: [
+                        { label: 'Planned', data: [10, 12, 15, 18], borderColor: 'blue', fill: false },
+                        { label: 'Actual', data: [9, 11, 14, 16], borderColor: 'green', fill: false }
+                    ] 
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+            new Chart(document.getElementById('supplierChart'), {
+                type: 'bar',
+                data: { 
+                    labels: ['Supplier A', 'Supplier B', 'Supplier C'], 
+                    datasets: [{ label: 'On-Time Delivery %', data: [95, 88, 92], backgroundColor: '#4caf50' }] 
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+        } else {
+            console.warn('Chart.js not loaded – charts will not display');
+            $('#productionChart').closest('.card').find('.card-body').append('<div class="alert alert-warning">Chart.js library not found. Please ensure static/js/chart.umd.min.js exists.</div>');
+        }
+    });
+</script>
+{% endblock %}

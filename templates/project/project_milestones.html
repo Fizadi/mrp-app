@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.e4007317', 'Home') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/project_portfolio">{{ get_translation('auto.f1df477e', 'Projects') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/dashboard/{{ project_id }}">{{ project_id }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.bf5396a2', 'Milestones') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.befc55f3', '📅 Project Milestones') }}</h2>
+<div>
+<button class="btn btn-outline-primary me-2" id="importBtn">{{ get_translation('auto.7880978f', '📂 Import CSV') }}</button>
+<input accept=".csv" id="importFile" style="display: none;" type="file"/>
+<a class="btn btn-secondary" href="/project/dashboard/{{ project_id }}">{{ get_translation('auto.a233125d', '← Back to Dashboard') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-2 mb-4">
+<div class="col-md-3"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('auto.6706a148', 'Total Milestones') }}</h6><h3 id="kpi-total">{{ get_translation('auto.ccfdba9f', '0') }}</h3></div></div>
+<div class="col-md-3"><div class="card text-center p-2 bg-success text-white"><h6>{{ get_translation('auto.2be03f9b', 'Completed') }}</h6><h3 id="kpi-completed">{{ get_translation('auto.218dbfd5', '0') }}</h3></div></div>
+<div class="col-md-3"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('auto.44285a0e', 'On Time') }}</h6><h3 id="kpi-ontime">{{ get_translation('auto.38a9e29e', '0') }}</h3></div></div>
+<div class="col-md-3"><div class="card text-center p-2 bg-danger text-white"><h6>{{ get_translation('auto.e01c52fe', 'Overdue') }}</h6><h3 id="kpi-overdue">{{ get_translation('auto.3c39b116', '0') }}</h3></div></div>
+</div>
+<!-- Filters -->
+<div class="card mb-3 p-3">
+<div class="row g-2 align-items-end">
+<div class="col-md-3">
+<label>{{ get_translation('auto.58d19608', 'Status') }}</label>
+<select class="form-select" id="ms-filter-status">
+<option value="">{{ get_translation('auto.8c7be2ab', 'All') }}</option>
+<option value="Pending">{{ get_translation('auto.ba88b8f8', 'Pending') }}</option>
+<option value="In Progress">{{ get_translation('auto.6e9d69f3', 'In Progress') }}</option>
+<option value="Completed">{{ get_translation('auto.3c8f493b', 'Completed') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.6974f9ef', 'Due Date From') }}</label>
+<input class="form-control" id="ms-filter-from" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.c8ba677b', 'Due Date To') }}</label>
+<input class="form-control" id="ms-filter-to" type="date"/>
+</div>
+<div class="col-md-3">
+<button class="btn btn-secondary w-100" id="ms-apply-filters" type="button">{{ get_translation('auto.cfe0b374', 'Apply Filters') }}</button>
+</div>
+</div>
+</div>
+<!-- Milestones Table -->
+<div class="table-responsive">
+<table class="table table-striped table-hover">
+<thead class="table-dark">
+<tr><th>{{ get_translation('auto.033012b5', 'Milestone Name') }}</th><th>{{ get_translation('auto.c69616b7', 'Due Date') }}</th><th>{{ get_translation('auto.c8317037', 'Completion Date') }}</th><th>{{ get_translation('auto.00747129', 'Status') }}</th><th>{{ get_translation('auto.5d8f1545', 'Weight') }}</th><th>{{ get_translation('auto.4ad11862', 'Actions') }}</th></tr>
+</thead>
+<tbody id="milestones-tbody"></tbody>
+</table>
+</div>
+</div>
+<!-- Complete Milestone Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.3811b4b0', 'Complete Milestone') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<p>{{ get_translation('auto.e800e1b7', 'Mark "') }}<span id="complete-milestone-name"></span>{{ get_translation('auto.c4a61f34', '" as completed?') }}</p>
+<input id="complete-milestone-id" type="hidden"/>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="confirm-complete">{{ get_translation('auto.97e8b863', 'Yes, Complete') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.68b3ca42', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    load_error:           {{ get_translation('ms.milestones.load_error', 'Error loading milestones')|tojson }},
+    request_failed:       {{ get_translation('ms.milestones.request_failed', 'Request failed')|tojson }},
+    error:                {{ get_translation('global.error', 'Error')|tojson }},
+    unknown:              {{ get_translation('global.unknown', 'Unknown')|tojson }},
+    imported_prefix:      {{ get_translation('ms.milestones.imported_prefix', 'Imported')|tojson }},
+    imported_suffix:      {{ get_translation('ms.milestones.imported_suffix', 'milestones.')|tojson }},
+    import_failed:        {{ get_translation('ms.milestones.import_failed', 'Import failed')|tojson }},
+    upload_error:         {{ get_translation('ms.milestones.upload_error', 'Upload error')|tojson }},
+    errors_label:         {{ get_translation('ms.milestones.errors_label', 'Errors')|tojson }},
+    complete_btn:         {{ get_translation('ms.milestones.complete_btn', 'Complete')|tojson }},
+    done_label:           {{ get_translation('ms.milestones.done_label', 'Done')|tojson }}
+};
+
+// ============================================================
+// 2. State — TOP LEVEL
+// ============================================================
+var projectId = "{{ project_id }}";
+
+// ============================================================
+// 3. Helper functions — TOP LEVEL
+// ============================================================
+function formatDateKey(dateKey) {
+    if (!dateKey) return '-';
+    var s = dateKey.toString();
+    if (s.length !== 8) return s;
+    return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+}
+
+// ============================================================
+// 4. Data loading — TOP LEVEL, fetch()
+// ============================================================
+function loadMilestones() {
+    var statusSelect = document.getElementById('ms-filter-status');
+    var fromInput = document.getElementById('ms-filter-from');
+    var toInput = document.getElementById('ms-filter-to');
+
+    var status = statusSelect ? statusSelect.value : '';
+    var fromDate = fromInput ? fromInput.value : '';
+    var toDate = toInput ? toInput.value : '';
+
+    console.log('📊 loadMilestones called with filters:', { status: status, fromDate: fromDate, toDate: toDate });
+
+    var url = '/api/project/milestones_list/' + projectId;
+    var params = [];
+    if (status && status !== '') params.push('status=' + encodeURIComponent(status));
+    if (fromDate && fromDate !== '') params.push('due_date_from=' + fromDate.replace(/-/g, ''));
+    if (toDate && toDate !== '') params.push('due_date_to=' + toDate.replace(/-/g, ''));
+    if (params.length) url += '?' + params.join('&');
+
+    console.log('🌐 Fetching URL:', url);
+
+    fetch(url)
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('✅ Milestones received:', (data.milestones || []).length);
+
+            // Update KPIs
+            var kpiTotal = document.getElementById('kpi-total');
+            var kpiCompleted = document.getElementById('kpi-completed');
+            var kpiOntime = document.getElementById('kpi-ontime');
+            var kpiOverdue = document.getElementById('kpi-overdue');
+            if (kpiTotal) kpiTotal.innerText = data.kpis.total;
+            if (kpiCompleted) kpiCompleted.innerText = data.kpis.completed;
+            if (kpiOntime) kpiOntime.innerText = data.kpis.on_time;
+            if (kpiOverdue) kpiOverdue.innerText = data.kpis.overdue;
+
+            var tbody = document.getElementById('milestones-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            (data.milestones || []).forEach(function(m) {
+                var row = tbody.insertRow();
+                row.className = m.is_overdue ? 'table-danger' : '';
+                row.insertCell(0).innerText = m.name;
+                row.insertCell(1).innerText = formatDateKey(m.due_date);
+                row.insertCell(2).innerText = formatDateKey(m.completion_date);
+                row.insertCell(3).innerText = m.status;
+                row.insertCell(4).innerText = m.weight;
+
+                var actionsCell = row.insertCell(5);
+                if (m.status !== 'Completed') {
+                    var btn = document.createElement('button');
+                    btn.className = 'btn btn-sm btn-success complete-milestone';
+                    btn.innerText = trans.complete_btn;
+                    btn.dataset.id = m.id;
+                    btn.dataset.name = m.name;
+                    actionsCell.appendChild(btn);
+                } else {
+                    actionsCell.innerHTML = '<span class="badge bg-secondary">' + trans.done_label + '</span>';
+                }
+            });
+        })
+        .catch(function(err) {
+            console.error('❌ Fetch error:', err);
+            alert(trans.load_error + ': ' + err.message);
+        });
+}
+
+// ============================================================
+// 5. Action handlers — TOP LEVEL
+// ============================================================
+function completeMilestone() {
+    var idEl = document.getElementById('complete-milestone-id');
+    var id = idEl ? idEl.value : '';
+    if (!id) return;
+
+    fetch('/api/project/complete_milestone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ milestone_id: id })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            var modalEl = document.getElementById('completeModal');
+            var inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.hide();
+            loadMilestones();
+        } else {
+            alert(trans.error + ': ' + (res.error || trans.unknown));
+        }
+    })
+    .catch(function(err) {
+        alert(trans.request_failed + ': ' + err.message);
+    });
+}
+
+// ============================================================
+// 6. Init — DOMContentLoaded
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM ready, attaching listeners');
+
+    // Initial load
+    loadMilestones();
+
+    // Apply filters button
+    var applyBtn = document.getElementById('ms-apply-filters');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🔘 Apply button clicked');
+            loadMilestones();
+        });
+    } else {
+        console.error('❌ Apply button not found');
+    }
+
+    // Delegated handler for "Complete" buttons in the table
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.complete-milestone');
+        if (!btn) return;
+
+        var id = btn.dataset.id;
+        var name = btn.dataset.name;
+
+        var idEl = document.getElementById('complete-milestone-id');
+        var nameEl = document.getElementById('complete-milestone-name');
+        if (idEl) idEl.value = id;
+        if (nameEl) nameEl.innerText = name;
+
+        var modalEl = document.getElementById('completeModal');
+        if (modalEl) new bootstrap.Modal(modalEl).show();
+    });
+
+    // Confirm complete
+    var confirmBtn = document.getElementById('confirm-complete');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', completeMilestone);
+    }
+
+    // CSV Import — open file picker
+    var importBtn = document.getElementById('importBtn');
+    var importFile = document.getElementById('importFile');
+    if (importBtn && importFile) {
+        importBtn.addEventListener('click', function() { importFile.click(); });
+    }
+
+    // CSV Import — handle file selection
+    if (importFile) {
+        importFile.addEventListener('change', function(e) {
+            var fd = new FormData();
+            fd.append('file', e.target.files[0]);
+
+            fetch('/api/project/import_milestones', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.success) {
+                        var errs = (res.errors || []).join(', ');
+                        alert(trans.imported_prefix + ' ' + res.created + ' ' + trans.imported_suffix + '\n' + trans.errors_label + ': ' + errs);
+                        loadMilestones();
+                    } else {
+                        alert(trans.import_failed + ': ' + (res.message || ''));
+                    }
+                })
+                .catch(function(err) {
+                    alert(trans.upload_error + ': ' + err.message);
+                });
+
+            e.target.value = ''; // allow re-upload
+        });
+    }
+});
+</script>
+{% endblock %}

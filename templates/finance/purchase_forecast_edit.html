@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('finance.purchase_forecast.edit.title', 'Purchase Forecast') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">{{ get_translation('nav.finance', 'Finance') }}</a></li>
+            <li class="breadcrumb-item"><a href="/finance/purchase-forecast">{{ get_translation('finance.purchase_forecast.title', 'Purchase Forecast') }}</a></li>
+            <li class="breadcrumb-item active">
+                {% if view_mode %}{{ get_translation('global.view', 'View') }}{% elif forecast_id %}{{ get_translation('global.edit', 'Edit') }}{% else %}{{ get_translation('global.new', 'New') }}{% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>
+            {% if view_mode %}<i class="fas fa-eye me-2"></i>{{ get_translation('finance.purchase_forecast.view.title', 'View Purchase Forecast') }}
+            {% elif forecast_id %}<i class="fas fa-edit me-2"></i>{{ get_translation('finance.purchase_forecast.edit.title', 'Edit Purchase Forecast') }}
+            {% else %}<i class="fas fa-plus me-2"></i>{{ get_translation('finance.purchase_forecast.new.title', 'New Purchase Forecast') }}{% endif %}
+        </h2>
+        <div>
+            {% if not view_mode and (not forecast_id or status == 'Draft') %}
+            <button class="btn btn-success" id="saveBtn"><i class="fas fa-save"></i> {{ get_translation('global.save', 'Save') }}</button>
+            {% endif %}
+            <a href="/finance/purchase-forecast" class="btn btn-secondary"><i class="fas fa-times"></i> {{ get_translation('global.cancel', 'Cancel') }}</a>
+        </div>
+    </div>
+
+    {% if view_mode %}
+    <div class="alert alert-info"><i class="fas fa-info-circle"></i> {{ get_translation('global.view_mode', 'View Mode - Read Only') }}</div>
+    {% endif %}
+
+    <form id="forecastForm">
+        <input type="hidden" id="forecastId" value="{{ forecast_id if forecast_id else '' }}">
+        <input type="hidden" id="viewMode" value="{{ 'true' if view_mode else 'false' }}">
+
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">{{ get_translation('finance.purchase_forecast.header', 'General Information') }}</h5></div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.purchase_forecast.form.name', 'Forecast Name') }} *</label>
+                            <input type="text" class="form-control" id="forecastName" {% if view_mode %}disabled{% endif %}>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.purchase_forecast.form.year', 'Year') }} *</label>
+                            <select class="form-select" id="periodYear" {% if view_mode %}disabled{% endif %}>
+                                <option value="1405">1405</option>
+                                <option value="1406">1406</option>
+                                <option value="1407">1407</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.purchase_forecast.form.season', 'Season') }} *</label>
+                            <select class="form-select" id="periodSeason" {% if view_mode %}disabled{% endif %}>
+                                <option value="بهار">بهار</option>
+                                <option value="تابستان">تابستان</option>
+                                <option value="پاییز">پاییز</option>
+                                <option value="زمستان">زمستان</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <label class="form-label">{{ get_translation('finance.purchase_forecast.form.description', 'Description') }}</label>
+                            <textarea class="form-control" id="description" rows="2" {% if view_mode %}disabled{% endif %}></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Raw Materials Table -->
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">{{ get_translation('finance.purchase_forecast.table_title', 'Raw Materials') }}</h5></div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped" id="materialsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>{{ get_translation('finance.purchase_forecast.table.material_code', 'Code') }}</th>
+                                <th>{{ get_translation('finance.purchase_forecast.table.material_name', 'Material') }}</th>
+                                <th>{{ get_translation('finance.purchase_forecast.table.consumption', 'Expected Consumption') }}</th>
+                                <th>{{ get_translation('finance.purchase_forecast.table.beginning_rate', 'Beginning Rate') }}</th>
+                                <th>{{ get_translation('finance.purchase_forecast.table.estimated_rate', 'Est. Purchase Rate') }}</th>
+                                <th>{{ get_translation('finance.purchase_forecast.table.total', 'Total Amount') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materialsBody">
+                            <tr><td colspan="7" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td colspan="6" class="text-end">{{ get_translation('finance.purchase_forecast.grand_total', 'Grand Total') }}</td>
+                                <td id="grandTotal">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Terms -->
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">{{ get_translation('finance.purchase_forecast.payment.title', 'Payment Terms Distribution') }}</h5></div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.purchase_forecast.payment.cash', 'Cash') }} %</label>
+                        <input type="number" class="form-control payment-input" id="cashPct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.purchase_forecast.payment.days30', '30 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days30Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.purchase_forecast.payment.days60', '60 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days60Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.purchase_forecast.payment.days90', '90 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days90Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.purchase_forecast.payment.days120', '120 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days120Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ get_translation('finance.purchase_forecast.payment.days150', '150 Days') }} %</label>
+                        <input type="number" class="form-control payment-input" id="days150Pct" value="0" min="0" max="100" {% if view_mode %}disabled{% endif %}>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-info" id="paymentSum">Total: 0%</span>
+                    <span class="text-danger" id="paymentError" style="display:none;">{{ get_translation('finance.purchase_forecast.validation.sum', 'Payment terms must sum to 100%') }}</span>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Error')|tojson }},
+    success: {{ get_translation('global.success', 'Success')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    'currency.irr': 'ریال'
+};
+
+function t(key, defaultText) { return trans[key] || defaultText || key; }
+
+var forecastId = document.getElementById('forecastId').value;
+var viewMode = document.getElementById('viewMode').value === 'true';
+
+function loadMaterials() {
+    fetch('/api/finance/raw-materials')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                renderMaterials(data.materials);
+            }
+        })
+        .catch(function(err) { console.error(err); });
+}
+
+function renderMaterials(materials) {
+    var tbody = document.getElementById('materialsBody');
+    if (!materials || materials.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">' + t('no_data', 'No materials available') + '</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    materials.forEach(function(mat, idx) {
+        var readOnly = viewMode ? 'readonly' : '';
+        var disabled = viewMode ? 'disabled' : '';
+        html += '<tr data-product-id="' + mat.ProductId + '">' +
+            '<td class="text-center">' + (idx + 1) + '</td>' +
+            '<td>' + mat.ProductId + '</td>' +
+            '<td>' + mat.Name + '</td>' +
+            '<td><input type="number" class="form-control form-control-sm consumption-input" value="0" min="0" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td><input type="number" class="form-control form-control-sm beginning-rate-input" value="0" min="0" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td><input type="number" class="form-control form-control-sm est-rate-input" value="0" min="0" step="0.01" ' + readOnly + ' ' + disabled + '></td>' +
+            '<td class="row-total text-center">0</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+    
+    if (forecastId) loadForecastData();
+}
+
+function loadForecastData() {
+    if (!forecastId) return;
+    fetch('/api/finance/purchase-forecast/' + forecastId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var header = data.header;
+                document.getElementById('forecastName').value = header.ForecastName || '';
+                document.getElementById('periodYear').value = header.PeriodPersianYear || '';
+                document.getElementById('periodSeason').value = header.PeriodPersianSeason || '';
+                document.getElementById('description').value = header.Description || '';
+                
+                if (data.lines && data.lines.length > 0) {
+                    var first = data.lines[0];
+                    document.getElementById('cashPct').value = first.CashPct || 0;
+                    document.getElementById('days30Pct').value = first.Days30Pct || 0;
+                    document.getElementById('days60Pct').value = first.Days60Pct || 0;
+                    document.getElementById('days90Pct').value = first.Days90Pct || 0;
+                    document.getElementById('days120Pct').value = first.Days120Pct || 0;
+                    document.getElementById('days150Pct').value = first.Days150Pct || 0;
+                    
+                    var rows = document.querySelectorAll('#materialsBody tr');
+                    rows.forEach(function(row) {
+                        var productId = row.dataset.productId;
+                        var line = data.lines.find(function(l) { return l.ProductID === productId; });
+                        if (line) {
+                            row.querySelector('.consumption-input').value = line.ExpectedConsumption || 0;
+                            row.querySelector('.beginning-rate-input').value = line.BeginningInventoryRate || 0;
+                            row.querySelector('.est-rate-input').value = line.EstimatedPurchaseRate || 0;
+                        }
+                    });
+                }
+                calculateAll();
+                updatePaymentSum();
+            }
+        })
+        .catch(function(err) { console.error(err); });
+}
+
+function calculateAll() {
+    var grandTotal = 0;
+    document.querySelectorAll('#materialsBody tr').forEach(function(row) {
+        var consumption = parseFloat(row.querySelector('.consumption-input').value) || 0;
+        var estRate = parseFloat(row.querySelector('.est-rate-input').value) || 0;
+        var total = consumption * estRate;
+        row.querySelector('.row-total').textContent = total.toLocaleString();
+        grandTotal += total;
+    });
+    document.getElementById('grandTotal').textContent = grandTotal.toLocaleString();
+}
+
+function updatePaymentSum() {
+    var cash = parseFloat(document.getElementById('cashPct').value) || 0;
+    var d30 = parseFloat(document.getElementById('days30Pct').value) || 0;
+    var d60 = parseFloat(document.getElementById('days60Pct').value) || 0;
+    var d90 = parseFloat(document.getElementById('days90Pct').value) || 0;
+    var d120 = parseFloat(document.getElementById('days120Pct').value) || 0;
+    var d150 = parseFloat(document.getElementById('days150Pct').value) || 0;
+    var total = cash + d30 + d60 + d90 + d120 + d150;
+    document.getElementById('paymentSum').textContent = 'Total: ' + total + '%';
+    document.getElementById('paymentError').style.display = Math.abs(total - 100) > 0.01 ? 'inline' : 'none';
+}
+
+function saveForecast() {
+    var name = document.getElementById('forecastName').value.trim();
+    if (!name) { showToast('Please enter a forecast name', 'error'); return; }
+    
+    var rows = document.querySelectorAll('#materialsBody tr');
+    var lines = [];
+    rows.forEach(function(row) {
+        var productId = row.dataset.productId;
+        var consumption = parseFloat(row.querySelector('.consumption-input').value) || 0;
+        var beginningRate = parseFloat(row.querySelector('.beginning-rate-input').value) || 0;
+        var estRate = parseFloat(row.querySelector('.est-rate-input').value) || 0;
+        if (consumption > 0 || estRate > 0) {
+            lines.push({
+                ProductID: productId,
+                ExpectedConsumption: consumption,
+                BeginningInventoryRate: beginningRate,
+                EstimatedPurchaseRate: estRate,
+                CashPct: parseFloat(document.getElementById('cashPct').value) || 0,
+                Days30Pct: parseFloat(document.getElementById('days30Pct').value) || 0,
+                Days60Pct: parseFloat(document.getElementById('days60Pct').value) || 0,
+                Days90Pct: parseFloat(document.getElementById('days90Pct').value) || 0,
+                Days120Pct: parseFloat(document.getElementById('days120Pct').value) || 0,
+                Days150Pct: parseFloat(document.getElementById('days150Pct').value) || 0
+            });
+        }
+    });
+    
+    var data = {
+        ForecastName: name,
+        PeriodPersianYear: parseInt(document.getElementById('periodYear').value),
+        PeriodPersianSeason: document.getElementById('periodSeason').value,
+        Description: document.getElementById('description').value,
+        CurrencyCode: 'IRR',
+        lines: lines
+    };
+    
+    var url = '/api/finance/purchase-forecast';
+    var method = 'POST';
+    if (forecastId) { url += '/' + forecastId; method = 'PUT'; }
+    
+    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showToast('Forecast saved successfully', 'success');
+                window.location.href = '/finance/purchase-forecast';
+            } else {
+                showToast('Error: ' + (data.error || 'Failed'), 'error');
+            }
+        })
+        .catch(function(err) { showToast('Error: ' + err.message, 'error'); });
+}
+
+function showToast(message, type) { /* same as before */ }
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadMaterials();
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('consumption-input') || e.target.classList.contains('est-rate-input')) {
+            calculateAll();
+        }
+        if (e.target.classList.contains('payment-input')) updatePaymentSum();
+    });
+    document.getElementById('saveBtn').addEventListener('click', saveForecast);
+});
+</script>
+{% endblock %}

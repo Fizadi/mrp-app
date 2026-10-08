@@ -1,0 +1,1262 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('finance.cash_flow.generate.title', 'Generate Cash Flow') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2><i class="fas fa-money-bill-wave me-2"></i>{{ get_translation('finance.cash_flow.generate.title', 'Generate Cash Flow') }}</h2>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- DATE RANGE SELECTOR -->
+    <!-- ==================================================================== -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">{{ get_translation('finance.cash_flow.period.title', '📅 Select Period') }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.period.start_date', 'Start Date') }}</label>
+                        <input type="date" class="form-control" id="startDate" 
+                               placeholder="{{ get_translation('finance.cash_flow.period.select_start', 'Select start date') }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.period.end_date', 'End Date') }}</label>
+                        <input type="date" class="form-control" id="endDate" 
+                               placeholder="{{ get_translation('finance.cash_flow.period.select_end', 'Select end date') }}">
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="mb-3 w-100">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.period.preset', 'Quick Select') }}</label>
+                        <select class="form-select" id="periodPreset">
+                            <option value="">{{ get_translation('finance.cash_flow.period.custom', 'Custom') }}</option>
+                            <option value="1month">{{ get_translation('finance.cash_flow.period.1month', 'Next 1 Month') }}</option>
+                            <option value="3month" selected>{{ get_translation('finance.cash_flow.period.3month', 'Next 3 Months') }}</option>
+                            <option value="6month">{{ get_translation('finance.cash_flow.period.6month', 'Next 6 Months') }}</option>
+                            <option value="12month">{{ get_translation('finance.cash_flow.period.12month', 'Next 12 Months') }}</option>
+                            <option value="current_quarter">{{ get_translation('finance.cash_flow.period.current_quarter', 'Current Quarter') }}</option>
+                            <option value="next_quarter">{{ get_translation('finance.cash_flow.period.next_quarter', 'Next Quarter') }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="text-muted small" id="periodDisplay">
+                {{ get_translation('finance.cash_flow.period.selected', 'Selected Period:') }} 
+                <span id="selectedPeriodDisplay">{{ get_translation('finance.cash_flow.period.not_set', 'Not set') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PROJECTION NAME SECTION (NEW) -->
+    <!-- ==================================================================== -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">{{ get_translation('finance.cash_flow.projection_name', '📝 نام پیش‌بینی') }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.projection_name_label', 'نام پیش‌بینی (اختیاری)') }}</label>
+                        <input type="text" class="form-control" id="projectionName" 
+                               placeholder="{{ get_translation('finance.cash_flow.projection_name_placeholder', 'مثلاً: پیش‌بینی با وام بانکی - شهریور ۱۴۰۵') }}">
+                        <small class="text-muted">{{ get_translation('finance.cash_flow.projection_name_hint', 'در صورت خالی بودن، نام به صورت خودکار تولید می‌شود') }}</small>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="mb-3 w-100">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.period_display', 'دوره انتخابی') }}</label>
+                        <input type="text" class="form-control" id="periodDisplayField" readonly style="background:#f8f9fa;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- EXCEL IMPORT SECTION -->
+    <!-- ==================================================================== -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">{{ get_translation('finance.cash_flow.import.title', '📥 Import Financial Data from Excel') }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.import.upload_label', 'Upload Financial Journal Excel File') }}</label>
+                        <input type="file" class="form-control" id="excelFile" accept=".xlsx,.xls">
+                        <small class="text-muted">
+                            {{ get_translation('finance.cash_flow.import.supported_format', 'Supported format: columns for account code, description, debit, credit, cost center') }}
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-primary" id="importExcelBtn">
+                        <i class="fas fa-upload"></i> {{ get_translation('finance.cash_flow.import.button', 'بارگذاری فایل') }}
+                    </button>
+                    <button class="btn btn-secondary ms-2" id="previewExcelBtn">
+                        <i class="fas fa-eye"></i> {{ get_translation('finance.cash_flow.import.preview', 'Preview') }}
+                    </button>
+                </div>
+            </div>
+            <div id="importPreview" style="display:none;" class="mt-3">
+                <h6>{{ get_translation('finance.cash_flow.import.preview_title', 'Import Preview') }}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="previewTable">
+                        <thead>
+                            <tr>
+                                <th>{{ get_translation('finance.cash_flow.import.account', 'Account') }}</th>
+                                <th>{{ get_translation('finance.cash_flow.import.description', 'Description') }}</th>
+                                <th class="text-end">{{ get_translation('finance.cash_flow.import.debit', 'Debit') }}</th>
+                                <th class="text-end">{{ get_translation('finance.cash_flow.import.credit', 'Credit') }}</th>
+                                <th>{{ get_translation('finance.cash_flow.import.cost_center', 'Cost Center') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="mt-2">
+                    <button class="btn btn-success" id="confirmImportBtn">
+                        <i class="fas fa-check"></i> {{ get_translation('finance.cash_flow.import.confirm', 'Confirm Import') }}
+                    </button>
+                    <button class="btn btn-secondary" id="cancelImportBtn">
+                        <i class="fas fa-times"></i> {{ get_translation('finance.cash_flow.import.cancel', 'Cancel') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- MANUAL ADJUSTMENTS SECTION (with auto-format-number) -->
+    <!-- ==================================================================== -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">{{ get_translation('finance.cash_flow.manual.title', '✏️ Manual Adjustments') }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.manual.loan_repayment', 'بازپرداخت وام (ماهانه)') }}</label>
+                        <input type="text" class="form-control auto-format-number" id="loanRepayment" value="0">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.manual.bank_credit', 'اعتبارات بانکی دریافت شده') }}</label>
+                        <input type="text" class="form-control auto-format-number" id="bankCreditReceived" value="0">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.manual.shareholder', 'آورده سهامداران') }}</label>
+                        <input type="text" class="form-control auto-format-number" id="shareholderInput" value="0">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.manual.mandatory_payment', 'پرداخت‌های اجباری (ماهانه)') }}</label>
+                        <input type="text" class="form-control auto-format-number" id="mandatoryPayment" value="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- LOAN MANAGEMENT SECTION (with auto-format-number) -->
+    <!-- ==================================================================== -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">{{ get_translation('finance.cash_flow.loan.title', '🏦 مدیریت وام') }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.loan.description', 'شرح وام') }}</label>
+                        <input type="text" class="form-control" id="loanDesc" value="وام بانکی">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.loan.principal', 'مبلغ اصل (ریال)') }}</label>
+                        <input type="text" class="form-control auto-format-number" id="loanPrincipal" value="0">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.loan.interest', 'نرخ سود سالانه (%)') }}</label>
+                        <input type="number" class="form-control" id="loanRate" value="18" step="0.5">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.loan.months', 'مدت (ماه)') }}</label>
+                        <input type="number" class="form-control" id="loanMonths" value="12">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.loan.grace', 'مدت تنفس (ماه)') }}</label>
+                        <input type="number" class="form-control" id="loanGrace" value="0">
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <button class="btn btn-outline-primary btn-sm" id="addLoanBtn">
+                        <i class="fas fa-plus"></i> {{ get_translation('finance.cash_flow.loan.add', 'افزودن وام') }}
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" id="calculateLoanBtn">
+                        <i class="fas fa-calculator"></i> {{ get_translation('finance.cash_flow.loan.calculate', 'محاسبه اقساط') }}
+                    </button>
+                </div>
+            </div>
+            <div id="loanList" class="mt-2">
+                <!-- Loans will be listed here -->
+            </div>
+            <div id="loanSchedule" class="mt-3" style="display:none;">
+                <h6>{{ get_translation('finance.cash_flow.loan.schedule', 'جدول اقساط') }}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="loanScheduleTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>{{ get_translation('finance.cash_flow.loan.payment_date', 'تاریخ') }}</th>
+                                <th class="text-end">{{ get_translation('finance.cash_flow.loan.principal_payment', 'اصل') }}</th>
+                                <th class="text-end">{{ get_translation('finance.cash_flow.loan.interest_payment', 'بهره') }}</th>
+                                <th class="text-end">{{ get_translation('finance.cash_flow.loan.total_payment', 'مجموع') }}</th>
+                                <th class="text-end">{{ get_translation('finance.cash_flow.loan.remaining', 'مانده') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="loanScheduleBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- FORECAST SELECTION SECTION (with auto-format-number) -->
+    <!-- ==================================================================== -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.input.sales_forecast', 'Sales Forecast') }}</label>
+                        <select class="form-select" id="salesSelect">
+                            <option value="">{{ get_translation('finance.cash_flow.placeholder.select_sales', 'Select Sales Forecast...') }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.input.purchase_forecast', 'Purchase Forecast') }}</label>
+                        <select class="form-select" id="purchaseSelect">
+                            <option value="">{{ get_translation('finance.cash_flow.placeholder.select_purchase', 'Select Purchase Forecast...') }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('finance.cash_flow.input.opening_balance', 'موجودی ابتدای دوره') }}</label>
+                        <input type="text" class="form-control auto-format-number" id="openingBalance" value="100,000,000">
+                    </div>
+                </div>
+            </div>
+            <div>
+                <button class="btn btn-primary" id="calculateBtn">
+                    <i class="fas fa-calculator"></i> {{ get_translation('finance.cash_flow.button.calculate', 'Calculate') }}
+                </button>
+                <button class="btn btn-success" id="saveBtn" style="display:none;">
+                    <i class="fas fa-save"></i> {{ get_translation('finance.cash_flow.button.save', 'Save Projection') }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- RESULTS SECTION -->
+    <!-- ==================================================================== -->
+    <div class="card" id="resultsCard" style="display:none;">
+        <div class="card-header">
+            <h5>{{ get_translation('finance.cash_flow.results.title', 'Cash Flow Projection') }}</h5>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered" id="resultTable">
+                <thead>
+                    <tr>
+                        <th>{{ get_translation('finance.cash_flow.results.line', 'Line') }}</th>
+                        <th class="text-end">{{ get_translation('finance.cash_flow.results.month1', 'Month 1') }}</th>
+                        <th class="text-end">{{ get_translation('finance.cash_flow.results.month2', 'Month 2') }}</th>
+                        <th class="text-end">{{ get_translation('finance.cash_flow.results.month3', 'Month 3') }}</th>
+                        <th class="text-end">{{ get_translation('finance.cash_flow.results.total', 'Total') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="resultBody">
+                    <tr><td colspan="5" class="text-center">{{ get_translation('finance.cash_flow.button.calculate', 'Click Calculate to see results') }}</td></tr>
+                </tbody>
+            </table>
+            <div id="savedInfo" style="display:none;" class="alert alert-success mt-3">
+                <i class="fas fa-check-circle"></i> {{ get_translation('finance.cash_flow.notification.saved', 'Projection saved successfully!') }}
+                <a href="#" id="viewReportLink" class="btn btn-info btn-sm ms-2">
+                    <i class="fas fa-file-invoice"></i> {{ get_translation('finance.cash_flow.button.view_report', 'View Full Report') }}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================================== -->
+<!-- JAVASCRIPT -->
+<!-- ==================================================================== -->
+<script>
+// ============================================================================
+// NUMBER FORMATTING WITH 3-DIGIT SEPARATORS
+// ============================================================================
+
+// Format a number with 3-digit separators (e.g., 1,000,000)
+function formatNumberWithCommas(value) {
+    if (value === undefined || value === null || value === '') return '';
+    
+    // Remove any existing commas
+    var clean = String(value).replace(/,/g, '');
+    
+    // Parse as number
+    var num = parseFloat(clean);
+    if (isNaN(num)) return value;
+    
+    // Format with commas
+    return num.toLocaleString('en-US');
+}
+
+// Parse a formatted number back to a raw number
+function parseFormattedNumber(value) {
+    if (value === undefined || value === null || value === '') return 0;
+    var clean = String(value).replace(/,/g, '');
+    return parseFloat(clean) || 0;
+}
+
+// Get raw value from a formatted input
+function getRawNumberValue(input) {
+    if (!input) return 0;
+    if (input.dataset.rawValue !== undefined && input.dataset.rawValue !== '') {
+        return parseFloat(input.dataset.rawValue) || 0;
+    }
+    return parseFormattedNumber(input.value);
+}
+
+// Set formatted value on an input
+function setFormattedNumberValue(input, value) {
+    if (!input) return;
+    var num = parseFloat(value) || 0;
+    input.dataset.rawValue = num;
+    input.value = formatNumberWithCommas(num);
+}
+
+// Apply auto-formatting to an input element
+function autoFormatNumberInput(input) {
+    if (!input) return;
+    var rawValue = parseFormattedNumber(input.value);
+    input.dataset.rawValue = rawValue;
+    var formatted = formatNumberWithCommas(rawValue);
+    if (formatted !== input.value) {
+        input.value = formatted;
+    }
+}
+
+// Setup number input formatting
+function setupNumberInputFormatting(selector) {
+    document.querySelectorAll(selector).forEach(function(input) {
+        // Format on blur (when user leaves the field)
+        input.addEventListener('blur', function() {
+            var raw = parseFormattedNumber(this.value);
+            this.dataset.rawValue = raw;
+            this.value = formatNumberWithCommas(raw);
+            // Trigger change event to update calculations
+            this.dispatchEvent(new Event('change'));
+        });
+        
+        // Format on enter key
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                this.blur();
+            }
+        });
+        
+        // Allow only numbers and comma while typing
+        input.addEventListener('keydown', function(e) {
+            // Allow backspace, delete, tab, escape, enter, etc.
+            var allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 
+                               'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+                               'Home', 'End', 'PageUp', 'PageDown'];
+            if (allowedKeys.includes(e.key)) return;
+            
+            // Allow numbers and period (for decimals)
+            if (!/^[0-9.]$/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+        
+        // Initial format
+        autoFormatNumberInput(input);
+    });
+}
+
+// ============================================================================
+// PERIOD NAME GENERATION
+// ============================================================================
+
+function generatePeriodName(startDate, endDate) {
+    if (!startDate || !endDate) return 'دوره نامشخص';
+    
+    // Parse dates
+    var start = new Date(startDate);
+    var end = new Date(endDate);
+    
+    // Get Persian month names
+    var persianMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+                         'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+    
+    // Simple Persian year approximation (1405 for 2024-2025)
+    var persianYear = 1405;
+    
+    // If same year
+    if (start.getFullYear() === end.getFullYear()) {
+        if (start.getMonth() === end.getMonth()) {
+            return persianMonths[start.getMonth()] + ' ' + persianYear;
+        } else {
+            return persianMonths[start.getMonth()] + ' تا ' + persianMonths[end.getMonth()] + ' ' + persianYear;
+        }
+    } else {
+        return persianMonths[start.getMonth()] + ' ' + start.getFullYear() + ' تا ' + 
+               persianMonths[end.getMonth()] + ' ' + end.getFullYear();
+    }
+}
+
+function generateDefaultProjectionName() {
+    var start = document.getElementById('startDate').value;
+    var end = document.getElementById('endDate').value;
+    
+    if (start && end) {
+        var periodName = generatePeriodName(start, end);
+        return 'پیش‌بینی - ' + periodName;
+    }
+    return 'پیش‌بینی جریان نقد';
+}
+
+function updatePeriodDisplay() {
+    var start = document.getElementById('startDate').value;
+    var end = document.getElementById('endDate').value;
+    var display = document.getElementById('selectedPeriodDisplay');
+    var periodField = document.getElementById('periodDisplayField');
+    
+    if (start && end) {
+        display.textContent = start + ' تا ' + end;
+        
+        var periodName = generatePeriodName(start, end);
+        if (periodField) {
+            periodField.value = periodName;
+        }
+        
+        // Auto-fill projection name if empty
+        var nameInput = document.getElementById('projectionName');
+        if (nameInput && !nameInput.value.trim()) {
+            nameInput.value = generateDefaultProjectionName();
+        }
+    } else {
+        display.textContent = 'انتخاب نشده';
+        if (periodField) {
+            periodField.value = '';
+        }
+    }
+}
+
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+var trans = {
+    calculate: {{ get_translation('finance.cash_flow.button.calculate', 'Calculate')|tojson }},
+    save: {{ get_translation('finance.cash_flow.button.save', 'Save Projection')|tojson }},
+    view_report: {{ get_translation('finance.cash_flow.button.view_report', 'View Full Report')|tojson }},
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Error')|tojson }},
+    success: {{ get_translation('global.success', 'Success')|tojson }},
+    'currency.irr': {{ get_translation('finance.currency.irr', 'ریال')|tojson }},
+    select_sales: {{ get_translation('finance.cash_flow.placeholder.select_sales', 'Select Sales Forecast...')|tojson }},
+    select_purchase: {{ get_translation('finance.cash_flow.placeholder.select_purchase', 'Select Purchase Forecast...')|tojson }},
+    import_title: {{ get_translation('finance.cash_flow.import.title', '📥 Import Financial Data from Excel')|tojson }},
+    import_upload: {{ get_translation('finance.cash_flow.import.upload_label', 'Upload Financial Journal Excel File')|tojson }},
+    import_format: {{ get_translation('finance.cash_flow.import.supported_format', 'Supported format: columns for account code, description, debit, credit, cost center')|tojson }},
+    import_button: {{ get_translation('finance.cash_flow.import.button', 'بارگذاری فایل')|tojson }},
+    import_preview: {{ get_translation('finance.cash_flow.import.preview', 'Preview')|tojson }},
+    import_preview_title: {{ get_translation('finance.cash_flow.import.preview_title', 'Import Preview')|tojson }},
+    import_account: {{ get_translation('finance.cash_flow.import.account', 'Account')|tojson }},
+    import_description: {{ get_translation('finance.cash_flow.import.description', 'Description')|tojson }},
+    import_debit: {{ get_translation('finance.cash_flow.import.debit', 'Debit')|tojson }},
+    import_credit: {{ get_translation('finance.cash_flow.import.credit', 'Credit')|tojson }},
+    import_cost_center: {{ get_translation('finance.cash_flow.import.cost_center', 'Cost Center')|tojson }},
+    import_confirm: {{ get_translation('finance.cash_flow.import.confirm', 'Confirm Import')|tojson }},
+    import_cancel: {{ get_translation('finance.cash_flow.import.cancel', 'Cancel')|tojson }},
+    manual_title: {{ get_translation('finance.cash_flow.manual.title', '✏️ Manual Adjustments')|tojson }},
+    manual_loan: {{ get_translation('finance.cash_flow.manual.loan_repayment', 'بازپرداخت وام (ماهانه)')|tojson }},
+    manual_bank: {{ get_translation('finance.cash_flow.manual.bank_credit', 'اعتبارات بانکی دریافت شده')|tojson }},
+    manual_shareholder: {{ get_translation('finance.cash_flow.manual.shareholder', 'آورده سهامداران')|tojson }},
+    manual_mandatory: {{ get_translation('finance.cash_flow.manual.mandatory_payment', 'پرداخت‌های اجباری (ماهانه)')|tojson }},
+    loan_title: {{ get_translation('finance.cash_flow.loan.title', '🏦 مدیریت وام')|tojson }},
+    loan_description: {{ get_translation('finance.cash_flow.loan.description', 'شرح وام')|tojson }},
+    loan_principal: {{ get_translation('finance.cash_flow.loan.principal', 'مبلغ اصل (ریال)')|tojson }},
+    loan_interest: {{ get_translation('finance.cash_flow.loan.interest', 'نرخ سود سالانه (%)')|tojson }},
+    loan_months: {{ get_translation('finance.cash_flow.loan.months', 'مدت (ماه)')|tojson }},
+    loan_grace: {{ get_translation('finance.cash_flow.loan.grace', 'مدت تنفس (ماه)')|tojson }},
+    loan_add: {{ get_translation('finance.cash_flow.loan.add', 'افزودن وام')|tojson }},
+    loan_calculate: {{ get_translation('finance.cash_flow.loan.calculate', 'محاسبه اقساط')|tojson }},
+    loan_schedule: {{ get_translation('finance.cash_flow.loan.schedule', 'جدول اقساط')|tojson }},
+    loan_payment_date: {{ get_translation('finance.cash_flow.loan.payment_date', 'تاریخ')|tojson }},
+    loan_principal_payment: {{ get_translation('finance.cash_flow.loan.principal_payment', 'اصل')|tojson }},
+    loan_interest_payment: {{ get_translation('finance.cash_flow.loan.interest_payment', 'بهره')|tojson }},
+    loan_total_payment: {{ get_translation('finance.cash_flow.loan.total_payment', 'مجموع')|tojson }},
+    loan_remaining: {{ get_translation('finance.cash_flow.loan.remaining', 'مانده')|tojson }},
+    input_sales: {{ get_translation('finance.cash_flow.input.sales_forecast', 'Sales Forecast')|tojson }},
+    input_purchase: {{ get_translation('finance.cash_flow.input.purchase_forecast', 'Purchase Forecast')|tojson }},
+    input_opening: {{ get_translation('finance.cash_flow.input.opening_balance', 'موجودی ابتدای دوره')|tojson }},
+    results_title: {{ get_translation('finance.cash_flow.results.title', 'Cash Flow Projection')|tojson }},
+    results_line: {{ get_translation('finance.cash_flow.results.line', 'Line')|tojson }},
+    results_month1: {{ get_translation('finance.cash_flow.results.month1', 'Month 1')|tojson }},
+    results_month2: {{ get_translation('finance.cash_flow.results.month2', 'Month 2')|tojson }},
+    results_month3: {{ get_translation('finance.cash_flow.results.month3', 'Month 3')|tojson }},
+    results_total: {{ get_translation('finance.cash_flow.results.total', 'Total')|tojson }},
+    saved: {{ get_translation('finance.cash_flow.notification.saved', 'Projection saved successfully!')|tojson }}
+};
+
+console.log('✅ Translations loaded:', Object.keys(trans).length, 'keys');
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    return defaultText || key;
+}
+
+function formatCurrency(val) {
+    return Number(val || 0).toLocaleString() + ' ' + t('currency.irr', 'ریال');
+}
+
+// ============================================================================
+// DATE RANGE HANDLING
+// ============================================================================
+
+// Persian date helpers
+var persianMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+                     'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+
+function getCurrentPersianDate() {
+    // Get Persian date from server or calculate
+    var now = new Date();
+    // Simple approximation - in production, use server-side
+    return {
+        year: 1405,
+        month: 1,
+        day: 1
+    };
+}
+
+function getDateFromPersian(persianDate) {
+    // Convert Persian date to Gregorian for calculation
+    // In production, use server-side conversion
+    return new Date(2024, 0, 1); // Placeholder
+}
+
+function formatPersianDate(dateKey) {
+    // Format date for display
+    // In production, use server-side formatting
+    return dateKey || '1405/01/01';
+}
+
+// Set default dates (current month start and 3 months later)
+function setDefaultDates() {
+    var today = new Date();
+    var startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    var endDate = new Date(today.getFullYear(), today.getMonth() + 3, 0);
+    
+    // Format for display (will be replaced with Persian dates)
+    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+    
+    updatePeriodDisplay();
+}
+
+// Quick select presets
+function applyPreset(preset) {
+    var today = new Date();
+    var start = new Date(today);
+    var end = new Date(today);
+    
+    switch(preset) {
+        case '1month':
+            end.setMonth(today.getMonth() + 1);
+            break;
+        case '3month':
+            end.setMonth(today.getMonth() + 3);
+            break;
+        case '6month':
+            end.setMonth(today.getMonth() + 6);
+            break;
+        case '12month':
+            end.setMonth(today.getMonth() + 12);
+            break;
+        case 'current_quarter':
+            var quarter = Math.floor(today.getMonth() / 3);
+            start = new Date(today.getFullYear(), quarter * 3, 1);
+            end = new Date(today.getFullYear(), quarter * 3 + 3, 0);
+            break;
+        case 'next_quarter':
+            var quarter = Math.floor(today.getMonth() / 3) + 1;
+            start = new Date(today.getFullYear(), quarter * 3, 1);
+            end = new Date(today.getFullYear(), quarter * 3 + 3, 0);
+            break;
+        default:
+            return;
+    }
+    
+    // Set first day of month for start
+    start = new Date(start.getFullYear(), start.getMonth(), 1);
+    
+    document.getElementById('startDate').value = start.toISOString().split('T')[0];
+    document.getElementById('endDate').value = end.toISOString().split('T')[0];
+    updatePeriodDisplay();
+}
+
+// Event listeners for date range
+document.getElementById('periodPreset').addEventListener('change', function() {
+    if (this.value) {
+        applyPreset(this.value);
+    }
+});
+
+document.getElementById('startDate').addEventListener('change', updatePeriodDisplay);
+document.getElementById('endDate').addEventListener('change', updatePeriodDisplay);
+
+// Set default dates on load
+setDefaultDates();
+
+// ============================================================================
+// LOAN CALCULATION FUNCTIONS
+// ============================================================================
+
+// Calculate loan schedule
+function calculateLoan() {
+    var principalInput = document.getElementById('loanPrincipal');
+    var principal = getRawNumberValue(principalInput);
+    var annualRate = parseFloat(document.getElementById('loanRate').value) || 0;
+    var months = parseInt(document.getElementById('loanMonths').value) || 12;
+    var grace = parseInt(document.getElementById('loanGrace').value) || 0;
+    
+    if (principal <= 0 || months <= 0) {
+        alert('لطفاً مبلغ و مدت وام را وارد کنید');
+        return;
+    }
+    
+    var monthlyRate = annualRate / 100 / 12;
+    var monthlyPayment;
+    
+    if (monthlyRate == 0) {
+        monthlyPayment = principal / months;
+    } else {
+        monthlyPayment = principal * monthlyRate * Math.pow(1 + monthlyRate, months) / 
+                        (Math.pow(1 + monthlyRate, months) - 1);
+    }
+    
+    var schedule = [];
+    var remaining = principal;
+    var totalInterest = 0;
+    var totalPayment = 0;
+    
+    for (var i = 1; i <= months; i++) {
+        var interestPayment = remaining * monthlyRate;
+        var principalPayment;
+        
+        if (i <= grace) {
+            // Grace period: interest accrues, no principal payment
+            principalPayment = 0;
+            totalPayment = 0;
+            remaining += interestPayment;
+        } else {
+            principalPayment = monthlyPayment - interestPayment;
+            totalPayment = monthlyPayment;
+            remaining -= principalPayment;
+            totalInterest += interestPayment;
+        }
+        
+        if (remaining < 0) remaining = 0;
+        if (principalPayment < 0) principalPayment = 0;
+        
+        schedule.push({
+            month: i,
+            principalPayment: principalPayment,
+            interestPayment: interestPayment,
+            totalPayment: totalPayment,
+            remaining: remaining
+        });
+    }
+    
+    displayLoanSchedule(schedule);
+}
+
+function displayLoanSchedule(schedule) {
+    var tbody = document.getElementById('loanScheduleBody');
+    var html = '';
+    schedule.forEach(function(s) {
+        html += '<tr>' +
+            '<td>' + s.month + '</td>' +
+            '<td>' + (s.month) + '</td>' +
+            '<td class="text-end">' + formatCurrency(s.principalPayment) + '</td>' +
+            '<td class="text-end">' + formatCurrency(s.interestPayment) + '</td>' +
+            '<td class="text-end">' + formatCurrency(s.totalPayment) + '</td>' +
+            '<td class="text-end">' + formatCurrency(s.remaining) + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+    document.getElementById('loanSchedule').style.display = 'block';
+}
+
+// Add loan to list
+document.getElementById('addLoanBtn').addEventListener('click', function() {
+    var desc = document.getElementById('loanDesc').value || 'وام بانکی';
+    var principalInput = document.getElementById('loanPrincipal');
+    var principal = getRawNumberValue(principalInput);
+    var rate = parseFloat(document.getElementById('loanRate').value) || 0;
+    var months = parseInt(document.getElementById('loanMonths').value) || 12;
+    var grace = parseInt(document.getElementById('loanGrace').value) || 0;
+    
+    if (principal <= 0) {
+        alert('لطفاً مبلغ وام را وارد کنید');
+        return;
+    }
+    
+    var loanList = document.getElementById('loanList');
+    var loanDiv = document.createElement('div');
+    loanDiv.className = 'alert alert-info alert-dismissible fade show';
+    loanDiv.innerHTML = 
+        '<strong>' + desc + '</strong>: ' + formatCurrency(principal) + 
+        ' | نرخ: ' + rate + '% | مدت: ' + months + ' ماه | تنفس: ' + grace + ' ماه' +
+        ' <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+    loanList.appendChild(loanDiv);
+    
+    // Update loan repayment field
+    calculateLoanRepayment(principal, rate, months, grace);
+});
+
+// Calculate loan repayment
+function calculateLoanRepayment(principal, annualRate, months, grace) {
+    var monthlyRate = annualRate / 100 / 12;
+    var monthlyPayment;
+    
+    if (monthlyRate == 0) {
+        monthlyPayment = principal / months;
+    } else {
+        monthlyPayment = principal * monthlyRate * Math.pow(1 + monthlyRate, months) / 
+                        (Math.pow(1 + monthlyRate, months) - 1);
+    }
+    
+    // Set the loan repayment field with formatting
+    var loanRepaymentInput = document.getElementById('loanRepayment');
+    setFormattedNumberValue(loanRepaymentInput, Math.round(monthlyPayment));
+}
+
+document.getElementById('calculateLoanBtn').addEventListener('click', calculateLoan);
+
+// ============================================================================
+// LOAD FORECASTS
+// ============================================================================
+function loadForecasts() {
+    fetch('/api/finance/sales-forecast?status=Approved')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var select = document.getElementById('salesSelect');
+            select.innerHTML = '<option value="">' + t('select_sales', 'Select Sales Forecast...') + '</option>';
+            if (data.success && data.forecasts) {
+                data.forecasts.forEach(function(f) {
+                    var opt = document.createElement('option');
+                    opt.value = f.ForecastID;
+                    opt.textContent = f.ForecastCode + ' - ' + f.ForecastName;
+                    select.appendChild(opt);
+                });
+            }
+        })
+        .catch(function(err) { console.error(err); });
+
+    fetch('/api/finance/purchase-forecast?status=Approved')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var select = document.getElementById('purchaseSelect');
+            select.innerHTML = '<option value="">' + t('select_purchase', 'Select Purchase Forecast...') + '</option>';
+            if (data.success && data.forecasts) {
+                data.forecasts.forEach(function(f) {
+                    var opt = document.createElement('option');
+                    opt.value = f.ForecastID;
+                    opt.textContent = f.ForecastCode + ' - ' + f.ForecastName;
+                    select.appendChild(opt);
+                });
+            }
+        })
+        .catch(function(err) { console.error(err); });
+}
+
+// ============================================================================
+// EXCEL IMPORT FUNCTIONS
+// ============================================================================
+
+document.getElementById('previewExcelBtn').addEventListener('click', function() {
+    var fileInput = document.getElementById('excelFile');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert(t('error', 'Error') + ': ' + t('finance.cash_flow.import.select_file', 'Please select an Excel file first'));
+        return;
+    }
+    
+    var file = fileInput.files[0];
+    var reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            var data = new Uint8Array(e.target.result);
+            var workbook = XLSX.read(data, { type: 'array' });
+            var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            var jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            
+            if (jsonData.length === 0) {
+                alert(t('no_data', 'No data found in the Excel file'));
+                return;
+            }
+            
+            // Preview the data
+            var previewDiv = document.getElementById('importPreview');
+            var tbody = document.querySelector('#previewTable tbody');
+            tbody.innerHTML = '';
+            
+            // Show first 10 rows
+            var rowsToShow = jsonData.slice(0, 10);
+            rowsToShow.forEach(function(row) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + (row.Account || row['Account Code'] || '') + '</td>' +
+                               '<td>' + (row.Description || row['Description'] || '') + '</td>' +
+                               '<td class="text-end">' + (row.Debit || row['Debit'] || 0) + '</td>' +
+                               '<td class="text-end">' + (row.Credit || row['Credit'] || 0) + '</td>' +
+                               '<td>' + (row['Cost Center'] || row['CostCenter'] || '') + '</td>';
+                tbody.appendChild(tr);
+            });
+            
+            previewDiv.style.display = 'block';
+            window.importedData = jsonData;
+            
+        } catch (err) {
+            alert(t('error', 'Error') + ': ' + err.message);
+        }
+    };
+    
+    reader.readAsArrayBuffer(file);
+});
+
+document.getElementById('confirmImportBtn').addEventListener('click', function() {
+    if (!window.importedData || window.importedData.length === 0) {
+        alert(t('error', 'Error') + ': ' + t('finance.cash_flow.import.no_data', 'No data to import. Please preview first.'));
+        return;
+    }
+    
+    // Process imported data
+    var totalDebit = 0;
+    var totalCredit = 0;
+    var accounts = {};
+    
+    window.importedData.forEach(function(row) {
+        var account = row.Account || row['Account Code'] || 'Unknown';
+        var debit = parseFloat(row.Debit || row['Debit'] || 0);
+        var credit = parseFloat(row.Credit || row['Credit'] || 0);
+        
+        if (!accounts[account]) {
+            accounts[account] = { debit: 0, credit: 0 };
+        }
+        accounts[account].debit += debit;
+        accounts[account].credit += credit;
+        totalDebit += debit;
+        totalCredit += credit;
+    });
+    
+    // Show summary
+    var msg = t('finance.cash_flow.import.summary_title', 'Import Summary') + ':\n';
+    msg += t('finance.cash_flow.import.total_debit', 'Total Debit') + ': ' + formatCurrency(totalDebit) + '\n';
+    msg += t('finance.cash_flow.import.total_credit', 'Total Credit') + ': ' + formatCurrency(totalCredit) + '\n';
+    msg += t('finance.cash_flow.import.difference', 'Difference') + ': ' + formatCurrency(Math.abs(totalDebit - totalCredit)) + '\n\n';
+    msg += t('finance.cash_flow.import.accounts_processed', 'Accounts processed') + ': ' + Object.keys(accounts).length;
+    
+    alert(msg);
+    
+    // Close preview
+    document.getElementById('importPreview').style.display = 'none';
+    document.getElementById('excelFile').value = '';
+    window.importedData = null;
+});
+
+document.getElementById('cancelImportBtn').addEventListener('click', function() {
+    document.getElementById('importPreview').style.display = 'none';
+    document.getElementById('excelFile').value = '';
+    window.importedData = null;
+});
+
+// ============================================================================
+// CALCULATE FUNCTIONS (UPDATED WITH PROJECTION NAME)
+// ============================================================================
+
+function calculate() {
+    var salesId = document.getElementById('salesSelect').value;
+    var purchaseId = document.getElementById('purchaseSelect').value;
+    
+    // Read formatted values correctly using getRawNumberValue
+    var openingBalanceInput = document.getElementById('openingBalance');
+    var loanRepaymentInput = document.getElementById('loanRepayment');
+    var bankCreditInput = document.getElementById('bankCreditReceived');
+    var shareholderInput = document.getElementById('shareholderInput');
+    var mandatoryInput = document.getElementById('mandatoryPayment');
+    
+    var openingBalance = getRawNumberValue(openingBalanceInput);
+    var loanRepayment = getRawNumberValue(loanRepaymentInput);
+    var bankCredit = getRawNumberValue(bankCreditInput);
+    var shareholder = getRawNumberValue(shareholderInput);
+    var mandatoryPayment = getRawNumberValue(mandatoryInput);
+    
+    // Get date range
+    var startDate = document.getElementById('startDate').value;
+    var endDate = document.getElementById('endDate').value;
+    
+    // Get projection name
+    var nameInput = document.getElementById('projectionName');
+    var projectionName = nameInput.value.trim();
+    
+    // If no name provided, generate one
+    if (!projectionName) {
+        var start = document.getElementById('startDate').value;
+        var end = document.getElementById('endDate').value;
+        if (start && end) {
+            var periodName = generatePeriodName(start, end);
+            projectionName = 'پیش‌بینی - ' + periodName;
+        } else {
+            projectionName = 'پیش‌بینی جریان نقد';
+        }
+        nameInput.value = projectionName;
+    }
+
+    if (!salesId || !purchaseId) {
+        alert(t('error', 'Error') + ': ' + t('finance.cash_flow.error.select_forecasts', 'Please select both Sales and Purchase forecasts'));
+        return;
+    }
+    
+    if (!startDate || !endDate) {
+        alert(t('error', 'Error') + ': ' + t('finance.cash_flow.error.select_dates', 'Please select a date range'));
+        return;
+    }
+
+    var data = {
+        sales_forecast_id: parseInt(salesId),
+        purchase_forecast_id: parseInt(purchaseId),
+        opening_balance: openingBalance,
+        bank_credit: bankCredit,
+        shareholder_contributions: shareholder,
+        loan_repayment_monthly: loanRepayment,
+        mandatory_payment_monthly: mandatoryPayment,
+        start_date: startDate,
+        end_date: endDate,
+        period_type: 'custom',
+        projection_name: projectionName  // <-- NEW
+    };
+
+    // Show loading
+    var btn = document.getElementById('calculateBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('finance.cash_flow.calculating', 'Calculating...');
+    btn.disabled = true;
+
+    fetch('/api/finance/cash-flow/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            renderResults(data.cash_flow);
+            document.getElementById('resultsCard').style.display = 'block';
+            document.getElementById('saveBtn').style.display = 'inline-block';
+            window.cashFlowData = data.cash_flow;
+            window.salesId = salesId;
+            window.purchaseId = purchaseId;
+            window.openingBalance = openingBalance;
+            window.loanRepayment = loanRepayment;
+            window.bankCredit = bankCredit;
+            window.shareholder = shareholder;
+            window.mandatoryPayment = mandatoryPayment;
+            window.startDate = startDate;
+            window.endDate = endDate;
+            window.projectionName = projectionName;
+        } else {
+            alert(t('error', 'Error') + ': ' + (data.error || t('finance.cash_flow.error.calculation_failed', 'Failed to calculate')));
+        }
+    })
+    .catch(function(err) {
+        alert(t('error', 'Error') + ': ' + err.message);
+    })
+    .finally(function() {
+        btn.innerHTML = '<i class="fas fa-calculator"></i> ' + t('finance.cash_flow.button.calculate', 'Calculate');
+        btn.disabled = false;
+    });
+}
+
+// Render results
+function renderResults(cashFlow) {
+    var tbody = document.getElementById('resultBody');
+    var html = '';
+
+    var receiptRows = [
+        { label: t('finance.cash_flow.table.cash', 'Cash'), key: 'cash' },
+        { label: t('finance.cash_flow.table.days30', '30 Days'), key: 'days30' },
+        { label: t('finance.cash_flow.table.days60', '60 Days'), key: 'days60' },
+        { label: t('finance.cash_flow.table.days90', '90 Days'), key: 'days90' },
+        { label: t('finance.cash_flow.table.days120', '120 Days'), key: 'days120' },
+        { label: t('finance.cash_flow.table.days150', '150 Days'), key: 'days150' },
+    ];
+
+    html += '<tr class="table-secondary"><td colspan="5"><strong>' + t('finance.cash_flow.table.receipts', 'Receipts') + '</strong></td></tr>';
+
+    receiptRows.forEach(function(row) {
+        html += '<tr><td>' + row.label + '</td>';
+        var total = 0;
+        cashFlow.forEach(function(cf) {
+            var val = cf.sales_receipts[row.key] || 0;
+            total += val;
+            html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+        });
+        html += '<td class="text-end fw-bold">' + formatCurrency(total) + '</td>';
+        html += '</tr>';
+    });
+
+    // Bank Credit row
+    html += '<tr><td>' + t('finance.cash_flow.table.bank_credit', 'Bank Credit') + '</td>';
+    var totalBank = 0;
+    cashFlow.forEach(function(cf) {
+        var val = cf.bank_credit || 0;
+        totalBank += val;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end fw-bold">' + formatCurrency(totalBank) + '</td>';
+    html += '</tr>';
+
+    // Shareholder Contributions row
+    html += '<tr><td>' + t('finance.cash_flow.table.shareholder', 'Shareholder Contributions') + '</td>';
+    var totalShare = 0;
+    cashFlow.forEach(function(cf) {
+        var val = cf.shareholder_contributions || 0;
+        totalShare += val;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end fw-bold">' + formatCurrency(totalShare) + '</td>';
+    html += '</tr>';
+
+    html += '<tr class="fw-bold bg-success text-white"><td>' + t('finance.cash_flow.table.total_receipts', 'Total Receipts') + '</td>';
+    var totalRec = 0;
+    cashFlow.forEach(function(cf) {
+        var val = cf.total_receipts || 0;
+        totalRec += val;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end">' + formatCurrency(totalRec) + '</td>';
+    html += '</tr>';
+
+    html += '<tr><td colspan="5" style="border-bottom:2px solid #ddd;"></td></tr>';
+
+    var paymentRows = [
+        { label: t('finance.cash_flow.table.cash', 'Cash'), key: 'cash' },
+        { label: t('finance.cash_flow.table.days30', '30 Days'), key: 'days30' },
+        { label: t('finance.cash_flow.table.days60', '60 Days'), key: 'days60' },
+        { label: t('finance.cash_flow.table.days90', '90 Days'), key: 'days90' },
+        { label: t('finance.cash_flow.table.days120', '120 Days'), key: 'days120' },
+        { label: t('finance.cash_flow.table.days150', '150 Days'), key: 'days150' },
+    ];
+
+    html += '<tr class="table-secondary"><td colspan="5"><strong>' + t('finance.cash_flow.table.payments', 'Payments') + '</strong></td></tr>';
+
+    paymentRows.forEach(function(row) {
+        html += '<tr><td>' + row.label + '</td>';
+        var total = 0;
+        cashFlow.forEach(function(cf) {
+            var val = cf.purchase_payments[row.key] || 0;
+            total += val;
+            html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+        });
+        html += '<td class="text-end fw-bold">' + formatCurrency(total) + '</td>';
+        html += '</tr>';
+    });
+
+    // Loan Repayments row
+    html += '<tr><td>' + t('finance.cash_flow.table.loan_repayments', 'Loan Repayments') + '</td>';
+    var totalLoan = 0;
+    cashFlow.forEach(function(cf) {
+        var val = cf.loan_repayments || 0;
+        totalLoan += val;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end fw-bold">' + formatCurrency(totalLoan) + '</td>';
+    html += '</tr>';
+
+    // Mandatory Payments row
+    html += '<tr><td>' + t('finance.cash_flow.table.mandatory_payments', 'Mandatory Payments') + '</td>';
+    var totalMand = 0;
+    cashFlow.forEach(function(cf) {
+        var val = cf.mandatory_payments || 0;
+        totalMand += val;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end fw-bold">' + formatCurrency(totalMand) + '</td>';
+    html += '</tr>';
+
+    html += '<tr class="fw-bold bg-danger text-white"><td>' + t('finance.cash_flow.table.total_payments', 'Total Payments') + '</td>';
+    var totalPay = 0;
+    cashFlow.forEach(function(cf) {
+        var val = cf.total_payments || 0;
+        totalPay += val;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end">' + formatCurrency(totalPay) + '</td>';
+    html += '</tr>';
+
+    html += '<tr><td colspan="5" style="border-bottom:2px solid #ddd;"></td></tr>';
+
+    html += '<tr class="fw-bold bg-primary text-white"><td>' + t('finance.cash_flow.table.net_cash_flow', 'Net Cash Flow') + '</td>';
+    var totalNet = 0;
+    cashFlow.forEach(function(cf) {
+        var val = cf.net_cash_flow || 0;
+        totalNet += val;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end">' + formatCurrency(totalNet) + '</td>';
+    html += '</tr>';
+
+    html += '<tr class="fw-bold bg-success text-white"><td>' + t('finance.cash_flow.table.closing_balance', 'Closing Balance') + '</td>';
+    cashFlow.forEach(function(cf) {
+        var val = cf.closing_balance || 0;
+        html += '<td class="text-end">' + formatCurrency(val) + '</td>';
+    });
+    html += '<td class="text-end">' + formatCurrency(cashFlow[cashFlow.length-1].closing_balance || 0) + '</td>';
+    html += '</tr>';
+
+    tbody.innerHTML = html;
+}
+
+// Save projection (UPDATED with projection name)
+function saveProjection() {
+    if (!window.cashFlowData) {
+        alert(t('error', 'Error') + ': ' + t('finance.cash_flow.error.calculate_first', 'Please calculate first'));
+        return;
+    }
+
+    var data = {
+        sales_forecast_id: parseInt(window.salesId),
+        purchase_forecast_id: parseInt(window.purchaseId),
+        opening_balance: window.openingBalance,
+        bank_credit: window.bankCredit || 0,
+        shareholder_contributions: window.shareholder || 0,
+        loan_repayment: window.loanRepayment || 0,
+        mandatory_payment: window.mandatoryPayment || 0,
+        start_date: window.startDate,
+        end_date: window.endDate,
+        ProjectionName: window.projectionName || 'Cash Flow Projection - ' + new Date().toLocaleDateString(),
+        cash_flow_lines: window.cashFlowData,
+        period_type: 'custom'
+    };
+
+    fetch('/api/finance/cash-flow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            document.getElementById('savedInfo').style.display = 'block';
+            document.getElementById('viewReportLink').href = '/finance/cash-flow/' + data.ProjectionID + '/view';
+            document.getElementById('saveBtn').style.display = 'none';
+            showToast(t('saved', 'Projection saved successfully!'), 'success');
+        } else {
+            alert(t('error', 'Error') + ': ' + (data.error || t('finance.cash_flow.error.save_failed', 'Failed to save')));
+        }
+    })
+    .catch(function(err) {
+        alert(t('error', 'Error') + ': ' + err.message);
+    });
+}
+
+// ============================================================================
+// SHOW TOAST NOTIFICATION
+// ============================================================================
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+// ============================================================================
+// DOM READY
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Cash Flow Generation page loaded');
+    
+    // Setup number formatting for all auto-format-number inputs
+    setupNumberInputFormatting('.auto-format-number');
+    
+    // Set initial formatted values
+    document.querySelectorAll('.auto-format-number').forEach(function(input) {
+        var raw = parseFormattedNumber(input.value);
+        input.dataset.rawValue = raw;
+        input.value = formatNumberWithCommas(raw);
+    });
+    
+    loadForecasts();
+    
+    document.getElementById('calculateBtn').addEventListener('click', calculate);
+    document.getElementById('saveBtn').addEventListener('click', saveProjection);
+    
+    // Show debug info
+    console.log('✅ Translations loaded:', Object.keys(trans).length, 'keys');
+    console.log('✅ Number formatting initialized');
+});
+
+// ============================================================================
+// INCLUDE XLSX LIBRARY FOR EXCEL IMPORT
+// ============================================================================
+// XLSX library loaded from CDN
+</script>
+
+<!-- Include XLSX library for Excel import -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+{% endblock %}

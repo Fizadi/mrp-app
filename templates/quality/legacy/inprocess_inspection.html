@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}In Process Inspection - Quality Management{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-industry me-2"></i>{{ get_translation('auto.70d095b6', 'In Process Inspection') }}</h2>
+<button class="btn btn-success" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.dab73a4c', 'Refresh') }}</button>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2"><div class="card border-danger h-100"><div class="card-body text-center"><h5 class="text-danger">{{ get_translation('auto.7bc9bce0', 'Due Now') }}</h5><p class="display-6" id="kpiDueNow">{{ get_translation('auto.e8051c26', '-') }}</p></div></div></div>
+<div class="col-md-4 mb-2"><div class="card border-success h-100"><div class="card-body text-center"><h5 class="text-success">{{ get_translation('auto.826799a2', 'Completed') }}</h5><p class="display-6" id="kpiCompleted">{{ get_translation('auto.f2debfd5', '-') }}</p></div></div></div>
+<div class="col-md-4 mb-2"><div class="card border-warning h-100"><div class="card-body text-center"><h5 class="text-warning">{{ get_translation('auto.9450e242', 'Failed') }}</h5><p class="display-6" id="kpiFailed">{{ get_translation('auto.2e0b4047', '-') }}</p></div></div></div>
+</div>
+<!-- Filters -->
+<div class="card mb-3"><div class="card-body"><div class="row g-3">
+<div class="col-md-4"><label>{{ get_translation('auto.1bd2724d', 'Work Center') }}</label><select class="form-select" id="filterWorkcenter"><option value="">{{ get_translation('auto.823bc079', 'All') }}</option>{% for w in workcenters %}<option value="{{ w.WorkCenterID }}">{{ w.WorkCenterID }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label>{{ get_translation('auto.678b4e2e', 'Production Order') }}</label><input class="form-control" id="filterPO" placeholder="PO-24001" type="text"/></div>
+<div class="col-md-2"><label>{{ get_translation('auto.bd93a2e7', 'Status') }}</label><select class="form-select" id="filterStatus"><option value="">{{ get_translation('auto.60866d2d', 'All') }}</option><option>{{ get_translation('auto.4615671b', 'Pending') }}</option><option>{{ get_translation('auto.f570c81f', 'Completed') }}</option></select></div>
+<div class="col-md-2"><div class="form-check mt-4"><button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.479f33b9', 'Apply') }}</button></div></div>
+</div></div></div>
+<!-- Batches Table -->
+<div class="card"><div class="card-header"><h5 class="mb-0"><i class="fas fa-clipboard-list"></i>{{ get_translation('auto.5a5d6c93', 'In Process Batches') }}</h5></div>
+<div class="card-body p-0"><div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="batchesTable">
+<thead class="table-dark"><tr><th>{{ get_translation('auto.e234af15', 'Batch #') }}</th><th>{{ get_translation('auto.4991f4c7', 'Production Order') }}</th><th>{{ get_translation('auto.4f18476f', 'Product') }}</th><th>{{ get_translation('auto.2a0b98c9', 'Quantity') }}</th><th>{{ get_translation('auto.8de214f1', 'Work Center') }}</th><th>{{ get_translation('auto.8c88fed7', 'Status') }}</th><th>{{ get_translation('auto.1f523520', 'Result') }}</th><th>{{ get_translation('auto.a1206c38', 'Due Date') }}</th><th>{{ get_translation('auto.c97acb94', 'Actions') }}</th></tr></thead>
+<tbody id="batchesTableBody"><tr><td class="text-center py-4" colspan="9">{{ get_translation('auto.4e7a1588', 'Loading...') }}</td></tr></tbody>
+</table>
+</div></div></div>
+</div>
+<!-- Enter Results Modal (same as Inspection Workbench) -->
+<div class="modal fade" id="resultModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.34632377', 'Enter Inspection Results') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="resultBatchId" type="hidden"/>
+<input id="resultOperationId" type="hidden"/>
+<div class="mb-2"><strong>{{ get_translation('auto.5cd3f0a2', 'Operation:') }}</strong> <span id="resultOpName"></span></div>
+<div class="mb-2"><label>{{ get_translation('auto.68cea708', 'Serial Number') }}</label><input class="form-control" id="resultSerial" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.9fc09060', 'Measured Value') }}</label><input class="form-control" id="resultMeasured" type="text"/></div>
+<div class="mb-2"><div class="form-check"><input class="form-check-input" id="resultPass" type="checkbox"/><label class="form-check-label">{{ get_translation('auto.26590292', 'Pass') }}</label></div></div>
+<div class="mb-2"><label>{{ get_translation('auto.6b773567', 'Notes') }}</label><textarea class="form-control" id="resultNotes"></textarea></div>
+<div class="mb-2"><label>{{ get_translation('auto.e61f682d', 'Digital Signature (PIN)') }}</label><input class="form-control" id="resultSignature" type="password"/></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.0998256c', 'Cancel') }}</button><button class="btn btn-primary" id="saveResultBtn">{{ get_translation('auto.302df001', 'Save Result') }}</button></div>
+</div></div></div>
+<!-- Report Defect Modal -->
+<div class="modal fade" id="defectModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.a2412225', 'Report Defect') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="defectBatchId" type="hidden"/>
+<div class="mb-2"><label>{{ get_translation('auto.17c855e1', 'Defect Code') }}</label><input class="form-control" id="defectCode" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.1a2d146a', 'Description') }}</label><textarea class="form-control" id="defectDesc"></textarea></div>
+<div class="mb-2"><label>{{ get_translation('auto.c1547784', 'Quantity Affected') }}</label><input class="form-control" id="defectQty" type="number" value="1"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.5da254c7', 'Severity') }}</label><select class="form-select" id="defectSeverity"><option>{{ get_translation('auto.48787e63', 'Minor') }}</option><option>{{ get_translation('auto.1e9995bb', 'Major') }}</option><option>{{ get_translation('auto.b6553f83', 'Critical') }}</option></select></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.54fdc354', 'Cancel') }}</button><button class="btn btn-danger" id="saveDefectBtn">{{ get_translation('auto.1cdadf1f', 'Report Defect') }}</button></div>
+</div></div></div>
+<!-- Batch Sign Off Modal -->
+<div class="modal fade" id="signoffModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.9927836c', 'Batch Sign Off') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body"><p>{{ get_translation('auto.2339b172', 'Confirm all required inspections are completed and passed?') }}</p></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.272ecb2b', 'Cancel') }}</button><button class="btn btn-success" id="confirmSignoffBtn">{{ get_translation('auto.fdee0047', 'Sign Off') }}</button></div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let currentBatchId = null;
+    let currentOperation = null;
+    let resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
+    let defectModal = new bootstrap.Modal(document.getElementById('defectModal'));
+    let signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
+
+    function loadKPI() {
+        $.get('/api/quality/inprocess/kpi', function(data) {
+            $('#kpiDueNow').text(data.dueNow);
+            $('#kpiCompleted').text(data.completed);
+            $('#kpiFailed').text(data.failed);
+        });
+    }
+
+    function loadBatches() {
+        let params = {
+            workcenter: $('#filterWorkcenter').val(),
+            production_order: $('#filterPO').val(),
+            status: $('#filterStatus').val()
+        };
+        $.get('/api/quality/inprocess/batches', params, function(batches) {
+            let tbody = $('#batchesTableBody').empty();
+            for (let b of batches) {
+                let dueDate = b.DueDateKey ? `${b.DueDateKey.toString().slice(0,4)}-${b.DueDateKey.toString().slice(4,6)}-${b.DueDateKey.toString().slice(6,8)}` : '';
+                let resultBadge = '';
+                if (b.OverallResult === 'Pass') resultBadge = '<span class="badge bg-success">Pass</span>';
+                else if (b.OverallResult === 'Fail') resultBadge = '<span class="badge bg-danger">Fail</span>';
+                else resultBadge = '<span class="badge bg-secondary">Pending</span>';
+                let row = `<tr>
+                    <td>${b.BatchNumber}</td><td>${b.ProductionOrderId || ''}</td><td>${b.ProductID}</td>
+                    <td>${b.Quantity}</td><td>${b.WorkCenterID || ''}</td><td>${b.Status}</td>
+                    <td>${resultBadge}</td><td>${dueDate}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary enter-result" data-id="${b.BatchID}"><i class="fas fa-pen"></i> Result</button>
+                        <button class="btn btn-sm btn-warning report-defect" data-id="${b.BatchID}"><i class="fas fa-exclamation-triangle"></i> Defect</button>
+                        <button class="btn btn-sm btn-success signoff" data-id="${b.BatchID}" ${b.Status !== 'Pending' ? 'disabled' : ''}><i class="fas fa-signature"></i> Sign Off</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        });
+    }
+
+    // Enter Result
+    $(document).on('click', '.enter-result', function() {
+        currentBatchId = $(this).data('id');
+        $.get(`/api/quality/inprocess/batch/${currentBatchId}`, function(data) {
+            let ops = data.operations;
+            if (ops.length === 0) { alert('No operations defined for this work center.'); return; }
+            let op = ops[0];
+            currentOperation = op;
+            $('#resultBatchId').val(currentBatchId);
+            $('#resultOperationId').val(op.QCOperationID);
+            $('#resultOpName').text(`${op.Code} - ${op.Name}`);
+            $('#resultSerial').val('');
+            $('#resultMeasured').val('');
+            $('#resultPass').prop('checked', true);
+            $('#resultNotes').val('');
+            $('#resultSignature').val('');
+            resultModal.show();
+        });
+    });
+
+    $('#saveResultBtn').click(function() {
+        let data = {
+            batchId: $('#resultBatchId').val(),
+            operationId: $('#resultOperationId').val(),
+            serialNumber: $('#resultSerial').val(),
+            measuredValue: $('#resultMeasured').val(),
+            passFail: $('#resultPass').is(':checked') ? 1 : 0,
+            notes: $('#resultNotes').val(),
+            inspectedBy: 1,
+            inspectedDateKey: parseInt(new Date().toISOString().slice(0,10).replace(/-/g,'')),
+            digitalSignature: $('#resultSignature').val(),
+            signedBy: 1,
+            signedDateKey: parseInt(new Date().toISOString().slice(0,10).replace(/-/g,''))
+        };
+        $.post('/api/quality/inprocess/result', JSON.stringify(data), function() {
+            resultModal.hide();
+            loadBatches();
+        }).fail(xhr => alert('Error: ' + xhr.responseJSON?.error));
+    });
+
+    // Report Defect
+    $(document).on('click', '.report-defect', function() {
+        currentBatchId = $(this).data('id');
+        $('#defectBatchId').val(currentBatchId);
+        $('#defectCode').val('');
+        $('#defectDesc').val('');
+        $('#defectQty').val(1);
+        $('#defectSeverity').val('Minor');
+        defectModal.show();
+    });
+    $('#saveDefectBtn').click(function() {
+        let data = {
+            raisedBy: 1,
+            quantity: $('#defectQty').val(),
+            defectCode: $('#defectCode').val(),
+            defectDescription: $('#defectDesc').val(),
+            severity: $('#defectSeverity').val(),
+            projectId: null
+        };
+        $.post(`/api/quality/inprocess/batch/${currentBatchId}/defect`, JSON.stringify(data), function() {
+            defectModal.hide();
+            loadBatches();
+        }).fail(xhr => alert('Error: ' + xhr.responseJSON?.error));
+    });
+
+    // Sign Off
+    $(document).on('click', '.signoff', function() {
+        currentBatchId = $(this).data('id');
+        signoffModal.show();
+    });
+    $('#confirmSignoffBtn').click(function() {
+        let data = {
+            inspectionDateKey: parseInt(new Date().toISOString().slice(0,10).replace(/-/g,'')),
+            inspectorId: 1
+        };
+        $.post(`/api/quality/inprocess/batch/${currentBatchId}/signoff`, JSON.stringify(data), function() {
+            signoffModal.hide();
+            loadBatches();
+            loadKPI();
+        }).fail(xhr => alert(xhr.responseJSON?.error));
+    });
+
+    $('#applyFiltersBtn').click(() => loadBatches());
+    $('#refreshBtn').click(() => { loadBatches(); loadKPI(); });
+    loadKPI();
+    loadBatches();
+});
+</script>
+{% endblock %}

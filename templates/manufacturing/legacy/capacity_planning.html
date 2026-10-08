@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Capacity Planning{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="#">{{ get_translation('auto.ae74b1c6', 'Manufacturing') }}</a></li><li class="breadcrumb-item active">{{ get_translation('auto.a840bc3a', 'Capacity Planning') }}</li></ol></nav>
+<h2>{{ get_translation('auto.15f0ffce', 'Capacity Planning') }}</h2>
+<div class="alert alert-info">
+<i class="fas fa-info-circle"></i>{{ get_translation('auto.ff63e6b8', 'If no data appears, please set the date range to include your production orders (e.g., 2024-02-01 to 2024-04-01) and click Refresh.') }}</div>
+<div class="row mb-3">
+<div class="col-md-3"><label>{{ get_translation('auto.b277b65a', 'Work Center') }}</label><select class="form-select" id="wcSelect"><option value="">{{ get_translation('auto.d54a4d1f', 'All') }}</option></select></div>
+<div class="col-md-3"><label>{{ get_translation('auto.569dcd65', 'Date From') }}</label><input class="form-control" id="dateFrom" type="date" value="2024-02-01"/></div>
+<div class="col-md-3"><label>{{ get_translation('auto.16011e72', 'Date To') }}</label><input class="form-control" id="dateTo" type="date" value="2024-04-01"/></div>
+<div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary" id="refreshBtn">{{ get_translation('auto.383d1947', 'Refresh') }}</button> <a class="btn btn-info ms-2" href="#" id="exportBtn">{{ get_translation('auto.923feade', 'Export CSV') }}</a></div>
+</div>
+<div class="row mb-4">
+<div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.6f98fd49', 'Utilisation') }}</h6><h3 id="utilKPI">{{ get_translation('auto.dcaa00e3', '0%') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('auto.6468d52e', 'Overloaded Centers') }}</h6><h3 id="overKPI">{{ get_translation('auto.773e48fa', '0') }}</h3></div></div></div>
+<div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('auto.348a5aa7', 'Total Load (hrs)') }}</h6><h3 id="loadKPI">{{ get_translation('auto.274aecde', '0') }}</h3></div></div></div>
+</div>
+<div class="row">
+<div class="col-md-12 mb-4"><div id="loadChartContainer" style="max-height:300px; overflow-y:auto;">{{ get_translation('auto.bd5461f5', 'Loading load profile...') }}</div></div>
+</div>
+<div class="card"><div class="card-header">{{ get_translation('auto.85d2048f', 'Production Schedule (Gantt)') }}</div><div class="card-body table-responsive"><table class="table table-bordered" id="ganttTable"><thead><tr><th>{{ get_translation('auto.0f3a3a9d', 'Order') }}</th><th>{{ get_translation('auto.1f7be211', 'Work Center') }}</th><th>{{ get_translation('auto.13090ea5', 'Start Date') }}</th><th>{{ get_translation('auto.41705f2c', 'End Date') }}</th><th>{{ get_translation('auto.819894eb', 'Hours') }}</th><th>{{ get_translation('auto.e4c6d0e0', 'Action') }}</th></tr></thead><tbody id="ganttBody"><tr><td class="text-center" colspan="6">{{ get_translation('auto.b48618cc', 'Loading...') }}</td></tr></tbody></table></div></div>
+</div>
+<!-- Reschedule Modal -->
+<div class="modal fade" id="rescheduleModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.9f5b29e1', 'Reschedule Order') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input id="reschedOrderId" type="hidden"/><label>{{ get_translation('auto.c4105c5f', 'New Start Date') }}</label><input class="form-control" id="newStart" type="date"/><label>{{ get_translation('auto.8d53f096', 'New End Date') }}</label><input class="form-control" id="newEnd" type="date"/></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.aad46231', 'Cancel') }}</button><button class="btn btn-primary" id="confirmResched">{{ get_translation('auto.ec1ec57c', 'Save') }}</button></div></div></div></div>
+<!-- Add Shift Modal -->
+<div class="modal fade" id="shiftModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.50856e42', 'Add Shift / Extra Capacity') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><label>{{ get_translation('auto.f5a08734', 'Work Center') }}</label><select class="form-select" id="shiftWC"></select><label>{{ get_translation('auto.54abd592', 'Date') }}</label><input class="form-control" id="shiftDate" type="date"/><label>{{ get_translation('auto.1daaa797', 'Extra Hours') }}</label><input class="form-control" id="extraHours" step="0.5" type="number"/></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.6d74f9a4', 'Cancel') }}</button><button class="btn btn-success" id="confirmShift">{{ get_translation('auto.8a9dcb92', 'Add Shift') }}</button></div></div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+$(document).ready(function(){
+    function loadWorkCenters() {
+        $.get('/api/capacity/work-centers', function(data){
+            let opts = '<option value="">All</option>';
+            data.forEach(wc => opts += `<option value="${wc}">${wc}</option>`);
+            $('#wcSelect').html(opts);
+            $('#shiftWC').html(opts);
+        });
+    }
+    function loadKPI() {
+        $.get('/api/capacity/kpi', {work_center: $('#wcSelect').val(), date_from: $('#dateFrom').val(), date_to: $('#dateTo').val()}, function(res){
+            $('#utilKPI').text(res.utilization+'%');
+            $('#overKPI').text(res.overloadedCenters.length);
+            $('#loadKPI').text(res.totalLoadHours);
+        }).fail(() => console.error('KPI load failed'));
+    }
+    function loadProfile() {
+        $.get('/api/capacity/load-profile', {work_center: $('#wcSelect').val(), date_from: $('#dateFrom').val(), date_to: $('#dateTo').val()}, function(data){
+            let html = '<table class="table table-sm table-bordered"><thead><tr><th>Date</th><th>Load (hrs)</th><th>Available (hrs)</th></tr></thead><tbody>';
+            if (!data || data.length === 0) html += '<tr><td colspan="3">No data for this period</td></tr>';
+            else data.forEach(d => {
+                html += `<tr><td>${d.dateKey}</td><td>${d.load}</td><td>${d.available}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            $('#loadChartContainer').html(html);
+        }).fail(() => $('#loadChartContainer').html('<div class="alert alert-danger">Failed to load profile</div>'));
+    }
+    function loadGantt() {
+        const params = {
+            work_center: $('#wcSelect').val(),
+            date_from: $('#dateFrom').val(),
+            date_to: $('#dateTo').val()
+        };
+        $.get('/api/capacity/gantt', params)
+            .done(function(tasks) {
+                if (!tasks || tasks.length === 0) {
+                    $('#ganttBody').html('<tr><td colspan="6">No scheduled orders for selected period</td></tr>');
+                    return;
+                }
+                let html = '';
+                tasks.forEach(t => {
+                    let startF = t.start ? t.start.toString() : '';
+                    let endF = t.end ? t.end.toString() : '';
+                    html += `<tr>
+                        <td>${t.id}</td>
+                        <td>${t.workCenter}</td>
+                        <td>${startF}</td>
+                        <td>${endF}</td>
+                        <td>${t.hours}</td>
+                        <td><button class="btn btn-sm btn-primary resched-btn" data-id="${t.id}">Reschedule</button></td>
+                    </tr>`;
+                });
+                $('#ganttBody').html(html);
+            })
+            .fail(function(err) {
+                console.error("Gantt error:", err);
+                $('#ganttBody').html('<tr><td colspan="6">Error loading Gantt data</td></tr>');
+            });
+    }
+    function refreshAll() { loadKPI(); loadProfile(); loadGantt(); }
+    $('#refreshBtn').click(refreshAll);
+    $('#exportBtn').click(function(e){
+        e.preventDefault();
+        let url = '/api/capacity/export-csv?work_center='+$('#wcSelect').val()+'&date_from='+$('#dateFrom').val()+'&date_to='+$('#dateTo').val();
+        window.location.href = url;
+    });
+    $(document).on('click', '.resched-btn', function(){
+        let id = $(this).data('id');
+        $('#reschedOrderId').val(id);
+        $('#rescheduleModal').modal('show');
+    });
+    $('#confirmResched').click(function(){
+        let id = $('#reschedOrderId').val();
+        let start = $('#newStart').val();
+        let end = $('#newEnd').val();
+        if (!start || !end) { alert('Please enter both start and end dates'); return; }
+        $.post('/api/capacity/reschedule', JSON.stringify({orderId: id, newStartDate: start, newEndDate: end}), function(){
+            $('#rescheduleModal').modal('hide');
+            refreshAll();
+        }).fail(()=>alert('Reschedule failed'));
+    });
+    $('#confirmShift').click(function(){
+        let wc = $('#shiftWC').val();
+        let date = $('#shiftDate').val();
+        let hours = $('#extraHours').val();
+        if(!wc || !date || !hours) { alert('All fields required'); return; }
+        $.post('/api/capacity/add-shift', JSON.stringify({workCenter: wc, date: date, extraHours: hours}), function(){
+            $('#shiftModal').modal('hide');
+            refreshAll();
+        }).fail(()=>alert('Failed to add shift'));
+    });
+    loadWorkCenters();
+    refreshAll();
+});
+</script>
+{% endblock %}

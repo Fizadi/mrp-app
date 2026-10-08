@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Operation Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+<h2>{{ get_translation('auto.23860946', 'Operation Detail') }}<span id="opCodeSpan"></span></h2>
+<a class="btn btn-secondary" href="{{ url_for('quality.operations_library') }}">
+<i class="fas fa-arrow-left"></i>{{ get_translation('auto.63e1fcc6', 'Back to List') }}</a>
+</div>
+<div class="card">
+<div class="card-body">
+<div id="detailContent">{{ get_translation('auto.72b30174', 'Loading...') }}</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var opId = {{ operation_id }};
+    $.get('/api/quality/operations/' + opId, function(data) {
+        if (data.success) {
+            var op = data.operation;
+            var html = '<table class="table table-bordered"><tr><th>Code</th><td>' + op.code + '</td></tr>';
+            html += '<tr><th>Name</th><td>' + op.name + '</td></tr>';
+            html += '<tr><th>Category</th><td>' + (op.category || '') + '</td></tr>';
+            html += '<tr><th>Unit</th><td>' + (op.unit || '') + '</td></tr>';
+            html += '<tr><th>Min/Target/Max</th><td>' + (op.min_value || '') + ' / ' + (op.target_value || '') + ' / ' + (op.max_value || '') + '</td></tr>';
+            html += '<tr><th>Equipment Required</th><td>' + (op.equipment_required || '') + '</td></tr>';
+            html += '<tr><th>Calibration Required</th><td>' + (op.calibration_required ? 'Yes' : 'No') + '</td></tr>';
+            html += '<tr><th>Est. Time (min)</th><td>' + (op.estimated_time || op.cycle_time || '') + '</td></tr>';
+            html += '<tr><th>Skill Level</th><td>' + (op.skill_level || '') + '</td></tr>';
+            html += '<tr><th>Active</th><td>' + (op.is_active ? 'Yes' : 'No') + '</td></tr>';
+            html += '</table>';
+            $('#detailContent').html(html);
+            $('#opCodeSpan').text(op.code);
+        } else {
+            $('#detailContent').html('<div class="alert alert-danger">Operation not found.</div>');
+        }
+    }).fail(function() {
+        $('#detailContent').html('<div class="alert alert-danger">Error loading operation.</div>');
+    });
+});
+</script>
+{% endblock %}

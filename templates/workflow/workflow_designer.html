@@ -1,0 +1,1377 @@
+{% extends "base.html" %}
+{% block title %}{{ get_translation('workflow.designer.title', 'Workflow Designer') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3"><i class="fas fa-project-diagram me-2"></i>{{ get_translation('workflow.designer.title', 'Workflow Designer') }}</h1>
+        <div>
+            <button class="btn btn-outline-success me-2" id="importBtn"><i class="fas fa-upload"></i>{{ get_translation('workflow.designer.import', 'Import JSON') }}</button>
+            <button class="btn btn-primary" id="createWorkflowBtn"><i class="fas fa-plus"></i>{{ get_translation('workflow.designer.new_workflow', 'New Workflow') }}</button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation('workflow.designer.total', 'Total Workflows') }}</h6><h2 class="mb-0" id="kpiTotal">0</h2></div>
+                        <i class="fas fa-list fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation('workflow.designer.active', 'Active Workflows') }}</h6><h2 class="mb-0" id="kpiActive">0</h2></div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation('workflow.designer.pending', 'Pending Activations') }}</h6><h2 class="mb-0" id="kpiPending">0</h2></div>
+                        <i class="fas fa-clock fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div><h6>{{ get_translation('workflow.designer.steps_total', 'Total Steps') }}</h6><h2 class="mb-0" id="kpiSteps">0</h2></div>
+                        <i class="fas fa-list-ol fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflows Table -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <i class="fas fa-list me-2"></i>{{ get_translation('workflow.designer.definitions', 'Workflow Definitions') }}
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sticky table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>{{ get_translation('workflow.designer.code', 'Code') }}</th>
+                            <th>{{ get_translation('workflow.designer.name', 'Name') }}</th>
+                            <th>{{ get_translation('workflow.designer.module', 'Module') }}</th>
+                            <th>{{ get_translation('workflow.designer.entity_type', 'Entity Type') }}</th>
+                            <th>{{ get_translation('workflow.designer.version', 'Version') }}</th>
+                            <th>{{ get_translation('workflow.designer.status', 'Status') }}</th>
+                            <th>{{ get_translation('workflow.designer.steps', 'Steps') }}</th>
+                            <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workflowsTableBody">
+                        <tr><td class="text-center py-4" colspan="9">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- WORKFLOW MODAL -->
+<!-- ============================================================ -->
+<div class="modal fade" id="workflowModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="workflowModalTitle">{{ get_translation('workflow.designer.workflow', 'Workflow') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <form id="workflowForm">
+                    <input id="workflowId" type="hidden"/>
+                    
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="workflowTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="details-tab" data-bs-toggle="tab" data-bs-target="#detailsTab" type="button" role="tab">
+                                <i class="fas fa-info-circle me-1"></i>{{ get_translation('workflow.designer.details', 'Details') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="steps-tab-btn" data-bs-toggle="tab" data-bs-target="#stepsTab" type="button" role="tab">
+                                <i class="fas fa-list-ol me-1"></i>{{ get_translation('workflow.designer.steps', 'Steps') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="visual-tab-btn" data-bs-toggle="tab" data-bs-target="#visualTab" type="button" role="tab">
+                                <i class="fas fa-project-diagram me-1"></i>{{ get_translation('workflow.designer.visual_view', 'Visual View') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="conditions-tab-btn" data-bs-toggle="tab" data-bs-target="#conditionsTab" type="button" role="tab">
+                                <i class="fas fa-code-branch me-1"></i>{{ get_translation('workflow.designer.conditions', 'Conditions') }}
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab Content -->
+                    <div class="tab-content" id="workflowTabsContent">
+                        <!-- Details Tab -->
+                        <div class="tab-pane fade show active" id="detailsTab" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label>{{ get_translation('workflow.designer.code', 'Workflow Code') }} *</label>
+                                    <input class="form-control" id="workflowCode" required="" type="text"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>{{ get_translation('workflow.designer.name', 'Workflow Name') }} *</label>
+                                    <input class="form-control" id="workflowName" required="" type="text"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>{{ get_translation('workflow.designer.name_local', 'Workflow Name (Farsi)') }}</label>
+                                    <input class="form-control" id="workflowNameLocal" type="text"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>{{ get_translation('workflow.designer.module', 'Module') }} *</label>
+                                    <select class="form-select" id="workflowModule" required="">
+                                        <option value="">{{ get_translation('global.select', 'Select...') }}</option>
+                                        <option value="Quality">Quality</option>
+                                        <option value="Production">Production</option>
+                                        <option value="Purchasing">Purchasing</option>
+                                        <option value="Sales">Sales</option>
+                                        <option value="Supply Chain">Supply Chain</option>
+                                        <option value="Manufacturing">Manufacturing</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="Engineering">Engineering</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label>{{ get_translation('workflow.designer.entity_type', 'Entity Type') }} *</label>
+                                    <select class="form-select" id="workflowEntityType" required="">
+                                        <option value="">{{ get_translation('global.select', 'Select...') }}</option>
+                                        <option value="QualityPlan">Quality Plan</option>
+                                        <option value="Defect">Defect</option>
+                                        <option value="Document">Document</option>
+                                        <option value="PurchaseOrder">Purchase Order</option>
+                                        <option value="SalesOrder">Sales Order</option>
+                                        <option value="JobOrder">Job Order</option>
+                                        <option value="ProductionOrder">Production Order</option>
+                                        <option value="NCR">NCR</option>
+                                        <option value="CAPA">CAPA</option>
+                                        <option value="Audit">Audit</option>
+                                        <option value="ServiceRequest">Service Request</option>
+                                        <option value="ExpenseReport">Expense Report</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label>{{ get_translation('global.description', 'Description') }}</label>
+                                    <textarea class="form-control" id="workflowDesc" rows="2"></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" id="createNewVersion" type="checkbox"/>
+                                        <label class="form-check-label">{{ get_translation('workflow.designer.create_new_version', 'Create new version (instead of updating current)') }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Steps Tab -->
+                        <div class="tab-pane fade" id="stepsTab" role="tabpanel">
+                            <div class="mb-3 text-end">
+                                <button class="btn btn-success btn-sm" id="addStepBtn" type="button"><i class="fas fa-plus"></i>{{ get_translation('workflow.designer.add_step', 'Add Step') }}</button>
+                            </div>
+                            <div id="stepsListContainer">
+                                <ul class="list-group" id="stepsList">
+                                    <li class="list-group-item text-muted">{{ get_translation('workflow.designer.no_steps', 'No steps defined') }}</li>
+                                </ul>
+                            </div>
+                            <div class="mt-3 alert alert-info">
+                                <i class="fas fa-arrow-up me-2"></i>{{ get_translation('workflow.designer.reorder_hint', 'Use the ▲ ▼ buttons to reorder steps.') }}
+                            </div>
+                        </div>
+                        
+                        <!-- Visual View Tab -->
+                        <div class="tab-pane fade" id="visualTab" role="tabpanel">
+                            <div id="visualViewContainer" class="py-3">
+                                <div id="visualViewContent" class="visual-workflow-container">
+                                    <div class="text-center text-muted py-5">
+                                        <i class="fas fa-project-diagram fa-3x mb-3 d-block"></i>
+                                        {{ get_translation('workflow.designer.add_steps_to_visualize', 'Add steps to see the visual workflow representation.') }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Conditions Tab -->
+                        <div class="tab-pane fade" id="conditionsTab" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label>
+                                        {{ get_translation('workflow.designer.conditions', 'Conditions') }}
+                                        <i class="fas fa-info-circle text-info" data-bs-target="#conditionExampleModal" data-bs-toggle="modal" style="cursor:pointer;"></i>
+                                    </label>
+                                    <div id="conditionsBuilder">
+                                        <div class="mb-2"><button class="btn btn-sm btn-secondary" id="addConditionBtn" type="button"><i class="fas fa-plus"></i>{{ get_translation('workflow.designer.add_condition', 'Add Condition') }}</button></div>
+                                        <div class="list-group" id="conditionsList"></div>
+                                    </div>
+                                </div>
+                                <div class="col-12 mt-3">
+                                    <label>
+                                        {{ get_translation('workflow.designer.applicable_to', 'Applicable To') }}
+                                        <i class="fas fa-info-circle text-info" data-bs-target="#applicableExampleModal" data-bs-toggle="modal" style="cursor:pointer;"></i>
+                                    </label>
+                                    <div id="applicableBuilder">
+                                        <div class="mb-2"><button class="btn btn-sm btn-secondary" id="addApplicableBtn" type="button"><i class="fas fa-plus"></i>{{ get_translation('workflow.designer.add_rule', 'Add Rule') }}</button></div>
+                                        <div class="list-group" id="applicableList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveWorkflowBtn" type="button">{{ get_translation('global.save', 'Save Workflow') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- STEP MODAL -->
+<!-- ============================================================ -->
+<div class="modal fade" id="stepModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title">{{ get_translation('workflow.designer.step', 'Step') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input id="stepIndex" type="hidden"/>
+                <div class="mb-2">
+                    <label>{{ get_translation('workflow.designer.step_name', 'Step Name') }} *</label>
+                    <input class="form-control" id="stepName" required="" type="text"/>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('workflow.designer.step_name_local', 'Step Name (Farsi)') }}</label>
+                    <input class="form-control" id="stepNameLocal" type="text"/>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('workflow.designer.role', 'Role') }}</label>
+                    <select class="form-select" id="stepRole">
+                        <option value="">{{ get_translation('global.select', 'Select role') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('workflow.designer.action_type', 'Action Type') }}</label>
+                    <select class="form-select" id="stepType">
+                        <option value="approval">✓ Approval</option>
+                        <option value="review">⟳ Review</option>
+                        <option value="signoff">✍ Sign-off</option>
+                        <option value="notification">🔔 Notification</option>
+                        <option value="condition">❓ Condition</option>
+                        <option value="enter_data">✏️ Enter Data</option>
+                        <option value="assign">👤 Assign</option>
+                    </select>
+                </div>
+                <div class="mb-2 approval-specific">
+                    <label>{{ get_translation('workflow.designer.approval_type', 'Approval Type') }}</label>
+                    <select class="form-select" id="stepApprovalType">
+                        <option value="any">{{ get_translation('workflow.designer.any_approver', 'Any approver') }}</option>
+                        <option value="all">{{ get_translation('workflow.designer.all_approvers', 'All approvers') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('workflow.designer.due_days', 'Due Days (optional)') }}</label>
+                    <input class="form-control" id="stepDueDays" placeholder="0" type="number" min="0"/>
+                </div>
+                <div class="mb-2 condition-specific" style="display:none;">
+                    <label>{{ get_translation('workflow.designer.condition_expression', 'Condition Expression (optional)') }}</label>
+                    <textarea class="form-control" id="stepCondition" placeholder="e.g., order.total > 1000" rows="2"></textarea>
+                </div>
+                <div class="mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input" id="stepRequired" type="checkbox"/>
+                        <label class="form-check-label">{{ get_translation('workflow.designer.required', 'Required (must be completed to progress)') }}</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="deleteStepBtn" type="button">{{ get_translation('global.delete', 'Delete') }}</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveStepBtn" type="button">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- IMPORT MODAL -->
+<!-- ============================================================ -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('workflow.designer.import_workflow', 'Import Workflow JSON') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input accept=".json" class="form-control" id="importFile" type="file"/>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="doImportBtn" type="button">{{ get_translation('global.import', 'Import') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- CONDITION EXAMPLE MODAL -->
+<!-- ============================================================ -->
+<div class="modal fade" id="conditionExampleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">{{ get_translation('workflow.designer.condition_examples', 'Condition Examples') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ get_translation('workflow.designer.condition_help', 'Conditions allow you to restrict when this workflow is applicable based on entity data.') }}</p>
+                <table class="table table-sm">
+                    <thead><tr><th>{{ get_translation('workflow.designer.json', 'JSON') }}</th><th>{{ get_translation('workflow.designer.explanation', 'Explanation') }}</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>{"department": "QC"}</code></td><td>{{ get_translation('workflow.designer.condition_example1', 'Only if department is "QC"') }}</td></tr>
+                        <tr><td><code>{"order_total": ">1000"}</code></td><td>{{ get_translation('workflow.designer.condition_example2', 'Only if order total > 1000') }}</td></tr>
+                        <tr><td><code>{"priority": "high"}</code></td><td>{{ get_translation('workflow.designer.condition_example3', 'Only if priority is "high"') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.close', 'Close') }}</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- APPLICABLE EXAMPLE MODAL -->
+<!-- ============================================================ -->
+<div class="modal fade" id="applicableExampleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">{{ get_translation('workflow.designer.applicable_examples', 'Applicable To Examples') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ get_translation('workflow.designer.applicable_help', 'Define which projects, products, or customers this workflow applies to.') }}</p>
+                <table class="table table-sm">
+                    <thead><tr><th>{{ get_translation('workflow.designer.json', 'JSON') }}</th><th>{{ get_translation('workflow.designer.explanation', 'Explanation') }}</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>{"projects": ["PROJ-001"]}</code></td><td>{{ get_translation('workflow.designer.applicable_example1', 'Only for specific projects') }}</td></tr>
+                        <tr><td><code>{"products": ["VALVE-500"]}</code></td><td>{{ get_translation('workflow.designer.applicable_example2', 'Only for specific products') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.close', 'Close') }}</button></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block styles %}
+<style>
+.visual-workflow-container {
+    min-height: 300px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.workflow-step {
+    display: flex;
+    align-items: stretch;
+    margin-bottom: 0;
+    position: relative;
+}
+
+.workflow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 35px;
+    top: 70px;
+    bottom: -10px;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.workflow-step-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 15px;
+    min-width: 70px;
+}
+
+.step-number-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    color: white;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: transform 0.2s;
+}
+
+.step-number-circle:hover {
+    transform: scale(1.05);
+}
+
+.step-number-circle.required {
+    border: 3px solid #dc3545;
+}
+
+.step-number-circle.required::after {
+    content: '*';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    color: #dc3545;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.step-card {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 5px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    border-left: 4px solid #6c757d;
+    transition: box-shadow 0.2s;
+}
+
+.step-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.step-card .step-title {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+.step-card .step-title-local {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.step-card .step-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.step-card .step-meta .badge {
+    font-size: 12px;
+    padding: 4px 10px;
+}
+
+.step-card.type-approval { border-left-color: #28a745; }
+.step-card.type-review { border-left-color: #17a2b8; }
+.step-card.type-signoff { border-left-color: #007bff; }
+.step-card.type-notification { border-left-color: #6c757d; }
+.step-card.type-condition { border-left-color: #ffc107; }
+.step-card.type-enter_data { border-left-color: #6f42c1; }
+.step-card.type-assign { border-left-color: #20c997; }
+
+.step-number-circle.color-approval { background: #28a745; }
+.step-number-circle.color-review { background: #17a2b8; }
+.step-number-circle.color-signoff { background: #007bff; }
+.step-number-circle.color-notification { background: #6c757d; }
+.step-number-circle.color-condition { background: #ffc107; color: #212529; }
+.step-number-circle.color-enter_data { background: #6f42c1; }
+.step-number-circle.color-assign { background: #20c997; }
+
+.step-connector-arrow {
+    color: #adb5bd;
+    font-size: 14px;
+    margin: 2px 0;
+}
+
+@media (max-width: 768px) {
+    .workflow-step {
+        flex-direction: column;
+        align-items: center;
+        padding-left: 0;
+    }
+    .workflow-step:not(:last-child)::after {
+        left: 50%;
+        top: 60px;
+        bottom: -20px;
+        width: 2px;
+        height: auto;
+    }
+    .workflow-step-connector {
+        flex-direction: row;
+        padding: 5px 0;
+        min-width: auto;
+    }
+    .step-number-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 14px;
+    }
+    .step-card {
+        width: 100%;
+        margin: 5px 0;
+    }
+    .step-card .step-meta {
+        gap: 5px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Operation failed')|tojson }},
+    success: {{ get_translation('global.success', 'successfully')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    confirm: {{ get_translation('global.confirm', 'Confirm')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+    close: {{ get_translation('global.close', 'Close')|tojson }},
+    select: {{ get_translation('global.select', 'Select...')|tojson }},
+    import: {{ get_translation('global.import', 'Import')|tojson }},
+};
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    return defaultText || key;
+}
+
+function getEl(id) {
+    return document.getElementById(id);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+// ============================================================================
+// GLOBAL VARIABLES
+// ============================================================================
+var workflows = [];
+var allRoles = [];
+var currentWorkflowId = null;
+var steps = [];
+
+var actionColors = {
+    'approval': 'success',
+    'review': 'info',
+    'signoff': 'primary',
+    'notification': 'secondary',
+    'condition': 'warning',
+    'enter_data': 'purple',
+    'assign': 'teal'
+};
+
+var actionIcons = {
+    'approval': 'fa-check-circle',
+    'review': 'fa-sync',
+    'signoff': 'fa-pen-fancy',
+    'notification': 'fa-bell',
+    'condition': 'fa-code-branch',
+    'enter_data': 'fa-edit',
+    'assign': 'fa-user-plus'
+};
+
+// ============================================================================
+// VISUAL VIEW RENDERER
+// ============================================================================
+function renderVisualView(stepsData) {
+    var container = getEl('visualViewContent');
+    if (!container) return;
+    
+    if (!stepsData || stepsData.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-project-diagram fa-3x mb-3 d-block"></i>' + 
+            t('workflow.designer.add_steps_to_visualize', 'Add steps to see the visual workflow representation.') + '</div>';
+        return;
+    }
+    
+    var html = '<div class="visual-workflow">';
+    stepsData.forEach(function(step, index) {
+        var stepNumber = index + 1;
+        var actionType = step.type || 'approval';
+        var colorClass = actionColors[actionType] || 'secondary';
+        var icon = actionIcons[actionType] || 'fa-circle';
+        var isRequired = step.required || false;
+        var stepName = step.name_local || step.name || 'Step ' + stepNumber;
+        var roleName = step.role || 'Unassigned';
+        var dueDays = step.dueDays || 0;
+        
+        html += '<div class="workflow-step">';
+        html += '    <div class="workflow-step-connector">';
+        html += '        <div class="step-number-circle color-' + colorClass + (isRequired ? ' required' : '') + '" title="' + (isRequired ? 'Required step' : 'Optional step') + '">';
+        html += '            ' + stepNumber;
+        html += '        </div>';
+        if (index < stepsData.length - 1) {
+            html += '        <div class="step-connector-arrow"><i class="fas fa-chevron-down"></i></div>';
+        }
+        html += '    </div>';
+        html += '    <div class="step-card type-' + actionType + '">';
+        html += '        <div class="step-title">';
+        html += '            <i class="fas ' + icon + ' me-2"></i>';
+        html += '            ' + escapeHtml(stepName);
+        if (isRequired) {
+            html += '            <span class="badge bg-danger ms-2" title="Required">*</span>';
+        }
+        html += '        </div>';
+        if (step.name_local && step.name_local !== step.name) {
+            html += '        <div class="step-title-local">' + escapeHtml(step.name_local) + '</div>';
+        }
+        html += '        <div class="step-meta">';
+        html += '            <span class="badge bg-' + colorClass + '">' + escapeHtml(actionType.replace('_', ' ').toUpperCase()) + '</span>';
+        html += '            <span class="badge bg-secondary"><i class="fas fa-user me-1"></i>' + escapeHtml(roleName) + '</span>';
+        if (dueDays > 0) {
+            html += '            <span class="badge bg-info"><i class="fas fa-clock me-1"></i>' + dueDays + ' days</span>';
+        }
+        if (step.condition) {
+            html += '            <span class="badge bg-warning text-dark"><i class="fas fa-code-branch me-1"></i>Condition</span>';
+        }
+        if (step.approvalType && (actionType === 'approval' || actionType === 'review' || actionType === 'signoff')) {
+            html += '            <span class="badge bg-light text-dark">' + escapeHtml(step.approvalType) + '</span>';
+        }
+        html += '        </div>';
+        html += '    </div>';
+        html += '</div>';
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+// ============================================================================
+// LOAD WORKFLOWS
+// ============================================================================
+function loadWorkflows() {
+    var tbody = getEl('workflowsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    fetch('/api/admin/workflows')
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            if (data.workflows) {
+                workflows = data.workflows;
+                renderWorkflowTable(workflows);
+                updateKPIs(data.kpi);
+            } else {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('no_data', 'No workflows found') + '</td></tr>';
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading workflows:', err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-danger">' + t('error', 'Error') + ': ' + err.message + '</td></tr>';
+        });
+}
+
+function renderWorkflowTable(workflows) {
+    var tbody = getEl('workflowsTableBody');
+    if (!tbody) return;
+    
+    if (!workflows || workflows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('no_data', 'No workflows found') + '</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    workflows.forEach(function(w, idx) {
+        var rowNumber = idx + 1;
+        var statusBadge = w.isActive ? 
+            '<span class="badge bg-success">Active</span>' : 
+            (w.isArchived ? '<span class="badge bg-secondary">Archived</span>' : '<span class="badge bg-warning text-dark">Draft</span>');
+        
+        var actions = '';
+        actions += '<button class="btn btn-sm btn-outline-primary edit-workflow me-1" data-id="' + w.id + '"><i class="fas fa-edit"></i></button> ';
+        actions += '<button class="btn btn-sm btn-outline-info steps-workflow me-1" data-id="' + w.id + '" data-name="' + escapeHtml(w.name) + '"><i class="fas fa-list-ol"></i></button> ';
+        if (w.isActive) {
+            actions += '<button class="btn btn-sm btn-outline-danger deactivate-workflow me-1" data-id="' + w.id + '"><i class="fas fa-stop"></i></button> ';
+        } else if (!w.isArchived) {
+            actions += '<button class="btn btn-sm btn-outline-success activate-workflow me-1" data-id="' + w.id + '"><i class="fas fa-play"></i></button> ';
+        }
+        actions += '<a href="/api/admin/workflows/' + w.id + '/export" class="btn btn-sm btn-outline-secondary"><i class="fas fa-download"></i></a>';
+        
+        html += '<tr>' +
+            '<td class="text-center text-muted">' + rowNumber + '</td>' +
+            '<td><strong>' + escapeHtml(w.code) + '</strong></td>' +
+            '<td>' + escapeHtml(w.name_local || w.name) + '</td>' +
+            '<td>' + escapeHtml(w.module) + '</td>' +
+            '<td>' + escapeHtml(w.entityType) + '</td>' +
+            '<td>v' + (w.version || 1) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + (w.stepsCount || 0) + '</td>' +
+            '<td>' + actions + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function updateKPIs(kpi) {
+    var kpiActive = getEl('kpiActive');
+    var kpiPending = getEl('kpiPending');
+    var kpiTotal = getEl('kpiTotal');
+    var kpiSteps = getEl('kpiSteps');
+    
+    if (kpiActive) kpiActive.textContent = kpi.active_workflows || 0;
+    if (kpiPending) kpiPending.textContent = kpi.pending_activations || 0;
+    if (kpiTotal) kpiTotal.textContent = kpi.total_workflows || 0;
+    
+    var totalSteps = 0;
+    if (workflows) {
+        workflows.forEach(function(w) {
+            totalSteps += w.stepsCount || 0;
+        });
+    }
+    if (kpiSteps) kpiSteps.textContent = totalSteps;
+}
+
+// ============================================================================
+// LOAD ROLES
+// ============================================================================
+function loadRoles() {
+    fetch('/api/admin/roles')
+        .then(function(r) { return r.json(); })
+        .then(function(roles) {
+            allRoles = roles;
+            var roleSelect = getEl('stepRole');
+            if (roleSelect) {
+                var opts = '<option value="">' + t('select', 'Select role') + '</option>';
+                roles.forEach(function(r) {
+                    opts += '<option value="' + r.code + '">' + r.name + '</option>';
+                });
+                roleSelect.innerHTML = opts;
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading roles:', err);
+        });
+}
+
+// ============================================================================
+// CONDITION BUILDER
+// ============================================================================
+function populateConditions(conditions) {
+    var container = getEl('conditionsList');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!conditions) return;
+    for (var field in conditions) {
+        if (conditions.hasOwnProperty(field)) {
+            addConditionRow(field, conditions[field]);
+        }
+    }
+}
+
+function addConditionRow(field, value) {
+    var container = getEl('conditionsList');
+    if (!container) return;
+    var div = document.createElement('div');
+    div.className = 'list-group-item d-flex gap-2 align-items-center';
+    div.innerHTML = `
+        <input type="text" class="form-control condition-field" placeholder="Field" value="${escapeHtml(field || '')}" style="width: 35%;">
+        <select class="form-select condition-operator" style="width: 20%;">
+            <option value="=">=</option>
+            <option value="!=">≠</option>
+            <option value=">">></option>
+            <option value="<"><</option>
+            <option value=">=">≥</option>
+            <option value="<=">≤</option>
+            <option value="contains">contains</option>
+        </select>
+        <input type="text" class="form-control condition-value" placeholder="Value" value="${escapeHtml(value || '')}" style="width: 35%;">
+        <button type="button" class="btn btn-sm btn-danger remove-condition"><i class="fas fa-trash"></i></button>
+    `;
+    container.appendChild(div);
+}
+
+function getConditionsFromBuilder() {
+    var conditions = {};
+    var rows = document.querySelectorAll('#conditionsList .list-group-item');
+    rows.forEach(function(row) {
+        var field = row.querySelector('.condition-field').value.trim();
+        var value = row.querySelector('.condition-value').value.trim();
+        if (field && value) {
+            conditions[field] = value;
+        }
+    });
+    return conditions;
+}
+
+// ============================================================================
+// APPLICABLE TO BUILDER
+// ============================================================================
+function populateApplicable(applicable) {
+    var container = getEl('applicableList');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!applicable) return;
+    for (var key in applicable) {
+        if (applicable.hasOwnProperty(key)) {
+            var val = applicable[key];
+            if (typeof val === 'object') {
+                val = JSON.stringify(val);
+            }
+            addApplicableRow(key, val);
+        }
+    }
+}
+
+function addApplicableRow(key, value) {
+    var container = getEl('applicableList');
+    if (!container) return;
+    var div = document.createElement('div');
+    div.className = 'list-group-item d-flex gap-2 align-items-center';
+    div.innerHTML = `
+        <input type="text" class="form-control applicable-key" placeholder="Key (e.g., projects)" value="${escapeHtml(key || '')}" style="width: 30%;">
+        <input type="text" class="form-control applicable-value" placeholder="Value (JSON array or string)" value="${escapeHtml(value || '')}" style="width: 55%;">
+        <button type="button" class="btn btn-sm btn-danger remove-applicable"><i class="fas fa-trash"></i></button>
+    `;
+    container.appendChild(div);
+}
+
+function getApplicableFromBuilder() {
+    var applicable = {};
+    var rows = document.querySelectorAll('#applicableList .list-group-item');
+    rows.forEach(function(row) {
+        var key = row.querySelector('.applicable-key').value.trim();
+        var value = row.querySelector('.applicable-value').value.trim();
+        if (key && value) {
+            try {
+                applicable[key] = JSON.parse(value);
+            } catch(e) {
+                applicable[key] = value;
+            }
+        }
+    });
+    return applicable;
+}
+
+// ============================================================================
+// STEPS FUNCTIONS
+// ============================================================================
+function renderStepsList() {
+    var container = getEl('stepsList');
+    if (!container) return;
+    if (!steps || steps.length === 0) {
+        container.innerHTML = '<li class="list-group-item text-muted">' + t('workflow.designer.no_steps', 'No steps defined') + '. Click Add Step.</li>';
+        return;
+    }
+    var html = '';
+    steps.forEach(function(step, idx) {
+        var stepName = step.name_local || step.name || 'Step ' + (idx + 1);
+        var actionType = step.type || 'approval';
+        var colorClass = actionColors[actionType] || 'secondary';
+        var icon = actionIcons[actionType] || 'fa-circle';
+        html += `<li class="list-group-item" data-idx="${idx}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong><i class="fas ${icon} text-${colorClass} me-1"></i>${idx+1}. ${escapeHtml(stepName)}</strong>
+                            <span class="badge bg-${colorClass} ms-2">${escapeHtml(actionType)}</span>
+                            ${step.required ? '<span class="badge bg-danger ms-1">*</span>' : ''}
+                            <br>
+                            <small>Role: ${step.role || '-'} | Due: ${step.dueDays || 0} days</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary move-up" data-idx="${idx}" ${idx === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary move-down" data-idx="${idx}" ${idx === steps.length-1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
+                            <button class="btn btn-sm btn-outline-primary edit-step-btn" data-idx="${idx}"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger delete-step-btn" data-idx="${idx}"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </li>`;
+    });
+    container.innerHTML = html;
+    renderVisualView(steps);
+}
+
+function toggleStepFields(type) {
+    var approvalSpecific = document.querySelectorAll('.approval-specific');
+    var conditionSpecific = document.querySelectorAll('.condition-specific');
+    if (type === 'approval' || type === 'review' || type === 'signoff') {
+        approvalSpecific.forEach(function(el) { el.style.display = 'block'; });
+        conditionSpecific.forEach(function(el) { el.style.display = 'none'; });
+    } else if (type === 'condition') {
+        approvalSpecific.forEach(function(el) { el.style.display = 'none'; });
+        conditionSpecific.forEach(function(el) { el.style.display = 'block'; });
+    } else {
+        approvalSpecific.forEach(function(el) { el.style.display = 'none'; });
+        conditionSpecific.forEach(function(el) { el.style.display = 'none'; });
+    }
+}
+
+// ============================================================================
+// LOAD WORKFLOW INTO MODAL
+// ============================================================================
+function loadWorkflowIntoModal(id, tabId) {
+    fetch('/api/admin/workflows/' + id)
+        .then(function(r) { return r.json(); })
+        .then(function(wf) {
+            getEl('workflowModalTitle').textContent = t('workflow.designer.edit_workflow', 'Edit Workflow') + ': ' + wf.code;
+            getEl('workflowId').value = wf.id;
+            getEl('workflowCode').value = wf.code;
+            getEl('workflowName').value = wf.name;
+            getEl('workflowNameLocal').value = wf.name_local || '';
+            getEl('workflowModule').value = wf.module;
+            getEl('workflowEntityType').value = wf.entityType;
+            getEl('workflowDesc').value = wf.description || '';
+            
+            steps = wf.steps || [];
+            renderStepsList();
+            renderVisualView(steps);
+            
+            var stepsData = {};
+            if (wf.steps && typeof wf.steps === 'string') {
+                try { stepsData = JSON.parse(wf.steps); } catch(e) {}
+            } else if (wf.steps && typeof wf.steps === 'object') {
+                stepsData = wf.steps;
+            }
+            populateConditions(stepsData.conditions || {});
+            populateApplicable(stepsData.applicableTo || {});
+            
+            getEl('createNewVersion').checked = false;
+            
+            var modal = new bootstrap.Modal(document.getElementById('workflowModal'));
+            modal.show();
+            
+            if (tabId) {
+                setTimeout(function() {
+                    var tabButton = document.getElementById(tabId);
+                    if (tabButton) {
+                        var tab = new bootstrap.Tab(tabButton);
+                        tab.show();
+                    }
+                }, 200);
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading workflow:', err);
+            showToast(t('error', 'Error loading workflow'), 'error');
+        });
+}
+
+// ============================================================================
+// DOCUMENT READY
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Workflow Designer page loaded');
+    
+    loadRoles();
+    loadWorkflows();
+    
+    // Create workflow
+    var createBtn = getEl('createWorkflowBtn');
+    if (createBtn) {
+        createBtn.addEventListener('click', function() {
+            getEl('workflowModalTitle').textContent = t('workflow.designer.new_workflow', 'New Workflow');
+            getEl('workflowId').value = '';
+            getEl('workflowCode').value = '';
+            getEl('workflowName').value = '';
+            getEl('workflowNameLocal').value = '';
+            getEl('workflowModule').value = '';
+            getEl('workflowEntityType').value = '';
+            getEl('workflowDesc').value = '';
+            getEl('conditionsList').innerHTML = '';
+            getEl('applicableList').innerHTML = '';
+            getEl('createNewVersion').checked = false;
+            steps = [];
+            renderStepsList();
+            renderVisualView(steps);
+            var modal = new bootstrap.Modal(document.getElementById('workflowModal'));
+            modal.show();
+        });
+    }
+    
+    // Edit workflow
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.edit-workflow');
+        if (btn) {
+            e.preventDefault();
+            var id = btn.getAttribute('data-id');
+            loadWorkflowIntoModal(id, 'details-tab');
+            return;
+        }
+    });
+    
+    // Steps workflow
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.steps-workflow');
+        if (btn) {
+            e.preventDefault();
+            var id = btn.getAttribute('data-id');
+            loadWorkflowIntoModal(id, 'steps-tab-btn');
+            return;
+        }
+    });
+    
+    // Save workflow
+    var saveBtn = getEl('saveWorkflowBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+            var id = getEl('workflowId').value;
+            var conditions = getConditionsFromBuilder();
+            var applicableTo = getApplicableFromBuilder();
+            
+            var payload = {
+                code: getEl('workflowCode').value.trim(),
+                name: getEl('workflowName').value.trim(),
+                name_local: getEl('workflowNameLocal').value.trim(),
+                module: getEl('workflowModule').value,
+                entityType: getEl('workflowEntityType').value.trim(),
+                description: getEl('workflowDesc').value,
+                conditions: conditions,
+                applicableTo: applicableTo,
+                steps: steps,
+                create_new_version: getEl('createNewVersion').checked
+            };
+            
+            if (!payload.code || !payload.name || !payload.module || !payload.entityType) {
+                showToast(t('error', 'Please fill required fields'), 'error');
+                return;
+            }
+            
+            var url = id ? '/api/admin/workflows/' + id : '/api/admin/workflows';
+            var method = id ? 'PUT' : 'POST';
+            
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success || data.id) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('workflowModal'));
+                    if (modal) modal.hide();
+                    showToast(t('success', 'Workflow saved successfully'), 'success');
+                    loadWorkflows();
+                } else {
+                    showToast(data.error || t('error', 'Error saving workflow'), 'error');
+                }
+            })
+            .catch(function(err) {
+                console.error('Error saving workflow:', err);
+                showToast(t('error', 'Error saving workflow'), 'error');
+            });
+        });
+    }
+    
+    // Activate workflow
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.activate-workflow');
+        if (!btn) return;
+        var id = btn.getAttribute('data-id');
+        if (!confirm(t('confirm', 'Activate this workflow? All other versions of the same workflow will be deactivated.'))) return;
+        fetch('/api/admin/workflows/' + id + '/activate', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showToast(t('success', 'Workflow activated'), 'success');
+                    loadWorkflows();
+                } else {
+                    showToast(data.error || t('error', 'Activation failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                console.error('Error activating workflow:', err);
+                showToast(t('error', 'Activation failed'), 'error');
+            });
+    });
+    
+    // Deactivate workflow
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.deactivate-workflow');
+        if (!btn) return;
+        var id = btn.getAttribute('data-id');
+        if (!confirm(t('confirm', 'Deactivate this workflow?'))) return;
+        fetch('/api/admin/workflows/' + id + '/deactivate', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showToast(t('success', 'Workflow deactivated'), 'success');
+                    loadWorkflows();
+                } else {
+                    showToast(data.error || t('error', 'Deactivation failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                console.error('Error deactivating workflow:', err);
+                showToast(t('error', 'Deactivation failed'), 'error');
+            });
+    });
+    
+    // ============================================================
+    // STEP MODAL EVENTS
+    // ============================================================
+    var addStepBtn = getEl('addStepBtn');
+    if (addStepBtn) {
+        addStepBtn.addEventListener('click', function() {
+            getEl('stepIndex').value = -1;
+            getEl('stepName').value = '';
+            getEl('stepNameLocal').value = '';
+            getEl('stepRole').value = '';
+            getEl('stepType').value = 'approval';
+            getEl('stepApprovalType').value = 'any';
+            getEl('stepDueDays').value = 0;
+            getEl('stepCondition').value = '';
+            getEl('stepRequired').checked = false;
+            toggleStepFields('approval');
+            var modal = new bootstrap.Modal(document.getElementById('stepModal'));
+            modal.show();
+        });
+    }
+    
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.edit-step-btn');
+        if (!btn) return;
+        var idx = parseInt(btn.getAttribute('data-idx'));
+        var step = steps[idx];
+        if (!step) return;
+        getEl('stepIndex').value = idx;
+        getEl('stepName').value = step.name || '';
+        getEl('stepNameLocal').value = step.name_local || '';
+        getEl('stepRole').value = step.role || '';
+        getEl('stepType').value = step.type || 'approval';
+        getEl('stepApprovalType').value = step.approvalType || 'any';
+        getEl('stepDueDays').value = step.dueDays || 0;
+        getEl('stepCondition').value = step.condition || '';
+        getEl('stepRequired').checked = step.required || false;
+        toggleStepFields(step.type || 'approval');
+        var modal = new bootstrap.Modal(document.getElementById('stepModal'));
+        modal.show();
+    });
+    
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.delete-step-btn');
+        if (!btn) return;
+        var idx = parseInt(btn.getAttribute('data-idx'));
+        if (confirm(t('confirm', 'Delete this step?'))) {
+            steps.splice(idx, 1);
+            renderStepsList();
+            renderVisualView(steps);
+        }
+    });
+    
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.move-up');
+        if (!btn) return;
+        var idx = parseInt(btn.getAttribute('data-idx'));
+        if (idx > 0) {
+            var temp = steps[idx - 1];
+            steps[idx - 1] = steps[idx];
+            steps[idx] = temp;
+            renderStepsList();
+            renderVisualView(steps);
+        }
+    });
+    
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.move-down');
+        if (!btn) return;
+        var idx = parseInt(btn.getAttribute('data-idx'));
+        if (idx < steps.length - 1) {
+            var temp = steps[idx + 1];
+            steps[idx + 1] = steps[idx];
+            steps[idx] = temp;
+            renderStepsList();
+            renderVisualView(steps);
+        }
+    });
+    
+    var saveStepBtn = getEl('saveStepBtn');
+    if (saveStepBtn) {
+        saveStepBtn.addEventListener('click', function() {
+            var idx = parseInt(getEl('stepIndex').value);
+            var step = {
+                name: getEl('stepName').value.trim(),
+                name_local: getEl('stepNameLocal').value.trim(),
+                role: getEl('stepRole').value,
+                type: getEl('stepType').value,
+                approvalType: getEl('stepApprovalType').value,
+                dueDays: parseInt(getEl('stepDueDays').value) || 0,
+                condition: getEl('stepCondition').value,
+                required: getEl('stepRequired').checked
+            };
+            if (!step.name) {
+                showToast(t('error', 'Step name required'), 'error');
+                return;
+            }
+            if (idx === -1) {
+                steps.push(step);
+            } else {
+                steps[idx] = step;
+            }
+            renderStepsList();
+            renderVisualView(steps);
+            var modal = bootstrap.Modal.getInstance(document.getElementById('stepModal'));
+            if (modal) modal.hide();
+        });
+    }
+    
+    var deleteStepBtn = getEl('deleteStepBtn');
+    if (deleteStepBtn) {
+        deleteStepBtn.addEventListener('click', function() {
+            var idx = parseInt(getEl('stepIndex').value);
+            if (idx >= 0 && confirm(t('confirm', 'Delete this step?'))) {
+                steps.splice(idx, 1);
+                renderStepsList();
+                renderVisualView(steps);
+                var modal = bootstrap.Modal.getInstance(document.getElementById('stepModal'));
+                if (modal) modal.hide();
+            }
+        });
+    }
+    
+    var stepTypeSelect = getEl('stepType');
+    if (stepTypeSelect) {
+        stepTypeSelect.addEventListener('change', function() {
+            toggleStepFields(this.value);
+        });
+    }
+    
+    // ============================================================
+    // IMPORT / EXPORT
+    // ============================================================
+    var importBtn = getEl('importBtn');
+    if (importBtn) {
+        importBtn.addEventListener('click', function() {
+            var modal = new bootstrap.Modal(document.getElementById('importModal'));
+            modal.show();
+        });
+    }
+    
+    var doImportBtn = getEl('doImportBtn');
+    if (doImportBtn) {
+        doImportBtn.addEventListener('click', function() {
+            var fileInput = getEl('importFile');
+            var file = fileInput.files[0];
+            if (!file) {
+                showToast(t('error', 'Select a JSON file'), 'error');
+                return;
+            }
+            var formData = new FormData();
+            formData.append('file', file);
+            fetch('/api/admin/workflows/import', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showToast(t('success', 'Workflow imported successfully'), 'success');
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('importModal'));
+                    if (modal) modal.hide();
+                    loadWorkflows();
+                } else {
+                    showToast(data.error || t('error', 'Import failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                console.error('Error importing workflow:', err);
+                showToast(t('error', 'Import failed'), 'error');
+            });
+        });
+    }
+    
+    // ============================================================
+    // CONDITION BUILDER EVENTS
+    // ============================================================
+    var addConditionBtn = getEl('addConditionBtn');
+    if (addConditionBtn) {
+        addConditionBtn.addEventListener('click', function() {
+            addConditionRow();
+        });
+    }
+    
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.remove-condition');
+        if (btn) {
+            var item = btn.closest('.list-group-item');
+            if (item) item.remove();
+        }
+    });
+    
+    var addApplicableBtn = getEl('addApplicableBtn');
+    if (addApplicableBtn) {
+        addApplicableBtn.addEventListener('click', function() {
+            addApplicableRow();
+        });
+    }
+    
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.remove-applicable');
+        if (btn) {
+            var item = btn.closest('.list-group-item');
+            if (item) item.remove();
+        }
+    });
+});
+
+window.loadWorkflows = loadWorkflows;
+window.renderVisualView = renderVisualView;
+</script>
+{% endblock %}

@@ -1,0 +1,3210 @@
+﻿Key,English,Persian
+auto.00076816,Valuation Date (optional),تاریخ ارزیابی (اختیاری)
+auto.001cc410,Batch #,شماره دسته
+auto.00249974,Product *,محصول *
+auto.002754ad,Description,توضیحات
+auto.0037d5f1,Cancel,لغو
+auto.003a58e5,Create PO,ایجاد سفارش خرید
+auto.0060a8e2,Lost,از دست رفته
+auto.00747129,Status,وضعیت
+auto.00755b78,All Status,همه وضعیت‌ها
+auto.008cf3c9,Handover Date,تاریخ تحویل
+auto.008fb2ec,Type,نوع
+auto.00921583,User,کاربر
+auto.00b4acde,← Back to Portfolio,← بازگشت به پورتفوی
+auto.00b5b2d0,Revision:,بازبینی:
+auto.00c8c76d,Safety Stock,موجودی ایمنی
+auto.00f1f4f5,Expired,منقضی شده
+auto.00f567d3,End Date:,تاریخ پایان:
+auto.0109ad36,Loading...,در حال بارگذاری...
+auto.01352901,Status,وضعیت
+auto.0144aea2,Company,شرکت
+auto.015ac2a2,Out of Tolerance,خارج از محدوده تحمل
+auto.015f4194,Open,باز
+auto.0178b8d6,Project ID,شناسه پروژه
+auto.017fe17a,Open,باز
+auto.01839757,Work Center Routing,مسیریابی مرکز کار
+auto.0196179a,Actions,عملیات
+auto.01b73262,Scope / Area,حوزه / محدوده
+auto.01b7b54c,Won,برنده شده
+auto.01e35fbf,Apply,اعمال
+auto.026c721d,0,۰
+auto.02761cce,BOMs Pending,لیست مواد در انتظار
+auto.02a06071,Refresh,تازه‌سازی
+auto.02a1e362,-,-
+auto.02b51b62,User,کاربر
+auto.02c3af41,Actions,عملیات
+auto.030024ac,All Runs,همه اجراها
+auto.0303e44f,Subcontract,برون‌سپاری
+auto.0315cd04,Step,مرحله
+auto.03180085,Equipment Type,نوع تجهیزات
+auto.032e5920,All Suppliers,همه تأمین‌کنندگان
+auto.032fffa6,Basic,پایه
+auto.033012b5,Milestone Name,نام نقطه عطف
+auto.035ee04c,Customers,مشتریان
+auto.0362bec8,-,-
+auto.0384d7ca,Calibration Management,مدیریت کالیبراسیون
+auto.03a64261,Type,نوع
+auto.03ad2f35,Component (Product ID),قطعه (شناسه محصول)
+auto.03d14d3a,Source,منبع
+auto.03e4e28d,Description,توضیحات
+auto.04010ca7,Obsolete,منسوخ
+auto.04177dd9,Details,جزئیات
+auto.04214eff,Loading...,در حال بارگذاری...
+auto.0432647c,No projects assigned to your company.,هیچ پروژه‌ای به شرکت شما اختصاص داده نشده است.
+auto.044332dc,All Warehouses,همه انبارها
+auto.044dff07,Completed,تکمیل شده
+auto.04515889,Subcontract Order Dashboard,داشبورد سفارشات برون‌سپاری
+auto.0457ddc3,Internal,داخلی
+auto.046ce7f7,End Date,تاریخ پایان
+auto.04794ea0,Cancel,لغو
+auto.048667a6,Product ID,شناسه محصول
+auto.048b6e0f,Loading tasks...,در حال بارگذاری وظایف...
+auto.04907921,New Quality Plan Assignment,اختصاص برنامه کیفیت جدید
+auto.04ab1462,All,همه
+auto.04c9e913,Product,محصول
+auto.04da7ee4,Used in Projects,مورد استفاده در پروژه‌ها
+auto.04f811a8,Require Approval,نیازمند تأیید
+auto.04f92bb0,0%,۰٪
+auto.053b6508,Project ID,شناسه پروژه
+auto.054345a7,-,-
+auto.054813e6,Cancel,لغو
+auto.055e3d56,High,بالا
+auto.0564b2ac,Actions,عملیات
+auto.0567d816,Name,نام
+auto.05682443,Select project first,ابتدا پروژه را انتخاب کنید
+auto.057a481e,Export CSV,خروجی CSV
+auto.059e4030,Login,ورود
+auto.05d4371e,Total Capacity,ظرفیت کل
+auto.05d71dfb,USD,دلار آمریکا
+auto.05e4383f,Company ID *,شناسه شرکت *
+auto.060e0ae6,Action,اقدام
+auto.06152948,Permission,مجوز
+auto.063c234f,Inventory,موجودی
+auto.06659870,Create Production Order,ایجاد سفارش تولید
+auto.06843964,Export CSV,خروجی CSV
+auto.06a6184d,Sign,امضا
+auto.06c46b2b,Status,وضعیت
+auto.077a8ec2,0,۰
+auto.0784674d,0,۰
+auto.0790a939,Accept Batch,پذیرش دسته
+auto.079d71e5,Date From,تاریخ از
+auto.07c72702,Cancel,لغو
+auto.07ed68c1,Spec Min,حداقل مشخصه
+auto.07f1fe9f,"Use the builder to add key‑value pairs. The operator (e.g., =, &gt;, contains) is stored but currently not evaluated in this version.","برای اضافه کردن جفت‌های کلید-مقدار از سازنده استفاده کنید. عملگر (مثلاً =، &gt;، contains) ذخیره می‌شود اما در این نسخه ارزیابی نمی‌گردد."
+auto.0801964e,Request ECO,درخواست تغییر مهندسی
+auto.080de538,0,۰
+auto.081683f1,Customer,مشتری
+auto.083a7aa0,Resource Allocation,تخصیص منابع
+auto.083c1ec7,"Scan Job Card, Serial Number, or Badge",کارت کار، شماره سریال یا کارت شناسایی را اسکن کنید
+auto.0865c836,0,۰
+auto.088c6330,Actions,عملیات
+auto.0890620d,Role,نقش
+auto.08a80411,Purchased,خریداری شده
+auto.08afe120,Import/Export,ورود/خروج
+auto.08afe228,Close,بستن
+auto.08bf3306,Date From,تاریخ از
+auto.08e521de,Status,وضعیت
+auto.08e5ac2c,Description,توضیحات
+auto.08ff309c,Internal Users,کاربران داخلی
+auto.092c135b,Open,باز
+auto.09330ee9,Simulation (no database changes),شبیه‌سازی (بدون تغییر در پایگاه داده)
+auto.094ea857,Product,محصول
+auto.095a723e,Status,وضعیت
+auto.095a7d64,Supplier *,تأمین‌کننده *
+auto.09727a22,Source *,منبع *
+auto.0998256c,Cancel,لغو
+auto.099df63f,Pending Submissions,ارسال‌های در انتظار
+auto.09a4d94b,Sales,فروش
+auto.09acf73f,Roles/Permissions,نقش‌ها/مجوزها
+auto.09c96feb,Export CSV,خروجی CSV
+auto.09cfe310,0,۰
+auto.09eafa8c,Select work center,مرکز کار را انتخاب کنید
+auto.09fcc478,Value by Warehouse,ارزش بر اساس انبار
+auto.0a04ede2,Export CSV,خروجی CSV
+auto.0a1ffff7,Product Category / Search,دسته محصول / جستجو
+auto.0a2deb54,Loading...,در حال بارگذاری...
+auto.0a5a44ac,Supplier Quality Scorecard,کارت امتیاز کیفیت تأمین‌کننده
+auto.0a629e17,Used In Templates,استفاده شده در الگوها
+auto.0a7ed6fe,Corrective &amp; Preventive Actions,اقدامات اصلاحی و پیشگیرانه
+auto.0a866858,OK,تأیید
+auto.0aa15155,Cancel,لغو
+auto.0aabbcb8,Role,نقش
+auto.0ab34055,Loading...,در حال بارگذاری...
+auto.0abb6922,Sent,ارسال شد
+auto.0ac7f7ea,Status,وضعیت
+auto.0acfea44,EUR,یورو
+auto.0ad8e778,Transfer,انتقال
+auto.0adcccc9,Run History,تاریخچه اجرا
+auto.0affbc54,Signed By,امضا شده توسط
+auto.0b0103ac,Address:,آدرس:
+auto.0b060925,Cancel,لغو
+auto.0b0907e3,Project Manager,مدیر پروژه
+auto.0b85829e,Supplier,تأمین‌کننده
+auto.0b8a58e8,Audit Log Details,جزئیات سیاهه حسابرسی
+auto.0b9acc8f,Save All,ذخیره همه
+auto.0bf7c628,Total Allocated Hours*,کل ساعات تخصیص یافته *
+auto.0c0470e5,All,همه
+auto.0c0e062e,0,۰
+auto.0c16c0a2,Refresh,تازه‌سازی
+auto.0c17f1be,Last Run Status,وضعیت آخرین اجرا
+auto.0c1ef696,Severity,شدت
+auto.0c2274d3,Coming Soon,به زودی
+auto.0c3894b0,Target Product ID,شناسه محصول هدف
+auto.0c467e10,Status,وضعیت
+auto.0c6429ba,0,۰
+auto.0c64cc64,Active,فعال
+auto.0c9154ed,Loading jobs...,در حال بارگذاری کارها...
+auto.0cb5f899,Reset,بازنشانی
+auto.0cdee02c,This signature confirms the disposition decision.,این امضا تصمیم تعیین تکلیف را تأیید می‌کند.
+auto.0cdfe06a,Total,کل
+auto.0ced206a,Override Standard BOM Quantity,لغو مقدار استاندارد لیست مواد
+auto.0d06882e,All,همه
+auto.0d205809,Status,وضعیت
+auto.0d21e35a,0,۰
+auto.0d2bc48f,Due Date From,تاریخ سررسید از
+auto.0d6d6125,Total Supply Chain Management System,سیستم مدیریت کل زنجیره تأمین
+auto.0d9ae052,Active,فعال
+auto.0dab61cb,Engineering,مهندسی
+auto.0dba9a5c,Cancel,لغو
+auto.0dcf4bc8,Shipping,حمل
+auto.0df90785,Due Date,تاریخ سررسید
+auto.0e138043,Actions,عملیات
+auto.0e1c5295,Cancel,لغو
+auto.0e21da55,0,۰
+auto.0e296dd4,Clear,پاک کردن
+auto.0e4633a3,Tracking#,شماره رهگیری
+auto.0e485542,-,-
+auto.0e4be741,Due Date,تاریخ سررسید
+auto.0e665cc4,MRP,برنامه‌ریزی مواد
+auto.0e9809d6,Project Details,جزئیات پروژه
+auto.0ed84390,Project (Optional),پروژه (اختیاری)
+auto.0edfb59e,Message,پیام
+auto.0ee9ba7d,Batch/Lot Number,شماره دسته / لات
+auto.0f01f88f,{,{
+auto.0f087865,Loading...,در حال بارگذاری...
+auto.0f0f8d06,0,۰
+auto.0f3a3a9d,Order,سفارش
+auto.0f44e252,Due This Week,سررسید این هفته
+auto.0faae061,Your Name,نام شما
+auto.0faaedf4,Unit Cost,هزینه واحد
+auto.0fb4c6b9,Internal,داخلی
+auto.0fca50f0,Complete Work Order,تکمیل دستور کار
+auto.0fd29277,Document Type,نوع سند
+auto.100451cf,Check In Document,ورود سند
+auto.103e9936,Create PO,ایجاد سفارش خرید
+auto.1068e887,Value,مقدار
+auto.107a31e9,Loading...,در حال بارگذاری...
+auto.10884cb6,Role,نقش
+auto.108b9643,Product,محصول
+auto.109ed7a6,PO #,شماره سفارش خرید
+auto.10b8dc3c,0,۰
+auto.10c5fa4d,Import External Users CSV,ورود کاربران خارجی CSV
+auto.10cfda1e,Start Date,تاریخ شروع
+auto.10dc3775,Quantity,مقدار
+auto.10dcab69,Low,کم
+auto.111fd7d2,Status,وضعیت
+auto.1143c36c,External Steps,مراحل خارجی
+auto.1151bb78,Status,وضعیت
+auto.1152141e,Project ID *,شناسه پروژه *
+auto.117f3f31,All,همه
+auto.1181e9e3,Cancelled,لغو شده
+auto.1192b903,0,۰
+auto.11957e29,Avg Duration (sec),میانگین مدت (ثانیه)
+auto.11a78d96,Cancel,لغو
+auto.11ca43cb,Manufacturing,تولید
+auto.11cfb9ac,Save,ذخیره
+auto.11ecfa78,Required,الزامی
+auto.120b0286,-,-
+auto.12110845,Process,فرآیند
+auto.12208906,Budget,بودجه
+auto.12347074,📂 Import CSV,📂 ورود CSV
+auto.123e94c8,Select Auditor,انتخاب حسابرس
+auto.127fb565,Upload,بارگذاری
+auto.12b9f4a2,Supply Chain,زنجیره تأمین
+auto.12f8c196,0,۰
+auto.1306ee5c,Deliverable Name,نام تحویل‌دادنی
+auto.13090ea5,Start Date,تاریخ شروع
+auto.132279a6,Next Due Date (YYYY-MM-DD),تاریخ سررسید بعدی (YYYY-MM-DD)
+auto.133f99ab,Apply Filters,اعمال فیلترها
+auto.134493ad,JSON,JSON
+auto.134e2537,Message (optional),پیام (اختیاری)
+auto.13652a39,Supply Chain,زنجیره تأمین
+auto.136f9779,Save,ذخیره
+auto.137442a1,Rejected,رد شده
+auto.13928842,Quantity Produced,مقدار تولید شده
+auto.139cb698,Defect,عیب
+auto.139f60ec,All,همه
+auto.13a39f0b,Won/Lost,برنده/بازنده
+auto.13c689ad,Product,محصول
+auto.13cd2d15,3 - High,۳ - بالا
+auto.13fc9307,Actions,عملیات
+auto.14103f11,Cancel,لغو
+auto.1415347c,Title:,عنوان:
+auto.143d231f,Products,محصولات
+auto.143f3f21,Save User,ذخیره کاربر
+auto.1476e91f,Select a role from the left to edit its permissions.,نقشی را از سمت چپ انتخاب کنید تا مجوزهای آن را ویرایش کنید.
+auto.147be47c,0,۰
+auto.148552f1,Status,وضعیت
+auto.149042c9,Cancel,لغو
+auto.149b52e2,Run Valuation,انجام ارزیابی
+auto.14bdd779,PurchaseOrder,سفارش خرید
+auto.14d60d2a,0,۰
+auto.14f69b72,Description,توضیحات
+auto.15125608,Product *,محصول *
+auto.15130a8d,Show effective only (today,فقط جاری را نشان بده (امروز)
+auto.15182d9f,Batch Size,اندازه دسته
+auto.15637278,Supplier Scorecard,کارت امتیاز تأمین‌کننده
+auto.156ac5fb,← Back to List,← بازگشت به لیست
+auto.1580b428,Timestamp,زمان‌نشان
+auto.15831cbf,Operation,عملیات
+auto.158fa9ed,🏭 Customer Projects,🏭 پروژه‌های مشتری
+auto.1592498e,Cancel,لغو
+auto.159cbdfd,Date To,تاریخ تا
+auto.159dcc48,Product,محصول
+auto.159f2500,Value,مقدار
+auto.15a0a0c1,0,۰
+auto.15a35098,Status,وضعیت
+auto.15f0ffce,Capacity Planning,برنامه‌ریزی ظرفیت
+auto.15fee99f,Attach Documents (optional),ضمیمه مدارک (اختیاری)
+auto.16011e72,Date To,تاریخ تا
+auto.1612bdaa,Digital Signature (PIN or password),امضای دیجیتال (PIN یا رمز عبور)
+auto.16173a39,Refresh,تازه‌سازی
+auto.161a21b4,0,۰
+auto.162806b1,Total,کل
+auto.166a221d,Refresh,تازه‌سازی
+auto.167496e5,Draft,پیش‌نویس
+auto.16a2eee4,Pending,در انتظار
+auto.16f4bf5c,Apply Filters,اعمال فیلترها
+auto.173207b3,Select project,پروژه را انتخاب کنید
+auto.174164d7,Quality Plan Assignments,اختصاص برنامه‌های کیفیت
+auto.174d6619,Actions,عملیات
+auto.175aed71,Completed,تکمیل شده
+auto.1782527d,Low Stock Products,محصولات با موجودی کم
+auto.1783d30e,The supplier will be notified via portal/email.,به تأمین‌کننده از طریق پورتال/ایمیل اطلاع داده خواهد شد.
+auto.17c855e1,Defect Code,کد عیب
+auto.180bcd1f,Confirm Password,تأیید رمز عبور
+auto.18245109,All,همه
+auto.1828efae,Financial chart will appear after Chart.js is installed.,نمودار مالی پس از نصب Chart.js نمایش داده خواهد شد.
+auto.183b2b4a,Released,آزاد شده
+auto.1849ba2d,Quality,کیفیت
+auto.185960f2,Order Type,نوع سفارش
+auto.18610973,Create Quality Inspection Batch,ایجاد دسته بازرسی کیفیت
+auto.18702806,Status,وضعیت
+auto.187a2d29,Max Revisions,حداکثر بازبینی‌ها
+auto.1888e944,Shipped,حمل شده
+auto.188d19c4,Project Portfolio,پرتفوی پروژه
+auto.188e0169,Inventory Management,مدیریت موجودی
+auto.18adca49,Order Date From,تاریخ سفارش از
+auto.18c308b3,Draft,پیش‌نویس
+auto.18ccb79b,All,همه
+auto.18e44478,Product,محصول
+auto.190bae35,Quality Dashboard,داشبورد کیفیت
+auto.1927b36f,Date From,تاریخ از
+auto.195c6bc6,Work Instruction,دستورالعمل کار
+auto.1971eaac,Loading assignments...,در حال بارگذاری انتساب‌ها...
+auto.19764b79,-,-
+auto.1987886b,Draft,پیش‌نویس
+auto.19b2c0ff,Approval,تصویب
+auto.19b42a81,Actions,عملیات
+auto.19b6c4bb,All,همه
+auto.19bcaf47,Financial,مالی
+auto.19c9fea4,Contact Person,شخص تماس
+auto.19efaf71,NCR #,شماره عدم انطباق
+auto.19fb1a71,Procurement Type,نوع تدارکات
+auto.1a2d146a,Description,توضیحات
+auto.1a4287b7,Date To,تاریخ تا
+auto.1a4389f4,Document Type,نوع سند
+auto.1a49f682,Incoming Batches,دسته‌های ورودی
+auto.1a5bb306,Portal Permissions (JSON),مجوزهای پورتال (JSON)
+auto.1a7b23bf,Access documents shared with you by our engineering team.,به مدارک به اشتراک گذاشته شده توسط تیم مهندسی ما دسترسی پیدا کنید.
+auto.1a7f65ae,Unit,واحد
+auto.1aed2a10,Cancel,لغو
+auto.1afdd830,Apply,اعمال
+auto.1b304ae5,Customer,مشتری
+auto.1b3b8854,Intermediate,متوسط
+auto.1b638551,Add Template,افزودن الگو
+auto.1b6b757a,Save Project,ذخیره پروژه
+auto.1b7955e4,Product,محصول
+auto.1b97f286,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.1b9c813f,Date,تاریخ
+auto.1b9d23c0,Export CSV,خروجی CSV
+auto.1ba11524,Project,پروژه
+auto.1bb18137,Close,بستن
+auto.1bb77491,All,همه
+auto.1bb9ce52,% of batches passed,درصد دسته‌های قبول شده
+auto.1bcb65cc,Export CSV,خروجی CSV
+auto.1bd2724d,Work Center,مرکز کار
+auto.1bd907f2,Archive Operation,بایگانی عملیات
+auto.1bfb5e6a,Monthly,ماهانه
+auto.1c088fbb,Description,توضیحات
+auto.1c0b3362,Loading...,در حال بارگذاری...
+auto.1c13b8b1,Export CSV,خروجی CSV
+auto.1c1f0a29,Material Requirements Planning,برنامه‌ریزی مواد مورد نیاز
+auto.1c3b7c24,Internal,داخلی
+auto.1c87d886,Warehouse Code *,کد انبار *
+auto.1c989865,Checkout Status,وضعیت خارج شدن
+auto.1cdadf1f,Report Defect,گزارش عیب
+auto.1ceba318,In Progress,در حال انجام
+auto.1cedbcc1,Apply Template,اعمال الگو
+auto.1cff6a4c,Maintenance Management,مدیریت نگهداری
+auto.1d304647,On Hold,متوقف
+auto.1d4741ba,Tooltip: Warranty applied to new serial numbers,راهنما: گارانتی اعمال شده به شماره سریال‌های جدید
+auto.1d643dc4,Save Step,ذخیره مرحله
+auto.1d74681c,Approve,تأیید
+auto.1d905e15,Cancel,لغو
+auto.1d917900,Import CSV,ورود CSV
+auto.1daaa797,Extra Hours,ساعات اضافی
+auto.1dd31a7b,Export CSV,خروجی CSV
+auto.1dfe3cb8,Submit Inspection,ارسال بازرسی
+auto.1e5ddced,Approved,تأیید شده
+auto.1e73717b,Total Assignments,کل انتساب‌ها
+auto.1e7fe5b0,Supplier,تأمین‌کننده
+auto.1e87d237,Supplier (link),تأمین‌کننده (لینک)
+auto.1e8ddb2a,USD (estimated),دلار آمریکا (تخمینی)
+auto.1e9995bb,Major,عمده
+auto.1eac1e9d,Product,محصول
+auto.1eb82082,Cancel,لغو
+auto.1ec1ecb0,Supply Chain,زنجیره تأمین
+auto.1f07b05f,Loading...{,در حال بارگذاری...{
+auto.1f1219c6,Sequence,ترتیب
+auto.1f1806a4,0,۰
+auto.1f2df9c9,All modules,همه ماژول‌ها
+auto.1f304d5c,Min Order Qty,حداقل مقدار سفارش
+auto.1f4b5041,Select Operation,انتخاب عملیات
+auto.1f523520,Result,نتیجه
+auto.1f57a4d0,Select...,انتخاب...
+auto.1f619d08,Specification,مشخصات
+auto.1f7be211,Work Center,مرکز کار
+auto.1f95a4c4,0,۰
+auto.1fa7f346,Preventive,پیشگیرانه
+auto.1fb9d108,Specification,مشخصات
+auto.1fc07759,Reset,بازنشانی
+auto.1fc517cd,Scope,حوزه
+auto.1fd8c46b,Procurement Type,نوع تدارکات
+auto.1fda376a,Refresh,تازه‌سازی
+auto.2002d66d,Sent,ارسال شد
+auto.203409ab,Major,عمده
+auto.2045dc27,Create New,ایجاد جدید
+auto.204a8ede,Quality,کیفیت
+auto.20655a82,+ Add Document Type,+ افزودن نوع سند
+auto.20b7b6ea,Status,وضعیت
+auto.20bdbaeb,Loading...,در حال بارگذاری...
+auto.20be78f5,Refresh,تازه‌سازی
+auto.20cfd2ad,Export CSV,خروجی CSV
+auto.20dd1a37,0,۰
+auto.20e7c74a,Critical,بحرانی
+auto.20f71595,Notification,اعلان
+auto.2101655f,Warranty (months),گارانتی (ماه)
+auto.2105b052,+ Add Reminder,+ افزودن یادآوری
+auto.2158eabc,0,۰
+auto.21872836,Document Checkout,خروج سند
+auto.218dbfd5,0,۰
+auto.219070df,Cancel,لغو
+auto.21bc7f3a,Link,پیوند
+auto.21c9449b,"Product created, BOM pending",محصول ایجاد شد، لیست مواد در انتظار
+auto.21fab6fb,Rejected,رد شده
+auto.221e0eb3,Document Control,کنترل مدارک
+auto.22250e57,Product,محصول
+auto.2238e59b,Projects,پروژه‌ها
+auto.2241765e,Version tracking will be available soon.,ردیابی نسخه به زودی در دسترس خواهد بود.
+auto.226a72fa,0,۰
+auto.226ad63c,-,-
+auto.22801b37,0,۰
+auto.228a5da4,Severity,شدت
+auto.2290ad23,Corrective,اصلاحی
+auto.229a4fb6,Actions,عملیات
+auto.22a73f88,Pending ECOs,تغییرات مهندسی در انتظار
+auto.22b2f8d9,UOM,واحد اندازه‌گیری
+auto.22d4de3f,Expected Today,پیش‌بینی امروز
+auto.22f704ac,Send Reminder,ارسال یادآوری
+auto.2302e773,Grant Entity Permission,اعطای مجوز نهاد
+auto.2339b172,Confirm all required inspections are completed and passed?,آیا تمام بازرسی‌های الزامی تکمیل و قبول شده‌اند؟
+auto.2345d689,Warehouse,انبار
+auto.23540de3,Confirm,تأیید
+auto.235a36ad,Max Concurrent Jobs,حداکثر کارهای همزمان
+auto.23733335,Accept,پذیرش
+auto.23860946,Operation Detail,جزئیات عملیات
+auto.2391fdf8,-,-
+auto.23a33110,Cancel,لغو
+auto.23d35778,Export CSV,خروجی CSV
+auto.23d5b6ab,What-If Scenarios,سناریوهای چه-اگر
+auto.23e0056e,Cancel,لغو
+auto.2412cf9d,Approved,تأیید شده
+auto.242957c5,PO Number,شماره سفارش خرید
+auto.243d9449,Audit Date (YYYYMMDD),تاریخ ممیزی (YYYYMMDD)
+auto.243f1b01,Create Subcontract PO from Production Order,ایجاد سفارش خرید برون‌سپاری از سفارش تولید
+auto.24494e9f,Select role,نقش را انتخاب کنید
+auto.245ac937,BOM Management,مدیریت لیست مواد
+auto.247ffc2b,Completed,تکمیل شده
+auto.249b444f,Change Notes,یادداشت تغییرات
+auto.24a9f2f4,Exception List,لیست استثناها
+auto.24afdcbe,Apply Filters,اعمال فیلترها
+auto.24bf7cb7,Warehouse,انبار
+auto.24c40c7e,0,۰
+auto.24c898cb,Obsolete,منسوخ
+auto.24da0d0b,Workflow Name *,نام گردش کار *
+auto.25067203,Username or Email,نام کاربری یا ایمیل
+auto.250bc028,Save,ذخیره
+auto.250c0cad,Product,محصول
+auto.251a501c,0,۰
+auto.253bf5c3,Save,ذخیره
+auto.253eabc2,Date From,تاریخ از
+auto.2558bd35,Report Completion - Order,گزارش تکمیل - سفارش
+auto.25683b53,All,همه
+auto.25acce89,Avg. Utilisation,میانگین استفاده
+auto.25c81b42,Close,بستن
+auto.25de2646,Quantity,مقدار
+auto.25e5c8f0,Effective Date,تاریخ اجرا
+auto.2607100b,+ Create PO,+ ایجاد سفارش خرید
+auto.262804bc,Active,فعال
+auto.262c7182,Documents,مدارک
+auto.262ca491,auto.262ca491,auto.262ca491
+auto.263f1729,Supply Chain,زنجیره تأمین
+auto.263f8b89,Max Value,حداکثر مقدار
+auto.26502948,Serial History,تاریخچه سریال
+auto.2650e3f5,Description,توضیحات
+auto.26590292,Pass,قبول
+auto.2659f3b5,Type,نوع
+auto.2662bb9b,Order ID,شناسه سفارش
+auto.268e9df1,Refresh Status,تازه‌سازی وضعیت
+auto.269b0fea,Loading...,در حال بارگذاری...
+auto.26a43646,Company *,شرکت *
+auto.26a933f0,Active Document Types,انواع سند فعال
+auto.26b5fbd0,Corrective Actions,اقدامات اصلاحی
+auto.26c7e0c1,Status,وضعیت
+auto.26cadef9,Purchase Orders List,لیست سفارشات خرید
+auto.26e580e0,Status,وضعیت
+auto.26ecc621,Reset,بازنشانی
+auto.2711bbd2,Valuation Details,جزئیات ارزیابی
+auto.271e5383,Bill of Materials,لیست مواد
+auto.272ecb2b,Cancel,لغو
+auto.27397302,Document Types,انواع سند
+auto.274aecde,0,۰
+auto.275151ea,Manufacturing,تولید
+auto.276014b7,Value,مقدار
+auto.27a12eb3,Close,بستن
+auto.27d7121e,New Order,سفارش جدید
+auto.27f82e4c,Telephone:,تلفن:
+auto.27fcf412,Completed,تکمیل شده
+auto.280343ff,Created Date,تاریخ ایجاد
+auto.280716d8,Active,فعال
+auto.28146713,Allocation %,درصد تخصیص
+auto.2820a1a2,Refresh,تازه‌سازی
+auto.285dd030,General,عمومی
+auto.285e47f7,Document Number,شماره سند
+auto.28631b78,+ Add Contact,+ افزودن مخاطب
+auto.2898932b,Created By,ایجاد شده توسط
+auto.289dffc0,Loading...,در حال بارگذاری...
+auto.28a33860,High Severity,شدت بالا
+auto.28cc972b,Select Work Center,مرکز کار را انتخاب کنید
+auto.28e45758,0,۰
+auto.28fbaef1,Revision History,تاریخچه بازبینی
+auto.29095919,Set as Firmed,تنظیم به عنوان قطعی
+auto.29196420,Status,وضعیت
+auto.291be161,Amount,مبلغ
+auto.292023c1,Work Instruction,دستورالعمل کار
+auto.29390f09,Notes,یادداشت‌ها
+auto.294a99b3,Product *,محصول *
+auto.2953640f,Add Document Type,افزودن نوع سند
+auto.2954d8b3,Roles,نقش‌ها
+auto.29b5cc11,auto.29b5cc11,auto.29b5cc11
+auto.29ea335e,Advanced,پیشرفته
+auto.29ecaf6e,Work Center,مرکز کار
+auto.29f9dbaa,Department,دپارتمان
+auto.2a0b98c9,Quantity,مقدار
+auto.2a40ddcd,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.2a4bdcd6,By Category,بر اساس دسته
+auto.2a5bd143,-,-
+auto.2a6713bd,ECO Warning,اخطار تغییر مهندسی
+auto.2a6efd81,Product,محصول
+auto.2a9bcba4,Work Centers,مراکز کاری
+auto.2ab0334c,-- Choose --,-- انتخاب --
+auto.2ab740dc,Stock Movements,حرکات موجودی
+auto.2abee2de,Visual,دیداری
+auto.2ac4c63a,Overview,بررسی کلی
+auto.2aeb2ff6,Team,تیم
+auto.2af6b0ea,Per Lot,به ازای هر لات
+auto.2b03f210,Product ID,شناسه محصول
+auto.2b0c346a,Select Run,انتخاب اجرا
+auto.2b156a09,0,۰
+auto.2b3821fb,Defect Management,مدیریت عیوب
+auto.2b5498f8,Quantity,مقدار
+auto.2b614467,By Carrier,بر اساس حامل
+auto.2b8a927a,1 - Low,۱ - کم
+auto.2b9bb9b7,Action #,شماره اقدام
+auto.2ba7efaa,Quantity,مقدار
+auto.2bb1b330,Each Batch,هر دسته
+auto.2bddd2d2,Schedule Maintenance,برنامه ریزی نگهداری
+auto.2be03f9b,Completed,تکمیل شده
+auto.2bf3a090,Effective Date,تاریخ اجرا
+auto.2c161bb9,Status,وضعیت
+auto.2c3929e5,Status,وضعیت
+auto.2c4a93b7,Order Date From,تاریخ سفارش از
+auto.2c5882a0,-,-
+auto.2c58865e,CSV columns:,ستون‌های CSV:
+auto.2c6a3bcd,Completed,تکمیل شده
+auto.2c6ae334,Rejected,رد شده
+auto.2c6b61a4,Major,عمده
+auto.2cac32ed,Loading...,در حال بارگذاری...
+auto.2cbd24cd,Grant,اعطا
+auto.2cc2842e,Supplier,تأمین‌کننده
+auto.2d12e75c,All,همه
+auto.2d21480e,Active,فعال
+auto.2d312cf2,Open,باز
+auto.2d4edd30,Defect Code,کد عیب
+auto.2d72dc8e,Refresh,تازه‌سازی
+auto.2d985c6a,Record Action,ثبت اقدام
+auto.2d9b429a,Cost of Poor Quality,هزینه کیفیت پایین
+auto.2da4ae21,Is Custom Component,آیا قطعه سفارشی است
+auto.2dbcb547,Select Family,انتخاب خانواده
+auto.2de96c59,Work Center Routing,مسیریابی مرکز کار
+auto.2df2206f,Code *,کد *
+auto.2e0035b7,Module,ماژول
+auto.2e01e402,Lost,از دست رفته
+auto.2e0823be,Leak,نشت
+auto.2e0aaff5,Cancel,لغو
+auto.2e0b4047,-,-
+auto.2e103d28,Enter Inspection Results,وارد کردن نتایج بازرسی
+auto.2e202113,Location,مکان
+auto.2e2d4d23,Portal Settings,تنظیمات پورتال
+auto.2e4108af,Packed,بسته‌بندی شده
+auto.2e6f8942,Approval Type,نوع تأیید
+auto.2e9ff549,Close,بستن
+auto.2eb39e08,Subcontract Orders List,لیست سفارشات برون‌سپاری
+auto.2eb842ca,Document:,سند:
+auto.2ec7700a,Coming Soon,به زودی
+auto.2ee17c5f,Quarterly,فصلانه
+auto.2eeca9e9,All Products,همه محصولات
+auto.2f061ce9,Due Date From,تاریخ سررسید از
+auto.2f0e4aaa,Project Quality Plans,برنامه‌های کیفیت پروژه
+auto.2f20a563,Max Rating,حداکثر امتیاز
+auto.2f27c3df,PO #,شماره سفارش خرید
+auto.2f456fc2,Apply,اعمال
+auto.2f5d986e,Purchased,خریداری شده
+auto.2f5e65c9,Import Users (CSV),ورود کاربران (CSV)
+auto.2f60e09c,Edit,ویرایش
+auto.2f6771f9,Name,نام
+auto.2ff67b55,0,۰
+auto.2ff7d8f9,Cancel,لغو
+auto.30291408,Date,تاریخ
+auto.302ae543,Pending,در انتظار
+auto.302df001,Save Result,ذخیره نتیجه
+auto.30394d2d,Project Type,نوع پروژه
+auto.3059249c,Approved,تأیید شده
+auto.305b25e2,Lost,از دست رفته
+auto.30c2a028,Active Assignments by Role,انتساب‌های فعال بر اساس نقش
+auto.30c497b9,Select modules to show in portal,ماژول‌های قابل نمایش در پورتال را انتخاب کنید
+auto.30cdcd96,Actual Date,تاریخ واقعی
+auto.30ce59f3,Create Scenario,ایجاد سناریو
+auto.30ee05e1,Total Warehouses,کل انبارها
+auto.30f6b8ae,Total,کل
+auto.30faf881,"Username, Email, FullName, Department, Position, EmployeeID, IsActive, Roles","نام کاربری، ایمیل، نام کامل، دپارتمان، سمت، شماره پرسنلی، فعال است، نقش‌ها"
+auto.310032e0,Apply,اعمال
+auto.31700a7f,Draft,پیش‌نویس
+auto.3175e101,Test Action,اقدام آزمایشی
+auto.31931818,Priority,اولویت
+auto.31bb18b4,Generated Date,تاریخ تولید
+auto.31caa10b,Status,وضعیت
+auto.31da1fa8,Critical / Major / Minor,بحرانی / عمده / جزئی
+auto.31df225e,Assigned To,اختصاص داده شده به
+auto.31f747ee,Open,باز
+auto.32139bba,Actions,عملیات
+auto.32187e82,Specification,مشخصات
+auto.3220130e,Supplier Inspection Portal,پورتال بازرسی تأمین‌کننده
+auto.325a1a3c,Purchasing,خرید
+auto.3278647d,Customer ID:,شناسه مشتری:
+auto.3293d2e4,Search,جستجو
+auto.32956174,Add Step,افزودن مرحله
+auto.32c15c58,Role,نقش
+auto.33005e25,Past Due,سررسید گذشته
+auto.33013a3a,Loading...,در حال بارگذاری...
+auto.330ec8d1,Certificate #,شماره گواهی
+auto.3316f63b,Project Details,جزئیات پروژه
+auto.33463944,html,html
+auto.338f981b,Loading purchase orders...,در حال بارگذاری سفارشات خرید...
+auto.33b663bd,Work Center (optional),مرکز کار (اختیاری)
+auto.33b75e9b,Product,محصول
+auto.33c2fad4,Actions,عملیات
+auto.33c853c2,Create new version (instead of updating current),ایجاد نسخه جدید (به جای به‌روزرسانی نسخه جاری)
+auto.33cb6be1,Actions,عملیات
+auto.33d1005b,Export,خروجی
+auto.33d422e1,Critical,بحرانی
+auto.33eb0dc5,Permissions will be set in the matrix after creation.,مجوزها پس از ایجاد در ماتریس تنظیم خواهند شد.
+auto.33fe2c01,Clear Filters,پاک کردن فیلترها
+auto.34069e86,Supplier,تأمین‌کننده
+auto.3412dd0d,Date Raised,تاریخ ثبت
+auto.341f23b3,Active,فعال
+auto.34632377,Enter Inspection Results,وارد کردن نتایج بازرسی
+auto.346dc81b,All users,همه کاربران
+auto.348a5aa7,Total Load (hrs),کل بار (ساعت)
+auto.349b7ac7,0,۰
+auto.34e183f0,Add User,افزودن کاربر
+auto.34f86750,"Roles: pipe-separated, e.g.","نقش‌ها: جدا شده با خط عمودی، مثال"
+auto.35088477,Check In Document,ورود سند
+auto.35194c54,Apply Template,اعمال الگو
+auto.35585feb,Status,وضعیت
+auto.355f98bc,Active Products,محصولات فعال
+auto.35652573,Department,دپارتمان
+auto.35cc4fc3,Completed,تکمیل شده
+auto.35da1c2f,Date To,تاریخ تا
+auto.35e5d26d,Severity,شدت
+auto.35fb3625,Partially Received,دریافت جزئی
+auto.3607c460,Location,مکان
+auto.360ef97e,Type,نوع
+auto.3619b264,Update Status,به‌روزرسانی وضعیت
+auto.361fa150,Draft,پیش‌نویس
+auto.3626be14,Operations List,لیست عملیات
+auto.3652af24,Cancel,لغو
+auto.3653b00e,"Project, Username, Role, Start Date Key, End Date Key, Is Active","پروژه، نام کاربری، نقش، کلید تاریخ شروع، کلید تاریخ پایان، فعال است"
+auto.365cc60e,Name,نام
+auto.368634cc,Purchase Order ID,شناسه سفارش خرید
+auto.3695307e,Run Simulation,اجرای شبیه‌سازی
+auto.36b7d39d,📎 Export CSV,📎 خروجی CSV
+auto.36d0c267,Reason,دلیل
+auto.36d4588f,Work Center,مرکز کار
+auto.36ef3bb2,All,همه
+auto.3725dbb2,Title,عنوان
+auto.372b5ed6,Export,خروجی
+auto.374816c9,Export CSV,خروجی CSV
+auto.374ef258,Upload New Document,بارگذاری سند جدید
+auto.374fcbca,Requested New Due Date,تاریخ سررسید جدید درخواست شده
+auto.37793014,Loading...,در حال بارگذاری...
+auto.37a627db,USD,دلار آمریکا
+auto.37c6cb34,JSON,JSON
+auto.37ce3cec,Document Number *,شماره سند *
+auto.37e77b46,Product,محصول
+auto.37edf06f,Closed,بسته شده
+auto.37f1ad0d,SCM Login,ورود به سیستم مدیریت زنجیره تأمین
+auto.3811b4b0,Complete Milestone,تکمیل نقطه عطف
+auto.382676af,Employee,کارمند
+auto.38320df8,Due Date,تاریخ سررسید
+auto.3838e4bd,Win/Loss Reason:,دلیل برد/باخت:
+auto.383d1947,Refresh,تازه‌سازی
+auto.38423a01,Low Stock Only,فقط موجودی کم
+auto.38590f40,Auditor,حسابرس
+auto.38713039,Roles pipe-separated.,نقش‌ها جدا شده با خط عمودی.
+auto.389ac995,Production Order (link),سفارش تولید (لینک)
+auto.38a9e29e,0,۰
+auto.38c01c1e,Select supplier,تأمین‌کننده را انتخاب کنید
+auto.38fdf252,Equipment ID (unique),شناسه تجهیزات (یکتا)
+auto.3921e3b5,Project,پروژه
+auto.398a8455,Details,جزئیات
+auto.39a9ef47,-,-
+auto.39aae1d3,Overdue,دیرکرد
+auto.39ae0ebb,Cancel,لغو
+auto.39c2501f,All,همه
+auto.39c9fcbd,Add Milestone,افزودن نقطه عطف
+auto.39e038b4,Actual Completion Date,تاریخ تکمیل واقعی
+auto.39f5c7c0,Status,وضعیت
+auto.3a0eab03,Custom Components,قطعات سفارشی
+auto.3a0f1122,Role Name *,نام نقش *
+auto.3a351213,Required columns:,ستون‌های مورد نیاز:
+auto.3a485774,chart.min.js,chart.min.js
+auto.3a53c041,Search (Code/Name),جستجو (کد/نام)
+auto.3a668973,"Unit Cost (for positive adjustment, optional)","هزینه واحد (برای تعدیل مثبت، اختیاری)"
+auto.3a6d78b7,Next Due,سررسید بعدی
+auto.3a90106f,Total Assignments,کل انتساب‌ها
+auto.3a9cf08d,Receive from Supplier,دریافت از تأمین‌کننده
+auto.3ad2a408,In Progress,در حال انجام
+auto.3ade180e,Currency (optional),ارز (اختیاری)
+auto.3af2e600,Is Active,فعال است
+auto.3af86145,Key *,کلید *
+auto.3b23fb4d,Unit Cost,هزینه واحد
+auto.3b27e911,Sampling Size,حجم نمونه
+auto.3b3944dd,Status:,وضعیت:
+auto.3b832132,All,همه
+auto.3b896a54,0,۰
+auto.3b92da1e,Due Date,تاریخ سررسید
+auto.3ba9435a,Locked Documents,مدارک قفل شده
+auto.3be2bf14,0%,۰٪
+auto.3bf2de2d,User: Thomson Kale,کاربر: تامسون کیل
+auto.3c057542,Summary,خلاصه
+auto.3c1dc0a5,Pending Signatures,امضاهای در انتظار
+auto.3c39b116,0,۰
+auto.3c4a182b,Document:,سند:
+auto.3c5f0791,Supply Chain,زنجیره تأمین
+auto.3c826983,0,۰
+auto.3c8698fc,Intermediate,متوسط
+auto.3c8f493b,Completed,تکمیل شده
+auto.3c9a85c5,Is Active,فعال است
+auto.3ca72081,Start Time,زمان شروع
+auto.3cb9d311,Assign Role,اختصاص نقش
+auto.3cce5b0d,Checked Out By,خارج شده توسط
+auto.3cd4edd9,Check In,ورود
+auto.3d0d327d,Home,خانه
+auto.3d27f688,MRP,برنامه‌ریزی مواد
+auto.3d2dac31,Product,محصول
+auto.3d33e23e,Name *,نام *
+auto.3d5d56ea,Planned Orders,سفارشات برنامه‌ریزی شده
+auto.3d674e0a,Scheduled,برنامه‌ریزی شده
+auto.3d694d20,Import CSV,ورود CSV
+auto.3d734d60,Random,تصادفی
+auto.3d779e53,Due Date,تاریخ سررسید
+auto.3d96a793,In Progress,در حال انجام
+auto.3daf4ea6,Serial Number,شماره سریال
+auto.3dc067f8,Close,بستن
+auto.3dc1ce42,Document Type,نوع سند
+auto.3de29c0f,Start New Run,شروع اجرای جدید
+auto.3e00e790,Type,نوع
+auto.3e0c14ff,Supplier,تأمین‌کننده
+auto.3e14f751,Production Order,سفارش تولید
+auto.3e1ad4a0,Username,نام کاربری
+auto.3e2ca243,Planned Orders,سفارشات برنامه‌ریزی شده
+auto.3e338078,Production Planning &amp; Control,برنامه‌ریزی و کنترل تولید
+auto.3e3ae0c0,Project,پروژه
+auto.3e421a88,Completed,تکمیل شده
+auto.3e6008a5,Currency Code,کد ارز
+auto.3e6ec4c8,The value must be a JSON array or a string. Use the builder to add key‑value pairs.,مقدار باید یک آرایه JSON یا یک رشته باشد. برای اضافه کردن جفت‌های کلید-مقدار از سازنده استفاده کنید.
+auto.3e6f6ffe,Create Portal User,ایجاد کاربر پورتال
+auto.3e98ac55,Supply Chain Executive Dashboard,داشبورد اجرایی زنجیره تأمین
+auto.3ebd6175,Close,بستن
+auto.3ed77846,Total Roles,کل نقش‌ها
+auto.3edc3dba,All roles,همه نقش‌ها
+auto.3eecf348,Save Permissions,ذخیره مجوزها
+auto.3ef6dce6,Archive,بایگانی
+auto.3f14d0ca,Overdue,دیرکرد
+auto.3f1707d8,Equipment Details,جزئیات تجهیزات
+auto.3f27e41d,Home,خانه
+auto.3f2af93e,Export CSV,خروجی CSV
+auto.3f35d6bf,Check browser console (F12) for debug information,برای اطلاعات اشکال‌زدایی کنسول مرورگر (F12) را بررسی کنید
+auto.3f3c61f8,Send reminder for PO:,ارسال یادآوری برای سفارش خرید:
+auto.3f5868e1,External,خارجی
+auto.3f76d505,Barcode / RFID Interface,رابط بارکد / RFID
+auto.3f88d277,Status,وضعیت
+auto.3fabf18c,Date From,تاریخ از
+auto.3fb70733,-,-
+auto.3fc4a7a1,0,۰
+auto.3fc61f95,Critical Only,فقط بحرانی
+auto.3fcb879d,Document Type,نوع سند
+auto.3fd21e2e,Inactive,غیرفعال
+auto.3fd4c96d,Name:,نام:
+auto.3fef1197,Drawing,نقشه
+auto.3fffce2f,Workflow Step,مرحله گردش کار
+auto.4033151a,Apply,اعمال
+auto.40432d15,Timestamp,زمان‌نشان
+auto.404644aa,Defect Description,توضیحات عیب
+auto.405d2ba2,Cancel,لغو
+auto.407bb4da,-,-
+auto.409081f8,Signature Status,وضعیت امضا
+auto.40910d0e,Save User,ذخیره کاربر
+auto.4092c0bd,Date To,تاریخ تا
+auto.409dca01,Import CSV,ورود CSV
+auto.40a1e468,Product *,محصول *
+auto.40ddb164,Workflow,گردش کار
+auto.40e26cba,Actions,عملیات
+auto.40f413a6,Create Quality Plan,ایجاد برنامه کیفیت
+auto.41132f5d,Import,ورود
+auto.415affa9,Import CSV,ورود CSV
+auto.415d04de,Customer (CompanyID),مشتری (شناسه شرکت)
+auto.41705f2c,End Date,تاریخ پایان
+auto.419d2225,Save,ذخیره
+auto.41d07236,Save,ذخیره
+auto.4213ded5,Test Modal,پنجره آزمایشی
+auto.4226d1aa,Name,نام
+auto.422f4ed1,Loading...,در حال بارگذاری...
+auto.4244702c,Issue,مسئله
+auto.426b11ca,- / - / -,- / - / -
+auto.426d1bca,Import Production Orders (CSV),ورود سفارشات تولید (CSV)
+auto.42713a32,Cancel,لغو
+auto.42807d37,Detailed Financials,جزئیات مالی
+auto.42888f10,Product,محصول
+auto.42b68892,KG,کیلوگرم
+auto.42bd8c8e,Completed,تکمیل شده
+auto.42d57ecc,All approvers,همه تأییدکنندگان
+auto.42dd7f7e,Actions,عملیات
+auto.42f9273e,0 / 0,۰ / ۰
+auto.42f9892c,Manage Additional Attributes,مدیریت ویژگی‌های اضافی
+auto.4306d30d,Closed,بسته شده
+auto.43121d91,Product Filter (contains),فیلتر محصول (شامل)
+auto.43344fc2,Login Background Image,تصویر پس‌زمینه ورود
+auto.43930f21,Cancel,لغو
+auto.439afe89,Save,ذخیره
+auto.439f0985,Loading...,در حال بارگذاری...
+auto.43a7fa6f,Status,وضعیت
+auto.43d7d2ce,Work Center,مرکز کار
+auto.43e670d1,Role,نقش
+auto.43fadd82,Status,وضعیت
+auto.44032426,Login,ورود
+auto.44285a0e,On Time,به موقع
+auto.443e85d2,Run ID,شناسه اجرا
+auto.4456dbe7,Attachments,پیوست‌ها
+auto.448d6a05,Equipment ID,شناسه تجهیزات
+auto.4494ce42,Last Modified:,آخرین ویرایش:
+auto.44bc38fc,Loading...,در حال بارگذاری...
+auto.44cc8cc4,Certificate Required,گواهی مورد نیاز است
+auto.44d38026,Specification,مشخصات
+auto.44d3e1c2,Home,خانه
+auto.4533fc9d,Dates,تاریخ‌ها
+auto.45394889,PO#,شماره سفارش خرید
+auto.453f31f4,Status,وضعیت
+auto.456907b7,Export CSV,خروجی CSV
+auto.459acf20,All,همه
+auto.45c308ab,-,-
+auto.45c61154,Reject,رد
+auto.45cfd991,Supplier,تأمین‌کننده
+auto.45f34b83,Date To,تاریخ تا
+auto.460901a0,Actions,عملیات
+auto.4615671b,Pending,در انتظار
+auto.46171f5a,Actions,عملیات
+auto.462f6d35,Document Library,کتابخانه مدارک
+auto.464691e6,Send,ارسال
+auto.4659a236,Each Batch,هر دسته
+auto.46636a33,Export CSV,خروجی CSV
+auto.4666b31b,Required Documents,مدارک الزامی
+auto.467d5021,Completed,تکمیل شده
+auto.467f935b,Templates Using This Operation,الگوهای استفاده‌کننده از این عملیات
+auto.468ba51f,Add Custom Component,افزودن قطعه سفارشی
+auto.46a62ab1,Loading...,در حال بارگذاری...
+auto.46b9fe25,Shop Floor Control,کنترل کف کارخانه
+auto.46dc2d1a,Status,وضعیت
+auto.46e8b15d,Maintenance Type,نوع نگهداری
+auto.471078be,Export CSV,خروجی CSV
+auto.47215d1f,MRP Run Dashboard,داشبورد اجرای MRP
+auto.472d1973,Check In,ورود
+auto.474660de,Loading...,در حال بارگذاری...
+auto.4776a4b3,Cancel,لغو
+auto.47882925,Actions,عملیات
+auto.479f33b9,Apply,اعمال
+auto.47a22362,-,-
+auto.47c7a419,All,همه
+auto.47e548f1,Loading...,در حال بارگذاری...
+auto.47eac310,Welcome &amp; Terms,خوش آمدید و شرایط
+auto.47edbe06,Save,ذخیره
+auto.48113aa0,Effective Date,تاریخ اجرا
+auto.48302f4d,Simulation Results,نتایج شبیه‌سازی
+auto.483b9164,Custom Specification,مشخصات سفارشی
+auto.4843cce0,All,همه
+auto.48452451,Major,عمده
+auto.484a50ff,Import/Export,ورود/خروج
+auto.48674315,Quality Dashboard,داشبورد کیفیت
+auto.48787e63,Minor,جزئی
+auto.489ababf,Description / Action Plan *,توضیحات / برنامه اقدام *
+auto.48a4cf2d,Standard Cost,هزینه استاندارد
+auto.48b47ad2,Partially Received,دریافت جزئی
+auto.48cf8cf5,Save,ذخیره
+auto.48eea064,Reports,گزارش‌ها
+auto.4905dab9,Send Reminder,ارسال یادآوری
+auto.491df81d,Notes,یادداشت‌ها
+auto.4953798f,Planning Horizon (days),افق برنامه‌ریزی (روز)
+auto.497b21bf,Drawing,نقشه
+auto.4991f4c7,Production Order,سفارش تولید
+auto.49a6b069,Start Date,تاریخ شروع
+auto.49b95f0e,Equipment Name,نام تجهیزات
+auto.49d72497,Apply,اعمال
+auto.49f74120,Cancel,لغو
+auto.4a3f07df,Value,مقدار
+auto.4a4db0c2,Supplier Inspection Portal,پورتال بازرسی تأمین‌کننده
+auto.4a66447f,-,-
+auto.4a680eb1,Description:,توضیحات:
+auto.4a7e8b00,File *,فایل *
+auto.4a7eff66,Target Date (YYYYMMDD),تاریخ هدف (YYYYMMDD)
+auto.4a8b754c,Loading...,در حال بارگذاری...
+auto.4a914afe,Back to List,بازگشت به لیست
+auto.4a94473c,Date Key,کلید تاریخ
+auto.4ad11862,Actions,عملیات
+auto.4ae309db,Supplier NCRs,عدم انطباق‌های تأمین‌کننده
+auto.4ae94fe8,Logistics,لجستیک
+auto.4b19844f,Update Financials,به‌روزرسانی مالی
+auto.4b226f77,Drawing,نقشه
+auto.4b38f4fa,BOM Status,وضعیت لیست مواد
+auto.4b43e731,Select Template,انتخاب الگو
+auto.4b49258a,Save,ذخیره
+auto.4b737f6c,Drawing,نقشه
+auto.4b8bbaf4,Export CSV,خروجی CSV
+auto.4b9894f2,Rev,بازبینی
+auto.4b9d67eb,Last Maintenance,آخرین نگهداری
+auto.4bc2f6fd,Expiry Date Key,کلید تاریخ انقضا
+auto.4bcf84ed,Scrap,ضایعات
+auto.4be435ef,All,همه
+auto.4be83452,Cancel,لغو
+auto.4bf3a7ea,Cancel,لغو
+auto.4c030562,Leak,نشت
+auto.4c0b1a5d,All,همه
+auto.4c61cec3,Loading...,در حال بارگذاری...
+auto.4c6bc271,Engineering Documents,مدارک مهندسی
+auto.4c7b093e,Due Date,تاریخ سررسید
+auto.4c8c5795,← Back to Dashboard,← بازگشت به داشبورد
+auto.4c9d868d,Cancel,لغو
+auto.4ca8a4e2,"Relative path to image (e.g., uploads/bg.jpg)","مسیر نسبی تصویر (مثال: uploads/bg.jpg)"
+auto.4cb0218b,Cancel,لغو
+auto.4cb364e4,Serial Number,شماره سریال
+auto.4cbea198,Capacity (units),ظرفیت (واحد)
+auto.4ccebe4f,Serial Numbers,شماره سریال‌ها
+auto.4ce54677,Available Documents,مدارک موجود
+auto.4cedde00,Active Operations,عملیات فعال
+auto.4d288409,Purchase Receipt,رسید خرید
+auto.4d2e577e,Only for specific products,فقط برای محصولات خاص
+auto.4d44a63e,Sampling Frequency,فراوانی نمونه‌برداری
+auto.4d488535,% Complete,درصد تکمیل
+auto.4d7b90d8,-,-
+auto.4d83d909,Export CSV,خروجی CSV
+auto.4d9b99e7,Sequence *,ترتیب *
+auto.4ded8168,Cancelled,لغو شده
+auto.4e05e34a,Document Number,شماره سند
+auto.4e11d493,Available,موجود
+auto.4e1267e1,Production Order,سفارش تولید
+auto.4e23cc6c,Action,اقدام
+auto.4e26d97d,Work Instruction,دستورالعمل کار
+auto.4e493b65,Cancel,لغو
+auto.4e7795a7,Active,فعال
+auto.4e7a1588,Loading...,در حال بارگذاری...
+auto.4edbc2e0,Order Date To,تاریخ سفارش تا
+auto.4f01c420,Shared Documents,مدارک به اشتراک گذاشته شده
+auto.4f027e07,Create,ایجاد
+auto.4f18476f,Product,محصول
+auto.4f419902,Key,کلید
+auto.4f5e7eb7,Approved By,تأیید شده توسط
+auto.4f796278,Cancel,لغو
+auto.4f7bac15,Scenario Comparison,مقایسه سناریوها
+auto.4fbe5542,Welcome Message,پیام خوش‌آمدگویی
+auto.4fce03f6,All,همه
+auto.4fee2021,Draft,پیش‌نویس
+auto.4ffa9b00,Serial Number Registry,ثبت شماره سریال
+auto.4ffd7a41,Type,نوع
+auto.504bcea2,Revision,بازبینی
+auto.5066df0a,Start Date,تاریخ شروع
+auto.50856e42,Add Shift / Extra Capacity,افزودن شیفت / ظرفیت اضافی
+auto.50aea389,Select internal project...,پروژه داخلی را انتخاب کنید...
+auto.50bdd127,Import CSV,ورود CSV
+auto.50c4a9aa,Quality Rating (0-100),امتیاز کیفیت (0-100)
+auto.50c54dcd,Minor,جزئی
+auto.50d408b9,Work Instruction,دستورالعمل کار
+auto.50e2de85,Alternative Component (Product ID),قطعه جایگزین (شناسه محصول)
+auto.50f6bc9a,Source,منبع
+auto.51018c9b,0,۰
+auto.511cae74,NCR #,شماره عدم انطباق
+auto.512df401,Compare Selected,مقایسه موارد انتخاب شده
+auto.513047c3,On Hand,موجودی
+auto.51517689,0,۰
+auto.515b3988,Report Downtime,گزارش زمان توقف
+auto.515bd81c,Raw Material,مواد اولیه
+auto.5167b423,Select role,نقش را انتخاب کنید
+auto.51b52326,General,عمومی
+auto.51c6cedb,Tag Range,محدوده برچسب
+auto.51ce12cb,Delete,حذف
+auto.51e4c3ed,Move Time (hrs),زمان جابجایی (ساعت)
+auto.5206fa0d,Responsible,مسئول
+auto.520bbd04,Click Run Valuation to generate report,برای تولید گزارش روی Run Valuation کلیک کنید
+auto.5234105e,All,همه
+auto.5234d3e7,Auditor,حسابرس
+auto.524eea79,Entity,نهاد
+auto.52713fd7,Responsible,مسئول
+auto.52b1d11b,Export CSV,خروجی CSV
+auto.52d7340a,SalesOrder,سفارش فروش
+auto.52e54599,Title *,عنوان *
+auto.52f0b06c,Project,پروژه
+auto.53341a22,Import CSV,ورود CSV
+auto.535e1cf9,Overdue Receipts,رسیدهای دیرکرد
+auto.53619e88,Assigned To,اختصاص داده شده به
+auto.536b6d95,Role *,نقش *
+auto.5393054c,End Date,تاریخ پایان
+auto.53967572,Loading...,در حال بارگذاری...
+auto.539ac647,Type,نوع
+auto.53a7cbeb,Self Inspection,بازرسی خودکار
+auto.53b6215b,Loading...,در حال بارگذاری...
+auto.53b8de48,Due Date To,تاریخ سررسید تا
+auto.53dd3345,Current Active Job,کار فعال فعلی
+auto.53e8a8c7,+ Add Product,+ افزودن محصول
+auto.53f3199c,Company Name,نام شرکت
+auto.53f415ee,0,۰
+auto.540e68e8,Title,عنوان
+auto.54288048,Loading...,در حال بارگذاری...
+auto.54592d86,Sales Order ID,شناسه سفارش فروش
+auto.547448f0,Actions,عملیات
+auto.548c4ff1,Role (assignee),نقش (اختصاص داده شده)
+auto.54abd592,Date,تاریخ
+auto.54c23fb9,Use same structure as role permissions. Leave empty to remove exception.,از ساختار مشابه مجوزهای نقش استفاده کنید. برای حذف استثنا خالی بگذارید.
+auto.54c83ec1,Overdue Tasks,وظایف دیرکرد
+auto.54caa337,{,{
+auto.54d2a511,Check Out Document,خروج سند
+auto.54ec25cf,Role,نقش
+auto.54fdc354,Cancel,لغو
+auto.55071313,Critical,بحرانی
+auto.550f7c08,Warehouse,انبار
+auto.55187d1c,0 assignments,۰ انتساب
+auto.551b891c,Workflow Status,وضعیت گردش کار
+auto.55417f87,Loading...,در حال بارگذاری...
+auto.5544636b,Date To,تاریخ تا
+auto.5551f890,Open,باز
+auto.557eba91,📂 Import CSV,📂 ورود CSV
+auto.55cb8979,Checked By,بررسی شده توسط
+auto.55ddd7de,Import CSV,ورود CSV
+auto.55e09c19,Closed,بسته شده
+auto.55f30b27,Component (ID),قطعه (شناسه)
+auto.5616d29d,Clear Filters,پاک کردن فیلترها
+auto.5633d100,Active only,فقط فعال
+auto.563703ad,avg defects per unit,میانگین عیوب به ازای واحد
+auto.56506ed5,Warehouse Management,مدیریت انبار
+auto.56780f75,Calibration Required,کالیبراسیون مورد نیاز است
+auto.5691d06d,0,۰
+auto.5691f97c,Cancel,لغو
+auto.56932a8a,Transaction History,تاریخچه تراکنش
+auto.569dcd65,Date From,تاریخ از
+auto.56cd0826,Quantity Affected,مقدار تحت تأثیر
+auto.56d15ad1,Template Name,نام الگو
+auto.5717f66b,Supplier,تأمین‌کننده
+auto.572d5445,Close,بستن
+auto.573f6f59,Product,محصول
+auto.576321db,Supply Chain,زنجیره تأمین
+auto.5765422e,Dimensional,بعدی
+auto.578c2b3a,Cancel,لغو
+auto.57a7bdcc,0,۰
+auto.57ca5da3,Home,خانه
+auto.57d8f5be,All,همه
+auto.580a9d04,Loading......,در حال بارگذاری......
+auto.58209e07,Inspection,بازرسی
+auto.5832cba6,Required,الزامی
+auto.5836e2d3,Update Financials,به‌روزرسانی مالی
+auto.58625eab,Shared Documents Portal,پورتال مدارک مشترک
+auto.586d15dc,Link Internal Project,پیوند پروژه داخلی
+auto.58916454,Home,خانه
+auto.58954620,Import CSV,ورود CSV
+auto.589afe71,Name,نام
+auto.58bb8a3c,Status,وضعیت
+auto.58c8a504,All Types,همه انواع
+auto.58d19608,Status,وضعیت
+auto.58eb278c,Supplier NCR,عدم انطباق تأمین‌کننده
+auto.591f8c6e,Due Date,تاریخ سررسید
+auto.593402bb,All,همه
+auto.593ec216,All,همه
+auto.59564f34,Approved?,تأیید شده؟
+auto.596a486b,0,۰
+auto.59779a4c,Description,توضیحات
+auto.597c06b9,+ Add Warehouse,+ افزودن انبار
+auto.59a5e0c7,Rev,بازبینی
+auto.59aa353e,All,همه
+auto.59b3f93e,Home,خانه
+auto.59cb865c,Open,باز
+auto.59d12caf,No steps defined,هیچ مرحله‌ای تعریف نشده است
+auto.59e37c1e,Sales Order,سفارش فروش
+auto.59e7680a,Add Condition,افزودن شرط
+auto.5a041ba6,Remember me,مرا به خاطر بسپار
+auto.5a058735,Entity Permissions,مجوزهای نهاد
+auto.5a5d6c93,In Process Batches,دسته‌های در حال پردازش
+auto.5a606961,Min Rating,حداقل امتیاز
+auto.5a627ae7,-,-
+auto.5aac092f,Doc Number,شماره سند
+auto.5aadfcec,NCR Register,ثبت عدم انطباق
+auto.5ab51297,Signature,امضا
+auto.5ab72113,Next Due From (YYYY-MM-DD),سررسید بعدی از (YYYY-MM-DD)
+auto.5abcf79b,0,۰
+auto.5abe1d43,Date,تاریخ
+auto.5ae8b163,Export CSV,خروجی CSV
+auto.5aeb1132,Logo,لوگو
+auto.5af029f3,Purchase Orders for Inspection,سفارشات خرید برای بازرسی
+auto.5b0d4dd8,Sample,نمونه
+auto.5b40c1fe,Company *,شرکت *
+auto.5b8e4727,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.5ba106e1,Title *,عنوان *
+auto.5bb8b643,Due Date,تاریخ سررسید
+auto.5bc30754,Accepted,پذیرفته شده
+auto.5bc64c3d,Export CSV,خروجی CSV
+auto.5bd50391,Status,وضعیت
+auto.5be2fc90,← Back to Dashboard,← بازگشت به داشبورد
+auto.5be3c16f,Total Value,ارزش کل
+auto.5bf37eff,Apply Filters,اعمال فیلترها
+auto.5c0c33e2,User Permission Exception,استثنای مجوز کاربر
+auto.5c426fb3,Status,وضعیت
+auto.5c45a087,Title,عنوان
+auto.5c75e2f2,Operation,عملیات
+auto.5c94c4ea,Sample,نمونه
+auto.5cb5c41f,Active,فعال
+auto.5cc38969,Tracking Number,شماره رهگیری
+auto.5cd3f0a2,Operation:,عملیات:
+auto.5cda4dab,Available Documents,مدارک موجود
+auto.5cdf5df0,Upload Document,بارگذاری سند
+auto.5d21a568,Specification,مشخصات
+auto.5d21ab47,Due Date,تاریخ سررسید
+auto.5d347749,Quantity,مقدار
+auto.5d362be4,Add Equipment,افزودن تجهیزات
+auto.5d564c90,Quantity,مقدار
+auto.5d5e48d6,Exceptions,استثناها
+auto.5d63914e,Cancel,لغو
+auto.5d819000,Apply,اعمال
+auto.5d8b3fe7,Your Email,ایمیل شما
+auto.5d8f1545,Weight,وزن
+auto.5da254c7,Severity,شدت
+auto.5db933d1,Open,باز
+auto.5dede9cb,All,همه
+auto.5df0025b,Phone,تلفن
+auto.5df98e90,0,۰
+auto.5e04abb5,Home,خانه
+auto.5e1d6f82,Open / Download,باز کردن / دانلود
+auto.5e1e8c6b,0,۰
+auto.5e33c307,Project,پروژه
+auto.5e3efe9b,Save,ذخیره
+auto.5e47e2cc,Add Key,افزودن کلید
+auto.5e4db062,Clear Filters,پاک کردن فیلترها
+auto.5e68796c,All Projects,همه پروژه‌ها
+auto.5e95bc35,Send NCR to Supplier,ارسال عدم انطباق به تأمین‌کننده
+auto.5ea813ef,Category,دسته‌بندی
+auto.5eb0beb5,Loading users...,در حال بارگذاری کاربران...
+auto.5eb3bece,All,همه
+auto.5ec870d5,0,۰
+auto.5ee9ecc1,0,۰
+auto.5f14d876,Downtime Today,زمان توقف امروز
+auto.5f1adf9d,Cancel,لغو
+auto.5f4821dd,Only if the entity,فقط اگر نهاد
+auto.5f698c19,Revision,بازبینی
+auto.5f8a35a1,Refresh,تازه‌سازی
+auto.5f8f7097,Completed,تکمیل شده
+auto.5f91d8c2,Delivery Rating (0-100),امتیاز تحویل (0-100)
+auto.5f956dd0,Service Orders,سفارشات خدمات
+auto.5f95d7ce,Stock Overview,نمای کلی موجودی
+auto.5fb4ddd3,Product,محصول
+auto.5fcefb3f,Unit Cost,هزینه واحد
+auto.5fd4b476,Check Out Document,خروج سند
+auto.5fd67995,Add Work Center,افزودن مرکز کار
+auto.5ff0c320,Transaction Type,نوع تراکنش
+auto.60390023,Select project,پروژه را انتخاب کنید
+auto.604b4bad,0,۰
+auto.607270db,Pressure,فشار
+auto.60866d2d,All,همه
+auto.6099136e,Loading...,در حال بارگذاری...
+auto.60a439e1,Sign Off,تأیید نهایی
+auto.60d5ab46,Assign Role,اختصاص نقش
+auto.60e4ca42,Service Orders,سفارشات خدمات
+auto.60edb271,Select role,نقش را انتخاب کنید
+auto.60f5629b,Source *,منبع *
+auto.6116c067,Project ID,شناسه پروژه
+auto.6119cc42,Status,وضعیت
+auto.6127cb53,Obsolete Date,تاریخ منسوخ شدن
+auto.614155d4,All,همه
+auto.6142939b,File:,فایل:
+auto.617a0285,Loading...,در حال بارگذاری...
+auto.61a30d03,Please contact system administrator for future enhancement.,لطفاً برای بهبودهای آینده با مدیر سیستم تماس بگیرید.
+auto.61d10c66,Delete,حذف
+auto.61fa1bd1,Document #,شماره سند
+auto.623f0d0f,All Projects,همه پروژه‌ها
+auto.62a59b5a,Product,محصول
+auto.62aec700,Packed,بسته‌بندی شده
+auto.62c9ede3,Running,در حال اجرا
+auto.62d78dca,Pending,در انتظار
+auto.63a1ee44,Type,نوع
+auto.63c3c233,+ Add Parameter,+ افزودن پارامتر
+auto.63c7f32c,All,همه
+auto.63d4c0e7,Sales &gt; Customers Management,فروش &gt; مدیریت مشتریان
+auto.63dbc379,Status,وضعیت
+auto.63e1fcc6,Back to List,بازگشت به لیست
+auto.63ede13a,Close,بستن
+auto.63efda13,Supplier,تأمین‌کننده
+auto.63f18067,Document:,سند:
+auto.63fe59a7,Subcontract Dashboard,داشبورد برون‌سپاری
+auto.640c50b5,Status,وضعیت
+auto.64427bd4,Result,نتیجه
+auto.644695f3,Customer Projects,پروژه‌های مشتری
+auto.644cef5e,Workflow Step,مرحله گردش کار
+auto.6468d52e,Overloaded Centers,مراکز بارگذاری بیش از حد
+auto.646e3fd5,0,۰
+auto.648f25f4,Manufacturing,تولید
+auto.64970d2d,All categories,همه دسته‌ها
+auto.64bde848,Win/Loss Reason,دلیل برد/باخت
+auto.64d943b2,Document,سند
+auto.64de9d7b,Scenario List,لیست سناریوها
+auto.6509a0b8,Notes,یادداشت‌ها
+auto.6517c80d,in,در
+auto.654110c2,Budget Util.,استفاده از بودجه
+auto.654765d9,Code *,کد *
+auto.6553e254,Adjust Stock,تعدیل موجودی
+auto.656657e2,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.65833114,0,۰
+auto.6593262a,Permissions (JSON),مجوزها (JSON)
+auto.659b4d6f,Cancel,لغو
+auto.65a3b26d,Close,بستن
+auto.65b2dfb8,Product,محصول
+auto.65e0a640,Status,وضعیت
+auto.65ec28f4,Sampling Size,حجم نمونه
+auto.65f08546,Checked Out,خارج شده
+auto.6617ec4c,Work Instruction,دستورالعمل کار
+auto.662b1ebb,Loading orders...,در حال بارگذاری سفارشات...
+auto.663a605a,0,۰
+auto.66460c27,Loading...,در حال بارگذاری...
+auto.664782e7,Create New,ایجاد جدید
+auto.66485857,Users by Role,کاربران بر اساس نقش
+auto.665657d1,Pending,در انتظار
+auto.666d1ff6,Refresh,تازه‌سازی
+auto.66722fb5,New Password (min 6),رمز عبور جدید (حداقل ۶ کاراکتر)
+auto.668542f2,All,همه
+auto.66892d28,Add Product,افزودن محصول
+auto.668efb36,Value:,مقدار:
+auto.66ac0667,Failed,ناموفق
+auto.66c74d7b,New,جدید
+auto.6706a148,Total Milestones,کل نقاط عطف
+auto.6719811e,Loading operations...,در حال بارگذاری عملیات...
+auto.671c9c3d,Plan Audit,برنامه ریزی ممیزی
+auto.672d3b88,Export CSV,خروجی CSV
+auto.6739bcc2,Workflow Code *,کد گردش کار *
+auto.6742d47c,📎 Export CSV,📎 خروجی CSV
+auto.674ee12e,Apply Filters,اعمال فیلترها
+auto.675d1696,"Quantity (+ increase, - decrease) *","مقدار (+ افزایش، - کاهش) *"
+auto.676e0893,Delete,حذف
+auto.678b4e2e,Production Order,سفارش تولید
+auto.678d6a67,-,-
+auto.67935b0b,0,۰
+auto.67940adb,Add Routing Step,افزودن مرحله مسیریابی
+auto.67e1f713,Loading...,در حال بارگذاری...
+auto.67ee57e8,CAPA Management,مدیریت اقدامات اصلاحی و پیشگیرانه
+auto.680767ae,Description,توضیحات
+auto.683cef31,New Password (min. 6 characters),رمز عبور جدید (حداقل ۶ کاراکتر)
+auto.6855b6ab,Cancel,لغو
+auto.68561f7e,All,همه
+auto.68578152,Assigned To,اختصاص داده شده به
+auto.6883ee0f,-,-
+auto.68b3ca42,Cancel,لغو
+auto.68cea708,Serial Number,شماره سریال
+auto.6928e75f,Create New,ایجاد جدید
+auto.6930fb06,Loading...,در حال بارگذاری...
+auto.6935b824,Product *,محصول *
+auto.693e0562,Upload New Revision (optional),بارگذاری بازبینی جدید (اختیاری)
+auto.6964fbd0,Cancel,لغو
+auto.69679fea,Work Center,مرکز کار
+auto.6969f0aa,Only if priority equals ,فقط اگر اولویت برابر باشد با
+auto.6974f9ef,Due Date From,تاریخ سررسید از
+auto.69829cff,{,{
+auto.69841549,Only for certain departments,فقط برای دپارتمان‌های خاص
+auto.69874c4d,Code,کد
+auto.69b8c8de,Warranty,گارانتی
+auto.69c16c22,In Progress,در حال انجام
+auto.69dfd205,Operation,عملیات
+auto.69f53f94,Save,ذخیره
+auto.6a0d2eb8,All Suppliers,همه تأمین‌کنندگان
+auto.6a16cd70,Product *,محصول *
+auto.6a2b0343,Cancel,لغو
+auto.6a37190e,PO#,شماره سفارش خرید
+auto.6a3a24a4,0 items selected,۰ آیتم انتخاب شده
+auto.6a542057,Category,دسته‌بندی
+auto.6a6c59c9,Select template to copy,الگو را برای کپی انتخاب کنید
+auto.6a6f279e,Batch #,شماره دسته
+auto.6a87225d,Order Type,نوع سفارش
+auto.6a918f6e,Save Plan,ذخیره برنامه
+auto.6aa77543,Date,تاریخ
+auto.6ac007db,MRP,برنامه‌ریزی مواد
+auto.6ac56767,Your Email,ایمیل شما
+auto.6ae47fb2,Corrective,اصلاحی
+auto.6b0e21ef,Active Sessions,جلسات فعال
+auto.6b6f893c,Archived,بایگانی شده
+auto.6b773567,Notes,یادداشت‌ها
+auto.6b8d3eb7,Source,منبع
+auto.6b8deec8,Select,انتخاب
+auto.6b924c4c,Name,نام
+auto.6bbeb643,Sampling Size,حجم نمونه
+auto.6bc6133b,Serial Numbers,شماره سریال‌ها
+auto.6bd2f4ce,Visual OK?,دیداری OK؟
+auto.6be115a7,Export CSV,خروجی CSV
+auto.6bf174ba,Assigned Workflow Tasks,وظایف گردش کار اختصاص داده شده
+auto.6c1b287e,All,همه
+auto.6c1beeb4,Apply,اعمال
+auto.6c1d067c,"Define which projects, products, customers, or other entities this workflow applies to.","تعیین کنید که این گردش کار برای کدام پروژه‌ها، محصولات، مشتریان یا سایر نهادها اعمال می‌شود."
+auto.6c2f6c84,Document Register &amp; Workflow,ثبت اسناد و گردش کار
+auto.6c3260c0,Skill Level,سطح مهارت
+auto.6c449e97,Actions,عملیات
+auto.6c45ce3f,Currency,ارز
+auto.6c76c7b4,Delete,حذف
+auto.6c9b169a,Yearly,سالانه
+auto.6ca9b16e,Cancel,لغو
+auto.6cdef726,All,همه
+auto.6ce7dc37,0,۰
+auto.6cfbb0d9,Cancel,لغو
+auto.6d05fe2c,Product,محصول
+auto.6d29cf2a,Documents,مدارک
+auto.6d3d5dbb,Employee ID,شماره پرسنلی
+auto.6d41d234,Severity,شدت
+auto.6d4581cd,Date,تاریخ
+auto.6d4b1793,Save All,ذخیره همه
+auto.6d62c4ae,Submit for Approval,ارسال برای تأیید
+auto.6d6909f6,Last Calibration Date (YYYY-MM-DD),تاریخ آخرین کالیبراسیون (YYYY-MM-DD)
+auto.6d6ba97d,Select company,شرکت را انتخاب کنید
+auto.6d74f9a4,Cancel,لغو
+auto.6d7d01cc,Import,ورود
+auto.6d9581e4,Search,جستجو
+auto.6de0ed09,Request Access,درخواست دسترسی
+auto.6dec0dfc,Operation,عملیات
+auto.6e0bb7b4,Planned Orders,سفارشات برنامه‌ریزی شده
+auto.6e0da992,Close,بستن
+auto.6e1aac43,Inspection Workbench,میز کار بازرسی
+auto.6e392572,Description,توضیحات
+auto.6e443b78,Product,محصول
+auto.6e5c7b5c,Quantity,مقدار
+auto.6e9d69f3,In Progress,در حال انجام
+auto.6ece66a3,0,۰
+auto.6ede8a36,Generate,تولید
+auto.6ee55931,-,-
+auto.6ee820ce,Location,مکان
+auto.6efc1668,Repair,تعمیر
+auto.6f171aa7,First of Batch,اولین دسته
+auto.6f360e11,Average Overall Rating,میانگین امتیاز کلی
+auto.6f4e3e14,Alternative,جایگزین
+auto.6f4e58b2,Type *,نوع *
+auto.6f5469b9,Refresh,تازه‌سازی
+auto.6f6fae4b,Handover Status,وضعیت تحویل
+auto.6f924ecd,Version,نسخه
+auto.6f98fd49,Utilisation,استفاده
+auto.6f9ce48c,Product,محصول
+auto.6fbfcdca,Save,ذخیره
+auto.6fc044ca,Status,وضعیت
+auto.6ff9b4bb,All,همه
+auto.702a76ec,All,همه
+auto.7047f6bd,Import,ورود
+auto.704c4bf2,Warranty Status,وضعیت گارانتی
+auto.705b8a4f,Raw Material,مواد اولیه
+auto.706dacc6,0,۰
+auto.70723c2b,0,۰
+auto.70a4c606,Create Customer Project,ایجاد پروژه مشتری
+auto.70a66ae3,Next Due Date (YYYY-MM-DD),تاریخ سررسید بعدی (YYYY-MM-DD)
+auto.70a99794,Skill Level,سطح مهارت
+auto.70b46dfc,Search,جستجو
+auto.70d095b6,In Process Inspection,بازرسی حین فرآیند
+auto.70e2cee3,Cancelled,لغو شده
+auto.70f144a1,Order Date,تاریخ سفارش
+auto.70fb97a9,Quality Management,مدیریت کیفیت
+auto.71132d07,Cancel,لغو
+auto.711c5d61,Submit ,ارسال
+auto.71372ae0,Notes,یادداشت‌ها
+auto.7146d0c5,No data,داده‌ای وجود ندارد
+auto.716c1c7c,Defect Register,ثبت عیوب
+auto.71918af0,All,همه
+auto.71b48000,Order Type,نوع سفارش
+auto.71c9c947,Cancel,لغو
+auto.72137d0c,Are you sure you want to close this NCR?,آیا مطمئن هستید که می‌خواهید این عدم انطباق را ببندید؟
+auto.721a02d5,Loading...,در حال بارگذاری...
+auto.72333559,Export CSV,خروجی CSV
+auto.723d8155,0,۰
+auto.723ecd23,Show only locked documents,فقط مدارک قفل شده را نشان بده
+auto.72659ac2,Financial Summary,خلاصه مالی
+auto.72674587,Customers Management,مدیریت مشتریان
+auto.729265d4,Name *,نام *
+auto.729a62bd,Apply Filters,اعمال فیلترها
+auto.72a7b7b4,0,۰
+auto.72a801e2,Verify &amp; Close,تأیید و بستن
+auto.72b24994,Home,خانه
+auto.72b30174,Loading...,در حال بارگذاری...
+auto.72b3243c,Engineering,مهندسی
+auto.72e3f85b,Actions,عملیات
+auto.72ef1267,Pending My Approval,در انتظار تأیید من
+auto.72f0edf8,Products,محصولات
+auto.72fdaf83,All,همه
+auto.72fdd9e8,Project ID (optional),شناسه پروژه (اختیاری)
+auto.730b419d,Cancel,لغو
+auto.7322f4f4,Calibration,کالیبراسیون
+auto.735c16de,Roles,نقش‌ها
+auto.735e037d,Save Workflow,ذخیره گردش کار
+auto.736e2208,This will mark the action as Completed.,این عمل را به عنوان تکمیل شده علامت می‌زند.
+auto.7376aa79,Completed,تکمیل شده
+auto.73837e16,InProgress,در حال انجام
+auto.73d00357,Create Purchase Order,ایجاد سفارش خرید
+auto.73d518f5,Compare Inspection Results,مقایسه نتایج بازرسی
+auto.73efd912,Warranty (min months),گارانتی (حداقل ماه)
+auto.740e81f8,Record Downtime,ثبت زمان توقف
+auto.74303f2d,Audit Log,سیاهه حسابرسی
+auto.7432f865,Date From,تاریخ از
+auto.74581c62,Work Center,مرکز کار
+auto.747af6ce,-,-
+auto.747edf99,Completion Date,تاریخ تکمیل
+auto.748da47e,Archive,بایگانی
+auto.74a582a4,All,همه
+auto.74d31697,Manager:,مدیر:
+auto.74f9ec82,Clear,پاک کردن
+auto.7507bf5f,Status,وضعیت
+auto.752d5db1,Rev,بازبینی
+auto.7542cefd,Import CSV,ورود CSV
+auto.754f7107,Planned Orders List,لیست سفارشات برنامه‌ریزی شده
+auto.7576d694,Active,فعال
+auto.757cf829,Critical / Major / Minor,بحرانی / عمده / جزئی
+auto.7580d049,Send Link,ارسال لینک
+auto.75a800cf,Edit Order:,ویرایش سفارش:
+auto.75be407c,Total Units Inspected:,کل واحدهای بازرسی شده:
+auto.75d2872e,Status,وضعیت
+auto.75db77ab,Operation Code,کد عملیات
+auto.76105df1,Manufacturing,تولید
+auto.76231756,Shipment Date,تاریخ حمل
+auto.76360de6,0,۰
+auto.763a19c2,All,همه
+auto.76601cc0,Released,آزاد شده
+auto.767a9e08,📎 Export CSV,📎 خروجی CSV
+auto.767ff124,Cancel,لغو
+auto.76b3fc85,Any approver,هر تأییدکننده‌ای
+auto.76b7f369,0,۰
+auto.76c7ee93,Spec Min/Max,حداقل/حداکثر مشخصه
+auto.76efc24a,Generate Certificate,تولید گواهی
+auto.76f0bd31,Assign Quality Plan,اختصاص برنامه کیفیت
+auto.76ffabc9,Hold Ctrl to select multiple serials,برای انتخاب چند سریال کلید Ctrl را نگه دارید
+auto.771fe685,Actions,عملیات
+auto.7728151e,Close,بستن
+auto.772ac5b0,Supplier,تأمین‌کننده
+auto.77365531,Roles (from t_Roles),نقش‌ها (از t_Roles)
+auto.773e48fa,0,۰
+auto.7742fc87,Import Work Centers CSV,ورود CSV مراکز کاری
+auto.77590fc4,0,۰
+auto.778df507,Actions,عملیات
+auto.779f3dbb,Expiry Date (YYYYMMDD),تاریخ انقضا (YYYYMMDD)
+auto.77aceab6,Loading...,در حال بارگذاری...
+auto.77b7b309,Applicable To,قابل اعمال برای
+auto.77d19ef0,0,۰
+auto.77ef4491,Subcontract Orders,سفارشات برون‌سپاری
+auto.77fb1189,EA,هر واحد
+auto.78309084,Status,وضعیت
+auto.785f086f,Warranty (max months),گارانتی (حداکثر ماه)
+auto.7878792b,User,کاربر
+auto.7880978f,📂 Import CSV,📂 ورود CSV
+auto.78b046bd,All,همه
+auto.78b0b11c,+ Create from Production Order,+ ایجاد از سفارش تولید
+auto.78d081d9,Complete,تکمیل
+auto.78fe222e,Issue Materials for Order,صدور مواد برای سفارش
+auto.7940031b,ID,شناسه
+auto.794b30b4,Start Date:,تاریخ شروع:
+auto.796669c7,Status,وضعیت
+auto.79760507,Confirm Receipt,تأیید دریافت
+auto.797e7406,0,۰
+auto.79c2d197,Save,ذخیره
+auto.79d360d8,Defects Per Unit,عیوب به ازای واحد
+auto.79dbe1ca,📂 Import CSV,📂 ورود CSV
+auto.79edd1a7,0,۰
+auto.7a02aebe,Effectiveness Check (notes),بررسی اثربخشی (یادداشت‌ها)
+auto.7a1efe38,Unit Price,قیمت واحد
+auto.7a7ed282,Product,محصول
+auto.7a9f0103,Transfer Stock,انتقال موجودی
+auto.7ad4386a,Delivered,تحویل داده شده
+auto.7ad86ee3,Submitted,ارسال شده
+auto.7b079f5d,Open Actions,اقدامات باز
+auto.7b1df258,Preventive Actions,اقدامات پیشگیرانه
+auto.7b282764,All,همه
+auto.7b373716,"Code, Name, Category, Description, IsActive","کد، نام، دسته، توضیحات، فعال است"
+auto.7b61b9d0,Severity,شدت
+auto.7ba2501d,Engineering,مهندسی
+auto.7ba3b0cf,None,هیچکدام
+auto.7baf7239,0,۰
+auto.7bb6263d,Loading component summary...,در حال بارگذاری خلاصه قطعه...
+auto.7bc9bce0,Due Now,سررسید شده
+auto.7bd90b67,Apply Filters,اعمال فیلترها
+auto.7bff91e5,Conditions,شرایط
+auto.7c134c20,Milestone Prog.,پیشرفت نقطه عطف
+auto.7c162dc7,Root Cause Analysis &amp; CAPA,تحلیل ریشه و اقدامات اصلاحی/پیشگیرانه
+auto.7c1ac420,Submit Inspection Results,ارسال نتایج بازرسی
+auto.7c568d6d,Loading...,در حال بارگذاری...
+auto.7c70a256,Where‑Used Refs,مراجع مورد استفاده
+auto.7c8272e6,External,خارجی
+auto.7cbb2b70,Action,اقدام
+auto.7cc1abbb,Submit,ارسال
+auto.7ce65f46,Action Type *,نوع اقدام *
+auto.7cf69715,Start Date,تاریخ شروع
+auto.7d0b9546,Warranty (months),گارانتی (ماه)
+auto.7d154628,-,-
+auto.7d2e43b3,Apply,اعمال
+auto.7d2ec623,Lines to Ship,ردیف‌های قابل حمل
+auto.7d46b25d,Equipment Maintenance,نگهداری تجهیزات
+auto.7d57f649,Add Rule,افزودن قانون
+auto.7d76c741,Save,ذخیره
+auto.7d88f52b,Total Products,کل محصولات
+auto.7da1a63d,Project,پروژه
+auto.7db24db4,Name,نام
+auto.7dcedf71,Status,وضعیت
+auto.7ddcbc41,Warehouses,انبارها
+auto.7df25bc3,Cancel,لغو
+auto.7df6add7,InProgress,در حال انجام
+auto.7dff1bef,Order #,شماره سفارش
+auto.7e0be655,ECO History,تاریخچه تغییر مهندسی
+auto.7e1567e0,Due This Week,سررسید این هفته
+auto.7e2352a1,0,۰
+auto.7e30f26e,BOM created,لیست مواد ایجاد شد
+auto.7e524e72,Active Only,فقط فعال‌ها
+auto.7e621820,Production Order,سفارش تولید
+auto.7e64472d,Submitted,ارسال شده
+auto.7e6feb2e,Save RCA,ذخیره تحلیل ریشه
+auto.7e7277b1,Allocation %,درصد تخصیص
+auto.7e95b8e7,Upload &amp; Import,بارگذاری و ورود
+auto.7ea066eb,Status,وضعیت
+auto.7eaf574b,Inventory Valuation,ارزیابی موجودی
+auto.7ebea4ca,Product Family,خانواده محصول
+auto.7ee522f8,Location:,مکان:
+auto.7ef44e1c,Import CSV,ورود CSV
+auto.7f2b0cb1,Type,نوع
+auto.7f2fc742,Apply Adjustment,اعمال تعدیل
+auto.7f337bc1,Raise New NCR,ثبت عدم انطباق جدید
+auto.7f3db579,Events Today,رویدادهای امروز
+auto.7f8812bf,Due Date,تاریخ سررسید
+auto.7f9bd8c9,Export CSV,خروجی CSV
+auto.7fe89552,Defect Code,کد عیب
+auto.8017713e,0,۰
+auto.801ee5e6,PO#,شماره سفارش خرید
+auto.80449638,Due Date From,تاریخ سررسید از
+auto.804da5b1,Quality Rating,امتیاز کیفیت
+auto.805aed33,Manufacturing,تولید
+auto.8078b35e,Close,بستن
+auto.80abeb38,📊 Project Portfolio,📊 پرتفوی پروژه
+auto.80af3ec8,Total Runs,کل اجراها
+auto.80fcfc12,Visual,دیداری
+auto.80fdd45a,Low Severity,شدت کم
+auto.811a28e7,Cancel,لغو
+auto.811a3fac,Actions,عملیات
+auto.8148466c,Yes,بله
+auto.81552a41,0,۰
+auto.819894eb,Hours,ساعت‌ها
+auto.81a2a162,{,{
+auto.81bf12c4,0,۰
+auto.81c47d61,All,همه
+auto.81d247e0,Production Orders,سفارشات تولید
+auto.81d498b5,Document Type,نوع سند
+auto.81dd4d6f,Code,کد
+auto.821a5a0d,Cancel,لغو
+auto.82296c9c,Cancel,لغو
+auto.823bc079,All,همه
+auto.824e5a17,Close,بستن
+auto.82670858,*% across active allocations,*٪ در سراسر تخصیص‌های فعال
+auto.826799a2,Completed,تکمیل شده
+auto.82a07d29,Purchasing,خرید
+auto.82c63dcc,Effective Date Key,کلید تاریخ اجرا
+auto.82c7f8cb,Supplier,تأمین‌کننده
+auto.82d04c3b,Dimension A (mm),بعد A (میلی‌متر)
+auto.82ef12a0,Confirm Issue,تأیید صدور
+auto.82ff1ae1,Actions,عملیات
+auto.83333b47,Send Request,ارسال درخواست
+auto.83384f3d,Checked Out Documents,مدارک خارج شده
+auto.833ed339,Actions,عملیات
+auto.83564a61,Inspection Operations,عملیات بازرسی
+auto.836801e4,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.836acb13,Minor,جزئی
+auto.8372edf2,All,همه
+auto.838c388c,Inspection Batches,دسته‌های بازرسی
+auto.8391ee20,Scans Today,اسکن‌های امروز
+auto.83a25e84,Released,آزاد شده
+auto.83b3dc46,Supplier,تأمین‌کننده
+auto.83c0df1c,Name,نام
+auto.83c13788,Manufacturing,تولید
+auto.83e1ae91,RADMAN PJSCO,رادمان پیجسکو
+auto.83f8c65d,Inspector,بازرس
+auto.840f5e9b,Closed,بسته شده
+auto.841105a7,All Projects,همه پروژه‌ها
+auto.843e763b,Work Center *,مرکز کار *
+auto.8454be40,All,همه
+auto.845f7dcc,All,همه
+auto.848c6d98,Status,وضعیت
+auto.84bc4e1e,Status,وضعیت
+auto.84bed7e5,Quantity,مقدار
+auto.84dff5e6,Projects,پروژه‌ها
+auto.84e6cc75,Effective Date (YYYYMMDD),تاریخ اجرا (YYYYMMDD)
+auto.84e6fe64,0,۰
+auto.85304408,Draft,پیش‌نویس
+auto.855c571e,Plan Name *,نام برنامه *
+auto.85689f6a,Comments,نظرات
+auto.8572ea83,Project Manager,مدیر پروژه
+auto.85d2048f,Production Schedule (Gantt),برنامه تولید (گانت)
+auto.85dd8e86,Permissions Matrix,ماتریس مجوزها
+auto.85f2d634,Active only,فقط فعال‌ها
+auto.85fd36d2,Open Orders,سفارشات باز
+auto.85ff0b1d,Where-Used,مورد استفاده
+auto.861ca2f7,Condition Examples,مثال‌های شرط
+auto.862904a5,Supplier Category,دسته تأمین‌کننده
+auto.864d2c1d,Unit Price (per item),قیمت واحد (به ازای هر آیتم)
+auto.86574e77,🇬🇧 EN,🇬🇧 EN
+auto.865a6c41,2 - Medium,۲ - متوسط
+auto.866b414f,Budget,بودجه
+auto.867d8769,Closed,بسته شده
+auto.8680e7b7,Cancel,لغو
+auto.868a259b,Check Out,خروج
+auto.86a6ca09,Status,وضعیت
+auto.86a89a2a,All,همه
+auto.86d1b8ae,Status,وضعیت
+auto.86e38131,Engineering,مهندسی
+auto.870b868a,User *,کاربر *
+auto.87149a0b,Category,دسته‌بندی
+auto.873bb62a,Create CAPA Action,ایجاد اقدام اصلاحی/پیشگیرانه
+auto.87778c0f,0,۰
+auto.8789ef98,Status,وضعیت
+auto.87b4a36b,Engineering Documents,مدارک مهندسی
+auto.87f2ad93,Capacity (hrs/day),ظرفیت (ساعت/روز)
+auto.8812643f,Sent,ارسال شد
+auto.883f2c64,Order ID,شناسه سفارش
+auto.88521674,Dimensional,بعدی
+auto.88e32b7c,Sent,ارسال شد
+auto.8908ab97,Internal,داخلی
+auto.891eeafc,- / - / -,- / - / -
+auto.8926319a,Manufactured,تولید شده
+auto.893ff4b6,Apply,اعمال
+auto.89421cf1,Receive Against PO,دریافت بر اساس سفارش خرید
+auto.895811cd,Create Action,ایجاد اقدام
+auto.89788c6c,-,-
+auto.89a3895d,Duration (s),مدت (ثانیه)
+auto.89c9190d,Report Defect,گزارش عیب
+auto.89fe86d1,Delete,حذف
+auto.8a018405,Active,فعال
+auto.8a06417b,Doc Status,وضعیت سند
+auto.8a064417,Add,افزودن
+auto.8a2f93ca,Active only,فقط فعال‌ها
+auto.8a319329,Checked Out Date,تاریخ خروج
+auto.8a326efa,All Projects,همه پروژه‌ها
+auto.8a91fe84,Utilisation,استفاده
+auto.8a9dcb92,Add Shift,افزودن شیفت
+auto.8aa07acc,Apply,اعمال
+auto.8aabf1cb,Decide on ,تصمیم‌گیری در مورد
+auto.8ac2d233,Cancel,لغو
+auto.8aeeb494,Standard Cost,هزینه استاندارد
+auto.8b265f58,Shipment#,شماره حمل
+auto.8b44a82c,Cancel,لغو
+auto.8b508ae9,All,همه
+auto.8b6a5ef2,Inspection &amp; Test Equipment,تجهیزات بازرسی و آزمون
+auto.8b75f6c2,Status,وضعیت
+auto.8b764319,0,۰
+auto.8b87da60,0,۰
+auto.8ba546aa,Run Date,تاریخ اجرا
+auto.8bc62c2c,Add Equipment,افزودن تجهیزات
+auto.8beed1ed,Preventive,پیشگیرانه
+auto.8c1260f8,In Progress,در حال انجام
+auto.8c2ab1db,Active,فعال
+auto.8c5e070f,0,۰
+auto.8c7a22b1,Customer Projects,پروژه‌های مشتری
+auto.8c7be2ab,All,همه
+auto.8c804cc4,Save Assignment,ذخیره انتساب
+auto.8c81ec6b,Grant Entity Permission,اعطای مجوز نهاد
+auto.8c88fed7,Status,وضعیت
+auto.8c8c34eb,Supply Chain,زنجیره تأمین
+auto.8c9e64dd,Search (code or name),جستجو (کد یا نام)
+auto.8cc2325d,Date From,تاریخ از
+auto.8ccdfb0f,0,۰
+auto.8cd9b736,Actions,عملیات
+auto.8cf3223d,Purchase Order Number (optional),شماره سفارش خرید (اختیاری)
+auto.8d05689b,Company:,شرکت:
+auto.8d0b8f07,+ Create Project,+ ایجاد پروژه
+auto.8d198eed,+ Assign Resource,+ تخصیص منابع
+auto.8d1d1728,Save,ذخیره
+auto.8d2a0319,Apply,اعمال
+auto.8d41481e,Operation Sequence *,ترتیب عملیات *
+auto.8d41f593,Purchase Orders,سفارشات خرید
+auto.8d53f096,New End Date,تاریخ پایان جدید
+auto.8d601cf9,Loading configurations...,در حال بارگذاری پیکربندی‌ها...
+auto.8d8347c2,Effectivity:,اجرا:
+auto.8d85c3c3,Pending Approval,در انتظار تأیید
+auto.8d8ca004,Closed,بسته شده
+auto.8d901142,Shipped,حمل شده
+auto.8da73404,Due Date (YYYYMMDD),تاریخ سررسید (YYYYMMDD)
+auto.8dd341f4,Responded,پاسخ داده شده
+auto.8de214f1,Work Center,مرکز کار
+auto.8df8abb4,Select product...,محصول را انتخاب کنید...
+auto.8e1a92ba,"Action Taken (e.g., repair, replace, raise NCR)","اقدام انجام شده (مثلاً تعمیر، تعویض، ثبت عدم انطباق)"
+auto.8e245955,Status,وضعیت
+auto.8e3343f0,Effectivity Date,تاریخ اجرا
+auto.8e43c2dd,Cancel,لغو
+auto.8e70697e,Select user,کاربر را انتخاب کنید
+auto.8e7dbe68,Planning Horizon (days),افق برنامه‌ریزی (روز)
+auto.8e96b690,Required,الزامی
+auto.8ea20902,WIP,در جریان تولید
+auto.8eb17fd1,Engineering,مهندسی
+auto.8ec0c464,Carrier (manual),حامل (دستی)
+auto.8ec9aabf,Username *,نام کاربری *
+auto.8ed0468f,Severity,شدت
+auto.8ee35866,Quality Trends (Monthly),روند کیفیت (ماهانه)
+auto.8f37dbdb,Audit Type,نوع ممیزی
+auto.8f469347,Project Roles &amp; Permissions,نقش‌ها و مجوزهای پروژه
+auto.8f61bcab,Received Quantity,مقدار دریافت شده
+auto.8fa03140,Status,وضعیت
+auto.8fa4d715,Assigned To,اختصاص داده شده به
+auto.8faee323,All Types,همه انواع
+auto.902e24b6,Night,شب
+auto.90431dbc,Project Name *,نام پروژه *
+auto.904693ca,Expedite Request,درخواست تسریع
+auto.904e8cbc,All,همه
+auto.9058ad3a,Reset,بازنشانی
+auto.9090b148,Finished Goods,کالای تمام شده
+auto.9090b844,Project ID,شناسه پروژه
+auto.90912ee6,Pending Batches,دسته‌های در انتظار
+auto.90b5fd94,Date Key,کلید تاریخ
+auto.90c10fab,Pending Batches,دسته‌های در انتظار
+auto.90e18a98,Responsible Person,شخص مسئول
+auto.90e2c3eb,Audit #,شماره ممیزی
+auto.90f0542d,Source,منبع
+auto.90f9031d,Audit Type,نوع ممیزی
+auto.9102d372,Code,کد
+auto.9112a695,Reject,رد
+auto.9116dbe1,All,همه
+auto.911c80a5,Refresh,تازه‌سازی
+auto.91238bcc,Add User,افزودن کاربر
+auto.913c415d,Active Workflows,گردش‌های کار فعال
+auto.91411395,Username,نام کاربری
+auto.9168754c,UOM,واحد اندازه‌گیری
+auto.916f8d64,Description (English),توضیحات (انگلیسی)
+auto.9183105c,Product,محصول
+auto.91b4bf7f,0,۰
+auto.91c1de0f,Internal Steps,مراحل داخلی
+auto.91c46a1d,PO#,شماره سفارش خرید
+auto.91e679c5,Import,ورود
+auto.91e7876c,Actions,عملیات
+auto.922897eb,Preventive,پیشگیرانه
+auto.922dcb88,Loading...,در حال بارگذاری...
+auto.923feade,Export CSV,خروجی CSV
+auto.92450238,Must change password at next login,باید در ورود بعدی رمز عبور را تغییر دهید
+auto.926d6aab,User,کاربر
+auto.929d5bb0,New Status,وضعیت جدید
+auto.92d4fe86,Report Quantity,گزارش مقدار
+auto.930c19cc,Draft,پیش‌نویس
+auto.931c2f95,Cancel,لغو
+auto.93220c09,Users with Exceptions,کاربران دارای استثنا
+auto.9324875d,Category,دسته‌بندی
+auto.936eb41c,Edit Steps:,ویرایش مراحل:
+auto.9372f4b3,Name:,نام:
+auto.9374c3c1,Severity,شدت
+auto.939326ec,Inventory Valuation,ارزیابی موجودی
+auto.93eda704,Cancel,لغو
+auto.93f1394d,Refresh,تازه‌سازی
+auto.93f848df,GBP,پوند استرلینگ
+auto.9430e17a,0,۰
+auto.943bb5b8,Generate serial numbers,تولید شماره سریال‌ها
+auto.9440f434,Status,وضعیت
+auto.9450e242,Failed,ناموفق
+auto.946f9b7b,Status,وضعیت
+auto.9492096b,Location,مکان
+auto.94951d34,Expiry Date,تاریخ انقضا
+auto.9495e93b,Eng Version,نسخه مهندسی
+auto.949e8e1a,Department,دپارتمان
+auto.94a95cac,Status,وضعیت
+auto.94b040c0,Module *,ماژول *
+auto.94c59a78,InProgress,در حال انجام
+auto.94cc22ed,Budget:,بودجه:
+auto.94e98d97,Completed,تکمیل شده
+auto.94f8218a,📂 Import CSV,📂 ورود CSV
+auto.9528d825,Start,شروع
+auto.9531b015,Signed,امضا شده
+auto.95794290,Inactive,غیرفعال
+auto.95837969,Finalized Engineering Items,آیتم‌های مهندسی نهایی شده
+auto.95a9cb48,Home,خانه
+auto.95b03dc2,Shipments,حمل‌ها
+auto.95b5cdf0,Apply,اعمال
+auto.95b5f622,Product,محصول
+auto.95c17294,All,همه
+auto.95df4a0f,Completed,تکمیل شده
+auto.95fda5fe,0,۰
+auto.960ee3d4,Password,رمز عبور
+auto.961fa224,This is a Bootstrap 5 modal test.,این یک تست پنجره Bootstrap 5 است.
+auto.9647d4ef,Pass,قبول
+auto.966885ec,External Users (Portal),کاربران خارجی (پورتال)
+auto.96709c3f,Customer Project ID *,شناسه پروژه مشتری *
+auto.968545de,Quality,کیفیت
+auto.96858680,Document:,سند:
+auto.96914001,Actions,عملیات
+auto.96a81587,Pending Activations,فعال‌سازی‌های در انتظار
+auto.96eb9cf9,Pending Approval,در انتظار تأیید
+auto.974c6e1b,Purchased,خریداری شده
+auto.975ae67c,Issued So Far,صادر شده تا کنون
+auto.978ec075,Created Date,تاریخ ایجاد
+auto.97a537eb,Reset Password,بازنشانی رمز عبور
+auto.97b7779f,Refresh,تازه‌سازی
+auto.97c04b45,Company,شرکت
+auto.97d3428a,No data,داده‌ای وجود ندارد
+auto.97e11ebe,Open,باز
+auto.97e24d9a,Raise NCR,ثبت عدم انطباق
+auto.97e8b863,"Yes, Complete",بله، تکمیل شود
+auto.98107b7c,Save All Results,ذخیره همه نتایج
+auto.9812aa1b,Suppliers,تأمین‌کنندگان
+auto.98208b50,Root Cause,علت ریشه‌ای
+auto.982e31e3,All,همه
+auto.982f184b,Warehouse,انبار
+auto.9846a1a9,Skill Level,سطح مهارت
+auto.98605ec7,Export CSV,خروجی CSV
+auto.9868a124,Pressure,فشار
+auto.9870d9f4,External,خارجی
+auto.988079a0,Status,وضعیت
+auto.9884a606,Status,وضعیت
+auto.98d00b7a,Last Modified,آخرین ویرایش
+auto.98ea8ce3,0,۰
+auto.98f8b4d5,Refresh,تازه‌سازی
+auto.9923a5b2,Quality Control Operations,عملیات کنترل کیفیت
+auto.9927836c,Batch Sign Off,تأیید نهایی دسته
+auto.993484e5,Project,پروژه
+auto.9943c75f,Refresh,تازه‌سازی
+auto.99d02254,Signature Audit Log,سیاهه حسابرسی امضا
+auto.99e7375c,Actions,عملیات
+auto.99eac220,Template Name *,نام الگو *
+auto.99f00ff6,Import Document Types CSV,ورود CSV انواع سند
+auto.9a320737,0%,۰٪
+auto.9a4842f8,Due Date To,تاریخ سررسید تا
+auto.9a4d78f6,Purchase,خرید
+auto.9a556758,Assign,اختصاص
+auto.9a796a05,Try adjusting your filters or create a new assignment.,سعی کنید فیلترهای خود را تنظیم کنید یا یک انتساب جدید ایجاد کنید.
+auto.9ad10104,Source Type *,نوع منبع *
+auto.9adf656c,Apply Filters,اعمال فیلترها
+auto.9aefdc0a,Due Date From,تاریخ سررسید از
+auto.9af5463c,Add Warehouse,افزودن انبار
+auto.9b060745,Out of Tolerance Action,اقدام خارج از محدوده تحمل
+auto.9b110225,Document:,سند:
+auto.9b12a1bf,All Roles,همه نقش‌ها
+auto.9b3982e6,Stock Records,سوابق موجودی
+auto.9b4d6566,Record ID,شناسه رکورد
+auto.9b4f7920,Overdue,دیرکرد
+auto.9b598f0e,Configuration Parameters,پارامترهای پیکربندی
+auto.9b661c12,0,۰
+auto.9b93e1aa,Specification,مشخصات
+auto.9b95da26,Warehouse,انبار
+auto.9b989c24,Adjust Standard Cost,تعدیل هزینه استاندارد
+auto.9b9ef726,Active Jobs,کارهای فعال
+auto.9be35cc7,0,۰
+auto.9bfb0bac,Status:,وضعیت:
+auto.9c0215b7,Actions,عملیات
+auto.9c081e10,Afternoon,بعد از ظهر
+auto.9c1fc21d,Create What-If Scenario,ایجاد سناریوی چه-اگر
+auto.9c2d757a,Action,اقدام
+auto.9c336e9e,Loading...,در حال بارگذاری...
+auto.9c4985e3,Username or Email,نام کاربری یا ایمیل
+auto.9c64efa0,Queue Time (hrs),زمان صف (ساعت)
+auto.9c68dd13,Select User,انتخاب کاربر
+auto.9c69b8c1,Upload New Revision (optional),بارگذاری بازبینی جدید (اختیاری)
+auto.9c6decf7,Standard Cost,هزینه استاندارد
+auto.9c79d8e1,Project *,پروژه *
+auto.9c7b7574,Import,ورود
+auto.9c924ff4,Refresh,تازه‌سازی
+auto.9cabf07c,View Quality Plan,مشاهده برنامه کیفیت
+auto.9cb06d36,Address,آدرس
+auto.9cbf6816,Quantity *,مقدار *
+auto.9ce8e6b0,Scheduled,برنامه‌ریزی شده
+auto.9cf8c2b3,👥 Resource Allocation,👥 تخصیص منابع
+auto.9d0106ea,0%,۰٪
+auto.9d12795b,0,۰
+auto.9d19df57,Inventory,موجودی
+auto.9d1a701d,Basic,پایه
+auto.9d431989,Remember me,مرا به خاطر بسپار
+auto.9d462014,Cancel,لغو
+auto.9d53ba47,Select a run to view orders,یک اجرا را برای مشاهده سفارشات انتخاب کنید
+auto.9d6df90b,Draft,پیش‌نویس
+auto.9d72ed05,+ Add Milestone,+ افزودن نقطه عطف
+auto.9da15286,Next Due,سررسید بعدی
+auto.9daacbfd,Are you sure you want to archive this operation? It will no longer appear in active lists.,آیا مطمئن هستید که می‌خواهید این عملیات را بایگانی کنید؟ دیگر در لیست‌های فعال ظاهر نخواهد شد.
+auto.9dac341c,Password (new user only),رمز عبور (فقط برای کاربر جدید)
+auto.9dafa0c2,← Back to Dashboard,← بازگشت به داشبورد
+auto.9ddb2428,Copy from existing template,کپی از الگوی موجود
+auto.9df4b9f5,Total Batches:,کل دسته‌ها:
+auto.9e15dfd9,Work Centers,مراکز کاری
+auto.9e3bf5e3,Draft,پیش‌نویس
+auto.9e50363a,Save,ذخیره
+auto.9e585c6b,Products Created,محصولات ایجاد شده
+auto.9e5bae31,Description,توضیحات
+auto.9edccce1,-,-
+auto.9eeee17c,Report Defect,گزارش عیب
+auto.9ef010f0,Start Job,شروع کار
+auto.9efeeabc,Home,خانه
+auto.9f1e440e,Active,فعال
+auto.9f52e204,0,۰
+auto.9f5b29e1,Reschedule Order,برنامه‌ریزی مجدد سفارش
+auto.9f92a257,Warehouse *,انبار *
+auto.9fc09060,Measured Value,مقدار اندازه‌گیری شده
+auto.9fd5b3b5,Active,فعال
+auto.9fdf6346,Add Work Center,افزودن مرکز کار
+auto.9fe0b6b2,Closed,بسته شده
+auto.9ff29b27,Signed,امضا شده
+auto.9ffa5d83,Actions,عملیات
+auto.9ffaae7b,Import JSON,ورود JSON
+auto.a006c60d,Under Review,در حال بررسی
+auto.a017d584,Schedule Type,نوع برنامه
+auto.a01a20b2,Select Product,انتخاب محصول
+auto.a0341f2e,Specification,مشخصات
+auto.a054e9f4,Sampling,نمونه‌برداری
+auto.a060f46a,Export CSV,خروجی CSV
+auto.a0aba3e6,Home,خانه
+auto.a0df5013,Workflow Designer,طراح گردش کار
+auto.a0e7df17,Edit Configuration,ویرایش پیکربندی
+auto.a0fa70f5,Select run to view exceptions,یک اجرا را برای مشاهده استثناها انتخاب کنید
+auto.a105dda2,Digital Signature (PIN),امضای دیجیتال (PIN)
+auto.a118a91a,Due Date,تاریخ سررسید
+auto.a1206c38,Due Date,تاریخ سررسید
+auto.a12be5a1,Document Type,نوع سند
+auto.a1472493,-,-
+auto.a160b7d3,Quality Templates,الگوهای کیفیت
+auto.a169a1bd,Active Users,کاربران فعال
+auto.a17f5725,Closed,بسته شده
+auto.a19468d5,Warehouse,انبار
+auto.a1c387ac,auto.a1c387ac,auto.a1c387ac
+auto.a1cb4936,-,-
+auto.a1d6707b,Assigned Jobs,کارهای اختصاص داده شده
+auto.a1d93dcc,Supplier,تأمین‌کننده
+auto.a1e782c2,Loading...,در حال بارگذاری...
+auto.a200b824,Upload,بارگذاری
+auto.a207ec27,Work Instruction,دستورالعمل کار
+auto.a20968e8,Priority,اولویت
+auto.a20bd2e3,Reminders,یادآوری‌ها
+auto.a233125d,← Back to Dashboard,← بازگشت به داشبورد
+auto.a23f2e62,Min Value,حداقل مقدار
+auto.a2412225,Report Defect,گزارش عیب
+auto.a246de2e,Required columns:,ستون‌های مورد نیاز:
+auto.a250577b,Home,خانه
+auto.a2728931,-,-
+auto.a2953631,Exception Type,نوع استثنا
+auto.a2a6663b,0,۰
+auto.a3150794,0,۰
+auto.a369fec8,File,فایل
+auto.a36a94c6,All Products,همه محصولات
+auto.a3bdf5ca,Released Production Orders (supply),سفارشات تولید آزاد شده (تأمین)
+auto.a3de7e82,Cancel,لغو
+auto.a3e08ccf,Active,فعال
+auto.a3e33df0,Record Calibration,ثبت کالیبراسیون
+auto.a43d1e6d,Source Type,نوع منبع
+auto.a4406ad9,Reject Batch,رد دسته
+auto.a4794437,Category,دسته‌بندی
+auto.a4806c40,Prepared By,تهیه شده توسط
+auto.a485594d,Bin configuration is not yet implemented in this version.,پیکربندی باین در این نسخه پیاده‌سازی نشده است.
+auto.a49a958a,Project Name,نام پروژه
+auto.a4a1025f,📋 Project BOM,📋 لیست مواد پروژه
+auto.a4bcc8c8,0,۰
+auto.a4c839aa,Assign,اختصاص
+auto.a4cc9261,Create,ایجاد
+auto.a4d31209,Status,وضعیت
+auto.a4d6cd10,Overdue,دیرکرد
+auto.a4d961bc,Mass Update,به‌روزرسانی انبوه
+auto.a4dabff3,Email *,ایمیل *
+auto.a4e4a5c5,Quantity,مقدار
+auto.a4eee7a3,Currency,ارز
+auto.a512491b,Actual Cost,هزینه واقعی
+auto.a51e92ae,Operation *,عملیات *
+auto.a523ab0c,Document Type,نوع سند
+auto.a546e563,Product,محصول
+auto.a5674199,Cancel,لغو
+auto.a5af8767,Loading roles...,در حال بارگذاری نقش‌ها...
+auto.a5ef72f6,Certificate,گواهی
+auto.a5f7c443,Receiving,دریافت
+auto.a609fba0,Report,گزارش
+auto.a6234d3d,Work Center List,لیست مراکز کاری
+auto.a62e6405,0,۰
+auto.a64cf16a,Expiring Soon (≤7 days),در حال انقضا (≤۷ روز)
+auto.a64e4311,Custom?,سفارشی؟
+auto.a651b2f3,Update Shipment Status,به‌روزرسانی وضعیت حمل
+auto.a6703859,Technician ID,شناسه تکنسین
+auto.a691dfae,Status:,وضعیت:
+auto.a6b87f5a,Draft,پیش‌نویس
+auto.a6e731ab,Draft,پیش‌نویس
+auto.a6eb2f05,Import CSV,ورود CSV
+auto.a6efc0cd,{,{
+auto.a716720f,Product ID *,شناسه محصول *
+auto.a74f220e,Shipping,حمل
+auto.a760d692,Disposition,تعیین تکلیف
+auto.a774f506,Total Quantity On Hand,کل موجودی در دست
+auto.a79f23c2,Work Center,مرکز کار
+auto.a7a5bb65,Measured Value,مقدار اندازه‌گیری شده
+auto.a7c3c62d,Inactive Only,فقط غیرفعال‌ها
+auto.a7c65a32,Rejected,رد شده
+auto.a7ecd4b4,Component Details,جزئیات قطعه
+auto.a7eea6ea,Last Login,آخرین ورود
+auto.a840bc3a,Capacity Planning,برنامه‌ریزی ظرفیت
+auto.a8450697,Quantity,مقدار
+auto.a84a4707,Reset,بازنشانی
+auto.a8531ed4,Name *,نام *
+auto.a87a2f41,Status,وضعیت
+auto.a885cc03,Total Components,کل قطعات
+auto.a88d185b,All,همه
+auto.a8982b49,Internal,داخلی
+auto.a9063135,Supplier,تأمین‌کننده
+auto.a90c8db0,Engineering,مهندسی
+auto.a94a0ae4,Project (optional),پروژه (اختیاری)
+auto.a94ebf17,0%,۰٪
+auto.a9ba8cc1,-,-
+auto.a9be38f7,Schedule Maintenance,برنامه ریزی نگهداری
+auto.a9ee6fa0,-,-
+auto.a9f1a4f3,Return to Supplier,بازگشت به تأمین‌کننده
+auto.aa21cb81,Revision,بازبینی
+auto.aa278e90,0,۰
+auto.aa2c8ad9,Request Expedite,درخواست تسریع
+auto.aa450bf7,System Configuration,پیکربندی سیستم
+auto.aa4b9dff,Import CSV,ورود CSV
+auto.aa535991,Branding,برندینگ
+auto.aa76f22f,Quantity,مقدار
+auto.aac9d267,Manufacturing,تولید
+auto.aad46231,Cancel,لغو
+auto.aad5340f,-,-
+auto.aaec9022,Inspection,بازرسی
+auto.aaecb9ea,Total Steps,کل مراحل
+auto.aaf10330,Reset Password,بازنشانی رمز عبور
+auto.ab277db6,Cancel,لغو
+auto.ab66eb04,Import/Export,ورود/خروج
+auto.ab7838a5,0,۰
+auto.ab9c94e2,GBP,پوند استرلینگ
+auto.abbeaff1,Workflow Definitions,تعاریف گردش کار
+auto.abc73e40,Confirm Receipt,تأیید دریافت
+auto.abcc61e3,Cancel,لغو
+auto.abd59130,User Exceptions,استثناهای کاربر
+auto.ac0a1ebb,Finished Goods,کالای تمام شده
+auto.ac21038f,Add Contact,افزودن مخاطب
+auto.ac247fb8,Document Type,نوع سند
+auto.ac3ed41b,Available,موجود
+auto.ac4b96ea,Open Purchase Orders (supply),سفارشات خرید باز (تأمین)
+auto.ac5b81fe,0,۰
+auto.ac671ae4,Cancel,لغو
+auto.ac89e82a,Active only,فقط فعال‌ها
+auto.ac9a5bf2,Document Number,شماره سند
+auto.ac9c52ba,Product,محصول
+auto.aca01d11,Import CSV,ورود CSV
+auto.aca1fc94,Full Name *,نام کامل *
+auto.aca800bd,All,همه
+auto.acb04ec4,Add Reminder,افزودن یادآوری
+auto.acc1e0d1,Permissions (JSON) – override role permissions,مجوزها (JSON) – لغو مجوزهای نقش
+auto.acd616e6,Cancel,لغو
+auto.acd89e28,Cancel,لغو
+auto.ad04e579,Create Product,ایجاد محصول
+auto.ad0ca669,Import Configuration JSON,ورود JSON پیکربندی
+auto.ad14778b,Supplier Details,جزئیات تأمین‌کننده
+auto.ad1923bd,Total Inventory Value,ارزش کل موجودی
+auto.ad398643,Description,توضیحات
+auto.ad398e1e,Name *,نام *
+auto.ad4f7b3f,-,-
+auto.ad6f4856,Role,نقش
+auto.ad7e5f5f,0,۰
+auto.ad9d9998,0,۰
+auto.adb70c25,Loading...,در حال بارگذاری...
+auto.adc44f65,0,۰
+auto.adc665ce,Add Component,افزودن قطعه
+auto.adddf060,Duration (minutes),مدت (دقیقه)
+auto.ade62d88,Defect Rate,نرخ عیب
+auto.ae060d48,Approve or Reject,تأیید یا رد
+auto.ae36d197,Cancel,لغو
+auto.ae4a1cdd,Project Name *,نام پروژه *
+auto.ae74b1c6,Manufacturing,تولید
+auto.ae841c9c,Certificates of Conformance,گواهی‌های انطباق
+auto.ae851e0a,Completed Today,تکمیل شده امروز
+auto.ae97d24c,Project ID,شناسه پروژه
+auto.aea8c787,Upload New Document,بارگذاری سند جدید
+auto.aeb0c148,Total Planned,کل برنامه‌ریزی شده
+auto.aeb32fca,Product,محصول
+auto.aec8ffde,Supply Chain,زنجیره تأمین
+auto.aeffd789,Delivery Rating,امتیاز تحویل
+auto.af591b3e,Status,وضعیت
+auto.af88c040,New Workflow,گردش کار جدید
+auto.af8d6095,Footer Text,متن پاورقی
+auto.af944950,Total Inventory Value,ارزش کل موجودی
+auto.af9fac84,End Date,تاریخ پایان
+auto.afbd7a91,Confirm all required inspections are completed and passed?,آیا تمام بازرسی‌های الزامی تکمیل و قبول شده‌اند؟
+auto.afc28259,Delete,حذف
+auto.afd13ba4,Completed,تکمیل شده
+auto.afe2f6a5,Project,پروژه
+auto.affc4601,Notes,یادداشت‌ها
+auto.b00775ca,Add Template,افزودن الگو
+auto.b00add93,Completed,تکمیل شده
+auto.b02023ba,📎 Export CSV,📎 خروجی CSV
+auto.b038557f,Applicable To Examples,مثال‌های قابل اعمال برای
+auto.b0452345,Generate Certificate of Conformance,تولید گواهی انطباق
+auto.b053a1cf,InProgress,در حال انجام
+auto.b09eabd7,-,-
+auto.b0ba45d7,Apply,اعمال
+auto.b157de35,Pending,در انتظار
+auto.b15a80d0,0,۰
+auto.b169b6fc,Past Due,سررسید گذشته
+auto.b17e8501,Available,موجود
+auto.b17ff9aa,Actions,عملیات
+auto.b1941011,Transaction Details,جزئیات تراکنش
+auto.b1a6578e,Select permission,انتخاب مجوز
+auto.b1a76014,Reset,بازنشانی
+auto.b1b5062c,End Date Key (optional),کلید تاریخ پایان (اختیاری)
+auto.b1b77108,Module,ماژول
+auto.b1b95811,Receive,دریافت
+auto.b1b9aad9,Place,مکان
+auto.b1c5b8fc,Explanation,توضیح
+auto.b1dc86de,Active Only,فقط فعال
+auto.b1fc9f2a,Start Date,تاریخ شروع
+auto.b248a779,All,همه
+auto.b24d7afe,Batch Sign Off,تأیید نهایی دسته
+auto.b277b65a,Work Center,مرکز کار
+auto.b27d286a,Manufacturing,تولید
+auto.b2b6765d,On Hold,متوقف
+auto.b2e53a7c,Last Modified,آخرین ویرایش
+auto.b2ec2182,Document Type Details,جزئیات نوع سند
+auto.b3012ce1,Subcontract Purchase Orders,سفارشات خرید برون‌سپاری
+auto.b3117bfe,Date From,تاریخ از
+auto.b318e02f,1 - Low,۱ - کم
+auto.b323ff71,+ Add Custom Component,+ افزودن قطعه سفارشی
+auto.b33d3a7b,Close,بستن
+auto.b35002a4,Terms &amp; Conditions (HTML allowed),شرایط و ضوابط (HTML مجاز است)
+auto.b35f7ad9,New Standard Cost,هزینه استاندارد جدید
+auto.b36321d5,All Families,همه خانواده‌ها
+auto.b3744e0b,Calibration,کالیبراسیون
+auto.b37b4224,Import CSV,ورود CSV
+auto.b3c482f6,Customer:,مشتری:
+auto.b3d2fa1d,Due Date,تاریخ سررسید
+auto.b3ede722,Project,پروژه
+auto.b3ff32d0,Save All,ذخیره همه
+auto.b402b1ec,Est. Time,زمان تخمینی
+auto.b41ff989,Notes,یادداشت‌ها
+auto.b4292ee5,Expedite request for PO:,درخواست تسریع برای سفارش خرید:
+auto.b435a8f1,Overdue,دیرکرد
+auto.b48618cc,Loading...,در حال بارگذاری...
+auto.b4ad2301,Email Address,آدرس ایمیل
+auto.b4b99eec,My Projects,پروژه‌های من
+auto.b4bfe51c,Sign Disposition,امضای تعیین تکلیف
+auto.b5167b75,Start Date,تاریخ شروع
+auto.b525cba1,Manufactured,تولید شده
+auto.b5372118,Check Out,خروج
+auto.b5638f0b,Supplier *,تأمین‌کننده *
+auto.b5751e76,From Warehouse *,از انبار *
+auto.b58f0d02,Adjust Standard Cost,تعدیل هزینه استاندارد
+auto.b596b6a6,Date To,تاریخ تا
+auto.b5b5404d,Reset,بازنشانی
+auto.b5c001af,In Progress,در حال انجام
+auto.b5d9fe06,0,۰
+auto.b6077f20,Mass Update Planned Orders,به‌روزرسانی انبوه سفارشات برنامه‌ریزی شده
+auto.b60b75c3,Target Value,مقدار هدف
+auto.b6553f83,Critical,بحرانی
+auto.b6686e4e,Import JSON,ورود JSON
+auto.b67db9c2,Add Inspection Operation,افزودن عملیات بازرسی
+auto.b6b2a140,Lead Time (days),زمان تحویل (روز)
+auto.b6e44f15,Top Supplier,تأمین‌کننده برتر
+auto.b6e78e4b,Procurement Type,نوع تدارکات
+auto.b6f70929,Equipment Required,تجهیزات مورد نیاز
+auto.b70c45d3,Conduct / Update,اجرا / به‌روزرسانی
+auto.b7129922,Work Center,مرکز کار
+auto.b7624109,Include capacity check,شامل بررسی ظرفیت
+auto.b7796113,Total Serials,کل سریال‌ها
+auto.b780d6a6,Cancel,لغو
+auto.b78c3f00,Project ID,شناسه پروژه
+auto.b78e32ba,Actions,عملیات
+auto.b7bf9adc,Completed,تکمیل شده
+auto.b7d716c4,Cancel,لغو
+auto.b7fd3f36,Component,قطعه
+auto.b7fee9d6,Required,الزامی
+auto.b814cf69,Checkout Status,وضعیت خارج شدن
+auto.b8188c24,Status,وضعیت
+auto.b82fad53,Status,وضعیت
+auto.b86ccdaa,Surface Finish,پایان سطح
+auto.b872fb07,+ Add Sample,+ افزودن نمونه
+auto.b8787d81,-,-
+auto.b89217b4,Batch #,شماره دسته
+auto.b8b21d9a,Production Issue,مسئله تولید
+auto.b8d293fd,InProgress,در حال انجام
+auto.b8e2df67,All,همه
+auto.b90a539e,-,-
+auto.b91db0dc,Document Number,شماره سند
+auto.b9697b2f,Plan Audit,برنامه ریزی ممیزی
+auto.b96e5631,Type,نوع
+auto.b985a209,% Complete,درصد تکمیل
+auto.b9b04777,Total Amount,مبلغ کل
+auto.b9c033a7,Roles,نقش‌ها
+auto.b9d437fe,Drawing,نقشه
+auto.b9fccdaf,Cancel,لغو
+auto.ba18f1b3,Title,عنوان
+auto.ba1ede97,Unit,واحد
+auto.ba656d9a,Current Role Assignments,انتساب‌های نقش فعلی
+auto.ba6edebf,Manufacturing,تولید
+auto.ba819f11,Supplier Response,پاسخ تأمین‌کننده
+auto.ba88b8f8,Pending,در انتظار
+auto.ba89c0b6,Record Completion,ثبت تکمیل
+auto.ba9b1e86,← Back to Dashboard,← بازگشت به داشبورد
+auto.ba9fe113,Plan Name,نام برنامه
+auto.bab430da,Customer,مشتری
+auto.bac967d2,Status,وضعیت
+auto.bac9e80f,0,۰
+auto.bae0d2e6,All,همه
+auto.bae8040f,Apply,اعمال
+auto.bae9c9c0,What-If Scenarios,سناریوهای چه-اگر
+auto.baf055b7,Operation Library,کتابخانه عملیات
+auto.bb031aa9,Subcontract Orders,سفارشات برون‌سپاری
+auto.bb0acad5,Save,ذخیره
+auto.bb132973,End Date ≤,تاریخ پایان ≤
+auto.bb275b98,Project BOM,لیست مواد پروژه
+auto.bb3dd3c3,End Date,تاریخ پایان
+auto.bb435134,WIP,در جریان تولید
+auto.bb655c80,Product ID,شناسه محصول
+auto.bb89c761,0,۰
+auto.bba68b3f,Logistics &amp; Distribution,لجستیک و توزیع
+auto.bbc05e5f,Today,امروز
+auto.bbcf29da,Export CSV,خروجی CSV
+auto.bbfbe93b,Document Preview,پیش‌نمایش سند
+auto.bc0f5e93,Save,ذخیره
+auto.bc3b5dfb,Overall Rating (0-100),امتیاز کلی (0-100)
+auto.bc60afbf,Product,محصول
+auto.bc669132,0,۰
+auto.bc7dba88,Save,ذخیره
+auto.bca0d2c1,Findings / Notes,یافته‌ها / یادداشت‌ها
+auto.bca17db2,Sales Order,سفارش فروش
+auto.bcb24d3b,Milestone,نقطه عطف
+auto.bcb2815e,NCR,عدم انطباق
+auto.bcdd899d,Notes,یادداشت‌ها
+auto.bce3762b,Critical,بحرانی
+auto.bd143f02,Allowed,مجاز
+auto.bd1f5ca9,Equipment Name,نام تجهیزات
+auto.bd3788f4,Due Date,تاریخ سررسید
+auto.bd5461f5,Loading load profile...,در حال بارگذاری پروفایل بار...
+auto.bd75dfa4,Critical,بحرانی
+auto.bd7abb3c,Description,توضیحات
+auto.bd8c6c05,Capacity,ظرفیت
+auto.bd93a2e7,Status,وضعیت
+auto.bd981c33,Audit Log,سیاهه حسابرسی
+auto.be06e1e1,Refresh,تازه‌سازی
+auto.be0ca3ec,System Operations,عملیات سیستم
+auto.be0ee3ef,Add Role,افزودن نقش
+auto.be4bdafd,Actions,عملیات
+auto.be6e7e69,Duration (hours),مدت (ساعت)
+auto.bebc86a5,Minor,جزئی
+auto.bebd5e58,Reference,مرجع
+auto.bec34443,Permission Code,کد مجوز
+auto.bedab2d5,Planned Date,تاریخ برنامه‌ریزی شده
+auto.bef91ea9,0,۰
+auto.bef93756,Expiry Date,تاریخ انقضا
+auto.befc55f3,📅 Project Milestones,📅 نقاط عطف پروژه
+auto.bf1d7ed6,Status,وضعیت
+auto.bf5396a2,Milestones,نقاط عطف
+auto.bf559358,Record ID,شناسه رکورد
+auto.bf8f3735,Certificate Management,مدیریت گواهی
+auto.bfc4e066,0,۰
+auto.bfd1a7e4,3 - High,۳ - بالا
+auto.bfd52298,Engineering,مهندسی
+auto.bfe7b8bb,2 - Medium,۲ - متوسط
+auto.bffbff12,Step Name *,نام مرحله *
+auto.c02b7446,Checked Out,خارج شده
+auto.c034d049,Item Line#,شماره ردیف آیتم
+auto.c04e0ca6,0%,۰٪
+auto.c08673b6,Status,وضعیت
+auto.c0891281,0,۰
+auto.c09548c6,Status,وضعیت
+auto.c0c6a717,Status,وضعیت
+auto.c0d05583,Cancel,لغو
+auto.c0d0776c,Loading...,در حال بارگذاری...
+auto.c0f3cae3,Quantity:,مقدار:
+auto.c0ff0f9a,Upload New Document,بارگذاری سند جدید
+auto.c1016f23,Completion %,درصد تکمیل
+auto.c10416fd,ECO History,تاریخچه تغییر مهندسی
+auto.c108233f,Description,توضیحات
+auto.c10f9044,Period Summary,خلاصه دوره
+auto.c11c3ff9,"Upload PNG, JPG or GIF.","PNG، JPG یا GIF بارگذاری کنید."
+auto.c13bba98,Details,جزئیات
+auto.c148fffa,Production,تولید
+auto.c1547784,Quantity Affected,مقدار تحت تأثیر
+auto.c193ebe7,Date To,تاریخ تا
+auto.c1c1aef9,Goods Receipt,رسید کالا
+auto.c1c97adb,Cancel,لغو
+auto.c1e34789,Move (hrs),جابجایی (ساعت)
+auto.c1fa4748,Stock Overview,نمای کلی موجودی
+auto.c20c116f,Expiry,انقضا
+auto.c23c0f22,Required,الزامی
+auto.c23efe56,Configure Bins,پیکربندی باین‌ها
+auto.c27c7592,Name,نام
+auto.c29dc8cb,Work Center,مرکز کار
+auto.c2ae7488,First of Batch,اولین دسته
+auto.c2b1b663,Import Workflow JSON,ورود JSON گردش کار
+auto.c2c1611b,Open,باز
+auto.c2dbb6a9,Actions,عملیات
+auto.c2dd3371,Select Type,انتخاب نوع
+auto.c2f4c7eb,Import CSV,ورود CSV
+auto.c303ec38,Last Calibration,آخرین کالیبراسیون
+auto.c352d335,Recently Shared,اخیراً به اشتراک گذاشته شده
+auto.c35a515a,Quality Templates,الگوهای کیفیت
+auto.c3634b3a,Serial Numbers,شماره سریال‌ها
+auto.c39022e1,Full Name *,نام کامل *
+auto.c396aaf6,Actions,عملیات
+auto.c3a26ae9,Manufacturing Orders,سفارشات تولید
+auto.c3c88113,All,همه
+auto.c3f0a75a,Actions,عملیات
+auto.c3f22927,Internal Projects,پروژه‌های داخلی
+auto.c3f6d434,Doc Status,وضعیت سند
+auto.c4105c5f,New Start Date,تاریخ شروع جدید
+auto.c42c1e22,Total Templates,کل الگوها
+auto.c42e8ef9,Date To,تاریخ تا
+auto.c42fc535,Project,پروژه
+auto.c471485e,Product,محصول
+auto.c4743b68,Actions,عملیات
+auto.c47581bf,Save,ذخیره
+auto.c475acc2,Electrical,الکتریکی
+auto.c476c56b,-,-
+auto.c48bb55e,Share Document Externally,اشتراک گذاری سند به صورت خارجی
+auto.c4a0698a,Active Templates,الگوهای فعال
+auto.c4a61f34,auto.c4a61f34,auto.c4a61f34
+auto.c4b8e7f7,Document Number:,شماره سند:
+auto.c4d3e246,Inactive,غیرفعال
+auto.c4ea0ab8,Product:,محصول:
+auto.c4f0424c,Product,محصول
+auto.c5062514,Reject,رد
+auto.c56a3806,All,همه
+auto.c5a2cf2f,Cancel,لغو
+auto.c5ab7450,Create Action,ایجاد اقدام
+auto.c5b3452e,-,-
+auto.c5cd0bc6,Active,فعال
+auto.c5cf2e75,Carrier,حامل
+auto.c5fbd11c,Product,محصول
+auto.c60a6e31,Date To,تاریخ تا
+auto.c61a7b17,Status,وضعیت
+auto.c6241232,-,-
+auto.c6335b79,Active Warranty,گارانتی فعال
+auto.c6407dce,Project ID (optional),شناسه پروژه (اختیاری)
+auto.c652cbfd,User,کاربر
+auto.c65d3abe,Title,عنوان
+auto.c672a0f0,Morning,صبح
+auto.c68e2a7c,None,هیچکدام
+auto.c69616b7,Due Date,تاریخ سررسید
+auto.c6a20907,All,همه
+auto.c6aebe74,-,-
+auto.c6ba00a4,Add,افزودن
+auto.c6be8a97,Manufacturing,تولید
+auto.c6cf3eab,Apply Filters,اعمال فیلترها
+auto.c7091b09,Production,تولید
+auto.c71826ed,Project,پروژه
+auto.c71d98bb,Loading sessions...,در حال بارگذاری جلسات...
+auto.c7210486,Product,محصول
+auto.c749436d,Supplier,تأمین‌کننده
+auto.c7a30684,Actions,عملیات
+auto.c7bce365,{,{
+auto.c7bf95e2,"Scenario Data (JSON, optional)","داده‌های سناریو (JSON، اختیاری)"
+auto.c7d30003,Test Modal,پنجره آزمایشی
+auto.c7f228a0,Exception Details,جزئیات استثنا
+auto.c821905d,Cancel,لغو
+auto.c8317037,Completion Date,تاریخ تکمیل
+auto.c840bb84,Order Type,نوع سفارش
+auto.c84479e0,Drawing,نقشه
+auto.c8676467,Quantity,مقدار
+auto.c897ca6c,Export CSV,خروجی CSV
+auto.c8983731,-,-
+auto.c8ba677b,Due Date To,تاریخ سررسید تا
+auto.c8ccbe13,Pending ECOs,تغییرات مهندسی در انتظار
+auto.c8e384e9,Cancel,لغو
+auto.c8e8fdd0,All,همه
+auto.c91ab744,Quality Checks,کنترل‌های کیفیت
+auto.c93ee444,Close,بستن
+auto.c9428171,{,{
+auto.c94eae6a,Manage Additional Attributes,مدیریت ویژگی‌های اضافی
+auto.c9570b6d,Total Components,کل قطعات
+auto.c97acb94,Actions,عملیات
+auto.c98aae7d,Start Date:,تاریخ شروع:
+auto.c9d9b0b8,Lead Time (days),زمان تحویل (روز)
+auto.c9e632ae,Projects,پروژه‌ها
+auto.c9efe6cc,Due Date To,تاریخ سررسید تا
+auto.ca28f3ee,Partially Received,دریافت جزئی
+auto.ca2b7fb6,📦 Project Deliverables,📦 تحویل‌دادنی‌های پروژه
+auto.ca3aa9d8,Category,دسته‌بندی
+auto.ca4559a9,All Projects,همه پروژه‌ها
+auto.ca8590b7,Plan Name,نام برنامه
+auto.cab2d57d,Pending Approval,در انتظار تأیید
+auto.cab99b70,Select Product,انتخاب محصول
+auto.cacf8db6,Is Active,فعال است
+auto.cad5f4ea,Select user,انتخاب کاربر
+auto.caf531db,Transfer,انتقال
+auto.cb011213,Update Supplier Ratings,به‌روزرسانی امتیازات تأمین‌کننده
+auto.cb0bd0b6,Title,عنوان
+auto.cb208141,"If this opens, your Bootstrap 5 JavaScript is working!","اگر این باز می‌شود، جاوااسکریپت Bootstrap 5 شما کار می‌کند!"
+auto.cb21c401,Minor,جزئی
+auto.cb33b6d9,Date From,تاریخ از
+auto.cb36b1f8,-,-
+auto.cb5c4e16,Cancel,لغو
+auto.cb7d5c16,Loading...,در حال بارگذاری...
+auto.cbc1b9fa,Upload,بارگذاری
+auto.cbcdc373,Reason *,دلیل *
+auto.cbd97543,Close NCR,بستن عدم انطباق
+auto.cbd98628,Pending Shipments,حمل‌های در انتظار
+auto.cbdb8d22,Est. Time (min),زمان تخمینی (دقیقه)
+auto.cbdf9ff0,Source Type *,نوع منبع *
+auto.cbe031a6,View Details,مشاهده جزئیات
+auto.cc0162db,Transfer Stock,انتقال موجودی
+auto.cc13ffd5,Order Date *,تاریخ سفارش *
+auto.cc42136f,All,همه
+auto.cc9f7c28,Products,محصولات
+auto.ccd94f02,Approved,تأیید شده
+auto.ccfdba9f,0,۰
+auto.cd3b57ff,Active Sessions,جلسات فعال
+auto.cd62506a,Effective Date,تاریخ اجرا
+auto.cd62a6bb,Product ID,شناسه محصول
+auto.cd7ce89f,Product Search,جستجوی محصول
+auto.cda2f707,To Issue Now,برای صدور اکنون
+auto.cda3e353,Incoming Inspection,بازرسی ورودی
+auto.ce0ea3be,Generated This Month,تولید شده این ماه
+auto.ce1c17e2,Template *,الگو *
+auto.ce4b8fce,Resolved,حل شده
+auto.ce56f5a9,Supplier ID,شناسه تأمین‌کننده
+auto.ce7f00b4,Issue Order to Supplier,صدور سفارش به تأمین‌کننده
+auto.ce8b78d3,Status,وضعیت
+auto.ce957fa5,Quality,کیفیت
+auto.ceab0e19,Reset Password,بازنشانی رمز عبور
+auto.cebe11bd,Under Review,در حال بررسی
+auto.cec0e062,Cancel,لغو
+auto.cf17c0bd,Available Documents,مدارک موجود
+auto.cf1d80a0,Active (Published),فعال (منتشر شده)
+auto.cf20ca27,View Documents,مشاهده مدارک
+auto.cf47b675,Bottom Supplier,تأمین‌کننده ضعیف
+auto.cf4efcba,Category,دسته‌بندی
+auto.cf59f473,Cancel,لغو
+auto.cf870ef0,Submit for Approval,ارسال برای تأیید
+auto.cf9741bc,Quality Operations,عملیات کیفیت
+auto.cfac5d9e,Cancel,لغو
+auto.cfac8977,Home,خانه
+auto.cfbc241d,Currency,ارز
+auto.cfc19221,Explanation,توضیح
+auto.cfe0b374,Apply Filters,اعمال فیلترها
+auto.cfe3d57e,0,۰
+auto.cfed2f68,Advanced,پیشرفته
+auto.d028b6ea,Recalculate Ratings,محاسبه مجدد امتیازات
+auto.d03a868f,Order Date To,تاریخ سفارش تا
+auto.d04815f1,Audit Management,مدیریت ممیزی
+auto.d04f01df,0,۰
+auto.d07e54ae,Start New MRP Run,شروع اجرای جدید MRP
+auto.d08ab36e,Quantity,مقدار
+auto.d09b3bcb,Export JSON,خروجی JSON
+auto.d0b0974b,Calibrated,کالیبره شده
+auto.d0b0eb71,Name,نام
+auto.d0b4f5eb,Create Portal User,ایجاد کاربر پورتال
+auto.d0c00e0e,Request Access,درخواست دسترسی
+auto.d0d0c25c,Refresh,تازه‌سازی
+auto.d0d9374a,Status,وضعیت
+auto.d0d9a758,Recently Shared,اخیراً به اشتراک گذاشته شده
+auto.d0def2d6,Cancel,لغو
+auto.d1089e7c,Status,وضعیت
+auto.d112df6a,Actions,عملیات
+auto.d119f02c,All actions,همه اقدامات
+auto.d1279626,Product Family,خانواده محصول
+auto.d136573c,Unsigned,امضا نشده
+auto.d15bbc00,Save,ذخیره
+auto.d15e4177,All,همه
+auto.d1dd2158,Closed,بسته شده
+auto.d1f83b77,Manufactured,تولید شده
+auto.d1fd293c,Loading...,در حال بارگذاری...
+auto.d20a4e6d,Loading...,در حال بارگذاری...
+auto.d2430471,Total Work Centers,کل مراکز کاری
+auto.d24e14cc,Active Users,کاربران فعال
+auto.d25e68c9,Select serials (Ctrl+Click for multiple),انتخاب سریال‌ها (Ctrl+کلیک برای چندتایی)
+auto.d274ed31,Source,منبع
+auto.d2839010,Import CSV,ورود CSV
+auto.d2aa3f6b,Equipment Required,تجهیزات مورد نیاز
+auto.d2cc3913,Equipment Name,نام تجهیزات
+auto.d2da926f,Status,وضعیت
+auto.d2e2a17b,Progress,پیشرفت
+auto.d2f10355,Value *,مقدار *
+auto.d2f1e9a7,Order ID:,شناسه سفارش:
+auto.d2faab25,Committed Cost:,هزینه تعهد شده:
+auto.d302c3e4,Assignee,اختصاص داده شده به
+auto.d325a13b,Maintenance Schedule,برنامه نگهداری
+auto.d325d9f7,Coming Soon,به زودی
+auto.d376363e,Cancel,لغو
+auto.d3778fa7,QC_INSPECTOR|PROD_MANAGER,QC_INSPECTOR|PROD_MANAGER
+auto.d388fc73,Apply,اعمال
+auto.d394d559,Purchase,خرید
+auto.d3ca32dd,Module,ماژول
+auto.d3cc1def,Export CSV,خروجی CSV
+auto.d3d62d55,Review Document,بررسی سند
+auto.d3d6c782,Cancel,لغو
+auto.d3e2d68a,Equipment Type,نوع تجهیزات
+auto.d3ee5500,Refresh,تازه‌سازی
+auto.d3eecbe3,Only if status is not ,فقط اگر وضعیت برابر نباشد با
+auto.d3fffd67,-,-
+auto.d408f93d,Other,سایر
+auto.d40d60f2,Actions,عملیات
+auto.d424b715,Loading...,در حال بارگذاری...
+auto.d42b8142,Title,عنوان
+auto.d43fba64,Status,وضعیت
+auto.d449284a,Completed,تکمیل شده
+auto.d4688b8d,General,عمومی
+auto.d48465c9,Raise NCR,ثبت عدم انطباق
+auto.d4ad2d30,All Status,همه وضعیت‌ها
+auto.d4b0fe96,Delete,حذف
+auto.d4b4026c,Project *,پروژه *
+auto.d4d03a27,Purchased,خریداری شده
+auto.d4d5e210,Run ID,شناسه اجرا
+auto.d4e2f9e7,Date (Key),تاریخ (کلید)
+auto.d4fd2723,Type,نوع
+auto.d53c9f3e,-,-
+auto.d54a4d1f,All,همه
+auto.d5625d55,Queue (hrs),صف (ساعت)
+auto.d56372e2,+ Link Internal Project,+ پیوند پروژه داخلی
+auto.d56ca6f3,Entity,نهاد
+auto.d57a9254,Calibration,کالیبراسیون
+auto.d5b00a3b,Exceptions,استثناها
+auto.d5bad549,Cancel,لغو
+auto.d5e96c81,Capacity Hours per Day,ظرفیت ساعت در روز
+auto.d5f175bb,Hourly Rate,نرخ ساعتی
+auto.d6072da4,"Unique text identifier, e.g., VALVE-500-CTRL","شناسه متنی یکتا، مثال: VALVE-500-CTRL"
+auto.d62d0dae,"Username, Email, FullName, CompanyName, IsActive, Roles, PortalPermissions","نام کاربری، ایمیل، نام کامل، نام شرکت، فعال است، نقش‌ها، مجوزهای پورتال"
+auto.d62d6db4,Total Defects:,کل عیوب:
+auto.d6870846,Severity,شدت
+auto.d6a9cd19,To Warehouse *,به انبار *
+auto.d6b7ab9a,Expected Delivery,تحویل پیش‌بینی شده
+auto.d6ef1f52,Type,نوع
+auto.d71a77a4,My Tasks,وظایف من
+auto.d737c84c,Supplier,تأمین‌کننده
+auto.d754e0c5,Link,پیوند
+auto.d77e5e0b,Description,توضیحات
+auto.d79eae72,Committed Cost,هزینه تعهد شده
+auto.d79fb984,0,۰
+auto.d7a0659c,+ Create Project,+ ایجاد پروژه
+auto.d7b039f8,0,۰
+auto.d7f5d828,Select Type,انتخاب نوع
+auto.d8089539,PO#,شماره سفارش خرید
+auto.d837d637,Project ID,شناسه پروژه
+auto.d8395668,Status,وضعیت
+auto.d83b5df0,0,۰
+auto.d8406270,Total Scenarios,کل سناریوها
+auto.d86fa7c8,Actions,عملیات
+auto.d87ca705,Delete,حذف
+auto.d8812261,Outstanding Qty,مقدار معوق
+auto.d8858010,Actual Cost:,هزینه واقعی:
+auto.d8af8c90,Supplier:,تأمین‌کننده:
+auto.d8b105f5,Refresh,تازه‌سازی
+auto.d8cbbff5,Your Name,نام شما
+auto.d8cd8af5,Setup Time (hrs),زمان راه‌اندازی (ساعت)
+auto.d8efc4e0,Closed,بسته شده
+auto.d8f8bed4,Version History,تاریخچه نسخه
+auto.d8fa043e,Select Project,انتخاب پروژه
+auto.d90102e3,Standard,استاندارد
+auto.d9121703,Completed / Total:,تکمیل شده / کل:
+auto.d91f7c9a,Raise NCR,ثبت عدم انطباق
+auto.d920c5c6,Start Date,تاریخ شروع
+auto.d92b12b1,Product,محصول
+auto.d939d12b,Engineering Handover,تحویل مهندسی
+auto.d9481aac,Planned,برنامه‌ریزی شده
+auto.d9576f5a,Product,محصول
+auto.d96859c0,Medium Severity,شدت متوسط
+auto.d980e418,Home,خانه
+auto.d98468aa,Product,محصول
+auto.d98e4942,Total Operations,کل عملیات
+auto.d998b404,End Date,تاریخ پایان
+auto.d9bc84d7,Used in Products,استفاده شده در محصولات
+auto.d9c07d72,Loading...,در حال بارگذاری...
+auto.d9defc45,0,۰
+auto.d9f164e7,Project Status,وضعیت پروژه
+auto.da37c070,Project (optional),پروژه (اختیاری)
+auto.da7b338d,Approve,تأیید
+auto.dab73a4c,Refresh,تازه‌سازی
+auto.dabbf1d6,Loading...,در حال بارگذاری...
+auto.db08ff72,Close,بستن
+auto.db117c6c,Name,نام
+auto.db12f21a,Win/Loss Reason,دلیل برد/باخت
+auto.db1709af,UOM,واحد اندازه‌گیری
+auto.db1f48f5,Signed,امضا شده
+auto.db546e79,Store as JSON in AdditionalAttributes,ذخیره به عنوان JSON در ویژگی‌های اضافی
+auto.db605be6,MRP Run in progress...,اجرای MRP در حال انجام...
+auto.db6182e4,Valuation Method,روش ارزیابی
+auto.db6ce5ed,Interactive Simulation – Toggle Input Sources,شبیه‌سازی تعاملی – تغییر منابع ورودی
+auto.db72f68b,Service Orders,سفارشات خدمات
+auto.db98af1f,+ Add Component,+ افزودن قطعه
+auto.dba74543,All Categories,همه دسته‌ها
+auto.dbb5d7f5,Type,نوع
+auto.dbf247c7,Export CSV,خروجی CSV
+auto.dc177e24,Create Shipment,ایجاد حمل
+auto.dc497c01,Run Logs,گزارش‌های اجرا
+auto.dc4f8dab,Status,وضعیت
+auto.dc76a8c6,Apply,اعمال
+auto.dca1559b,Sampling Frequency,فراوانی نمونه‌برداری
+auto.dcaa00e3,0%,۰٪
+auto.dccf7a17,Only for a specific customer,فقط برای یک مشتری خاص
+auto.dce5386d,Drawing,نقشه
+auto.dcebe947,Stock Movements,حرکات موجودی
+auto.dcf9dcbf,-,-
+auto.dd136735,Loading...,در حال بارگذاری...
+auto.dd9d9399,Project,پروژه
+auto.ddca1f87,Type,نوع
+auto.ddce62b1,0,۰
+auto.ddf58772,Add,افزودن
+auto.de0c7917,Expected Date,تاریخ پیش‌بینی شده
+auto.de25a6d2,Due Days (optional),روزهای سررسید (اختیاری)
+auto.de3377cd,All,همه
+auto.de543201,Actions,عملیات
+auto.de6f40b3,Reason,دلیل
+auto.de77bb7b,Checked Out By,خارج شده توسط
+auto.de85e62b,Only for specific projects,فقط برای پروژه‌های خاص
+auto.de88914d,0,۰
+auto.dec2e3c8,Update,به‌روزرسانی
+auto.ded1b32e,Apply,اعمال
+auto.dedf3bf3,Position,سمت
+auto.dee98b22,Manufacturing,تولید
+auto.df0026b9,Overdue,دیرکرد
+auto.df09ef5c,Save,ذخیره
+auto.df4757c9,Type,نوع
+auto.df4cf1ef,Project,پروژه
+auto.df5cb308,Critical,بحرانی
+auto.df5e74d3,Last Maintenance Date,تاریخ آخرین نگهداری
+auto.df6194dd,Loading...,در حال بارگذاری...
+auto.df6d402d,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.df7917e3,Product Family,خانواده محصول
+auto.df7b7ced,Create Shipment,ایجاد حمل
+auto.dfc06229,Status,وضعیت
+auto.dfd66991,Supplier,تأمین‌کننده
+auto.dfdc41b3,Overdue,دیرکرد
+auto.dff159df,0,۰
+auto.dffa9ee4,Approved,تأیید شده
+auto.dffd25e3,All,همه
+auto.e007ca5e,Actions,عملیات
+auto.e01c52fe,Overdue,دیرکرد
+auto.e01e4f63,-,-
+auto.e026664e,Actions,عملیات
+auto.e033a28b,Refresh,تازه‌سازی
+auto.e0677775,-,-
+auto.e07c74e6,Min/Target/Max,حداقل/هدف/حداکثر
+auto.e08fa9fc,Exchange Thread,رشته تبادل
+auto.e092725f,First Pass Yield,بازده گذر اول
+auto.e09ed433,Sampling,نمونه‌برداری
+auto.e0a1a126,-,-
+auto.e0a44417,"Source ID (e.g., NCR number or reference)","شناسه منبع (مثلاً شماره عدم انطباق یا مرجع)"
+auto.e0aeb5b7,/static/js/,/static/js/
+auto.e0d53384,Spec Max,حداکثر مشخصه
+auto.e0dea398,Sequence,ترتیب
+auto.e0f2c67b,Warranty End,پایان گارانتی
+auto.e0fc794f,Projects,پروژه‌ها
+auto.e1093114,Critical,بحرانی
+auto.e134a047,Save Steps,ذخیره مراحل
+auto.e1413283,Manufactured,تولید شده
+auto.e1551390,Completed,تکمیل شده
+auto.e162e6a8,Notes,یادداشت‌ها
+auto.e16396a4,Source,منبع
+auto.e1690cd6,All Projects,همه پروژه‌ها
+auto.e1e08e5b,Loading operations...,در حال بارگذاری عملیات...
+auto.e1eb443f,Quality Operation *,عملیات کیفیت *
+auto.e1eb560b,Due This Month,سررسید این ماه
+auto.e234af15,Batch #,شماره دسته
+auto.e252ef39,Product,محصول
+auto.e2674c95,External Document Sharing,اشتراک گذاری خارجی سند
+auto.e26b8948,Select Supplier,انتخاب تأمین‌کننده
+auto.e27c4661,0,۰
+auto.e282a9af,Defect Disposition,تعیین تکلیف عیب
+auto.e28e952e,Projects,پروژه‌ها
+auto.e29db20f,Refresh,تازه‌سازی
+auto.e2bd9dd5,Preventive,پیشگیرانه
+auto.e2bdfc5e,Import Routing Steps (CSV),ورود مراحل مسیریابی (CSV)
+auto.e2be6f4c,Routing,مسیریابی
+auto.e2fcc4fd,Operation:,عملیات:
+auto.e309c0b8,Cancel,لغو
+auto.e320ebf7,Equipment Name,نام تجهیزات
+auto.e32427a8,Sales Issue,مسئله فروش
+auto.e32c7022,Project Type,نوع پروژه
+auto.e3547bff,Planned,برنامه‌ریزی شده
+auto.e3549e48,Project,پروژه
+auto.e361b69c,Actions,عملیات
+auto.e367ce39,Revision,بازبینی
+auto.e36b9c2d,Use the ▲ ▼ buttons to reorder steps.,برای مرتب‌سازی مجدد مراحل از دکمه‌های ▲ ▼ استفاده کنید.
+auto.e38ce843,No,خیر
+auto.e3b7614f,Save,ذخیره
+auto.e3b8d23e,Role &amp; Permissions,نقش و مجوزها
+auto.e3d55baa,Warranty,گارانتی
+auto.e3f7c2df,0,۰
+auto.e3fb3c7a,Subcontract,برون‌سپاری
+auto.e4007317,Home,خانه
+auto.e405cdbd,Completed Today,تکمیل شده امروز
+auto.e41eadc1,-,-
+auto.e4379e90,CSV File,فایل CSV
+auto.e4556379,Technical Drawing,نقشه فنی
+auto.e46a26d3,NCR #,شماره عدم انطباق
+auto.e46f668d,Rework,بازکاری
+auto.e47a1425,Critical,بحرانی
+auto.e47e0063,Create Order,ایجاد سفارش
+auto.e48d19d7,Status,وضعیت
+auto.e496ea2c,Run ID,شناسه اجرا
+auto.e4986168,Add Operation,افزودن عملیات
+auto.e4a0f8ea,Engineering,مهندسی
+auto.e4bff611,Sales Orders by Customer,سفارشات فروش بر اساس مشتری
+auto.e4c6d0e0,Action,اقدام
+auto.e4e7ca5e,Debit/Credit Amount,مبلغ بدهکاری/اعتباری
+auto.e4eab9b9,Loading...,در حال بارگذاری...
+auto.e4edca55,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.e4ee2c5f,Loading...,در حال بارگذاری...
+auto.e523a977,Expiring Soon (≤7 days),در حال انقضا (≤۷ روز)
+auto.e5298f48,End Date:,تاریخ پایان:
+auto.e53dfae9,Completed Quantity,مقدار تکمیل شده
+auto.e5461f26,Supplier Quality Requirements,الزامات کیفیت تأمین‌کننده
+auto.e54b1548,Role,نقش
+auto.e5525227,Permissions Defined,مجوزهای تعریف شده
+auto.e575aff9,Event Log,گزارش رویداد
+auto.e583a0c2,Run (hrs/unit),اجرا (ساعت/واحد)
+auto.e5b2a1e4,html,html
+auto.e5bb88f1,Project ID,شناسه پروژه
+auto.e5beca00,Sales Orders,سفارشات فروش
+auto.e5db3feb,Refresh,تازه‌سازی
+auto.e5e4d344,0,۰
+auto.e5e7d61e,Approval Required,تأیید مورد نیاز است
+auto.e5eee9ee,Next Due To (YYYY-MM-DD),سررسید بعدی تا (YYYY-MM-DD)
+auto.e5f41fe2,All,همه
+auto.e601bd56,Procurement Type,نوع تدارکات
+auto.e61f682d,Digital Signature (PIN),امضای دیجیتال (PIN)
+auto.e62a1aea,Rejected,رد شده
+auto.e62d74e6,Audit,ممیزی
+auto.e631456e,Non‑Conformance Reports,گزارش‌های عدم انطباق
+auto.e6454749,-,-
+auto.e646044a,Milestones,نقاط عطف
+auto.e6816318,Critical,بحرانی
+auto.e691a529,Actions,عملیات
+auto.e6b14512,📂 Import CSV,📂 ورود CSV
+auto.e6c3ff21,Company,شرکت
+auto.e6c65841,Supplier (if external),تأمین‌کننده (اگر خارجی)
+auto.e6e3b55c,Reset,بازنشانی
+auto.e6e589f5,Status,وضعیت
+auto.e6edded4,Username *,نام کاربری *
+auto.e6fc71c7,Add User Exception,افزودن استثنای کاربر
+auto.e711f538,Quality Operations,عملیات کیفیت
+auto.e736fe66,External (subcontract),خارجی (برون‌سپاری)
+auto.e7662ba9,Company Type,نوع شرکت
+auto.e78a2370,Overall Rating,امتیاز کلی
+auto.e794f0cb,Select Source,انتخاب منبع
+auto.e79acf98,Close,بستن
+auto.e7a0dde4,Supplier,تأمین‌کننده
+auto.e7ab7dd2,Last Login,آخرین ورود
+auto.e7abcd6f,🇮🇷 FA,🇮🇷 FA
+auto.e7cccae6,Clear Filters,پاک کردن فیلترها
+auto.e7d58a66,All,همه
+auto.e7eb8733,All,همه
+auto.e800e1b7,Mark ,علامت‌گذاری
+auto.e8051c26,-,-
+auto.e8135eb3,Actions,عملیات
+auto.e81e8285,All,همه
+auto.e8237ba6,-,-
+auto.e87a5aea,Audit Schedule,برنامه ممیزی
+auto.e89b2f10,Adjustment,تعدیل
+auto.e8c6e73e,Product Management,مدیریت محصول
+auto.e8d659a3,Actions,عملیات
+auto.e8d6ec01,Major,عمده
+auto.e8eaeb87,Closed,بسته شده
+auto.e8ed4d87,0,۰
+auto.e8f0e6fb,Top Categories,دسته‌های برتر
+auto.e902252f,Loading...,در حال بارگذاری...
+auto.e9075aed,Update,به‌روزرسانی
+auto.e90d5f70,Refresh,تازه‌سازی
+auto.e91a90c2,Custom Spec,مشخصات سفارشی
+auto.e95a1014,-,-
+auto.e981d446,-,-
+auto.e9a2766f,Document Exchange &amp; Approval,تبادل و تصویب اسناد
+auto.e9a69c06,Shop Floor Workbench,میز کار کف کارخانه
+auto.e9be55d6,Quality Templates,الگوهای کیفیت
+auto.e9c02f30,Save Changes,ذخیره تغییرات
+auto.e9d155a1,Description,توضیحات
+auto.e9dfaffb,Export CSV,خروجی CSV
+auto.e9e35d63,Supplier Quality Plans,برنامه‌های کیفیت تأمین‌کننده
+auto.e9e472f8,Refresh,تازه‌سازی
+auto.e9e8a02c,0,۰
+auto.e9f37c74,All Projects,همه پروژه‌ها
+auto.ea05343d,Unsigned Critical,بحرانی بدون امضا
+auto.ea3b0307,Import/Export,ورود/خروج
+auto.ea453b3a,Submit for Approval,ارسال برای تأیید
+auto.ea49f97c,End Date,تاریخ پایان
+auto.ea69fd49,Team Members (comma-separated UserIDs),اعضای تیم (شناسه‌های کاربر جدا شده با کاما)
+auto.ea7c2f00,Status,وضعیت
+auto.ea82d2dc,Checked Out,خارج شده
+auto.ea8ea80a,Apply Filters,اعمال فیلترها
+auto.ea9df41a,Suppliers,تأمین‌کنندگان
+auto.eababca5,Loading...&lt;/td&gt;,در حال بارگذاری...&lt;/td&gt;
+auto.eac24450,Code,کد
+auto.eac89029,Role,نقش
+auto.eae2217f,Workflow,گردش کار
+auto.eaea4448,Start Date ≥,تاریخ شروع ≥
+auto.eb1775f1,Hourly Rate,نرخ ساعتی
+auto.eb22bb9a,Send Request,ارسال درخواست
+auto.eb2c05c4,Repair,تعمیر
+auto.eb43e023,Actions,عملیات
+auto.eb5579dd,0,۰
+auto.eb5604c6,Type,نوع
+auto.eb59cfee,Customers Management,مدیریت مشتریان
+auto.eb5c81c8,Other,سایر
+auto.eb663141,Cancel,لغو
+auto.eb910499,Apply Filters,اعمال فیلترها
+auto.eb945035,Qty,مقدار
+auto.eb9f0e89,"Conditions allow you to restrict when this workflow is applicable based on entity data (e.g., order amount, department, priority).","شرایط به شما امکان می‌دهد بر اساس داده‌های نهاد (مثلاً مبلغ سفارش، دپارتمان، اولویت) محدود کنید که این گردش کار چه زمانی قابل اجرا باشد."
+auto.eba10664,Refresh,تازه‌سازی
+auto.ebb1a7da,All,همه
+auto.ebbca044,Entity Permissions,مجوزهای نهاد
+auto.ebca11f1,Electrical,الکتریکی
+auto.ec15e9ec,Closed,بسته شده
+auto.ec1a1e00,Engineering Handover Items,آیتم‌های تحویل مهندسی
+auto.ec1ec57c,Save,ذخیره
+auto.ec2fc050,-,-
+auto.ec4aa7e7,Currency,ارز
+auto.ec73cc60,Start Date Key (YYYYMMDD) *,کلید تاریخ شروع (YYYYMMDD) *
+auto.ec86f094,Condition Expression (optional),عبارت شرطی (اختیاری)
+auto.ec8af851,Sampling Frequency,فراوانی نمونه‌برداری
+auto.ec8ff657,Project,پروژه
+auto.ec9bb568,Cancel,لغو
+auto.ecc60f4f,Quantity,مقدار
+auto.ecd39392,Product,محصول
+auto.ecee3a6f,Serial Number Prefix,پیشوند شماره سریال
+auto.ed43ebf8,Go to Operations,رفتن به عملیات
+auto.ed47b2a8,Available Modules,ماژول‌های موجود
+auto.ed5ea533,Document:,سند:
+auto.ed7a6662,Loading...,در حال بارگذاری...
+auto.ed89bd20,Active,فعال
+auto.ed96daeb,Home,خانه
+auto.edcc2170,Completed,تکمیل شده
+auto.edfd8ea6,Refresh,تازه‌سازی
+auto.edfff447,Approved,تأیید شده
+auto.ee39c7a6,Delete,حذف
+auto.ee4627e2,Draft,پیش‌نویس
+auto.ee8ffbed,Description,توضیحات
+auto.eeb3c598,External,خارجی
+auto.eebb27b8,Operation,عملیات
+auto.eec37bb5,Document Types,انواع سند
+auto.ef03f542,Contacts,مخاطبین
+auto.ef4165fe,You are requesting access to:,شما درخواست دسترسی به:
+auto.ef4581a0,Severity,شدت
+auto.ef488b21,Reason *,دلیل *
+auto.ef4e372c,Apply,اعمال
+auto.ef50c95c,Password,رمز عبور
+auto.ef5714b3,All Products,همه محصولات
+auto.ef7d24bf,Unit of Measure,واحد اندازه‌گیری
+auto.efd7dcd9,Products List,لیست محصولات
+auto.efee083d,Refresh,تازه‌سازی
+auto.f02f821f,Work Instruction,دستورالعمل کار
+auto.f04c76d0,Sales,فروش
+auto.f0540b2c,Select Frequency,انتخاب فرکانس
+auto.f056da48,Completed,تکمیل شده
+auto.f081c9ca,By Company Type,بر اساس نوع شرکت
+auto.f0b0b787,Customer Project ID,شناسه پروژه مشتری
+auto.f0b716df,Total Value,ارزش کل
+auto.f0b7d7d2,Purchase Orders,سفارشات خرید
+auto.f0ba1486,Used in Templates,استفاده شده در الگوها
+auto.f0d3cb06,Line Items,آیتم‌های ردیف
+auto.f0d795d3,Save Response,ذخیره پاسخ
+auto.f0d9ca15,All,همه
+auto.f0dfe2b9,Purchase Orders,سفارشات خرید
+auto.f0f014af,Description,توضیحات
+auto.f0f2c058,Due Date,تاریخ سررسید
+auto.f10f1383,Source,منبع
+auto.f1264c75,Manufacturing,تولید
+auto.f12d19e3,Start Run,شروع اجرا
+auto.f153523c,Location,مکان
+auto.f155f459,Select Product,انتخاب محصول
+auto.f1563d8f,Closed,بسته شده
+auto.f17034c5,Full Name,نام کامل
+auto.f17e4ee5,Once,یک بار
+auto.f17ef68e,Shift,شیفت
+auto.f17fde91,Weighted Average Cost,هزینه میانگین وزنی
+auto.f18a9212,Expired Warranty,گارانتی منقضی شده
+auto.f1aa82ac,Setup (hrs),راه‌اندازی (ساعت)
+auto.f1ae5634,-,-
+auto.f1c071d5,Home,خانه
+auto.f1c0cc21,0,۰
+auto.f1ca83b3,Select Source,انتخاب منبع
+auto.f1df477e,Projects,پروژه‌ها
+auto.f1ec79f4,EUR,یورو
+auto.f1fccd02,Response Comments,نظرات پاسخ
+auto.f212f71e,Expiry Date,تاریخ انقضا
+auto.f22a75dc,Receive Goods,دریافت کالا
+auto.f236bb0f,You are requesting access to:,شما درخواست دسترسی به:
+auto.f2415091,Add Step,افزودن مرحله
+auto.f2638f25,Close,بستن
+auto.f265d051,M,متر
+auto.f271cd7c,Product,محصول
+auto.f273fcb2,Approved,تأیید شده
+auto.f2863a12,Deliverables,تحویل‌دادنی‌ها
+auto.f2a64c9a,Forecasts,پیش‌بینی‌ها
+auto.f2debfd5,-,-
+auto.f2f268b5,Create Product from Engineering Item,ایجاد محصول از آیتم مهندسی
+auto.f3046813,Active External Users,کاربران خارجی فعال
+auto.f3236d7c,Warehouses,انبارها
+auto.f3264334,Code,کد
+auto.f33f8dca,Role Code *,کد نقش *
+auto.f351ba9b,Today,امروز
+auto.f3532af4,Cancel,لغو
+auto.f37a8132,Close,بستن
+auto.f3be66f4,On Hold,متوقف
+auto.f3be84e5,No assignments found,هیچ انتسابی یافت نشد
+auto.f3c6b0d8,Verify Effectiveness,تأیید اثربخشی
+auto.f3dea243,Document Number *,شماره سند *
+auto.f421d81c,Primary Color (Hex),رنگ اصلی (Hex)
+auto.f435e775,Quality,کیفیت
+auto.f467c0a6,Projects,پروژه‌ها
+auto.f473565d,Import Equipment CSV,ورود CSV تجهیزات
+auto.f4a2267b,Status,وضعیت
+auto.f4b2ca44,Home,خانه
+auto.f4b9d137,Warranty Details,جزئیات گارانتی
+auto.f4e1c47e,Overdue,دیرکرد
+auto.f4fee19b,Adjust Stock,تعدیل موجودی
+auto.f5033ffc,Employee,کارمند
+auto.f52f6948,Draft,پیش‌نویس
+auto.f54700d6,-,-
+auto.f55b10b3,Import Project Roles CSV,ورود CSV نقش‌های پروژه
+auto.f570c81f,Completed,تکمیل شده
+auto.f5a08734,Work Center,مرکز کار
+auto.f5aeab1d,Shared Documents Library,کتابخانه مدارک مشترک
+auto.f5cc005e,Create Operation,ایجاد عملیات
+auto.f617012f,Refresh,تازه‌سازی
+auto.f61c4c2f,0,۰
+auto.f624572a,+ Create Shipment,+ ایجاد حمل
+auto.f62c1105,Cancel,لغو
+auto.f65050f9,Refresh,تازه‌سازی
+auto.f68cdea4,Project,پروژه
+auto.f68e790a,Last Modified,آخرین ویرایش
+auto.f6a9be5e,Obsolete Date (YYYYMMDD),تاریخ منسوخ شدن (YYYYMMDD)
+auto.f6b48242,CSV must contain columns:,CSV باید شامل ستون‌های زیر باشد:
+auto.f6b7835c,Sales Orders,سفارشات فروش
+auto.f6ce022f,Project Quality Plans,برنامه‌های کیفیت پروژه
+auto.f6e98199,Partially Received,دریافت جزئی
+auto.f6f57b1a,Email *,ایمیل *
+auto.f710825e,Medium,متوسط
+auto.f72e6627,Internal,داخلی
+auto.f734a973,QualityPlan,برنامه کیفیت
+auto.f76c03c2,Category,دسته‌بندی
+auto.f78a6f69,All,همه
+auto.f795a425,Status,وضعیت
+auto.f7a78c30,Upload,بارگذاری
+auto.f7a7a732,Status,وضعیت
+auto.f7af2aa4,Manufacturing,تولید
+auto.f7c0662a,Save,ذخیره
+auto.f7c3c337,Cancel,لغو
+auto.f7c960d4,Approved,تأیید شده
+auto.f7d77732,Save Result,ذخیره نتیجه
+auto.f800d8ec,Select Product,انتخاب محصول
+auto.f8097ea9,Active,فعال
+auto.f82d7c25,Only if order total is greater than 1000,فقط اگر کل سفارش بیشتر از ۱۰۰۰ باشد
+auto.f82f5e9c,Production Orders,سفارشات تولید
+auto.f86529de,Schedule,برنامه
+auto.f86604ca,Cost,هزینه
+auto.f87c15ad,Location,مکان
+auto.f87e08e2,Cost,هزینه
+auto.f8947b2b,Upload &amp; Import,بارگذاری و ورود
+auto.f8dbbc3b,Apply Filters,اعمال فیلترها
+auto.f8e75943,Delivered,تحویل داده شده
+auto.f9226952,Assign Resource,تخصیص منبع
+auto.f995d1f9,Select product,محصول را انتخاب کنید
+auto.f9dd1edc,Source Type *,نوع منبع *
+auto.f9f31650,Warranty,گارانتی
+auto.fa049fd9,0,۰
+auto.fa12faa1,Pending Inspection,در انتظار بازرسی
+auto.fa2146ac,Top Users (30 days),کاربران برتر (۳۰ روز)
+auto.fa4ea006,-,-
+auto.faa2c5d0,Assign Supplier QC,اختصاص کنترل کیفیت تأمین‌کننده
+auto.faf23688,Link to Existing Product,پیوند به محصول موجود
+auto.fafc8788,Select Project,انتخاب پروژه
+auto.fb0440ca,All,همه
+auto.fb0740b2,Checked Out By:,خارج شده توسط:
+auto.fb0b1ad3,Expected Receipts (Open POs),رسیدهای پیش‌بینی شده (سفارشات خرید باز)
+auto.fb44b945,Last Calibration Date (YYYY-MM-DD),تاریخ آخرین کالیبراسیون (YYYY-MM-DD)
+auto.fb72e028,Standard Cost (USD),هزینه استاندارد (دلار آمریکا)
+auto.fb8b9ae8,0,۰
+auto.fb8ca712,Select Document Type,انتخاب نوع سند
+auto.fbabb7f2,Select Supplier,انتخاب تأمین‌کننده
+auto.fbb70d58,+ Add Item,+ افزودن آیتم
+auto.fbb9d203,0,۰
+auto.fbc9c3f0,Scrap Factor:,ضریب ضایعات:
+auto.fbcf4693,Next Due Date,تاریخ سررسید بعدی
+auto.fbd79290,Trend,روند
+auto.fbe5bc3a,Status,وضعیت
+auto.fbe787bc,Date From,تاریخ از
+auto.fbef4f33,Cancel,لغو
+auto.fbf926d1,Run Time (hrs/unit),زمان اجرا (ساعت/واحد)
+auto.fc628b10,Loading...,در حال بارگذاری...
+auto.fc79a409,Action,اقدام
+auto.fc9615bf,Pending Reminders,یادآوری‌های در انتظار
+auto.fcae818e,Access documents shared with you by our engineering team.,به مدارک به اشتراک گذاشته شده توسط تیم مهندسی ما دسترسی پیدا کنید.
+auto.fccc3867,Weekly,هفتگی
+auto.fcceec4c,External,خارجی
+auto.fd14f258,Milestones,نقاط عطف
+auto.fd20eb8f,On Hold,متوقف
+auto.fd3c2d47,Condition,شرط
+auto.fd3d3c93,Reserved,رزرو شده
+auto.fd7254f1,% Complete,درصد تکمیل
+auto.fd874f96,Step,مرحله
+auto.fdbc5955,"Interval (days, for recurring)","بازه (روز، برای تکراری)"
+auto.fde73ba5,Export CSV,خروجی CSV
+auto.fdee0047,Sign Off,تأیید نهایی
+auto.fdef727f,Checked Out Date,تاریخ خروج
+auto.fe0057bb,Refresh,تازه‌سازی
+auto.fe0702e0,Pending,در انتظار
+auto.fe0ad546,Upload,بارگذاری
+auto.fe132649,Change Notes,یادداشت تغییرات
+auto.fe30878b,New Project,پروژه جدید
+auto.fe480b0a,Step,مرحله
+auto.fe5add48,Completed,تکمیل شده
+auto.fe7410d1,{,{
+auto.fe803c4d,0,۰
+auto.fe8f047e,Code *,کد *
+auto.feb18922,Pending (no product),در انتظار (بدون محصول)
+auto.febb1962,Refresh,تازه‌سازی
+auto.fed002c2,Entity Type *,نوع نهاد *
+auto.fef8d59e,Due Date To,تاریخ سررسید تا
+auto.fefb8c2f,Save,ذخیره
+auto.ff1245d1,Reset,بازنشانی
+auto.ff2e29a0,P&amp;ID,نقشه لوله‌کشی و ابزار دقیق
+auto.ff498bac,Footer,پاورقی
+auto.ff63e6b8,"If no data appears, please set the date range to include your production orders (e.g., 2024-02-01 to 2024-04-01) and click Refresh.","اگر داده‌ای ظاهر نشد، لطفاً محدوده تاریخ را طوری تنظیم کنید که سفارشات تولید شما را شامل شود (مثلاً ۲۰۲۴-۰۲-۰۱ تا ۲۰۲۴-۰۴-۰۱) و روی Refresh کلیک کنید."
+auto.ff665c75,Add Document Type,افزودن نوع سند
+auto.ff671d2b,0,۰
+auto.ff7ca107,Cancel,لغو
+auto.ff811cc7,All,همه
+auto.ff87fca0,Date (Key),تاریخ (کلید)
+auto.ff923924,Change Notes,یادداشت تغییرات
+auto.ff9f1e3e,Actions,عملیات
+auto.ffa82bc7,MRP Exceptions,استثناهای MRP
+auto.ffb24551,All,همه
+auto.ffbe3865,Reset,بازنشانی
+auto.ffd4d5a7,Assign Supplier QC,اختصاص کنترل کیفیت تأمین‌کننده
+auto.fff49161,Loading...,در حال بارگذاری...
+common.actions,Actions,عملیات
+common.confirm_clear,Clear all selections?,آیا همه انتخاب‌ها پاک شوند؟
+common.error_loading,Error loading data,خطا در بارگذاری اطلاعات
+common.loading_more,Loading more...,در حال بارگذاری بیشتر...
+common.searching,Searching...,در حال جستجو...
+common.status,Status,وضعیت
+common.version,Version,نسخه
+global.cancel,Cancel,لغو
+global.delete,Delete,حذف
+global.delete,Delete,حذف
+global.details,Details,جزئیات
+global.edit,Edit,ویرایش
+global.edit,Edit,ویرایش
+global.loading,Loading...,در حال بارگذاری...
+global.portal_user,Portal User,کاربر پورتال
+global.save,Save,ذخیره
+global.share_doc,Share Doc,اشتراک مدرک
+project.management,Project Management,مدیریت پروژه
+quality.category,Category,دسته‌بندی
+quality.category.all,All Categories,همه دسته‌ها
+quality.category.filter,Category,دسته‌بندی
+quality.defect_report,Defect Report,گزارش عیب
+quality.inspection,Quality Inspection,بازرسی کیفیت
+quality.operation.code,Code,کد
+quality.operation.name,Name,نام
+quality.operations.active,Active,فعال
+quality.operations.draft,Draft,پیش‌نویس
+quality.operations.inactive,Inactive,غیرفعال
+quality.operations.list,operations,عملیات
+quality.operations.title,Quality Operations Library,کتابخانه عملیات کیفیت
+quality.operations.total,Total Operations,کل عملیات
+quality.operations_library.active,Active,فعال
+quality.operations_library.draft,Draft,پیش‌نویس
+quality.operations_library.inactive,Inactive,غیرفعال
+quality.pressure_test,Pressure Test,تست فشار
+quality.search.placeholder,Search operations...,جستجوی عملیات...
+quality.show.inactive,Show Inactive,نمایش غیرفعال‌ها
+quality.skill.level,Skill Level,سطح مهارت
+quality.specifications,Specifications,مشخصات
+quality.status.all,All Statuses,همه وضعیت‌ها
+quality.status.filter,Status,وضعیت
+quality.time,Time (min),زمان (دقیقه)
+quality.type.all,All Types,همه انواع
+quality.type.filter,Type,نوع
+sidebar.admin.audit_log,Audit Log,سیاهه حسابرسی
+sidebar.admin.external_users,External Users,کاربران خارجی
+sidebar.admin.internal_users,Internal Users,کاربران داخلی
+sidebar.admin.portal_settings,Portal Settings,تنظیمات پورتال
+sidebar.admin.project_roles,Project Roles &amp; Permissions,نقش‌ها و مجوزهای پروژه
+sidebar.admin.roles,Roles &amp; Permissions,نقش‌ها و مجوزها
+sidebar.admin.system_config,System Configuration,پیکربندی سیستم
+sidebar.admin.title,Administration,مدیریت سیستم
+sidebar.admin.workflow_designer,Workflow Designer,طراح گردش کار
+sidebar.current_project,Current Project,پروژه جاری
+sidebar.dashboard,Dashboard,داشبورد
+sidebar.engineering.bom,BOM Management,مدیریت لیست مواد
+sidebar.engineering.document_checkout,Document Checkout,خروج مدارک
+sidebar.engineering.document_control,Document Control,کنترل مدارک
+sidebar.engineering.document_exchange,Document Exchange &amp; Approval,تبادل و تصویب مدارک
+sidebar.engineering.engineering_docs,Engineering Documents,مدارک مهندسی
+sidebar.engineering.external_sharing,External Document Sharing,اشتراک خارجی مدارک
+sidebar.engineering.handover,Engineering Handover,تحویل مهندسی
+sidebar.engineering.product_management,Product Management,مدیریت محصول
+sidebar.engineering.routing,Routing,مسیریابی
+sidebar.engineering.title,Engineering,مهندسی
+sidebar.engineering.work_centers,Work Centers,مراکز کاری
+sidebar.executive_dashboard,Executive Dashboard,داشبورد مدیریتی
+sidebar.executive_dashboard,Executive dashboard,داشبورد مدیریتی
+sidebar.executive_dashboard,Executive Dashboard,داشبورد مدیریتی
+sidebar.finance.currency,Currency Management,مدیریت ارز
+sidebar.finance.customer_invoices,Customer Invoices,فاکتورهای مشتری
+sidebar.finance.inventory_valuation,Inventory Valuation,ارزیابی موجودی
+sidebar.finance.product_costing,Product Costing,هزینه‌یابی محصول
+sidebar.finance.project_financials,Project Financials,مالی پروژه
+sidebar.finance.supplier_invoices,Supplier Invoices,فاکتورهای تامین کننده
+sidebar.finance.title,Finance,مالی
+sidebar.hr.employee_management,Employee Management,مدیریت کارکنان
+sidebar.hr.skill_matrix,Skill Matrix,ماتریس مهارت
+sidebar.hr.title,Human Resources,منابع انسانی
+sidebar.hr.training,Training,آموزش
+sidebar.hr.work_schedule,Work Schedule,برنامه کاری
+sidebar.manufacturing.barcode_interface,Barcode / RFID Interface,رابط بارکد / RFID
+sidebar.manufacturing.capacity_planning,Capacity Planning,برنامه‌ریزی ظرفیت
+sidebar.manufacturing.maintenance,Maintenance,نگهداری
+sidebar.manufacturing.mrp,Material Requirements Planning (MRP),برنامه‌ریزی مواد
+sidebar.manufacturing.mrp_dashboard,MRP Run Dashboard,داشبورد اجرای MRP
+sidebar.manufacturing.mrp_exceptions,MRP Exceptions,استثناهای MRP
+sidebar.manufacturing.planned_orders,Planned Orders,سفارشات برنامه‌ریزی شده
+sidebar.manufacturing.production_orders,Production orders,سفارشات تولید
+sidebar.manufacturing.shop_floor_control,Shop floor control,کنترل کف کارخانه
+sidebar.manufacturing.subcontract_dashboard,Subcontract Dashboard,داشبورد برون‌سپاری
+sidebar.manufacturing.title,Manufacturing,تولید
+sidebar.manufacturing.title,Manufacturing,تولید
+sidebar.manufacturing.what_if,What-If Scenarios,سناریوهای چه-اگر
+sidebar.manufacturing.work_center_routing,Work center routing,مسیریابی مرکز کار
+sidebar.manufacturing.work_centers,Work Centers,مراکز کاری
+sidebar.project_selector.active_projects,Active Projects,پروژه‌های فعال
+sidebar.project_selector.active_projects,Active projects,پروژه‌های فعال
+sidebar.project_selector.all_projects,All Projects,همه پروژه‌ها
+sidebar.project_selector.all_projects,All projects,همه پروژه‌ها
+sidebar.project_selector.clear_all,Clear all,پاک کردن همه
+sidebar.project_selector.multiple_enabled,Multiple Projects Enabled,پروژه‌های چندگانه فعال است
+sidebar.project_selector.multiple_enabled,Multiple selection,انتخاب چندگانه
+sidebar.project_selector.selected,Selected,انتخاب شده
+sidebar.projects.customer_portal,Customer Portal,پورتال مشتری
+sidebar.projects.customer_project_mgmt,Customer Project Management,مدیریت پروژه مشتری
+sidebar.projects.portfolio,Project Portfolio,پرتفوی پروژه
+sidebar.projects.title,Projects,پروژه‌ها
+sidebar.quality.analytics,Quality Analytics,تحلیل کیفیت
+sidebar.quality.assurance,Quality Assurance,تضمین کیفیت
+sidebar.quality.audit_management,Audit Management,مدیریت ممیزی
+sidebar.quality.calibration,Calibration Management,مدیریت کالیبراسیون
+sidebar.quality.capa,CAPA,اقدامات اصلاحی و پیشگیرانه
+sidebar.quality.certificate_management,Certificate Management,مدیریت گواهینامه‌ها
+sidebar.quality.corrective_actions,Corrective Actions,اقدامات اصلاحی
+sidebar.quality.dashboard,Quality Dashboard,داشبورد کیفیت
+sidebar.quality.defect_management,Defect Management,مدیریت عیوب
+sidebar.quality.final,Final Inspection,بازرسی نهایی
+sidebar.quality.in_process,In‑Process Inspection,بازرسی حین تولید
+sidebar.quality.incoming,Incoming Inspection,بازرسی ورودی
+sidebar.quality.inspection,Quality Inspection,بازرسی کیفیت
+sidebar.quality.inspection,Inspection,بازرسی
+sidebar.quality.inspection_workbench,Inspection Workbench,میز کار بازرسی
+sidebar.quality.ncr_register,NCR Register,ثبت عدم انطباق
+sidebar.quality.non_conformance,Non Conformance,عدم انطباق
+sidebar.quality.nonconformances,Nonconformances,عدم انطباق‌ها
+sidebar.quality.operation_library,Operations Library,کتابخانه عملیات
+sidebar.quality.planning,Quality Planning,برنامه‌ریزی کیفیت
+sidebar.quality.product_quality_plans,Product Quality Plans,برنامه‌های کیفیت محصول
+sidebar.quality.project_quality_plans,Project Quality Plans,برنامه‌های کیفیت پروژه
+sidebar.quality.quality_templates,Quality Templates,الگوهای کیفیت
+sidebar.quality.supplier_inspection_portal,Supplier Inspection Portal,پورتال بازرسی تأمین‌کننده
+sidebar.quality.supplier_ncr,Supplier NCR,عدم انطباق تأمین‌کننده
+sidebar.quality.supplier_quality_plans,Supplier Quality Plans,برنامه‌های کیفیت تامین کننده
+sidebar.quality.supplier_scorecard,Supplier Scorecard,ارزیابی تأمین‌کننده
+sidebar.quality.system,Quality System,سیستم کیفیت
+sidebar.quality.title,Quality,کیفیت
+sidebar.quick_actions.my_tasks,My Tasks,وظایف من
+sidebar.quick_actions.title,Quick Actions,اقدامات سریع
+sidebar.reports.customer_performance,Customer Performance,عملکرد مشتری
+sidebar.reports.management,Management Reports,گزارشات مدیریتی
+sidebar.reports.operational,Operational Reports,گزارشات عملیاتی
+sidebar.reports.subcontracting_analysis,Subcontracting Analysis,تحلیل برون‌سپاری
+sidebar.reports.supplier_performance,Supplier Performance,عملکرد تامین کننده
+sidebar.reports.title,Reports,گزارش‌ها
+sidebar.set,Set,تنظیم
+sidebar.supply_chain.inventory,Inventory,موجودی
+sidebar.supply_chain.inventory_valuation,Inventory Valuation,ارزیابی موجودی
+sidebar.supply_chain.logistics,Logistics,لجستیک
+sidebar.supply_chain.purchase_orders,Purchase Orders,سفارشات خرید
+sidebar.supply_chain.purchasing,Purchasing,خرید
+sidebar.supply_chain.receiving,Receiving,دریافت
+sidebar.supply_chain.rfq,RFQ Management,مدیریت درخواست قیمت
+sidebar.supply_chain.shipping,Shipping,حمل
+sidebar.supply_chain.stock_movements,Stock Movements,حرکات موجودی
+sidebar.supply_chain.stock_overview,Stock Overview,نمای کلی موجودی
+sidebar.supply_chain.subcontract_pos,Subcontract POs,سفارشات خرید برون‌سپاری
+sidebar.supply_chain.supplier_management,Supplier Management,مدیریت تامین کنندگان
+sidebar.supply_chain.title,Supply Chain,زنجیره تامین
+sidebar.supply_chain.warehouse,Warehouse Management,مدیریت انبار
+sidebar.system_status.last_updated,Last Updated,آخرین بروزرسانی
+sidebar.system_status.operational,Operational,در حال کار
+sidebar.system_status.title,System Status,وضعیت سیستم
+supplier_management.title,Supplier Management,مدیریت تامین کنندگان
+supply_chain.0,0,۰
+supply_chain._add_supplier,+ Add Supplier,+ افزودن تامین کننده
+supply_chain.actions,Actions,عملیات
+supply_chain.active,Active,فعال
+supply_chain.active_portal_users,Active Portal Users,کاربران فعال پورتال
+supply_chain.add_supplier,Add Supplier,افزودن تامین کننده
+supply_chain.address,Address,آدرس
+supply_chain.all,All,همه
+supply_chain.average_rating,Average Rating,میانگین امتیاز
+supply_chain.category,Category,دسته‌بندی
+supply_chain.category_,Category *,دسته‌بندی *
+supply_chain.city,City,شهر
+supply_chain.code,Code,کد
+supply_chain.contact_person,Contact Person,شخص تماس
+supply_chain.country,Country,کشور
+supply_chain.email_,Email *,ایمیل *
+supply_chain.inactive,Inactive,غیرفعال
+supply_chain.lead_time_days,Lead Time (days),زمان تحویل (روز)
+supply_chain.loading,Loading...,در حال بارگذاری...
+supply_chain.name,Name,نام
+supply_chain.overall_rating,Overall Rating,امتیاز کلی
+supply_chain.payment_terms,Payment Terms,شرایط پرداخت
+supply_chain.phone,Phone,تلفن
+supply_chain.rating_max,Rating Max,حداکثر امتیاز
+supply_chain.rating_min,Rating Min,حداقل امتیاز
+supply_chain.refresh,Refresh,تازه کردن
+supply_chain.save,Save,ذخیره
+supply_chain.status,Status,وضعیت
+supply_chain.supplier_code_,Supplier Code *,کد تامین کننده *
+supply_chain.supplier_name_,Supplier Name *,نام تامین کننده *
+supply_chain.suppliers,Suppliers,تامین کنندگان
+supply_chain.suppliers_list,Suppliers List,لیست تامین کنندگان
+supply_chain.supply_chain,Supply Chain,زنجیره تامین
+supply_chain.total_suppliers,Total Suppliers,کل تامین کنندگان
+workflow.approve,Approve,تأیید
+workflow.overdue,Overdue,تأخیر
+workflow.pending,Pending,در انتظار
+workflow.reject,Reject,رد

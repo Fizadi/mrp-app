@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Quality Dashboard{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.44d3e1c2', 'Home') }}</a></li>
+<li class="breadcrumb-item">{{ get_translation('auto.1849ba2d', 'Quality') }}</li>
+<li class="breadcrumb-item active">{{ get_translation('auto.190bae35', 'Quality Dashboard') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mt-2 mb-3">
+<h2><i class="fas fa-chart-line me-2"></i>{{ get_translation('auto.48674315', 'Quality Dashboard') }}</h2>
+<button class="btn btn-success" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.fe0057bb', 'Refresh') }}</button>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.08bf3306', 'Date From') }}</label>
+<input class="form-control" id="dateFrom" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.5544636b', 'Date To') }}</label>
+<input class="form-control" id="dateTo" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.33b75e9b', 'Product') }}</label>
+<select class="form-select" id="filterProduct">
+<option value="">{{ get_translation('auto.763a19c2', 'All') }}</option>
+                        {% for p in products %}
+                        <option value="{{ p.ProductID }}">{{ p.ProductID }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.36d4588f', 'Work Center') }}</label>
+<select class="form-select" id="filterWorkCenter">
+<option value="">{{ get_translation('auto.57d8f5be', 'All') }}</option>
+                        {% for w in workcenters %}
+                        <option value="{{ w.WorkCenterID }}">{{ w.WorkCenterID }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+</div>
+<div class="row mt-3">
+<div class="col-md-12">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.24afdcbe', 'Apply Filters') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-4 mb-2">
+<div class="card border-primary h-100">
+<div class="card-body text-center">
+<h5 class="text-primary">{{ get_translation('auto.e092725f', 'First Pass Yield') }}</h5>
+<p class="display-5" id="kpiFpy">{{ get_translation('auto.cb36b1f8', '-') }}</p>
+<small class="text-muted">{{ get_translation('auto.1bb9ce52', '% of batches passed') }}</small>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.79d360d8', 'Defects Per Unit') }}</h5>
+<p class="display-5" id="kpiDpu">{{ get_translation('auto.0e485542', '-') }}</p>
+<small class="text-muted">{{ get_translation('auto.563703ad', 'avg defects per unit') }}</small>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-danger h-100">
+<div class="card-body text-center">
+<h5 class="text-danger">{{ get_translation('auto.2d9b429a', 'Cost of Poor Quality') }}</h5>
+<p class="display-5" id="kpiCopq">{{ get_translation('auto.747af6ce', '-') }}</p>
+<small class="text-muted">{{ get_translation('auto.1e8ddb2a', 'USD (estimated)') }}</small>
+</div>
+</div>
+</div>
+</div>
+<!-- Trend Chart -->
+<div class="card mb-3">
+<div class="card-header">
+<h5 class="mb-0">{{ get_translation('auto.8ee35866', 'Quality Trends (Monthly)') }}</h5>
+</div>
+<div class="card-body">
+<canvas height="300" id="trendChart"></canvas>
+</div>
+</div>
+<!-- Detailed summary (optional) -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0">{{ get_translation('auto.c10f9044', 'Period Summary') }}</h5>
+</div>
+<div class="card-body">
+<p><strong>{{ get_translation('auto.9df4b9f5', 'Total Batches:') }}</strong> <span id="totalBatches">{{ get_translation('auto.6883ee0f', '-') }}</span></p>
+<p><strong>{{ get_translation('auto.d62d6db4', 'Total Defects:') }}</strong> <span id="totalDefects">{{ get_translation('auto.c6aebe74', '-') }}</span></p>
+<p><strong>{{ get_translation('auto.75be407c', 'Total Units Inspected:') }}</strong> <span id="totalUnits">{{ get_translation('auto.7d154628', '-') }}</span></p>
+</div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let trendChart = null;
+
+    function loadKPIData() {
+        const params = new URLSearchParams({
+            date_from: document.getElementById('dateFrom').value,
+            date_to: document.getElementById('dateTo').value,
+            product: document.getElementById('filterProduct').value,
+            work_center: document.getElementById('filterWorkCenter').value
+        });
+        fetch('/api/quality/dashboard/kpi?' + params)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('kpiFpy').innerText = data.fpy + '%';
+                document.getElementById('kpiDpu').innerText = data.dpu;
+                document.getElementById('kpiCopq').innerText = '$' + data.copq.toLocaleString();
+                document.getElementById('totalBatches').innerText = data.total_batches;
+                document.getElementById('totalDefects').innerText = data.total_defects;
+                document.getElementById('totalUnits').innerText = data.total_units;
+            })
+            .catch(console.error);
+    }
+
+    function loadTrendChart() {
+        const params = new URLSearchParams({
+            date_from: document.getElementById('dateFrom').value,
+            date_to: document.getElementById('dateTo').value,
+            product: document.getElementById('filterProduct').value,
+            work_center: document.getElementById('filterWorkCenter').value
+        });
+        fetch('/api/quality/dashboard/trend?' + params)
+            .then(response => response.json())
+            .then(data => {
+                const months = data.map(d => d.month);
+                const fpyData = data.map(d => d.fpy);
+                const dpuData = data.map(d => d.dpu);
+
+                if (trendChart) trendChart.destroy();
+                const ctx = document.getElementById('trendChart').getContext('2d');
+                trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [
+                            {
+                                label: 'First Pass Yield (%)',
+                                data: fpyData,
+                                borderColor: 'blue',
+                                backgroundColor: 'rgba(0,0,255,0.1)',
+                                yAxisID: 'y',
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Defects Per Unit (DPU)',
+                                data: dpuData,
+                                borderColor: 'red',
+                                backgroundColor: 'rgba(255,0,0,0.1)',
+                                yAxisID: 'y1',
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}` } }
+                        },
+                        scales: {
+                            y: { title: { display: true, text: 'FPY (%)' }, beginAtZero: true, max: 100 },
+                            y1: { position: 'right', title: { display: true, text: 'DPU' }, grid: { drawOnChartArea: false } }
+                        }
+                    }
+                });
+            })
+            .catch(console.error);
+    }
+
+    document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+        loadKPIData();
+        loadTrendChart();
+    });
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        loadKPIData();
+        loadTrendChart();
+    });
+
+    // Initial load
+    loadKPIData();
+    loadTrendChart();
+});
+</script>
+{% endblock %}

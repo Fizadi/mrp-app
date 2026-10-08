@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.subcontractors.title', 'Subcontractor Management') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.subcontractors.breadcrumb', 'Subcontractor Management') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.subcontractors.title', 'Subcontractor Management') }}</h2>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#subcontractorModal">
+                <i class="fas fa-plus"></i> {{ get_translation('manufacturing.subcontractors.add', 'Add Subcontractor') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.subcontractors.kpi.total', 'Total') }}</h6><h3 id="kpiTotal">0</h3></div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.subcontractors.kpi.active', 'Active') }}</h6><h3 id="kpiActive">0</h3></div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.subcontractors.kpi.pending', 'Pending Orders') }}</h6><h3 id="kpiPending">0</h3></div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info"><div class="card-body text-center"><h6>{{ get_translation('manufacturing.subcontractors.kpi.completed', 'Completed') }}</h6><h3 id="kpiCompleted">0</h3></div></div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.subcontractors.filters.search', 'Search') }}</label>
+                <input type="text" class="form-control" id="filterSearch" placeholder="{{ get_translation('manufacturing.subcontractors.filters.search_placeholder', 'Search by name or ID...') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation('manufacturing.subcontractors.filters.status', 'Status') }}</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="Active">{{ get_translation('manufacturing.subcontractors.status.active', 'Active') }}</option>
+                    <option value="Inactive">{{ get_translation('manufacturing.subcontractors.status.inactive', 'Inactive') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subcontractors Table -->
+    <div class="card">
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover align-middle table-sticky">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.code', 'Code') }}</th>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.name', 'Name') }}</th>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.contact', 'Contact Person') }}</th>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.phone', 'Phone') }}</th>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.email', 'Email') }}</th>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.specialty', 'Specialty') }}</th>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.rating', 'Rating') }}</th>
+                        <th>{{ get_translation('manufacturing.subcontractors.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="subcontractorsBody">
+                    <tr><td colspan="9" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Subcontractor Modal -->
+<div class="modal fade" id="subcontractorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">{{ get_translation('manufacturing.subcontractors.add', 'Add Subcontractor') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="subcontractorForm">
+                    <input type="hidden" id="editId">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.subcontractors.form.code', 'Code') }} *</label>
+                            <input type="text" class="form-control" id="subcontractorCode" required>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.subcontractors.form.name', 'Name') }} *</label>
+                            <input type="text" class="form-control" id="subcontractorName" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.subcontractors.form.contact', 'Contact Person') }}</label>
+                            <input type="text" class="form-control" id="subcontractorContact">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.subcontractors.form.phone', 'Phone') }}</label>
+                            <input type="text" class="form-control" id="subcontractorPhone">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.subcontractors.form.email', 'Email') }}</label>
+                            <input type="email" class="form-control" id="subcontractorEmail">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.subcontractors.form.specialty', 'Specialty') }}</label>
+                            <select class="form-select" id="subcontractorSpecialty">
+                                <option value="Machining">{{ get_translation('manufacturing.subcontractors.specialty.machining', 'Machining') }}</option>
+                                <option value="Welding">{{ get_translation('manufacturing.subcontractors.specialty.welding', 'Welding') }}</option>
+                                <option value="Assembly">{{ get_translation('manufacturing.subcontractors.specialty.assembly', 'Assembly') }}</option>
+                                <option value="Finishing">{{ get_translation('manufacturing.subcontractors.specialty.finishing', 'Finishing') }}</option>
+                                <option value="Testing">{{ get_translation('manufacturing.subcontractors.specialty.testing', 'Testing') }}</option>
+                                <option value="Other">{{ get_translation('manufacturing.subcontractors.specialty.other', 'Other') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.subcontractors.form.rating', 'Rating') }}</label>
+                            <select class="form-select" id="subcontractorRating">
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Good</option>
+                                <option value="3" selected>3 - Average</option>
+                                <option value="2">2 - Poor</option>
+                                <option value="1">1 - Very Poor</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-2 d-flex align-items-center">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="subcontractorActive" checked>
+                                <label class="form-check-label">{{ get_translation('manufacturing.subcontractors.form.is_active', 'Active') }}</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="saveBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+var trans = {
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error_loading: {{ get_translation('global.error_loading', 'Error loading data')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    edit: {{ get_translation('global.edit', 'Edit')|tojson }},
+    delete: {{ get_translation('global.delete', 'Delete')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    all: {{ get_translation('global.all', 'All')|tojson }},
+    apply: {{ get_translation('global.apply', 'Apply')|tojson }},
+    actions: {{ get_translation('global.actions', 'Actions')|tojson }}
+};
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, defaultText);
+    }
+    return defaultText || key;
+}
+
+function getEl(id) { return document.getElementById(id); }
+
+function showToast(message, type) {
+    type = type || 'success';
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+// Load KPIs
+function loadKPIs() {
+    fetch('/api/manufacturing/subcontractors/stats')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            getEl('kpiTotal').textContent = data.total || 0;
+            getEl('kpiActive').textContent = data.active || 0;
+            getEl('kpiPending').textContent = data.pendingOrders || 0;
+            getEl('kpiCompleted').textContent = data.completedOrders || 0;
+        })
+        .catch(function(err) { console.error('KPI error:', err); });
+}
+
+// Load subcontractors
+function loadSubcontractors() {
+    var tbody = getEl('subcontractorsBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    var params = new URLSearchParams();
+    var search = getEl('filterSearch');
+    var status = getEl('filterStatus');
+    
+    if (search && search.value) params.set('search', search.value);
+    if (status && status.value) params.set('status', status.value);
+    
+    var url = '/api/manufacturing/subcontractors' + (params.toString() ? '?' + params.toString() : '');
+    
+    fetch(url)
+        .then(function(r) {
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            renderSubcontractors(data);
+        })
+        .catch(function(err) {
+            console.error('Error:', err);
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + t('error_loading', 'Error loading data') + '</td></tr>';
+        });
+}
+
+function renderSubcontractors(data) {
+    var tbody = getEl('subcontractorsBody');
+    if (!tbody) return;
+    
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">' + t('no_data', 'No data available') + '</td></tr>';
+        return;
+    }
+    
+    var html = '';
+    data.forEach(function(s) {
+        var statusBadge = s.isActive ? 
+            '<span class="badge bg-success">Active</span>' : 
+            '<span class="badge bg-secondary">Inactive</span>';
+        
+        var ratingStars = '';
+        for (var i = 1; i <= 5; i++) {
+            ratingStars += i <= s.rating ? '⭐' : '☆';
+        }
+        
+        html += '<tr>' +
+            '<td><strong>' + s.code + '</strong></td>' +
+            '<td>' + s.name + '</td>' +
+            '<td>' + (s.contactPerson || '-') + '</td>' +
+            '<td>' + (s.phone || '-') + '</td>' +
+            '<td>' + (s.email || '-') + '</td>' +
+            '<td>' + (s.specialty || '-') + '</td>' +
+            '<td>' + ratingStars + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' +
+                '<button class="btn btn-sm btn-outline-primary edit-subcontractor" data-id="' + s.id + '"><i class="fas fa-edit"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-danger delete-subcontractor" data-id="' + s.id + '"><i class="fas fa-trash"></i></button>' +
+            '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+// Open modal for add/edit
+function openSubcontractor(id) {
+    var isEdit = !!id;
+    var title = getEl('modalTitle');
+    
+    if (isEdit) {
+        title.textContent = t('edit', 'Edit') + ' Subcontractor';
+        fetch('/api/manufacturing/subcontractors/' + id)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                getEl('editId').value = id;
+                getEl('subcontractorCode').value = data.code || '';
+                getEl('subcontractorCode').disabled = true;
+                getEl('subcontractorName').value = data.name || '';
+                getEl('subcontractorContact').value = data.contactPerson || '';
+                getEl('subcontractorPhone').value = data.phone || '';
+                getEl('subcontractorEmail').value = data.email || '';
+                getEl('subcontractorSpecialty').value = data.specialty || 'Other';
+                getEl('subcontractorRating').value = data.rating || 3;
+                getEl('subcontractorActive').checked = data.isActive !== false;
+                var modal = new bootstrap.Modal(getEl('subcontractorModal'));
+                modal.show();
+            })
+            .catch(function(err) {
+                console.error('Error:', err);
+                showToast('Error loading subcontractor', 'error');
+            });
+    } else {
+        title.textContent = t('add', 'Add Subcontractor');
+        getEl('editId').value = '';
+        getEl('subcontractorCode').value = '';
+        getEl('subcontractorCode').disabled = false;
+        getEl('subcontractorName').value = '';
+        getEl('subcontractorContact').value = '';
+        getEl('subcontractorPhone').value = '';
+        getEl('subcontractorEmail').value = '';
+        getEl('subcontractorSpecialty').value = 'Other';
+        getEl('subcontractorRating').value = 3;
+        getEl('subcontractorActive').checked = true;
+        var modal = new bootstrap.Modal(getEl('subcontractorModal'));
+        modal.show();
+    }
+}
+
+// Save subcontractor
+function saveSubcontractor() {
+    var id = getEl('editId').value;
+    var data = {
+        code: getEl('subcontractorCode').value,
+        name: getEl('subcontractorName').value,
+        contactPerson: getEl('subcontractorContact').value,
+        phone: getEl('subcontractorPhone').value,
+        email: getEl('subcontractorEmail').value,
+        specialty: getEl('subcontractorSpecialty').value,
+        rating: parseInt(getEl('subcontractorRating').value) || 3,
+        isActive: getEl('subcontractorActive').checked
+    };
+    
+    if (!data.code || !data.name) {
+        showToast('Code and Name are required', 'error');
+        return;
+    }
+    
+    var url = id ? '/api/manufacturing/subcontractors/' + id : '/api/manufacturing/subcontractors';
+    var method = id ? 'PUT' : 'POST';
+    
+    var saveBtn = getEl('saveBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('loading', 'Loading...');
+    
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.error) {
+            showToast(result.error, 'error');
+            return;
+        }
+        showToast(result.message || 'Saved successfully', 'success');
+        var modal = bootstrap.Modal.getInstance(getEl('subcontractorModal'));
+        if (modal) modal.hide();
+        loadSubcontractors();
+        loadKPIs();
+    })
+    .catch(function(err) {
+        console.error('Error:', err);
+        showToast('Error saving subcontractor', 'error');
+    })
+    .finally(function() {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = t('save', 'Save');
+    });
+}
+
+// Delete subcontractor
+function deleteSubcontractor(id) {
+    if (!confirm('Are you sure you want to delete this subcontractor?')) return;
+    
+    fetch('/api/manufacturing/subcontractors/' + id, {
+        method: 'DELETE'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.error) {
+            showToast(result.error, 'error');
+            return;
+        }
+        showToast('Subcontractor deleted', 'success');
+        loadSubcontractors();
+        loadKPIs();
+    })
+    .catch(function(err) {
+        console.error('Error:', err);
+        showToast('Error deleting subcontractor', 'error');
+    });
+}
+
+// Event handlers
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    
+    if (btn.classList.contains('edit-subcontractor')) {
+        var id = btn.getAttribute('data-id');
+        openSubcontractor(id);
+        return;
+    }
+    
+    if (btn.classList.contains('delete-subcontractor')) {
+        var id = btn.getAttribute('data-id');
+        deleteSubcontractor(id);
+        return;
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add button
+    var addBtn = document.querySelector('[data-bs-target="#subcontractorModal"]');
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            openSubcontractor(null);
+        });
+    }
+    
+    // Save button
+    var saveBtn = getEl('saveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveSubcontractor);
+    }
+    
+    // Apply filters
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            loadSubcontractors();
+            loadKPIs();
+        });
+    }
+    
+    // Search debounce
+    var searchInput = getEl('filterSearch');
+    if (searchInput) {
+        var debounceTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                loadSubcontractors();
+                loadKPIs();
+            }, 300);
+        });
+    }
+    
+    // Enter key on search
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadSubcontractors();
+                loadKPIs();
+            }
+        });
+    }
+    
+    // Initial load
+    loadSubcontractors();
+    loadKPIs();
+});
+</script>
+{% endblock %}

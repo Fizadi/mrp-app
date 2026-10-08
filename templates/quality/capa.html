@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}CAPA - Corrective &amp; Preventive Actions{% endblock %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+<h2><i class="fas fa-tasks me-2"></i>{{ get_translation('auto.67ee57e8', 'CAPA Management') }}</h2>
+<div>
+<button class="btn btn-primary me-2" id="createActionBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.c5ab7450', 'Create Action') }}</button>
+<button class="btn btn-success me-2" id="refreshBtn"><i class="fas fa-sync-alt"></i>{{ get_translation('auto.911c80a5', 'Refresh') }}</button>
+<button class="btn btn-info" id="exportCsvBtn"><i class="fas fa-file-csv"></i>{{ get_translation('auto.dbf247c7', 'Export CSV') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-3">
+<div class="col-md-4 mb-2">
+<div class="card border-warning h-100">
+<div class="card-body text-center">
+<h5 class="text-warning">{{ get_translation('auto.7b079f5d', 'Open Actions') }}</h5>
+<p class="display-6" id="kpiOpen">{{ get_translation('auto.d3fffd67', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-danger h-100">
+<div class="card-body text-center">
+<h5 class="text-danger">{{ get_translation('auto.3f14d0ca', 'Overdue') }}</h5>
+<p class="display-6" id="kpiOverdue">{{ get_translation('auto.89788c6c', '-') }}</p>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-2">
+<div class="card border-success h-100">
+<div class="card-body text-center">
+<h5 class="text-success">{{ get_translation('auto.247ffc2b', 'Completed') }}</h5>
+<p class="display-6" id="kpiCompleted">{{ get_translation('auto.45c308ab', '-') }}</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-3">
+<div class="col-md-3">
+<label>{{ get_translation('auto.ddca1f87', 'Type') }}</label>
+<select class="form-select" id="filterType">
+<option value="">{{ get_translation('auto.904e8cbc', 'All') }}</option>
+<option>{{ get_translation('auto.2290ad23', 'Corrective') }}</option><option>{{ get_translation('auto.8beed1ed', 'Preventive') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.d1089e7c', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.5234105e', 'All') }}</option>
+<option>{{ get_translation('auto.017fe17a', 'Open') }}</option><option>{{ get_translation('auto.73837e16', 'InProgress') }}</option><option>{{ get_translation('auto.5f8f7097', 'Completed') }}</option>
+</select>
+</div>
+<div class="col-md-4">
+<label>{{ get_translation('auto.d302c3e4', 'Assignee') }}</label>
+<select class="form-select" id="filterAssignee">
+<option value="">{{ get_translation('auto.71918af0', 'All') }}</option>
+                        {% for a in assignees %}
+                        <option value="{{ a.UserID }}">{{ a.FullName }}</option>
+                        {% endfor %}
+                    </select>
+</div>
+<div class="col-md-2">
+<div class="form-check mt-4">
+<button class="btn btn-primary" id="applyFiltersBtn">{{ get_translation('auto.2f456fc2', 'Apply') }}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Actions Table -->
+<div class="card">
+<div class="card-header">
+<h5 class="mb-0"><i class="fas fa-list"></i>{{ get_translation('auto.0a7ed6fe', 'Corrective &amp; Preventive Actions') }}</h5>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover table-striped mb-0" id="actionsTable">
+<thead class="table-dark">
+<tr>
+<th>{{ get_translation('auto.2b9bb9b7', 'Action #') }}</th><th>{{ get_translation('auto.4ffd7a41', 'Type') }}</th><th>{{ get_translation('auto.f10f1383', 'Source') }}</th><th>{{ get_translation('auto.2650e3f5', 'Description') }}</th><th>{{ get_translation('auto.31df225e', 'Assigned To') }}</th><th>{{ get_translation('auto.a118a91a', 'Due Date') }}</th><th>{{ get_translation('auto.86d1b8ae', 'Status') }}</th><th>{{ get_translation('auto.c4743b68', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="actionsTableBody">
+<tr><td class="text-center py-4" colspan="8">{{ get_translation('auto.ed7a6662', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Create Action Modal -->
+<div class="modal fade" id="createModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.873bb62a', 'Create CAPA Action') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.7ce65f46', 'Action Type *') }}</label>
+<select class="form-select" id="newType" required="">
+<option>{{ get_translation('auto.6ae47fb2', 'Corrective') }}</option><option>{{ get_translation('auto.922897eb', 'Preventive') }}</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.cbdf9ff0', 'Source Type *') }}</label>
+<select class="form-select" id="newSourceType" required="">
+<option>{{ get_translation('auto.bcb2815e', 'NCR') }}</option><option>{{ get_translation('auto.e62d74e6', 'Audit') }}</option><option>{{ get_translation('auto.f72e6627', 'Internal') }}</option><option>{{ get_translation('auto.63efda13', 'Supplier') }}</option>
+</select>
+</div>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.e0a44417', 'Source ID (e.g., NCR number or reference)') }}</label>
+<input class="form-control" id="newSourceId" type="text"/>
+</div>
+<div class="mb-3">
+<label>{{ get_translation('auto.489ababf', 'Description / Action Plan *') }}</label>
+<textarea class="form-control" id="newDescription" required="" rows="3"></textarea>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.8fa4d715', 'Assigned To') }}</label>
+<select class="form-select" id="newAssignee">
+<option value="">{{ get_translation('auto.9c68dd13', 'Select User') }}</option>
+                                {% for a in assignees %}
+                                <option value="{{ a.UserID }}">{{ a.FullName }}</option>
+                                {% endfor %}
+                            </select>
+</div>
+<div class="col-md-6 mb-3">
+<label>{{ get_translation('auto.8da73404', 'Due Date (YYYYMMDD)') }}</label>
+<input class="form-control" id="newDueDate" placeholder="20241231" type="number"/>
+</div>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.1592498e', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveActionBtn">{{ get_translation('auto.895811cd', 'Create Action') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Verify Effectiveness Modal -->
+<div class="modal fade" id="verifyModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.f3c6b0d8', 'Verify Effectiveness') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="verifyActionId" type="hidden"/>
+<div class="mb-3">
+<label>{{ get_translation('auto.7a02aebe', 'Effectiveness Check (notes)') }}</label>
+<textarea class="form-control" id="effectivenessText" required="" rows="3"></textarea>
+</div>
+<p class="text-muted">{{ get_translation('auto.736e2208', 'This will mark the action as Completed.') }}</p>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.ff7ca107', 'Cancel') }}</button>
+<button class="btn btn-success" id="confirmVerifyBtn">{{ get_translation('auto.72a801e2', 'Verify &amp; Close') }}</button>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let createModal = new bootstrap.Modal(document.getElementById('createModal'));
+    let verifyModal = new bootstrap.Modal(document.getElementById('verifyModal'));
+    let currentActionId = null;
+
+    function loadKPI() {
+        $.get('/api/quality/capa/kpi', function(data) {
+            $('#kpiOpen').text(data.open);
+            $('#kpiOverdue').text(data.overdue);
+            $('#kpiCompleted').text(data.completed);
+        }).fail(console.error);
+    }
+
+    function loadActions() {
+        let params = {
+            type: $('#filterType').val(),
+            status: $('#filterStatus').val(),
+            assignee: $('#filterAssignee').val()
+        };
+        $.get('/api/quality/capa/list', params, function(actions) {
+            let tbody = $('#actionsTableBody').empty();
+            for (let a of actions) {
+                let dueDate = a.DueDateKey ? a.DueDateKey.toString() : '';
+                let statusBadge = '';
+                if (a.Status === 'Open') statusBadge = '<span class="badge bg-secondary">Open</span>';
+                else if (a.Status === 'InProgress') statusBadge = '<span class="badge bg-warning">In Progress</span>';
+                else statusBadge = '<span class="badge bg-success">Completed</span>';
+                let row = `<tr>
+                    <td><a href="#" class="action-detail" data-id="${a.ActionID}">${a.ActionNumber}</a></td>
+                    <td>${a.ActionType}</td><td>${a.SourceType}: ${a.SourceID || ''}</td>
+                    <td>${a.Description.substring(0,50)}...</td><td>${a.AssigneeName || ''}</td>
+                    <td>${dueDate}</td><td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success verify-btn" data-id="${a.ActionID}" ${a.Status === 'Completed' ? 'disabled' : ''}>Verify</button>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            }
+        }).fail(console.error);
+    }
+
+    $('#createActionBtn').click(function() {
+        $('#newType').val('Corrective');
+        $('#newSourceType').val('NCR');
+        $('#newSourceId').val('');
+        $('#newDescription').val('');
+        $('#newAssignee').val('');
+        $('#newDueDate').val('');
+        createModal.show();
+    });
+
+    $('#saveActionBtn').click(function() {
+        let data = {
+            actionType: $('#newType').val(),
+            sourceType: $('#newSourceType').val(),
+            sourceID: $('#newSourceId').val() || null,
+            description: $('#newDescription').val(),
+            assignedTo: $('#newAssignee').val() || null,
+            dueDateKey: $('#newDueDate').val() || null
+        };
+        $.ajax({
+            url: '/api/quality/capa/action',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                createModal.hide();
+                loadActions();
+                loadKPI();
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
+        });
+    });
+
+    $(document).on('click', '.verify-btn', function() {
+        currentActionId = $(this).data('id');
+        $('#verifyActionId').val(currentActionId);
+        $('#effectivenessText').val('');
+        verifyModal.show();
+    });
+    $('#confirmVerifyBtn').click(function() {
+        let data = { effectivenessCheck: $('#effectivenessText').val() };
+        $.ajax({
+            url: `/api/quality/capa/action/${currentActionId}/verify`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                verifyModal.hide();
+                loadActions();
+                loadKPI();
+            }
+        });
+    });
+
+    $('#applyFiltersBtn').click(function() { loadActions(); });
+    $('#refreshBtn').click(function() { loadActions(); loadKPI(); });
+    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/capa/export'; });
+
+    loadKPI();
+    loadActions();
+});
+</script>
+{% endblock %}

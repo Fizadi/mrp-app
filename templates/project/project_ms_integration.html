@@ -1,0 +1,633 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('global.home', 'Home') }}</a></li>
+            <li class="breadcrumb-item"><a href="/project/project_portfolio">{{ get_translation('project.projects', 'Projects') }}</a></li>
+            <li class="breadcrumb-item"><a href="/project/dashboard/{{ project_id }}">{{ project_id }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('ms_project.title', 'MS Project Integration') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('ms_project.title', 'MS Project Integration') }}</h2>
+        <div>
+            <button class="btn btn-primary me-2" id="uploadMppBtn">{{ get_translation('ms_project.upload_mpp', 'Upload MPP') }}</button>
+            <button class="btn btn-outline-secondary me-2" id="refreshBtn">{{ get_translation('global.refresh', 'Refresh') }}</button>
+            <a href="/project/dashboard/{{ project_id }}" class="btn btn-secondary">{{ get_translation('global.back', '← Back') }}</a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-2 mb-4">
+        <div class="col-md-3"><div class="card text-center p-2 bg-primary text-white"><h6>{{ get_translation('ms_project.total_tasks', 'Total Tasks') }}</h6><h3 id="kpi-total">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('ms_project.behind_schedule', 'Behind Schedule') }}</h6><h3 id="kpi-behind">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('ms_project.supplier_tasks', 'Supplier Tasks') }}</h6><h3 id="kpi-supplier">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-success text-white"><h6>{{ get_translation('ms_project.pending_export', 'Pending Export') }}</h6><h3 id="kpi-pending">0</h3></div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3 p-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label>{{ get_translation('ms_project.supplier', 'Supplier') }}</label>
+                <select id="filter-supplier" class="form-select">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label>{{ get_translation('ms_project.status', 'Status') }}</label>
+                <select id="filter-status" class="form-select">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="On Track">{{ get_translation('ms_project.on_track', 'On Track') }}</option>
+                    <option value="Behind">{{ get_translation('ms_project.behind', 'Behind') }}</option>
+                    <option value="Critical">{{ get_translation('ms_project.critical', 'Critical') }}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label>{{ get_translation('ms_project.linked', 'Linked Component') }}</label>
+                <select id="filter-linked" class="form-select">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="yes">{{ get_translation('ms_project.linked_yes', 'Yes') }}</option>
+                    <option value="no">{{ get_translation('ms_project.linked_no', 'No') }}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-secondary w-100" id="applyFilters">{{ get_translation('global.apply', 'Apply') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons Row -->
+    <div class="row mb-3 g-2">
+        <div class="col-md-3">
+            <button class="btn btn-outline-success w-100" id="exportSupplierBtn">{{ get_translation('ms_project.export_supplier', 'Export Supplier Schedule') }}</button>
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-outline-primary w-100" id="importSupplierBtn">{{ get_translation('ms_project.import_supplier', 'Import Supplier Update') }}</button>
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-outline-warning w-100" id="generateMppBtn">{{ get_translation('ms_project.generate_mpp', 'Generate Updated MPP') }}</button>
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-outline-info w-100" id="linkComponentBtn">{{ get_translation('ms_project.link_component', 'Link Component') }}</button>
+        </div>
+    </div>
+
+    <!-- Tasks Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover" id="tasks-table">
+            <thead class="table-dark">
+                <tr>
+                    <th>{{ get_translation('ms_project.task_id', 'Task ID') }}</th>
+                    <th>{{ get_translation('ms_project.task_name', 'Task Name') }}</th>
+                    <th>{{ get_translation('ms_project.start_date', 'Start Date') }}</th>
+                    <th>{{ get_translation('ms_project.finish_date', 'Finish Date') }}</th>
+                    <th>{{ get_translation('ms_project.planned', 'Planned %') }}</th>
+                    <th>{{ get_translation('ms_project.actual', 'Actual %') }}</th>
+                    <th>{{ get_translation('ms_project.status', 'Status') }}</th>
+                    <th>{{ get_translation('ms_project.supplier', 'Supplier') }}</th>
+                    <th>{{ get_translation('ms_project.linked_component', 'Linked Component') }}</th>
+                    <th>{{ get_translation('ms_project.actions', 'Actions') }}</th>
+                </tr>
+            </thead>
+            <tbody id="tasks-tbody">
+                <tr><td colspan="10" class="text-muted">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Upload MPP Modal -->
+<div class="modal fade" id="uploadMppModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('ms_project.upload_mpp_full', 'Upload MPP/XML File') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label>{{ get_translation('ms_project.select_file', 'Select File') }}</label>
+                    <input type="file" id="mppFile" class="form-control" accept=".mpp,.xml">
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="mppOverwrite" class="form-check-input">
+                    <label class="form-check-label">{{ get_translation('ms_project.overwrite_existing', 'Overwrite existing tasks') }}</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="confirmUpload">{{ get_translation('global.upload', 'Upload') }}</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Supplier Modal -->
+<div class="modal fade" id="exportSupplierModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('ms_project.export_supplier', 'Export Supplier Schedule') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label>{{ get_translation('ms_project.select_supplier', 'Select Supplier') }}</label>
+                    <select id="exportSupplierSelect" class="form-select"></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="confirmExportSupplier">{{ get_translation('global.export', 'Export') }}</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Supplier Modal -->
+<div class="modal fade" id="importSupplierModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('ms_project.import_supplier', 'Import Supplier Update') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label>{{ get_translation('ms_project.select_file_csv', 'Select CSV File') }}</label>
+                    <input type="file" id="supplierImportFile" class="form-control" accept=".csv">
+                </div>
+                <div id="importPreviewArea" style="display:none;">
+                    <h6>{{ get_translation('ms_project.preview_changes', 'Preview Changes') }}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="previewTable">
+                            <thead><tr><th>Task ID</th><th>Task Name</th><th>Planned %</th><th>Current Actual</th><th>New Actual</th></tr></thead>
+                            <tbody id="previewTbody"></tbody>
+                        </table>
+                    </div>
+                    <button class="btn btn-success" id="confirmImport">{{ get_translation('global.confirm', 'Confirm Import') }}</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Link Component Modal -->
+<div class="modal fade" id="linkComponentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>{{ get_translation('ms_project.link_component', 'Link Component to Task') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label>{{ get_translation('ms_project.select_task', 'Select Task') }}</label>
+                    <select id="linkTaskSelect" class="form-select"></select>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('ms_project.select_component', 'Select Component') }}</label>
+                    <input type="text" id="componentSearch" class="form-control" placeholder="{{ get_translation('ms_project.search_component', 'Search product or component...') }}">
+                    <div id="componentResults" class="list-group mt-2" style="max-height:200px;overflow-y:auto;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    no_tasks:             {{ get_translation('ms_project.no_tasks', 'No tasks found')|tojson }},
+    select_file:          {{ get_translation('ms_project.select_file_first', 'Select a file')|tojson }},
+    select_supplier:      {{ get_translation('ms_project.select_supplier_first', 'Select a supplier')|tojson }},
+    import_failed:        {{ get_translation('ms_project.import_failed', 'Import failed')|tojson }},
+    upload_failed:        {{ get_translation('ms_project.upload_failed', 'Upload failed')|tojson }},
+    error:                {{ get_translation('global.error', 'Error')|tojson }},
+    component_linked:     {{ get_translation('ms_project.component_linked', 'Component linked successfully')|tojson }},
+    select_task_first:    {{ get_translation('ms_project.select_task_first', 'Select a task first')|tojson }},
+    imported_count:       {{ get_translation('ms_project.imported_count', 'Imported {count} tasks')|tojson }},
+    updated_count:        {{ get_translation('ms_project.updated_count', 'Updated {count} tasks')|tojson }},
+    select_task:          {{ get_translation('ms_project.select_task', 'Select Task')|tojson }},
+    on_track:             {{ get_translation('ms_project.on_track', 'On Track')|tojson }}
+};
+
+// ============================================================
+// 2. State — TOP LEVEL
+// ============================================================
+var projectId = "{{ project_id }}";
+var tasksData = [];
+
+// ============================================================
+// 3. Helper functions — TOP LEVEL
+// ============================================================
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function formatDateKey(dateKey) {
+    if (!dateKey) return '-';
+    var s = dateKey.toString();
+    if (s.length !== 8) return s;
+    return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+}
+
+function showModal(id) {
+    var el = document.getElementById(id);
+    if (el) new bootstrap.Modal(el).show();
+}
+
+function hideModal(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        var inst = bootstrap.Modal.getInstance(el);
+        if (inst) inst.hide();
+    }
+}
+
+// ============================================================
+// 4. Data loading — TOP LEVEL, fetch()
+// ============================================================
+function loadTasks() {
+    var supplierEl = document.getElementById('filter-supplier');
+    var statusEl = document.getElementById('filter-status');
+    var linkedEl = document.getElementById('filter-linked');
+
+    var supplier = supplierEl ? supplierEl.value : '';
+    var status = statusEl ? statusEl.value : '';
+    var linked = linkedEl ? linkedEl.value : '';
+
+    var url = '/api/project/ms-project/tasks/' + projectId;
+    var params = [];
+    if (supplier) params.push('supplier=' + encodeURIComponent(supplier));
+    if (status) params.push('status=' + encodeURIComponent(status));
+    if (linked) params.push('linked=' + encodeURIComponent(linked));
+    if (params.length) url += '?' + params.join('&');
+
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            tasksData = data.tasks || [];
+
+            var kpiTotal = document.getElementById('kpi-total');
+            var kpiBehind = document.getElementById('kpi-behind');
+            var kpiSupplier = document.getElementById('kpi-supplier');
+            var kpiPending = document.getElementById('kpi-pending');
+            if (kpiTotal) kpiTotal.textContent = data.kpis.total_tasks;
+            if (kpiBehind) kpiBehind.textContent = data.kpis.behind_schedule;
+            if (kpiSupplier) kpiSupplier.textContent = data.kpis.supplier_tasks;
+            if (kpiPending) kpiPending.textContent = data.kpis.pending_export;
+
+            // Update supplier dropdowns
+            var supplierSelects = ['filter-supplier', 'exportSupplierSelect'];
+            supplierSelects.forEach(function(selId) {
+                var sel = document.getElementById(selId);
+                if (!sel) return;
+                var currentVal = sel.value;
+                sel.innerHTML = '<option value="">All</option>';
+                (data.suppliers || []).forEach(function(s) {
+                    var opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s;
+                    sel.appendChild(opt);
+                });
+                if (currentVal) sel.value = currentVal;
+            });
+
+            // Render table
+            var html = '';
+            (data.tasks || []).forEach(function(t) {
+                var progressWidth = Math.min(t.actual_percent || 0, 100);
+                var barColor = progressWidth > 80 ? '#28a745' : (progressWidth > 50 ? '#ffc107' : '#dc3545');
+                var rowClass = t.status_class === 'danger' ? 'table-danger' : (t.status_class === 'warning' ? 'table-warning' : '');
+                var supplier = t.supplier_id || '-';
+                var component = t.component_id || '-';
+                var start = formatDateKey(t.start_date);
+                var finish = formatDateKey(t.finish_date);
+
+                html += '<tr class="' + rowClass + '">';
+                html += '<td>' + t.id + '</td>';
+                html += '<td>' + escapeHtml(t.name) + '</td>';
+                html += '<td>' + start + '</td>';
+                html += '<td>' + finish + '</td>';
+                html += '<td>' + t.planned_percent + '%</td>';
+                html += '<td>';
+                html += '<div class="d-flex align-items-center">';
+                html += '<span class="me-2">' + t.actual_percent + '%</span>';
+                html += '<div class="progress" style="width:60px;height:10px;">';
+                html += '<div class="progress-bar" style="width:' + progressWidth + '%;background-color:' + barColor + ';"></div>';
+                html += '</div></div></td>';
+                html += '<td><span class="badge bg-' + t.status_class + '">' + t.status + '</span></td>';
+                html += '<td>' + supplier + '</td>';
+                html += '<td>';
+                if (component !== '-') {
+                    html += '<a href="#" class="component-link" data-task-id="' + t.id + '" data-component-id="' + component + '">' + component + '</a>';
+                } else {
+                    html += '-';
+                }
+                html += '</td>';
+                html += '<td>';
+                html += '<button class="btn btn-sm btn-outline-info link-task-btn" data-task-id="' + t.id + '" data-task-name="' + escapeHtml(t.name) + '">Link</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            if (!data.tasks || !data.tasks.length) {
+                html = '<tr><td colspan="10" class="text-muted">' + trans.no_tasks + '</td></tr>';
+            }
+
+            var tbody = document.getElementById('tasks-tbody');
+            if (tbody) tbody.innerHTML = html;
+        })
+        .catch(function(err) {
+            console.error('loadTasks failed:', err);
+        });
+}
+
+// ============================================================
+// 5. Action handlers — TOP LEVEL
+// ============================================================
+function uploadMpp() {
+    var fileInput = document.getElementById('mppFile');
+    var overwriteEl = document.getElementById('mppOverwrite');
+    var overwrite = overwriteEl ? overwriteEl.checked : false;
+
+    if (!fileInput || !fileInput.files[0]) { alert(trans.select_file); return; }
+
+    var fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+    fd.append('project_id', projectId);
+    fd.append('overwrite', overwrite);
+
+    fetch('/api/project/ms-project/upload', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var msg = trans.imported_count.replace('{count}', res.imported);
+                alert(msg);
+                hideModal('uploadMppModal');
+                loadTasks();
+            } else {
+                alert(trans.error + ': ' + (res.error || ''));
+            }
+        })
+        .catch(function() { alert(trans.upload_failed); });
+}
+
+function exportSupplier() {
+    var sel = document.getElementById('exportSupplierSelect');
+    var supplier = sel ? sel.value : '';
+    if (!supplier) { alert(trans.select_supplier); return; }
+
+    var data = { project_id: projectId, supplier_id: supplier };
+
+    fetch('/api/project/ms-project/export-supplier', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.blob(); })
+    .then(function(blob) {
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'supplier_schedule_' + supplier + '_' + new Date().toISOString().slice(0,10) + '.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+}
+
+function importSupplier() {
+    var file = document.getElementById('supplierImportFile');
+    if (!file || !file.files[0]) { alert(trans.select_file); return; }
+
+    var fd = new FormData();
+    fd.append('file', file.files[0]);
+    fd.append('project_id', projectId);
+    fd.append('preview', true);
+
+    fetch('/api/project/ms-project/import-supplier', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.preview) {
+                var area = document.getElementById('importPreviewArea');
+                if (area) area.style.display = '';
+                var html = '';
+                res.preview.forEach(function(p) {
+                    html += '<tr>';
+                    html += '<td>' + p.task_id + '</td>';
+                    html += '<td>' + escapeHtml(p.task_name) + '</td>';
+                    html += '<td>' + p.planned_percent + '%</td>';
+                    html += '<td>' + p.current_actual + '%</td>';
+                    html += '<td>' + p.new_actual + '%</td>';
+                    html += '</tr>';
+                });
+                var previewTbody = document.getElementById('previewTbody');
+                if (previewTbody) previewTbody.innerHTML = html;
+
+                // Stash the file on the confirm button for later
+                var confirmBtn = document.getElementById('confirmImport');
+                if (confirmBtn) confirmBtn._stashedFile = file.files[0];
+            } else {
+                var msg = trans.updated_count.replace('{count}', res.updated);
+                alert(msg);
+                hideModal('importSupplierModal');
+                loadTasks();
+            }
+        })
+        .catch(function() { alert(trans.import_failed); });
+}
+
+function confirmImport() {
+    var btn = document.getElementById('confirmImport');
+    var file = btn ? btn._stashedFile : null;
+    if (!file) { alert(trans.select_file); return; }
+
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('project_id', projectId);
+    fd.append('preview', false);
+
+    fetch('/api/project/ms-project/import-supplier', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var msg = trans.updated_count.replace('{count}', res.updated);
+                alert(msg);
+                hideModal('importSupplierModal');
+                loadTasks();
+            } else {
+                alert(trans.error);
+            }
+        });
+}
+
+function generateMpp() {
+    window.open('/api/project/ms-project/export-mpp/' + projectId, '_blank');
+}
+
+function populateLinkTaskSelect(selectedTaskId) {
+    var select = document.getElementById('linkTaskSelect');
+    if (!select) return;
+    select.innerHTML = '';
+
+    function fill(tasks) {
+        tasks.forEach(function(t) {
+            var opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.id + ' - ' + t.name;
+            select.appendChild(opt);
+        });
+        if (selectedTaskId) select.value = selectedTaskId;
+    }
+
+    if (tasksData && tasksData.length) {
+        fill(tasksData);
+    } else {
+        fetch('/api/project/ms-project/tasks/' + projectId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                tasksData = data.tasks || [];
+                fill(tasksData);
+            });
+    }
+}
+
+function linkComponent(taskId) {
+    populateLinkTaskSelect(taskId);
+    showModal('linkComponentModal');
+}
+
+// ============================================================
+// 6. Init — DOMContentLoaded
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadTasks();
+
+    // Filter buttons
+    var applyBtn = document.getElementById('applyFilters');
+    if (applyBtn) applyBtn.addEventListener('click', loadTasks);
+
+    var refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', loadTasks);
+
+    // Upload MPP
+    var uploadMppBtn = document.getElementById('uploadMppBtn');
+    if (uploadMppBtn) uploadMppBtn.addEventListener('click', function() { showModal('uploadMppModal'); });
+
+    var confirmUpload = document.getElementById('confirmUpload');
+    if (confirmUpload) confirmUpload.addEventListener('click', uploadMpp);
+
+    // Export Supplier
+    var exportSupplierBtn = document.getElementById('exportSupplierBtn');
+    if (exportSupplierBtn) exportSupplierBtn.addEventListener('click', function() { showModal('exportSupplierModal'); });
+
+    var confirmExportSupplier = document.getElementById('confirmExportSupplier');
+    if (confirmExportSupplier) confirmExportSupplier.addEventListener('click', exportSupplier);
+
+    // Import Supplier
+    var importSupplierBtn = document.getElementById('importSupplierBtn');
+    if (importSupplierBtn) importSupplierBtn.addEventListener('click', function() { showModal('importSupplierModal'); });
+
+    var supplierImportFile = document.getElementById('supplierImportFile');
+    if (supplierImportFile) supplierImportFile.addEventListener('change', importSupplier);
+
+    var confirmImportBtn = document.getElementById('confirmImport');
+    if (confirmImportBtn) confirmImportBtn.addEventListener('click', confirmImport);
+
+    // Generate MPP
+    var generateMppBtn = document.getElementById('generateMppBtn');
+    if (generateMppBtn) generateMppBtn.addEventListener('click', generateMpp);
+
+    // Link Component (main button — opens modal with task dropdown filled)
+    var linkComponentBtn = document.getElementById('linkComponentBtn');
+    if (linkComponentBtn) linkComponentBtn.addEventListener('click', function() {
+        populateLinkTaskSelect(null);
+        // If tasksData was empty, populateLinkTaskSelect will fetch. Show modal now.
+        showModal('linkComponentModal');
+    });
+
+    // Component search
+    var componentSearch = document.getElementById('componentSearch');
+    if (componentSearch) {
+        componentSearch.addEventListener('keyup', function() {
+            var term = this.value.toLowerCase();
+            var results = document.getElementById('componentResults');
+            if (!results) return;
+            results.innerHTML = '';
+            if (term.length > 1) {
+                fetch('/api/bom/products')
+                    .then(function(r) { return r.json(); })
+                    .then(function(products) {
+                        var filtered = (products || []).filter(function(p) {
+                            return (p.ProductId || '').toLowerCase().indexOf(term) > -1 ||
+                                   (p.ProductName || '').toLowerCase().indexOf(term) > -1;
+                        });
+                        filtered.slice(0, 10).forEach(function(p) {
+                            var btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'list-group-item list-group-item-action';
+                            btn.textContent = p.ProductId + ' - ' + (p.ProductName || p.ProductId);
+                            btn.addEventListener('click', function() {
+                                var sel = document.getElementById('linkTaskSelect');
+                                var taskId = sel ? sel.value : '';
+                                if (!taskId) { alert(trans.select_task_first); return; }
+
+                                fetch('/api/project/ms-project/link-component', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        project_id: projectId,
+                                        task_id: taskId,
+                                        component_id: p.ProductId
+                                    })
+                                })
+                                .then(function(r) { return r.json(); })
+                                .then(function(res) {
+                                    if (res.success) {
+                                        alert(trans.component_linked);
+                                        hideModal('linkComponentModal');
+                                        loadTasks();
+                                    } else {
+                                        alert(trans.error);
+                                    }
+                                });
+                            });
+                            results.appendChild(btn);
+                        });
+                    });
+            }
+        });
+    }
+
+    // Delegated click handlers
+    document.addEventListener('click', function(e) {
+        // Link task button in each row
+        var linkBtn = e.target.closest('.link-task-btn');
+        if (linkBtn) {
+            var taskId = linkBtn.getAttribute('data-task-id');
+            linkComponent(taskId);
+            return;
+        }
+
+        // Component link in each row (Ctrl+Click opens new tab)
+        var compLink = e.target.closest('.component-link');
+        if (compLink) {
+            var componentId = compLink.getAttribute('data-component-id');
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                window.open('/engineering/product/' + componentId, '_blank');
+            } else {
+                e.preventDefault();
+                // Regular click behavior can be added here if needed
+            }
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,987 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('service.title', 'Service Requests') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/workflow/tasks">{{ get_translation('nav.workflow', 'Workflow') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('service.title', 'Service Requests') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('service.title', 'Service Requests') }}</h2>
+        <div>
+            <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#createServiceModal">
+                <i class="fas fa-plus"></i> {{ get_translation('service.create', 'Create Request') }}
+            </button>
+            <button class="btn btn-secondary" id="refreshBtn">
+                <i class="fas fa-sync-alt"></i> {{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6>{{ get_translation('service.open', 'Open') }}</h6>
+                    <h3 id="kpiOpen">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6>{{ get_translation('service.in_progress', 'In Progress') }}</h6>
+                    <h3 id="kpiInProgress">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6>{{ get_translation('service.resolved', 'Resolved') }}</h6>
+                    <h3 id="kpiResolved">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <h6>{{ get_translation('service.closed', 'Closed') }}</h6>
+                    <h3 id="kpiClosed">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6>{{ get_translation('service.under_warranty', 'Under Warranty') }}</h6>
+                    <h3 id="kpiUnderWarranty">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-6">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h6>{{ get_translation('service.out_of_warranty', 'Out of Warranty') }}</h6>
+                    <h3 id="kpiOutOfWarranty">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-2">
+                    <label>{{ get_translation('service.search', 'Search') }}</label>
+                    <input type="text" class="form-control" id="filterSearch" 
+                           placeholder="{{ get_translation('service.search_placeholder', 'Search...') }}">
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('service.status', 'Status') }}</label>
+                    <select class="form-select" id="filterStatus">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Open">Open</option>
+                        <option value="InProgress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('service.warranty_status', 'Warranty') }}</label>
+                    <select class="form-select" id="filterWarranty">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="UnderWarranty">Under Warranty</option>
+                        <option value="OutOfWarranty">Out of Warranty</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>{{ get_translation('service.priority', 'Priority') }}</label>
+                    <select class="form-select" id="filterPriority">
+                        <option value="">{{ get_translation('global.all', 'All') }}</option>
+                        <option value="Critical">Critical</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" id="applyFiltersBtn">
+                        <i class="fas fa-search"></i> {{ get_translation('global.apply', 'Apply') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Requests Table -->
+    <div class="card">
+        <div class="card-body table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('service.request_number', 'Request #') }}</th>
+                        <th>{{ get_translation('service.customer', 'Customer') }}</th>
+                        <th>{{ get_translation('service.serial_number', 'Serial #') }}</th>
+                        <th>{{ get_translation('service.product', 'Product') }}</th>
+                        <th>{{ get_translation('service.issue_type', 'Issue Type') }}</th>
+                        <th>{{ get_translation('service.priority', 'Priority') }}</th>
+                        <th>{{ get_translation('service.status', 'Status') }}</th>
+                        <th>{{ get_translation('service.warranty_status', 'Warranty') }}</th>
+                        <th>{{ get_translation('service.assigned_to', 'Assigned To') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="requestsTableBody">
+                    <tr><td colspan="11" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== MODALS ======================== -->
+
+<!-- Create Service Request Modal -->
+<div class="modal fade" id="createServiceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('service.create', 'Create Service Request') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="serviceForm">
+                    <input type="hidden" id="editRequestId">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('service.customer', 'Customer') }}</label>
+                            <select class="form-select" id="serviceCustomer" required>
+                                <option value="">{{ get_translation('global.select', 'Select...') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('service.product', 'Product') }}</label>
+                            <select class="form-select" id="serviceProduct">
+                                <option value="">{{ get_translation('global.select', 'Select...') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('service.serial_number', 'Serial Number') }}</label>
+                            <input type="text" class="form-control" id="serviceSerial" 
+                                   placeholder="{{ get_translation('service.serial_placeholder', 'Enter serial number...') }}">
+                            <small class="text-muted" id="warrantyStatusDisplay"></small>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('service.priority', 'Priority') }}</label>
+                            <select class="form-select" id="servicePriority">
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                                <option value="Critical">Critical</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('service.issue_type', 'Issue Type') }}</label>
+                            <select class="form-select" id="serviceIssueType">
+                                <option value="Mechanical">Mechanical</option>
+                                <option value="Electrical">Electrical</option>
+                                <option value="Software">Software</option>
+                                <option value="Performance">Performance</option>
+                                <option value="Installation">Installation</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <label>{{ get_translation('service.issue_description', 'Issue Description') }}</label>
+                            <textarea class="form-control" id="serviceDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <label>{{ get_translation('service.attachments', 'Attachments') }}</label>
+                            <input type="text" class="form-control" id="serviceAttachments" 
+                                   placeholder="{{ get_translation('service.attachments_placeholder', 'File paths or URLs') }}">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="saveServiceBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Technician Modal -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('service.assign_technician', 'Assign Technician') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="assignRequestId">
+                <div class="mb-2">
+                    <label>{{ get_translation('service.technician', 'Technician') }}</label>
+                    <select class="form-select" id="assignTechnician">
+                        <option value="">{{ get_translation('global.select', 'Select...') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('service.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="assignNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="confirmAssignBtn">{{ get_translation('service.assign_technician', 'Assign') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Request Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('service.complete', 'Complete Request') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="completeRequestId">
+                <div class="mb-2">
+                    <label>{{ get_translation('service.resolution', 'Resolution') }}</label>
+                    <textarea class="form-control" id="completeResolution" rows="3" required></textarea>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('service.cost', 'Cost') }}</label>
+                    <input type="number" class="form-control" id="completeCost" step="0.01" value="0">
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('service.notes', 'Notes') }}</label>
+                    <textarea class="form-control" id="completeNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmCompleteBtn">{{ get_translation('service.complete', 'Complete') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Request Detail Modal -->
+<div class="modal fade" id="requestDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ get_translation('service.request_detail', 'Request Detail') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="requestDetailBody">
+                <div class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Loading...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.close', 'Close') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// TRANSLATIONS - Service Requests
+// ============================================================================
+var trans = {
+    // General translations
+    loading: {{ get_translation('global.loading', 'Loading...')|tojson }},
+    no_data: {{ get_translation('global.no_data', 'No data available')|tojson }},
+    error: {{ get_translation('global.error', 'Operation failed')|tojson }},
+    success: {{ get_translation('global.success', 'successfully')|tojson }},
+    cancel: {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    confirm: {{ get_translation('global.confirm', 'Confirm')|tojson }},
+    apply: {{ get_translation('global.apply', 'Apply')|tojson }},
+    select: {{ get_translation('global.select', 'Select...')|tojson }},
+    all: {{ get_translation('global.all', 'All')|tojson }},
+    refresh: {{ get_translation('global.refresh', 'Refresh')|tojson }},
+    save: {{ get_translation('global.save', 'Save')|tojson }},
+    view: {{ get_translation('global.view', 'View')|tojson }},
+    close: {{ get_translation('global.close', 'Close')|tojson }},
+    
+    // Service Request translations
+    'service.title': {{ get_translation('service.title', 'Service Requests')|tojson }},
+    'service.open': {{ get_translation('service.open', 'Open')|tojson }},
+    'service.in_progress': {{ get_translation('service.in_progress', 'In Progress')|tojson }},
+    'service.resolved': {{ get_translation('service.resolved', 'Resolved')|tojson }},
+    'service.closed': {{ get_translation('service.closed', 'Closed')|tojson }},
+    'service.under_warranty': {{ get_translation('service.under_warranty', 'Under Warranty')|tojson }},
+    'service.out_of_warranty': {{ get_translation('service.out_of_warranty', 'Out of Warranty')|tojson }},
+    'service.request_number': {{ get_translation('service.request_number', 'Request #')|tojson }},
+    'service.customer': {{ get_translation('service.customer', 'Customer')|tojson }},
+    'service.serial_number': {{ get_translation('service.serial_number', 'Serial #')|tojson }},
+    'service.product': {{ get_translation('service.product', 'Product')|tojson }},
+    'service.issue_type': {{ get_translation('service.issue_type', 'Issue Type')|tojson }},
+    'service.priority': {{ get_translation('service.priority', 'Priority')|tojson }},
+    'service.status': {{ get_translation('service.status', 'Status')|tojson }},
+    'service.warranty_status': {{ get_translation('service.warranty_status', 'Warranty')|tojson }},
+    'service.assigned_to': {{ get_translation('service.assigned_to', 'Assigned To')|tojson }},
+    'service.create': {{ get_translation('service.create', 'Create Request')|tojson }},
+    'service.assign_technician': {{ get_translation('service.assign_technician', 'Assign Technician')|tojson }},
+    'service.complete': {{ get_translation('service.complete', 'Complete')|tojson }},
+    'service.close': {{ get_translation('service.close', 'Close')|tojson }},
+    'service.view': {{ get_translation('service.view', 'View')|tojson }},
+    'service.request_detail': {{ get_translation('service.request_detail', 'Request Detail')|tojson }},
+    'service.issue_description': {{ get_translation('service.issue_description', 'Issue Description')|tojson }},
+    'service.resolution': {{ get_translation('service.resolution', 'Resolution')|tojson }},
+    'service.technician': {{ get_translation('service.technician', 'Technician')|tojson }},
+    'service.notes': {{ get_translation('service.notes', 'Notes')|tojson }},
+    'service.search': {{ get_translation('service.search', 'Search')|tojson }},
+    'service.search_placeholder': {{ get_translation('service.search_placeholder', 'Search...')|tojson }},
+    'service.serial_placeholder': {{ get_translation('service.serial_placeholder', 'Enter serial number...')|tojson }},
+    'service.attachments': {{ get_translation('service.attachments', 'Attachments')|tojson }},
+    'service.attachments_placeholder': {{ get_translation('service.attachments_placeholder', 'File paths or URLs')|tojson }},
+    'service.cost': {{ get_translation('service.cost', 'Cost')|tojson }},
+    
+    // Legacy keys (backward compatibility)
+    'service_under_warranty': {{ get_translation('service.under_warranty', 'Under Warranty')|tojson }},
+    'service_out_of_warranty': {{ get_translation('service.out_of_warranty', 'Out of Warranty')|tojson }},
+    
+    // Priority translations
+    'service.priority.critical': {{ get_translation('service.priority.critical', 'Critical')|tojson }},
+    'service.priority.high': {{ get_translation('service.priority.high', 'High')|tojson }},
+    'service.priority.medium': {{ get_translation('service.priority.medium', 'Medium')|tojson }},
+    'service.priority.low': {{ get_translation('service.priority.low', 'Low')|tojson }},
+    
+    // Status translations
+    'service.status.open': {{ get_translation('service.status.open', 'Open')|tojson }},
+    'service.status.in_progress': {{ get_translation('service.status.in_progress', 'In Progress')|tojson }},
+    'service.status.resolved': {{ get_translation('service.status.resolved', 'Resolved')|tojson }},
+    'service.status.closed': {{ get_translation('service.status.closed', 'Closed')|tojson }},
+    
+    // Issue type translations
+    'service.issue.mechanical': {{ get_translation('service.issue.mechanical', 'Mechanical')|tojson }},
+    'service.issue.electrical': {{ get_translation('service.issue.electrical', 'Electrical')|tojson }},
+    'service.issue.performance': {{ get_translation('service.issue.performance', 'Performance')|tojson }},
+    'service.issue.installation': {{ get_translation('service.issue.installation', 'Installation')|tojson }},
+    'service.issue.calibration': {{ get_translation('service.issue.calibration', 'Calibration')|tojson }},
+    'service.issue.software': {{ get_translation('service.issue.software', 'Software')|tojson }},
+    'service.issue.other': {{ get_translation('service.issue.other', 'Other')|tojson }}
+};
+
+console.log('✅ Translations loaded:', Object.keys(trans).length, 'keys');
+
+function t(key, defaultText) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    return defaultText || key;
+}
+
+function getEl(id) {
+    var el = document.getElementById(id);
+    if (!el) console.warn('⚠️ Element not found:', id);
+    return el;
+}
+
+function showToast(message, type) {
+    type = type || 'success';
+    var icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+    var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+        '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+    document.querySelectorAll('.toast').forEach(function(t) { t.remove(); });
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    var toastEl = document.querySelector('.toast');
+    var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+    toast.show();
+    setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+}
+
+function debounce(func, wait) {
+    var timeout;
+    return function() {
+        var context = this, args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(function() { func.apply(context, args); }, wait);
+    };
+}
+
+function getStatusColor(status) {
+    var colors = {
+        'Open': 'primary',
+        'InProgress': 'info',
+        'Resolved': 'success',
+        'Closed': 'secondary'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getPriorityColor(priority) {
+    var colors = {
+        'Critical': 'danger',
+        'High': 'warning',
+        'Medium': 'info',
+        'Low': 'secondary'
+    };
+    return colors[priority] || 'secondary';
+}
+
+function getWarrantyColor(warranty) {
+    var colors = {
+        'UnderWarranty': 'success',
+        'OutOfWarranty': 'danger',
+        'Expired': 'warning'
+    };
+    return colors[warranty] || 'secondary';
+}
+
+// ============================================================================
+// LOAD REQUESTS - FIXED: Updated API URLs
+// ============================================================================
+function loadRequests() {
+    var tbody = getEl('requestsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center">' + t('loading', 'Loading...') + '</td></tr>';
+    
+    var params = new URLSearchParams();
+    var searchFilter = getEl('filterSearch');
+    var statusFilter = getEl('filterStatus');
+    var warrantyFilter = getEl('filterWarranty');
+    var priorityFilter = getEl('filterPriority');
+    
+    if (searchFilter && searchFilter.value) params.set('search', searchFilter.value);
+    if (statusFilter && statusFilter.value) params.set('status', statusFilter.value);
+    if (warrantyFilter && warrantyFilter.value) params.set('warranty_status', warrantyFilter.value);
+    if (priorityFilter && priorityFilter.value) params.set('priority', priorityFilter.value);
+    
+    // ✅ FIXED: Changed from '/workflow/api/service-requests' to '/api/workflow/service-requests'
+    var url = '/api/workflow/service-requests' + (params.toString() ? '?' + params.toString() : '');
+    console.log('📡 Fetching service requests from:', url);
+    
+    fetch(url)
+        .then(function(r) {
+            console.log('📊 Response status:', r.status);
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            console.log('📦 Data received:', data);
+            if (data.success) {
+                renderRequests(data.requests || []);
+                updateKPIs(data.requests || []);
+            } else {
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="11" class="text-danger">' + t('error', 'Error') + ': ' + (data.error || 'Unknown') + '</td></tr>';
+                }
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading requests:', err);
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-danger">' + t('error', 'Error') + ': ' + err.message + '</td></tr>';
+            }
+        });
+}
+
+// ============================================================================
+// RENDER REQUESTS
+// ============================================================================
+function renderRequests(requests) {
+    var tbody = getEl('requestsTableBody');
+    if (!tbody) return;
+    
+    if (!requests || requests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center">' + t('no_data', 'No requests found') + '</td></tr>';
+        return;
+    }
+    
+    // Translation helpers
+    function getTranslatedStatus(status) {
+        var key = 'service.status.' + (status || 'open').toLowerCase();
+        return t(key, status || 'Open');
+    }
+    
+    function getTranslatedPriority(priority) {
+        var key = 'service.priority.' + (priority || 'medium').toLowerCase();
+        return t(key, priority || 'Medium');
+    }
+    
+    function getTranslatedIssueType(issueType) {
+        var key = 'service.issue.' + (issueType || 'other').toLowerCase();
+        return t(key, issueType || 'Other');
+    }
+    
+    var html = '';
+    requests.forEach(function(r, index) {
+        var rowNumber = index + 1;
+        
+        var statusDisplay = getTranslatedStatus(r.Status);
+        var statusColor = getStatusColor(r.Status);
+        var statusBadge = '<span class="badge bg-' + statusColor + '">' + statusDisplay + '</span>';
+        
+        var priorityDisplay = getTranslatedPriority(r.Priority || 'Medium');
+        var priorityColor = getPriorityColor(r.Priority);
+        var priorityBadge = '<span class="badge bg-' + priorityColor + '">' + priorityDisplay + '</span>';
+        
+        var warrantyDisplay = r.IsUnderWarranty ? 
+            t('service_under_warranty', 'Under Warranty') : 
+            t('service_out_of_warranty', 'Out of Warranty');
+        var warrantyColor = r.IsUnderWarranty ? 'success' : 'danger';
+        var warrantyBadge = '<span class="badge bg-' + warrantyColor + '">' + warrantyDisplay + '</span>';
+        
+        var issueDisplay = getTranslatedIssueType(r.IssueType || 'Other');
+        
+        var actions = '';
+        actions += '<button class="btn btn-outline-secondary btn-sm view-request me-1" data-id="' + r.ServiceRequestID + '">' + t('service.view', 'View') + '</button> ';
+        if (r.Status === 'Open') {
+            actions += '<button class="btn btn-primary btn-sm assign-request me-1" data-id="' + r.ServiceRequestID + '">' + t('service.assign_technician', 'Assign') + '</button> ';
+        }
+        if (r.Status === 'InProgress') {
+            actions += '<button class="btn btn-success btn-sm complete-request me-1" data-id="' + r.ServiceRequestID + '">' + t('service.complete', 'Complete') + '</button> ';
+        }
+        if (r.Status === 'Resolved') {
+            actions += '<button class="btn btn-secondary btn-sm close-request me-1" data-id="' + r.ServiceRequestID + '">' + t('service.close', 'Close') + '</button> ';
+        }
+        
+        html += '<tr>' +
+            '<td class="text-center text-muted">' + rowNumber + '</td>' +
+            '<td>' + (r.RequestNumber || '-') + '</td>' +
+            '<td>' + (r.CustomerName || '-') + '</td>' +
+            '<td>' + (r.SerialNumber || '-') + '</td>' +
+            '<td>' + (r.ProductName || '-') + '</td>' +
+            '<td>' + issueDisplay + '</td>' +
+            '<td>' + priorityBadge + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + warrantyBadge + '</td>' +
+            '<td>' + (r.AssignedToName || '-') + '</td>' +
+            '<td>' + actions + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+    console.log('✅ Rendered', requests.length, 'service requests');
+}
+
+// ============================================================================
+// UPDATE KPIS
+// ============================================================================
+function updateKPIs(requests) {
+    if (!requests) requests = [];
+    var counts = { 
+        Open: 0, 
+        InProgress: 0, 
+        Resolved: 0, 
+        Closed: 0,
+        UnderWarranty: 0,
+        OutOfWarranty: 0
+    };
+    requests.forEach(function(r) {
+        if (r.Status === 'Open') counts.Open++;
+        else if (r.Status === 'InProgress') counts.InProgress++;
+        else if (r.Status === 'Resolved') counts.Resolved++;
+        else if (r.Status === 'Closed') counts.Closed++;
+        
+        if (r.IsUnderWarranty) counts.UnderWarranty++;
+        else counts.OutOfWarranty++;
+    });
+    
+    var kpiOpen = getEl('kpiOpen');
+    var kpiInProgress = getEl('kpiInProgress');
+    var kpiResolved = getEl('kpiResolved');
+    var kpiClosed = getEl('kpiClosed');
+    var kpiUnderWarranty = getEl('kpiUnderWarranty');
+    var kpiOutOfWarranty = getEl('kpiOutOfWarranty');
+    
+    if (kpiOpen) kpiOpen.textContent = counts.Open || 0;
+    if (kpiInProgress) kpiInProgress.textContent = counts.InProgress || 0;
+    if (kpiResolved) kpiResolved.textContent = counts.Resolved || 0;
+    if (kpiClosed) kpiClosed.textContent = counts.Closed || 0;
+    if (kpiUnderWarranty) kpiUnderWarranty.textContent = counts.UnderWarranty || 0;
+    if (kpiOutOfWarranty) kpiOutOfWarranty.textContent = counts.OutOfWarranty || 0;
+}
+
+function loadCustomers() {
+    // ✅ FIXED: Changed from '/workflow/api/customers' to '/api/workflow/customers'
+    fetch('/api/workflow/customers')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success && data.customers) {
+                var select = getEl('serviceCustomer');
+                if (select) {
+                    var opts = '<option value="">' + t('select', 'Select...') + '</option>';
+                    data.customers.forEach(function(c) {
+                        opts += '<option value="' + c.CustomerID + '">' + c.CustomerName + '</option>';
+                    });
+                    select.innerHTML = opts;
+                }
+            }
+        })
+        .catch(function(err) { console.error('Error loading customers:', err); });
+}
+
+function loadProducts() {
+    fetch('/api/production-orders/products-search?q=')
+        .then(function(r) { return r.json(); })
+        .then(function(products) {
+            var select = getEl('serviceProduct');
+            if (select && Array.isArray(products)) {
+                var opts = '<option value="">' + t('select', 'Select...') + '</option>';
+                products.forEach(function(p) {
+                    opts += '<option value="' + p.id + '">' + p.id + ' - ' + p.name + '</option>';
+                });
+                select.innerHTML = opts;
+            }
+        })
+        .catch(function(err) { console.error('Error loading products:', err); });
+}
+
+// ============================================================================
+// LOAD TECHNICIANS - FIXED: Updated API URL
+// ============================================================================
+function loadTechnicians() {
+    var select = getEl('assignTechnician');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">' + t('loading', 'Loading...') + '</option>';
+    
+    // ✅ FIXED: Changed from '/workflow/api/technicians' to '/api/workflow/technicians'
+    fetch('/api/workflow/technicians')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var opts = '<option value="">' + t('select', 'Select...') + '</option>';
+            if (data.success && data.technicians) {
+                data.technicians.forEach(function(t) {
+                    opts += '<option value="' + t.id + '">' + (t.name || t.username) + '</option>';
+                });
+            } else {
+                opts += '<option value="" disabled>No technicians available</option>';
+            }
+            select.innerHTML = opts;
+        })
+        .catch(function(err) {
+            console.error('Error loading technicians:', err);
+            select.innerHTML = '<option value="">Error loading technicians</option>';
+        });
+}
+
+// ============================================================================
+// OPEN REQUEST DETAIL - FIXED: Updated API URL
+// ============================================================================
+function openRequestDetail(requestId) {
+    console.log('📋 Opening request detail:', requestId);
+    
+    // Show loading state
+    var modal = new bootstrap.Modal(document.getElementById('requestDetailModal'));
+    var body = document.getElementById('requestDetailBody');
+    if (body) body.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading...</p></div>';
+    modal.show();
+    
+    // ✅ FIXED: Changed from '/workflow/api/service-requests/' to '/api/workflow/service-requests/'
+    fetch('/api/workflow/service-requests/' + requestId)
+        .then(function(r) { 
+            if (!r.ok) throw new Error('API returned ' + r.status);
+            return r.json(); 
+        })
+        .then(function(data) {
+            if (data.success) {
+                renderRequestDetail(data.request);
+            } else {
+                showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                if (body) body.innerHTML = '<p class="text-danger">Error loading request details</p>';
+            }
+        })
+        .catch(function(err) {
+            console.error('Error loading request detail:', err);
+            showToast('Error loading request details: ' + err.message, 'error');
+            if (body) body.innerHTML = '<p class="text-danger">Error loading request details</p>';
+        });
+}
+
+function renderRequestDetail(request) {
+    var body = getEl('requestDetailBody');
+    if (!body) return;
+    
+    // Translation helpers
+    function getTranslatedStatus(status) {
+        var key = 'service.status.' + (status || 'open').toLowerCase();
+        return t(key, status || 'Open');
+    }
+    
+    function getTranslatedPriority(priority) {
+        var key = 'service.priority.' + (priority || 'medium').toLowerCase();
+        return t(key, priority || 'Medium');
+    }
+    
+    var statusDisplay = getTranslatedStatus(request.Status);
+    var priorityDisplay = getTranslatedPriority(request.Priority);
+    var warrantyDisplay = request.IsUnderWarranty ? 'Yes' : 'No';
+    
+    var html = '<div class="row">' +
+        '<div class="col-md-6 mb-2"><label><strong>Request Number:</strong></label><p>' + (request.RequestNumber || '-') + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Customer:</strong></label><p>' + (request.CustomerName || '-') + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Product:</strong></label><p>' + (request.ProductName || '-') + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Serial Number:</strong></label><p>' + (request.SerialNumber || '-') + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Issue Type:</strong></label><p>' + (request.IssueType || '-') + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Priority:</strong></label><p>' + priorityDisplay + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Status:</strong></label><p>' + statusDisplay + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Under Warranty:</strong></label><p>' + warrantyDisplay + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Assigned To:</strong></label><p>' + (request.AssignedToName || 'Unassigned') + '</p></div>' +
+        '<div class="col-md-6 mb-2"><label><strong>Cost:</strong></label><p>$' + (request.Cost || 0) + '</p></div>' +
+        '<div class="col-md-12 mb-2"><label><strong>Issue Description:</strong></label><p>' + (request.IssueDescription || '-') + '</p></div>' +
+        '<div class="col-md-12 mb-2"><label><strong>Resolution:</strong></label><p>' + (request.Resolution || 'Not resolved yet') + '</p></div>' +
+        '</div>';
+    
+    body.innerHTML = html;
+}
+
+// ============================================================================
+// SERIAL NUMBER VALIDATION - FIXED: Updated API URL
+// ============================================================================
+var serialTimeout;
+document.addEventListener('DOMContentLoaded', function() {
+    var serialInput = getEl('serviceSerial');
+    if (serialInput) {
+        serialInput.addEventListener('input', function() {
+            clearTimeout(serialTimeout);
+            var serial = this.value.trim();
+            var display = getEl('warrantyStatusDisplay');
+            if (serial.length < 3) {
+                if (display) display.textContent = '';
+                return;
+            }
+            serialTimeout = setTimeout(function() {
+                // ✅ FIXED: Changed from '/workflow/api/serial/validate/' to '/api/workflow/serial/validate/'
+                fetch('/api/workflow/serial/validate/' + encodeURIComponent(serial))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (display) {
+                            if (data.success && data.valid) {
+                                var warrantyText = data.under_warranty ? 
+                                    '✅ ' + t('service.under_warranty', 'Under Warranty') : 
+                                    '❌ ' + t('service.out_of_warranty', 'Out of Warranty');
+                                display.textContent = warrantyText;
+                                display.style.color = data.under_warranty ? 'green' : 'red';
+                            } else {
+                                display.textContent = '❌ ' + (data.message || 'Invalid serial number');
+                                display.style.color = 'red';
+                            }
+                        }
+                    })
+                    .catch(function() {
+                        if (display) display.textContent = '';
+                    });
+            }, 500);
+        });
+    }
+});
+
+// ============================================================================
+// DOM READY - FIXED: All API URLs updated
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Service Requests page loaded');
+    loadCustomers();
+    loadProducts();
+    // loadTechnicians is called when assign modal opens
+    loadRequests();
+    
+    var refreshBtn = getEl('refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', loadRequests);
+    
+    var applyBtn = getEl('applyFiltersBtn');
+    if (applyBtn) applyBtn.addEventListener('click', loadRequests);
+    
+    var searchInput = getEl('filterSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(loadRequests, 300));
+    }
+    
+    var statusFilter = getEl('filterStatus');
+    if (statusFilter) statusFilter.addEventListener('change', loadRequests);
+    
+    var warrantyFilter = getEl('filterWarranty');
+    if (warrantyFilter) warrantyFilter.addEventListener('change', loadRequests);
+    
+    var priorityFilter = getEl('filterPriority');
+    if (priorityFilter) priorityFilter.addEventListener('change', loadRequests);
+    
+    // Save Service Request - FIXED: Updated API URL
+    var saveBtn = getEl('saveServiceBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+            var data = {
+                customer_id: getEl('serviceCustomer') ? getEl('serviceCustomer').value : '',
+                product_id: getEl('serviceProduct') ? getEl('serviceProduct').value : '',
+                serial_number: getEl('serviceSerial') ? getEl('serviceSerial').value : '',
+                priority: getEl('servicePriority') ? getEl('servicePriority').value : 'Medium',
+                issue_type: getEl('serviceIssueType') ? getEl('serviceIssueType').value : 'Other',
+                issue_description: getEl('serviceDescription') ? getEl('serviceDescription').value : '',
+                attachments: getEl('serviceAttachments') ? getEl('serviceAttachments').value : ''
+            };
+            var editId = getEl('editRequestId') ? getEl('editRequestId').value : '';
+            // ✅ FIXED: Changed from '/workflow/api/service-requests/' to '/api/workflow/service-requests/'
+            var url = editId ? '/api/workflow/service-requests/' + editId : '/api/workflow/service-requests';
+            var method = editId ? 'PUT' : 'POST';
+            
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('createServiceModal'));
+                    if (modal) modal.hide();
+                    showToast(t('success', 'Service request saved'), 'success');
+                    loadRequests();
+                } else {
+                    showToast(t('error', 'Error') + ': ' + (data.error || 'Save failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                showToast(t('error', 'Error') + ': ' + err.message, 'error');
+            });
+        });
+    }
+    
+    // Confirm Assign - FIXED: Updated API URL
+    var confirmAssignBtn = getEl('confirmAssignBtn');
+    if (confirmAssignBtn) {
+        confirmAssignBtn.addEventListener('click', function() {
+            var requestId = getEl('assignRequestId') ? getEl('assignRequestId').value : '';
+            var technician = getEl('assignTechnician') ? getEl('assignTechnician').value : '';
+            var notes = getEl('assignNotes') ? getEl('assignNotes').value : '';
+            
+            // ✅ FIXED: Changed from '/workflow/api/service-requests/' to '/api/workflow/service-requests/'
+            fetch('/api/workflow/service-requests/' + requestId + '/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ technician_id: technician, notes: notes })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('assignModal'));
+                    if (modal) modal.hide();
+                    showToast(t('service.assign_technician', 'Assigned') + ' ' + t('success', 'successfully'), 'success');
+                    loadRequests();
+                } else {
+                    showToast(t('error', 'Error') + ': ' + (data.error || 'Assign failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                showToast(t('error', 'Error') + ': ' + err.message, 'error');
+            });
+        });
+    }
+    
+    // Confirm Complete - FIXED: Updated API URL
+    var confirmCompleteBtn = getEl('confirmCompleteBtn');
+    if (confirmCompleteBtn) {
+        confirmCompleteBtn.addEventListener('click', function() {
+            var requestId = getEl('completeRequestId') ? getEl('completeRequestId').value : '';
+            var resolution = getEl('completeResolution') ? getEl('completeResolution').value : '';
+            var cost = getEl('completeCost') ? parseFloat(getEl('completeCost').value) : 0;
+            var notes = getEl('completeNotes') ? getEl('completeNotes').value : '';
+            
+            // ✅ FIXED: Changed from '/workflow/api/service-requests/' to '/api/workflow/service-requests/'
+            fetch('/api/workflow/service-requests/' + requestId + '/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resolution: resolution, cost: cost, notes: notes })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('completeModal'));
+                    if (modal) modal.hide();
+                    showToast(t('service.complete', 'Completed') + ' ' + t('success', 'successfully'), 'success');
+                    loadRequests();
+                } else {
+                    showToast(t('error', 'Error') + ': ' + (data.error || 'Complete failed'), 'error');
+                }
+            })
+            .catch(function(err) {
+                showToast(t('error', 'Error') + ': ' + err.message, 'error');
+            });
+        });
+    }
+    
+    // Event delegation
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        var btn = target.closest('button');
+        if (!btn) return;
+        
+        if (btn.classList.contains('assign-request')) {
+            var requestId = btn.getAttribute('data-id');
+            var assignRequestId = getEl('assignRequestId');
+            if (assignRequestId) assignRequestId.value = requestId;
+            
+            // Load technicians when modal opens
+            loadTechnicians();
+            
+            var modal = new bootstrap.Modal(document.getElementById('assignModal'));
+            modal.show();
+            return;
+        }
+        
+        if (btn.classList.contains('complete-request')) {
+            var requestId = btn.getAttribute('data-id');
+            var completeRequestId = getEl('completeRequestId');
+            if (completeRequestId) completeRequestId.value = requestId;
+            var modal = new bootstrap.Modal(document.getElementById('completeModal'));
+            modal.show();
+            return;
+        }
+        
+        if (btn.classList.contains('view-request')) {
+            var requestId = btn.getAttribute('data-id');
+            openRequestDetail(requestId);
+            return;
+        }
+        
+        if (btn.classList.contains('close-request')) {
+            var requestId = btn.getAttribute('data-id');
+            if (confirm(t('service.close', 'Close this request?'))) {
+                // ✅ FIXED: Changed from '/workflow/api/service-requests/' to '/api/workflow/service-requests/'
+                fetch('/api/workflow/service-requests/' + requestId + '/close', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        showToast(t('service.closed', 'Closed') + ' ' + t('success', 'successfully'), 'success');
+                        loadRequests();
+                    } else {
+                        showToast(t('error', 'Error') + ': ' + (data.error || 'Close failed'), 'error');
+                    }
+                })
+                .catch(function(err) {
+                    showToast(t('error', 'Error') + ': ' + err.message, 'error');
+                });
+            }
+            return;
+        }
+    });
+    
+    setInterval(loadRequests, 60000);
+});
+</script>
+{% endblock %}

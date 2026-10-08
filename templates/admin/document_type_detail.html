@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Document Type Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h1 class="h3"><i class="fas fa-file-alt me-2"></i>{{ get_translation('auto.b2ec2182', 'Document Type Details') }}</h1>
+<a class="btn btn-secondary" href="/admin/document-types"><i class="fas fa-arrow-left"></i>{{ get_translation('auto.4a914afe', 'Back to List') }}</a>
+</div>
+<div class="card" id="detailContent">
+<div class="card-body">
+<p class="text-muted">{{ get_translation('auto.9c336e9e', 'Loading...') }}</p>
+</div>
+</div>
+</div>
+<script>
+(async function() {
+    const docId = {{ doc_id }};
+    const res = await fetch(`/api/admin/document-types/${docId}`);
+    const dt = await res.json();
+    const html = `
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-bordered">
+                    <tr><th style="width:150px">Code</th><td>${escapeHtml(dt.code)}</td></tr>
+                    <tr><th>Name</th><td>${escapeHtml(dt.name)}</td></tr>
+                    <tr><th>Category</th><td>${escapeHtml(dt.category || '-')}</td></tr>
+                    <tr><th>Description</th><td>${escapeHtml(dt.description || '-')}</td></tr>
+                    <tr><th>Status</th><td>${dt.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td></tr>
+                    <tr><th>Created Date Key</th><td>${dt.createdDateKey || '-'}</td></tr>
+                    <tr><th>Modified Date Key</th><td>${dt.modifiedDateKey || '-'}</td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="alert alert-info mt-3">Projects requiring this document type: not yet implemented (future enhancement).</div>
+    `;
+    document.getElementById('detailContent').innerHTML = html;
+    function escapeHtml(s) { if(!s) return ''; return s.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+})();
+</script>
+{% endblock %}

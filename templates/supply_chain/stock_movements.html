@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Stock Movements{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.13652a39', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.dcebe947', 'Stock Movements') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('auto.2ab740dc', 'Stock Movements') }}</h2>
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-2">
+<label>{{ get_translation('auto.b3117bfe', 'Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.1a4287b7', 'Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-3">
+<label>{{ get_translation('auto.d98468aa', 'Product') }}</label>
+<input class="form-control" id="filterProduct" placeholder="Product ID or Name" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.5ff0c320', 'Transaction Type') }}</label>
+<select class="form-select" id="filterType">
+<option value="">{{ get_translation('auto.4be435ef', 'All') }}</option>
+<option>{{ get_translation('auto.4d288409', 'Purchase Receipt') }}</option>
+<option>{{ get_translation('auto.b8b21d9a', 'Production Issue') }}</option>
+<option>{{ get_translation('auto.e89b2f10', 'Adjustment') }}</option>
+<option>{{ get_translation('auto.0ad8e778', 'Transfer') }}</option>
+<option>{{ get_translation('auto.e32427a8', 'Sales Issue') }}</option>
+<option>{{ get_translation('auto.a9f1a4f3', 'Return to Supplier') }}</option>
+</select>
+</div>
+<div class="col-md-3 d-flex align-items-end">
+<button class="btn btn-primary me-2" id="refreshBtn">{{ get_translation('auto.20be78f5', 'Refresh') }}</button>
+<a class="btn btn-info" href="#" id="exportBtn">{{ get_translation('auto.4d83d909', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-3"><div class="card text-white bg-primary"><div class="card-body"><h6>{{ get_translation('auto.f351ba9b', 'Today\'s Transactions') }}</h6><h3 id="kpiToday">{{ get_translation('auto.9d12795b', '0') }}</h3></div></div></div>
+<div class="col-md-9" id="kpiTypes"></div>
+</div>
+<!-- Main Card -->
+<div class="card">
+<div class="card-header">
+<span>{{ get_translation('auto.56932a8a', 'Transaction History') }}</span>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr>
+<th>{{ get_translation('auto.ff87fca0', 'Date (Key)') }}</th><th>{{ get_translation('auto.250c0cad', 'Product') }}</th><th>{{ get_translation('auto.63a1ee44', 'Type') }}</th><th>{{ get_translation('auto.bebd5e58', 'Reference') }}</th><th>{{ get_translation('auto.6e5c7b5c', 'Quantity') }}</th>
+<th>{{ get_translation('auto.5fcefb3f', 'Unit Cost') }}</th><th>{{ get_translation('auto.6c45ce3f', 'Currency') }}</th><th>{{ get_translation('auto.2345d689', 'Warehouse') }}</th><th>{{ get_translation('auto.398a8455', 'Details') }}</th>
+</tr>
+</thead>
+<tbody id="movementsBody">
+<tr><td class="text-center" colspan="9">{{ get_translation('auto.adb70c25', 'Loading...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Detail Modal (optional) -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.b1941011', 'Transaction Details') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="detailContent"></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.3ebd6175', 'Close') }}</button></div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% raw %}
+<script>
+$(document).ready(function() {
+    function loadKPI() {
+        $.get('/api/supply-chain/stock-movements/kpi', function(data) {
+            $('#kpiToday').text(data.today);
+            var typesHtml = '<div class="row">';
+            $.each(data.by_type, function(type, count) {
+                typesHtml += `<div class="col-md-3 mb-2"><div class="card text-white bg-secondary"><div class="card-body"><h6>${type}</h6><h3>${count}</h3></div></div></div>`;
+            });
+            typesHtml += '</div>';
+            $('#kpiTypes').html(typesHtml || '<p>No transaction types</p>');
+        });
+    }
+
+    function loadMovements() {
+        var params = {};
+        if ($('#filterDateFrom').val()) params.date_from = $('#filterDateFrom').val();
+        if ($('#filterDateTo').val()) params.date_to = $('#filterDateTo').val();
+        if ($('#filterProduct').val()) params.product = $('#filterProduct').val();
+        if ($('#filterType').val()) params.type = $('#filterType').val();
+
+        $.get('/api/supply-chain/stock-movements/list', params, function(data) {
+            var tbody = $('#movementsBody');
+            if (!data.length) {
+                tbody.html('<tr><td colspan="9" class="text-center">No transactions found</td></tr>');
+                return;
+            }
+            var rows = '';
+            $.each(data, function(i, t) {
+                var details = '';
+                if (t.type === 'Transfer') {
+                    details = `${t.fromWarehouse || '?'} → ${t.toWarehouse || '?'}`;
+                } else {
+                    details = t.notes || '-';
+                }
+                rows += `<tr>
+                    <td>${t.dateKey}</td>
+                    <td><a href="#" class="product-link" data-id="${t.productId}">${t.productId}</a><br><small>${t.productName || ''}</small></td>
+                    <td>${t.type}</td>
+                    <td>${t.reference || '-'}</td>
+                    <td>${t.quantity}</td>
+                    <td>${t.unitCost}</td>
+                    <td>${t.currency}</td>
+                    <td>${t.warehouseName || t.warehouseId}</td>
+                    <td><button class="btn btn-sm btn-outline-secondary view-detail" data-id="${t.id}">View</button></td>
+                </tr>`;
+            });
+            tbody.html(rows);
+        });
+    }
+
+    $(document).on('click', '.view-detail', function() {
+        var id = $(this).data('id');
+        $('#detailContent').html(`<p>Transaction ID: ${id}</p><p>Full details can be shown here by implementing a separate endpoint.</p>`);
+        $('#detailModal').modal('show');
+    });
+
+    function refreshAll() {
+        loadKPI();
+        loadMovements();
+    }
+
+    $('#refreshBtn').click(refreshAll);
+    $('#exportBtn').click(function(e) {
+        e.preventDefault();
+        var params = $.param({
+            date_from: $('#filterDateFrom').val(),
+            date_to: $('#filterDateTo').val(),
+            product: $('#filterProduct').val(),
+            type: $('#filterType').val()
+        });
+        window.location.href = '/api/supply-chain/stock-movements/export?' + params;
+    });
+
+    refreshAll();
+});
+</script>
+{% endraw %}
+{% endblock %}

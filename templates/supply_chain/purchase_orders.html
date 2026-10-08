@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+{% block title %}{{ get_translation('supply_chain.purchase_orders.title', 'Purchase Orders') }}{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('supply_chain.supply_chain', 'Supply Chain') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('supply_chain.purchase_orders.title', 'Purchase Orders') }}</li>
+</ol>
+</nav>
+<h2>{{ get_translation('supply_chain.purchase_orders.title', 'Purchase Orders') }}</h2>
+
+<!-- Filters -->
+<div class="row mb-3">
+<div class="col-md-3">
+<label>{{ get_translation('supply_chain.purchase_orders.col.supplier', 'Supplier') }}</label>
+<input class="form-control" id="filterSupplier" placeholder="{{ get_translation('supply_chain.purchase_orders.col.supplier', 'Supplier') }}" type="text"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('supply_chain.purchase_orders.col.status', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('supply_chain.purchase_orders.filter.all_status', 'All Status') }}</option>
+<option value="Draft">{{ get_translation('global.status.draft', 'Draft') }}</option>
+<option value="Sent">{{ get_translation('global.status.sent', 'Sent') }}</option>
+<option value="Partially Received">{{ get_translation('global.status.partially_received', 'Partially Received') }}</option>
+<option value="Closed">{{ get_translation('global.status.closed', 'Closed') }}</option>
+<option value="Overdue">{{ get_translation('global.status.overdue', 'Overdue') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('supply_chain.purchase_orders.filter.order_date_from', 'Order Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('supply_chain.purchase_orders.filter.order_date_to', 'Order Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('supply_chain.purchase_orders.filter.project_id', 'Project ID') }}</label>
+<input class="form-control" id="filterProject" placeholder="{{ get_translation('supply_chain.purchase_orders.filter.project_id', 'Project ID') }}" type="text"/>
+</div>
+<div class="col-md-1 d-flex align-items-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('global.refresh', 'Refresh') }}</button>
+</div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row mb-4">
+<div class="col-md-2"><div class="card text-white bg-secondary"><div class="card-body"><h6>{{ get_translation('supply_chain.purchase_orders.kpi.draft', 'Draft') }}</h6><h3 id="kpiDraft">0</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-info"><div class="card-body"><h6>{{ get_translation('supply_chain.purchase_orders.kpi.sent', 'Sent') }}</h6><h3 id="kpiSent">0</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-warning"><div class="card-body"><h6>{{ get_translation('supply_chain.purchase_orders.kpi.partially_received', 'Partially Received') }}</h6><h3 id="kpiPartial">0</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-success"><div class="card-body"><h6>{{ get_translation('supply_chain.purchase_orders.kpi.closed', 'Closed') }}</h6><h3 id="kpiClosed">0</h3></div></div></div>
+<div class="col-md-2"><div class="card text-white bg-danger"><div class="card-body"><h6>{{ get_translation('supply_chain.purchase_orders.kpi.overdue', 'Overdue') }}</h6><h3 id="kpiOverdue">0</h3></div></div></div>
+</div>
+
+<!-- Main Card -->
+<div class="card">
+<div class="card-header d-flex justify-content-between">
+<span>{{ get_translation('supply_chain.purchase_orders.title', 'Purchase Orders') }}</span>
+<div>
+<button class="btn btn-sm btn-success me-2" id="createPoBtn">{{ get_translation('supply_chain.purchase_orders.action.create', 'Create PO') }}</button>
+<a class="btn btn-sm btn-info" href="#" id="exportCsvBtn">{{ get_translation('supply_chain.purchase_orders.action.export_csv', 'Export CSV') }}</a>
+</div>
+</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead>
+<tr>
+<th>{{ get_translation('supply_chain.purchase_orders.col.po_number', 'PO#') }}</th>
+<th>{{ get_translation('supply_chain.purchase_orders.col.supplier', 'Supplier') }}</th>
+<th>{{ get_translation('supply_chain.purchase_orders.col.order_date', 'Order Date') }}</th>
+<th>{{ get_translation('supply_chain.purchase_orders.col.expected_delivery', 'Expected Delivery') }}</th>
+<th>{{ get_translation('supply_chain.purchase_orders.col.status', 'Status') }}</th>
+<th>{{ get_translation('supply_chain.purchase_orders.col.products', 'Products') }}</th>
+<th>{{ get_translation('supply_chain.purchase_orders.col.total_amount', 'Total Amount') }}</th>
+<th>{{ get_translation('supply_chain.purchase_orders.col.actions', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="ordersBody">
+<tr><td class="text-center" colspan="8">{{ get_translation('supply_chain.purchase_orders.msg.loading', 'Loading purchase orders...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<!-- ================= MODALS ================= -->
+<!-- Create PO Modal -->
+<div class="modal fade" id="createPoModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('supply_chain.purchase_orders.action.create', 'Create Purchase Order') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<div class="mb-3"><label>{{ get_translation('supply_chain.purchase_orders.col.supplier', 'Supplier') }} *</label><select class="form-select" id="poSupplier" required></select></div>
+<div class="mb-3"><label>{{ get_translation('supply_chain.purchase_orders.col.order_date', 'Order Date') }} *</label><input class="form-control" id="poOrderDate" required type="date"/></div>
+<div class="mb-3"><label>{{ get_translation('supply_chain.purchase_orders.filter.project_id', 'Project (optional)') }}</label><input class="form-control" id="poProject" type="text"/></div>
+<hr/><h6>{{ get_translation('supply_chain.purchase_orders.col.products', 'Line Items') }}</h6>
+<div id="poLinesContainer"></div>
+<button class="btn btn-secondary btn-sm mt-2" id="addLineBtn" type="button">+ {{ get_translation('supply_chain.purchase_orders.col.products', 'Add Item') }}</button>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="savePoBtn" type="button">{{ get_translation('global.create', 'Create') }}</button></div>
+</div>
+</div>
+</div>
+
+<!-- Receive Goods Modal -->
+<div class="modal fade" id="receiveModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('supply_chain.purchase_orders.action.receive', 'Receive Goods') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="receivePoId" type="hidden"/>
+<div id="receiveLinesContainer"></div>
+<div class="mb-3 mt-3"><label>{{ get_translation('supply_chain.common.warehouse', 'Warehouse') }}</label><input class="form-control" id="receiveWarehouse" type="text" value="RAW"/></div>
+<div class="mb-3"><label>{{ get_translation('supply_chain.common.notes', 'Notes') }}</label><textarea class="form-control" id="receiveNotes"></textarea></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" id="confirmReceiveBtn" type="button">{{ get_translation('supply_chain.purchase_orders.action.receive', 'Confirm Receipt') }}</button></div>
+</div>
+</div>
+</div>
+
+<!-- Attachments Modal -->
+<div class="modal fade" id="attachmentsModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('supply_chain.purchase_orders.action.files', 'Attachments') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="attachmentsPoId" type="hidden"/>
+<div id="attachmentsList"></div>
+<hr/>
+<form enctype="multipart/form-data" id="uploadForm">
+<input class="form-control mb-2" name="file" type="file"/>
+<button class="btn btn-sm btn-primary" type="submit">{{ get_translation('global.upload', 'Upload') }}</button>
+</form>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 1. Server-injected translations — TOP LEVEL
+// ============================================================
+var trans = {
+    // Actions
+    receive:     {{ get_translation('supply_chain.purchase_orders.action.receive', 'Receive')|tojson }},
+    files:       {{ get_translation('supply_chain.purchase_orders.action.files', 'Files')|tojson }},
+    create:      {{ get_translation('global.create', 'Create')|tojson }},
+    save:        {{ get_translation('global.save', 'Save')|tojson }},
+    cancel:      {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    select_supplier: {{ get_translation('global.select_supplier', 'Select Supplier')|tojson }},
+    select_product:  {{ get_translation('global.select_product', 'Select Product')|tojson }},
+
+    // Messages
+    no_data:     {{ get_translation('supply_chain.purchase_orders.msg.no_data', 'No purchase orders found')|tojson }},
+    loading:     {{ get_translation('supply_chain.purchase_orders.msg.loading', 'Loading purchase orders...')|tojson }},
+
+    // Statuses
+    status_draft:               {{ get_translation('global.status.draft', 'Draft')|tojson }},
+    status_sent:                {{ get_translation('global.status.sent', 'Sent')|tojson }},
+    status_partially_received:  {{ get_translation('global.status.partially_received', 'Partially Received')|tojson }},
+    status_closed:              {{ get_translation('global.status.closed', 'Closed')|tojson }},
+    status_overdue:             {{ get_translation('global.status.overdue', 'Overdue')|tojson }},
+    status_delivered:           {{ get_translation('global.status.delivered', 'Delivered')|tojson }},
+    status_ordered:             {{ get_translation('global.status.ordered', 'Ordered')|tojson }},
+    status_open:                {{ get_translation('global.status.open', 'Open')|tojson }}
+};
+
+// ============================================================
+// 2. Language + calendar context — TOP LEVEL
+// ============================================================
+var currentLanguage = '{{ session.get("lang", "en") }}';
+var currentCalendar = '{{ session.get("calendar", "gregorian") }}';
+var isRTL = currentLanguage === 'fa';
+if (isRTL) { document.documentElement.dir = 'rtl'; }
+
+// ============================================================
+// 3. Shared state — TOP LEVEL
+// ============================================================
+var statusKeys = {
+    'Draft': 'status_draft',
+    'Sent': 'status_sent',
+    'Partially Received': 'status_partially_received',
+    'Closed': 'status_closed',
+    'Overdue': 'status_overdue',
+    'Delivered': 'status_delivered',
+    'Ordered': 'status_ordered',
+    'Open': 'status_open'
+};
+
+// ============================================================
+// 4. Helper functions — TOP LEVEL
+// ============================================================
+function t(key, fallback) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, fallback);
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[m];
+    });
+}
+
+function statusLabel(rawStatus) {
+    var key = statusKeys[rawStatus];
+    if (key) return t(key, rawStatus);
+    return t('global.status.' + String(rawStatus).toLowerCase().replace(/\s+/g, '_'), rawStatus);
+}
+
+function dateToKey(dateStr) {
+    return dateStr ? parseInt(dateStr.replace(/-/g, '')) : null;
+}
+
+// ============================================================
+// 5. Data loaders — TOP LEVEL
+// ============================================================
+function loadSuppliers(selectEl) {
+    fetch('/api/supply-chain/suppliers/list')
+        .then(r => r.json())
+        .then(data => {
+            var items = Array.isArray(data) ? data : (data.items || []);
+            var options = '<option value="">' + t('select_supplier', 'Select Supplier') + '</option>';
+            items.forEach(s => { options += '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.name) + '</option>'; });
+            document.querySelector(selectEl).innerHTML = options;
+        })
+        .catch(err => console.error('Supplier load failed:', err));
+}
+
+function loadProducts(selectEl) {
+    fetch('/api/supply-chain/products/dropdown')
+        .then(r => r.json())
+        .then(data => {
+            var items = Array.isArray(data) ? data : [];
+            var options = '<option value="">' + t('select_product', 'Select Product') + '</option>';
+            items.forEach(p => { options += '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.id) + ' - ' + escapeHtml(p.desc) + '</option>'; });
+            document.querySelector(selectEl).innerHTML = options;
+        })
+        .catch(err => console.error('Product load failed:', err));
+}
+
+function addLineItem(container) {
+    var div = document.createElement('div');
+    div.className = 'row line-item mb-2';
+    var uid = 'prod_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    div.innerHTML = `
+        <div class="col-md-4"><select class="form-select product-select" id="${uid}" required><option value="">Loading...</option></select></div>
+        <div class="col-md-2"><input type="number" class="form-control qty" placeholder="Qty" step="any" required></div>
+        <div class="col-md-2"><input type="number" class="form-control price" placeholder="Unit Price" step="any" required></div>
+        <div class="col-md-3"><input type="date" class="form-control exp-date" placeholder="Expected Date"></div>
+        <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-line">✖</button></div>
+    `;
+    container.appendChild(div);
+    loadProducts('#' + uid);
+    div.querySelector('.remove-line').addEventListener('click', function() { div.remove(); });
+}
+
+function loadPurchaseOrders() {
+    var params = new URLSearchParams();
+    var supplier = document.getElementById('filterSupplier').value;
+    var status = document.getElementById('filterStatus').value;
+    var dateFrom = document.getElementById('filterDateFrom').value;
+    var dateTo = document.getElementById('filterDateTo').value;
+    var project = document.getElementById('filterProject').value;
+    if (supplier) params.append('supplier', supplier);
+    if (status) params.append('status', status);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (project) params.append('project', project);
+
+    fetch('/api/supply-chain/purchase-orders/list?' + params.toString())
+        .then(r => r.json())
+        .then(resp => {
+            document.getElementById('kpiDraft').textContent   = resp.kpi.Draft || 0;
+            document.getElementById('kpiSent').textContent    = resp.kpi.Sent || 0;
+            document.getElementById('kpiPartial').textContent = resp.kpi['Partially Received'] || 0;
+            document.getElementById('kpiClosed').textContent  = resp.kpi.Closed || 0;
+            document.getElementById('kpiOverdue').textContent = resp.kpi.Overdue || 0;
+
+            var tbody = document.getElementById('ordersBody');
+            if (!resp.items || resp.items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">' + escapeHtml(t('no_data', 'No purchase orders found')) + '</td></tr>';
+                return;
+            }
+            var rows = '';
+            resp.items.forEach(function(po) {
+                var badgeColor = 'secondary';
+                if (po.status === 'Sent') badgeColor = 'info';
+                else if (po.status === 'Partially Received') badgeColor = 'warning';
+                else if (po.status === 'Closed') badgeColor = 'success';
+                else if (po.status === 'Overdue') badgeColor = 'danger';
+                else if (po.status === 'Delivered') badgeColor = 'success';
+                else if (po.status === 'Ordered') badgeColor = 'info';
+
+                rows += '<tr>' +
+                    '<td><a href="#" class="po-link" data-id="' + escapeHtml(po.id) + '">' + escapeHtml(po.id) + '</a></td>' +
+                    '<td>' + escapeHtml(po.supplierName || po.supplierId || '') + '</td>' +
+                    '<td>' + (po.orderDateFormatted || '') + '</td>' +
+                    '<td>' + (po.expectedDeliveryFormatted || '') + '</td>' +
+                    '<td><span class="badge bg-' + badgeColor + '">' + escapeHtml(statusLabel(po.status)) + '</span></td>' +
+                    '<td>' + (po.products ? po.products.map(escapeHtml).join(', ') : '-') + '</td>' +
+                    '<td>' + (po.totalAmount ? po.totalAmount.toFixed(2) : '0.00') + '</td>' +
+                    '<td>' +
+                        '<button class="btn btn-sm btn-primary receive-btn" data-id="' + escapeHtml(po.id) + '">' + escapeHtml(t('receive', 'Receive')) + '</button> ' +
+                        '<button class="btn btn-sm btn-secondary attach-btn" data-id="' + escapeHtml(po.id) + '">' + escapeHtml(t('files', 'Files')) + '</button>' +
+                    '</td>' +
+                '</tr>';
+            });
+            tbody.innerHTML = rows;
+        })
+        .catch(err => {
+            console.error('API Error:', err);
+            document.getElementById('ordersBody').innerHTML = '<tr><td colspan="8" class="text-center text-danger">' + escapeHtml(t('no_data', 'Error loading purchase orders')) + '</td></tr>';
+        });
+}
+
+// ============================================================
+// 6. Init — ONLY init calls and listeners
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Delegated handlers
+    document.getElementById('ordersBody').addEventListener('click', function(e) {
+        var btn = e.target.closest('.receive-btn');
+        if (btn) { showReceiveModal(btn.dataset.id); return; }
+        var att = e.target.closest('.attach-btn');
+        if (att) { showAttachmentsModal(att.dataset.id); return; }
+        var link = e.target.closest('.po-link');
+        if (link) { e.preventDefault(); alert('Detail view for ' + link.dataset.id + ' - to be implemented'); }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', loadPurchaseOrders);
+
+    document.getElementById('createPoBtn').addEventListener('click', function() {
+        var container = document.getElementById('poLinesContainer');
+        container.innerHTML = '';
+        addLineItem(container);
+        loadSuppliers('#poSupplier');
+        document.getElementById('poOrderDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('poProject').value = '';
+        new bootstrap.Modal(document.getElementById('createPoModal')).show();
+    });
+
+    document.getElementById('addLineBtn').addEventListener('click', function() {
+        addLineItem(document.getElementById('poLinesContainer'));
+    });
+
+    document.getElementById('savePoBtn').addEventListener('click', function() {
+        var supplierId = document.getElementById('poSupplier').value;
+        var orderDate = document.getElementById('poOrderDate').value;
+        var projectId = document.getElementById('poProject').value;
+        if (!supplierId || !orderDate) { alert('Supplier and Order Date required'); return; }
+        var lines = [];
+        document.querySelectorAll('#poLinesContainer .line-item').forEach(function(row) {
+            var prod = row.querySelector('.product-select').value;
+            var qty = row.querySelector('.qty').value;
+            var price = row.querySelector('.price').value;
+            var expDate = row.querySelector('.exp-date').value;
+            if (prod && qty && price) {
+                lines.push({
+                    productId: prod,
+                    quantity: parseFloat(qty),
+                    unitPrice: parseFloat(price),
+                    expectedDeliveryDateKey: expDate ? dateToKey(expDate) : null
+                });
+            }
+        });
+        if (lines.length === 0) { alert('At least one line required'); return; }
+        fetch('/api/supply-chain/purchase-orders', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                supplierId: supplierId,
+                orderDateKey: dateToKey(orderDate),
+                projectId: projectId || null,
+                lines: lines
+            })
+        }).then(r => {
+            if (!r.ok) throw new Error('Create failed');
+            bootstrap.Modal.getInstance(document.getElementById('createPoModal')).hide();
+            loadPurchaseOrders();
+        }).catch(err => alert('Error creating PO: ' + err.message));
+    });
+
+    document.getElementById('exportCsvBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        var params = new URLSearchParams({
+            supplier: document.getElementById('filterSupplier').value,
+            status: document.getElementById('filterStatus').value,
+            date_from: document.getElementById('filterDateFrom').value,
+            date_to: document.getElementById('filterDateTo').value,
+            project: document.getElementById('filterProject').value
+        });
+        window.location.href = '/api/supply-chain/purchase-orders/export?' + params.toString();
+    });
+
+    // Modal date picker re-init
+    document.getElementById('createPoModal').addEventListener('shown.bs.modal', function() {
+        if (typeof window.reinitDatePickers === 'function') window.reinitDatePickers();
+    });
+
+    // Initial load
+    loadPurchaseOrders();
+});
+
+// ============================================================
+// 7. Modal helpers (kept as top-level functions for reuse)
+// ============================================================
+function showReceiveModal(poId) {
+    fetch('/api/supply-chain/purchase-orders/' + poId)
+        .then(r => r.json())
+        .then(po => {
+            var html = '';
+            po.lines.forEach(function(line) {
+                var remaining = line.quantity - (line.receivedQuantity || 0);
+                if (remaining <= 0) {
+                    html += '<div class="alert alert-secondary">' + escapeHtml(line.productId) + ' – Fully received</div>';
+                } else {
+                    html += '<div class="border p-2 mb-2">' +
+                        '<strong>' + escapeHtml(line.productId) + '</strong><br>' +
+                        'Ordered: ' + line.quantity + ', Received: ' + (line.receivedQuantity || 0) + ', Remaining: ' + remaining + '<br>' +
+                        '<label>Quantity to receive:</label>' +
+                        '<input type="number" class="form-control receive-qty" data-lineid="' + line.lineId + '" data-max="' + remaining + '" step="any" min="0" max="' + remaining + '">' +
+                    '</div>';
+                }
+            });
+            document.getElementById('receiveLinesContainer').innerHTML = html;
+            document.getElementById('receivePoId').value = poId;
+            document.getElementById('receiveWarehouse').value = 'RAW';
+            document.getElementById('receiveNotes').value = '';
+            new bootstrap.Modal(document.getElementById('receiveModal')).show();
+        })
+        .catch(err => alert('Error loading PO details'));
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('confirmReceiveBtn').addEventListener('click', function() {
+        var poId = document.getElementById('receivePoId').value;
+        var warehouse = document.getElementById('receiveWarehouse').value;
+        var notes = document.getElementById('receiveNotes').value;
+        var receipts = [];
+        document.querySelectorAll('.receive-qty').forEach(function(inp) {
+            var qty = parseFloat(inp.value);
+            if (qty && qty > 0) {
+                receipts.push({ lineId: parseInt(inp.dataset.lineid), quantity: qty });
+            }
+        });
+        if (receipts.length === 0) { alert('No quantity entered'); return; }
+        var promises = receipts.map(rec => fetch('/api/supply-chain/purchase-orders/' + poId + '/receive', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ lineId: rec.lineId, quantity: rec.quantity, warehouseId: warehouse, notes: notes })
+        }));
+        Promise.all(promises).then(() => {
+            bootstrap.Modal.getInstance(document.getElementById('receiveModal')).hide();
+            loadPurchaseOrders();
+        }).catch(() => alert('Error processing receipt'));
+    });
+});
+
+function showAttachmentsModal(poId) {
+    document.getElementById('attachmentsPoId').value = poId;
+    refreshAttachmentsList(poId);
+    new bootstrap.Modal(document.getElementById('attachmentsModal')).show();
+}
+
+function refreshAttachmentsList(poId) {
+    fetch('/api/supply-chain/purchase-orders/' + poId + '/attachments')
+        .then(r => r.json())
+        .then(files => {
+            var container = document.getElementById('attachmentsList');
+            if (files.length === 0) container.innerHTML = '<p>No attachments.</p>';
+            else {
+                var list = '<ul>';
+                files.forEach(f => { list += '<li><a href="#" data-id="' + f.id + '">' + escapeHtml(f.name) + '</a></li>'; });
+                list += '</ul>';
+                container.innerHTML = list;
+            }
+        });
+}
+</script>
+{% endblock %}

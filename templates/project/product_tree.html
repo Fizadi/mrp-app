@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('global.home', 'Home') }}</a></li>
+            <li class="breadcrumb-item"><a href="/project/project_portfolio">{{ get_translation('project.projects', 'Projects') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('project.product_tree.title', 'Project Product Tree') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">{{ get_translation('project.product_tree.title', 'Project Product Tree') }}</h2>
+        <div>
+            <button class="btn btn-primary me-2" id="addProductBtn">{{ get_translation('project.product_tree.add_product', '+ Add Product') }}</button>
+            <button class="btn btn-outline-secondary" id="refreshTreeBtn">{{ get_translation('global.refresh', 'Refresh') }}</button>
+            <button class="btn btn-outline-success ms-2" id="exportTreeBtn">{{ get_translation('global.export_csv', 'Export CSV') }}</button>
+        </div>
+    </div>
+
+    <!-- Project selector -->
+    <div class="card mb-3 p-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label>{{ get_translation('project.product_tree.select_project', 'Select Project') }}</label>
+                <select id="project-selector" class="form-select">
+                    <option value="">{{ get_translation('global.loading', 'Loading...') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary" id="load-project-btn">{{ get_translation('global.load', 'Load') }}</button>
+            </div>
+            <div class="col-md-2">
+                <label>{{ get_translation('global.status', 'Status') }}</label>
+                <select id="status-filter" class="form-select">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="Planned">{{ get_translation('project.product_tree.planned', 'Planned') }}</option>
+                    <option value="InProduction">{{ get_translation('project.product_tree.in_production', 'In Production') }}</option>
+                    <option value="Completed">{{ get_translation('global.completed', 'Completed') }}</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label>{{ get_translation('global.search', 'Search') }}</label>
+                <input type="text" id="search-input" class="form-control"
+                       placeholder="{{ get_translation('project.product_tree.search_placeholder', 'Search product or component...') }}">
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-2 mb-4">
+        <div class="col-md-3"><div class="card text-center p-2 bg-secondary text-white"><h6>{{ get_translation('project.product_tree.total_products', 'Total Products') }}</h6><h3 id="kpi-total-products">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-info text-white"><h6>{{ get_translation('project.product_tree.total_quantity', 'Total Quantity') }}</h6><h3 id="kpi-total-qty">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-warning text-white"><h6>{{ get_translation('project.product_tree.low_stock', 'Low Stock Components') }}</h6><h3 id="kpi-low-stock">0</h3></div></div>
+        <div class="col-md-3"><div class="card text-center p-2 bg-danger text-white"><h6>{{ get_translation('project.product_tree.open_ncrs', 'Open NCRs') }}</h6><h3 id="kpi-ncr">0</h3></div></div>
+    </div>
+
+    <!-- Tree and Side Panel -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">{{ get_translation('project.product_tree.product_tree', 'Product Tree') }}</div>
+                <div class="card-body" style="overflow-x: auto;">
+                    <div id="productTree">
+                        <p class="text-muted">{{ get_translation('project.product_tree.no_data', 'Select a project to load its product tree.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card" id="side-panel" style="display: none;">
+                <div class="card-header">{{ get_translation('project.product_tree.component_details', 'Component Details') }}</div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#summaryTab">{{ get_translation('global.summary', 'Summary') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#detailsTab">{{ get_translation('global.details', 'Details') }}</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#actionsTab">{{ get_translation('global.actions', 'Actions') }}</a></li>
+                    </ul>
+                    <div class="tab-content mt-3">
+                        <div class="tab-pane fade show active" id="summaryTab">
+                            <div id="componentSummary"><p class="text-muted">{{ get_translation('global.loading', 'Loading...') }}</p></div>
+                        </div>
+                        <div class="tab-pane fade" id="detailsTab">
+                            <p><strong>{{ get_translation('global.name', 'Name:') }}</strong> <span id="detailName"></span></p>
+                            <p><strong>{{ get_translation('project.product_tree.quantity_bom', 'Quantity (in BOM):') }}</strong> <span id="detailQty"></span></p>
+                            <p><strong>{{ get_translation('project.product_tree.scrap_factor', 'Scrap Factor:') }}</strong> <span id="detailScrap"></span></p>
+                            <p><strong>{{ get_translation('project.product_tree.effectivity', 'Effectivity:') }}</strong> <span id="detailEffectivity"></span></p>
+                        </div>
+                        <div class="tab-pane fade" id="actionsTab">
+                            <button class="btn btn-warning mb-2 w-100" id="actionRaiseNCR">{{ get_translation('project.product_tree.raise_ncr', 'Raise NCR') }}</button>
+                            <button class="btn btn-success mb-2 w-100" id="actionCreatePO">{{ get_translation('project.product_tree.create_po', 'Create PO') }}</button>
+                            <button class="btn btn-info mb-2 w-100" id="actionViewQualityPlan">{{ get_translation('project.product_tree.view_quality_plan', 'View Quality Plan') }}</button>
+                            <button class="btn btn-secondary mb-2 w-100" id="actionRequestECO">{{ get_translation('project.product_tree.request_eco', 'Request ECO') }}</button>
+                            <button class="btn btn-primary mb-2 w-100" id="actionViewDocuments">{{ get_translation('project.product_tree.view_documents', 'View Documents') }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="productModalTitle">{{ get_translation('project.product_tree.add_product_modal', 'Add Product') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-project-product-id">
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label>{{ get_translation('project.product_tree.product', 'Product') }} *</label>
+                        <select id="product-id" class="form-select" required>
+                            <option value="">{{ get_translation('global.select', 'Select product...') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label>{{ get_translation('project.product_tree.required_quantity', 'Required Quantity') }}</label>
+                        <input type="number" id="required-qty" class="form-control" step="0.01" value="1">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label>{{ get_translation('project.product_tree.unit_price', 'Unit Price') }}</label>
+                        <input type="number" id="unit-price" class="form-control" step="0.01">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label>{{ get_translation('project.product_tree.delivery_date', 'Delivery Date') }}</label>
+                        <input type="date" id="delivery-date" class="form-control">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label>{{ get_translation('global.status', 'Status') }}</label>
+                        <select id="status" class="form-select">
+                            <option value="Planned">{{ get_translation('project.product_tree.planned', 'Planned') }}</option>
+                            <option value="InProduction">{{ get_translation('project.product_tree.in_production', 'InProduction') }}</option>
+                            <option value="Completed">{{ get_translation('global.completed', 'Completed') }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label>{{ get_translation('project.product_tree.responsible', 'Responsible') }}</label>
+                        <input type="text" id="responsible" class="form-control">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('global.notes', 'Notes') }}</label>
+                    <textarea id="notes" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <div class="form-check">
+                            <input type="checkbox" id="is-custom" class="form-check-input">
+                            <label class="form-check-label">{{ get_translation('project.product_tree.is_custom', 'Is Custom Component') }}</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label>{{ get_translation('project.product_tree.alternative_component', 'Alternative Component') }}</label>
+                        <input type="text" id="alternative-component" class="form-control">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('project.product_tree.custom_spec', 'Custom Specification') }}</label>
+                    <textarea id="custom-spec" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="save-product-btn">{{ get_translation('global.save', 'Save') }}</button>
+                <button class="btn btn-danger" id="delete-product-btn" style="display:none;">{{ get_translation('global.delete', 'Delete') }}</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Remove Modal -->
+<div class="modal fade" id="confirmRemoveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('project.product_tree.confirm_remove', 'Confirm Remove') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ get_translation('project.product_tree.confirm_remove_message', 'Are you sure you want to remove this product from the project?') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="confirm-remove-btn">{{ get_translation('global.remove', 'Remove') }}</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// Server-injected translations (top-level — same pattern)
+// ============================================================
+var trans = {
+    no_data:            {{ get_translation('project.product_tree.msg.no_data', 'No data to display')|tojson }},
+    no_products:        {{ get_translation('project.product_tree.msg.no_products', 'No products found')|tojson }},
+    load_failed:        {{ get_translation('project.product_tree.msg.load_failed', 'Failed to load product tree')|tojson }},
+    select_product:     {{ get_translation('project.product_tree.msg.select_product', 'Please select a product')|tojson }},
+    save_failed:        {{ get_translation('project.product_tree.msg.save_failed', 'Error saving product')|tojson }},
+    delete_confirm:     {{ get_translation('project.product_tree.msg.delete_confirm', 'Delete this product from the project?')|tojson }},
+    edit:               {{ get_translation('global.edit', 'Edit')|tojson }},
+    edit_product:       {{ get_translation('project.product_tree.edit_product', 'Edit Product')|tojson }},
+    add_product:        {{ get_translation('project.product_tree.add_product_modal', 'Add Product')|tojson }},
+    summary_loading:    {{ get_translation('project.product_tree.msg.summary_loading', 'Loading summary...')|tojson }},
+    summary_failed:     {{ get_translation('project.product_tree.msg.summary_failed', 'Failed to load summary')|tojson }},
+    qty_label:          {{ get_translation('project.product_tree.qty_label', 'Qty:')|tojson }}
+};
+
+// ============================================================
+// State
+// ============================================================
+var currentProjectId = null;
+var productsData = [];
+
+// ============================================================
+// Helpers
+// ============================================================
+function formatDateKey(dateKey) {
+    if (!dateKey) return '';
+    var s = dateKey.toString();
+    if (s.length !== 8) return s;
+    return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+}
+
+function getStatusBadgeClass(status) {
+    if (status === 'Planned') return 'bg-secondary';
+    if (status === 'InProduction') return 'bg-primary';
+    if (status === 'Completed') return 'bg-success';
+    return 'bg-warning';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+// ============================================================
+// Load project list for the dropdown
+// ============================================================
+function loadProjectList() {
+    fetch('/api/project/internal_projects')
+        .then(function(r) { return r.json(); })
+        .then(function(projects) {
+            var select = document.getElementById('project-selector');
+            var html = '<option value="">-- ' + trans.no_data + ' --</option>';
+            projects.forEach(function(p) {
+                html += '<option value="' + p.id + '">' + p.name + ' (' + p.id + ')</option>';
+            });
+            select.innerHTML = html;
+
+            // Auto-select current project from session (rendered by Jinja)
+            var current = "{{ session.get('current_project_id', 'All') }}";
+            if (current && current !== 'All') {
+                select.value = current;
+                // Auto-load if a project is selected
+                loadTree(current);
+            }
+        })
+        .catch(function(err) {
+            console.error('Load project list failed:', err);
+        });
+}
+
+// ============================================================
+// Load products for the modal dropdown
+// ============================================================
+function loadProductsList() {
+    fetch('/api/bom/products')
+        .then(function(r) { return r.json(); })
+        .then(function(products) {
+            var select = document.getElementById('product-id');
+            var html = '<option value="">' + trans.select_product + '</option>';
+            products.forEach(function(p) {
+                html += '<option value="' + p.ProductId + '">' + (p.ProductName || p.ProductId) + '</option>';
+            });
+            select.innerHTML = html;
+        })
+        .catch(function(err) { console.warn('Failed to load products:', err); });
+}
+
+// ============================================================
+// Load tree
+// ============================================================
+function loadTree(projectId) {
+    if (!projectId) return;
+    currentProjectId = projectId;
+
+    fetch('/api/project/' + projectId + '/products')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            productsData = res.products || [];
+
+            var treeRoot = document.getElementById('productTree');
+            treeRoot.innerHTML = '';
+
+            if (productsData.length === 0) {
+                treeRoot.innerHTML = '<p class="text-muted">' + trans.no_products + '</p>';
+                document.getElementById('kpi-total-products').textContent = '0';
+                document.getElementById('kpi-total-qty').textContent = '0';
+                return;
+            }
+
+            var ul = document.createElement('ul');
+            ul.className = 'list-unstyled';
+            renderTree(productsData, ul);
+            treeRoot.appendChild(ul);
+
+            // KPIs
+            var totalProducts = productsData.length;
+            var totalQty = productsData.reduce(function(sum, p) { return sum + (Number(p.required_quantity) || 0); }, 0);
+            document.getElementById('kpi-total-products').textContent = totalProducts;
+            document.getElementById('kpi-total-qty').textContent = totalQty;
+        })
+        .catch(function(err) {
+            console.error('Load tree failed:', err);
+            alert(trans.load_failed);
+        });
+}
+
+// ============================================================
+// Render tree (recursive)
+// ============================================================
+function renderTree(nodes, parentUl) {
+    nodes.forEach(function(node) {
+        var li = document.createElement('li');
+        li.className = 'mt-2';
+
+        var hasChildren = node.children && node.children.length > 0;
+        var iconClass = hasChildren ? 'fa-folder' : 'fa-cube';
+        var icon = '<i class="fas ' + iconClass + ' toggle-icon me-1"></i>';
+
+        var label;
+        if (node.project_product_id !== undefined) {
+            label = icon + ' <strong>' + escapeHtml(node.product_name) + '</strong>'
+                  + ' <span class="badge bg-secondary ms-2">' + trans.qty_label + ' ' + node.required_quantity + '</span>'
+                  + (node.delivery_date ? '<span class="badge bg-info ms-1">Due: ' + formatDateKey(node.delivery_date) + '</span>' : '')
+                  + '<span class="badge ' + getStatusBadgeClass(node.status) + ' ms-1">' + node.status + '</span>';
+        } else {
+            label = icon + escapeHtml(node.component_name)
+                  + ' <span class="badge bg-secondary ms-2">' + trans.qty_label + ' ' + node.quantity + '</span>'
+                  + ' <span class="text-muted ms-2">(' + node.component_id + ')</span>';
+        }
+
+        var link = document.createElement('a');
+        link.href = '#';
+        link.className = 'tree-node-link text-decoration-none';
+        link.innerHTML = label;
+        link.dataset.nodeJson = JSON.stringify(node);
+        li.appendChild(link);
+
+        if (hasChildren) {
+            var childUl = document.createElement('ul');
+            childUl.className = 'list-unstyled ms-4';
+            childUl.style.display = 'none';
+            li.appendChild(childUl);
+            renderTree(node.children, childUl);
+
+            link.querySelector('.toggle-icon').addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                childUl.style.display = childUl.style.display === 'none' ? 'block' : 'none';
+                this.classList.toggle('fa-folder');
+                this.classList.toggle('fa-folder-open');
+            });
+        }
+
+        parentUl.appendChild(li);
+    });
+}
+
+// ============================================================
+// Side panel
+// ============================================================
+function showSidePanel(node) {
+    if (!node) return;
+
+    document.getElementById('detailName').textContent = node.component_name || node.product_name || '';
+    document.getElementById('detailQty').textContent = node.quantity || node.required_quantity || 0;
+    document.getElementById('detailScrap').textContent = node.scrap_factor || 0;
+    document.getElementById('detailEffectivity').textContent = node.effectivity_date || 'N/A';
+
+    var summary = document.getElementById('componentSummary');
+    summary.innerHTML = '<p class="text-muted">' + trans.summary_loading + '</p>';
+
+    var componentId = node.component_id || node.product_id;
+    if (componentId) {
+        fetch('/api/bom/component/' + componentId + '/summary')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var html = '';
+                if (data.inventory) {
+                    html += '<div class="mb-3"><h6>📦 Inventory</h6><p>On Hand: ' + data.inventory.on_hand
+                          + ' | Reserved: ' + data.inventory.reserved
+                          + ' | Available: ' + data.inventory.available + '</p></div>';
+                }
+                if (data.quality) {
+                    html += '<div class="mb-3"><h6>✅ Quality</h6><p>Assigned QC Operations: ' + data.quality.assigned_operations_count + '</p></div>';
+                }
+                if (data.purchasing) {
+                    html += '<div class="mb-3"><h6>🛒 Purchasing</h6><p>Open POs: ' + data.purchasing.open_pos_count + '</p></div>';
+                }
+                summary.innerHTML = html || '<p class="text-muted">' + trans.no_data + '</p>';
+            })
+            .catch(function() {
+                summary.innerHTML = '<p class="text-danger">' + trans.summary_failed + '</p>';
+            });
+    } else {
+        summary.innerHTML = '<p class="text-muted">' + trans.no_data + '</p>';
+    }
+
+    document.getElementById('side-panel').style.display = 'block';
+}
+
+// ============================================================
+// Save product
+// ============================================================
+function saveProduct() {
+    var editId = document.getElementById('edit-project-product-id').value;
+    var productId = document.getElementById('product-id').value;
+
+    if (!productId) { alert(trans.select_product); return; }
+
+    var payload = {
+        project_id: currentProjectId,
+        product_id: productId,
+        required_quantity: parseFloat(document.getElementById('required-qty').value) || 0,
+        unit_price: parseFloat(document.getElementById('unit-price').value) || 0,
+        delivery_date_key: (document.getElementById('delivery-date').value || '').replace(/-/g, '') || null,
+        status: document.getElementById('status').value,
+        responsible: document.getElementById('responsible').value,
+        notes: document.getElementById('notes').value,
+        is_custom: document.getElementById('is-custom').checked,
+        alternative_component: document.getElementById('alternative-component').value,
+        custom_spec: document.getElementById('custom-spec').value
+    };
+
+    var url = editId ? '/api/project/products/' + editId : '/api/project/products';
+    var method = editId ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) {
+            bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+            loadTree(currentProjectId);
+        } else {
+            alert('Error: ' + (res.error || 'Unknown'));
+        }
+    })
+    .catch(function() { alert(trans.save_failed); });
+}
+
+// ============================================================
+// Init
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    loadProjectList();
+    loadProductsList();
+
+    // Tree node click → show side panel
+    document.getElementById('productTree').addEventListener('click', function(e) {
+        var link = e.target.closest('.tree-node-link');
+        if (!link) return;
+        if (e.target.classList.contains('toggle-icon')) return;
+        e.preventDefault();
+
+        // Remove previous selection
+        document.querySelectorAll('.tree-node-link.selected').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+        link.classList.add('selected');
+
+        try {
+            var node = JSON.parse(link.dataset.nodeJson);
+            showSidePanel(node);
+        } catch (err) {
+            console.error('Failed to parse node data:', err);
+        }
+    });
+
+    // Load project button
+    document.getElementById('load-project-btn').addEventListener('click', function() {
+        var pid = document.getElementById('project-selector').value;
+        if (pid) loadTree(pid);
+    });
+
+    // Refresh
+    document.getElementById('refreshTreeBtn').addEventListener('click', function() {
+        if (currentProjectId) loadTree(currentProjectId);
+    });
+
+    // Export
+    document.getElementById('exportTreeBtn').addEventListener('click', function() {
+        if (currentProjectId) {
+            window.location.href = '/api/project/' + currentProjectId + '/products/export';
+        }
+    });
+
+    // Add product
+    document.getElementById('addProductBtn').addEventListener('click', function() {
+        document.getElementById('edit-project-product-id').value = '';
+        document.getElementById('product-id').value = '';
+        document.getElementById('required-qty').value = 1;
+        document.getElementById('unit-price').value = '';
+        document.getElementById('delivery-date').value = '';
+        document.getElementById('status').value = 'Planned';
+        document.getElementById('responsible').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('is-custom').checked = false;
+        document.getElementById('alternative-component').value = '';
+        document.getElementById('custom-spec').value = '';
+        document.getElementById('productModalTitle').textContent = trans.add_product;
+        document.getElementById('delete-product-btn').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('productModal')).show();
+    });
+
+    // Save product
+    document.getElementById('save-product-btn').addEventListener('click', saveProduct);
+});
+</script>
+{% endblock %}

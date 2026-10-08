@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('manufacturing.machines.title', 'Machine Management') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manufacturing.production_orders') }}">{{ get_translation('nav.manufacturing', 'Manufacturing') }}</a></li>
+            <li class="breadcrumb-item active">{{ get_translation('manufacturing.machines.breadcrumb', 'Machine Management') }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ get_translation('manufacturing.machines.title', 'Machine Management') }}</h2>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#machineModal" onclick="clearMachineModal()">
+                <i class="fas fa-plus"></i> {{ get_translation('manufacturing.machines.add', 'Add Machine') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.machines.kpi.available', 'Available') }}</h6><h3 id="kpiAvailable">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.machines.kpi.running', 'Running') }}</h6><h3 id="kpiRunning">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.machines.kpi.maintenance', 'Maintenance') }}</h6><h3 id="kpiMaintenance">0</h3></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body"><h6>{{ get_translation('manufacturing.machines.kpi.down', 'Down') }}</h6><h3 id="kpiDown">0</h3></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.machines.filters.workstation', 'Workstation') }}</label>
+                <select class="form-select" id="filterWorkstation">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ get_translation('manufacturing.machines.filters.status', 'Status') }}</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">{{ get_translation('global.all', 'All') }}</option>
+                    <option value="Available">{{ get_translation('manufacturing.machines.status.available', 'Available') }}</option>
+                    <option value="Running">{{ get_translation('manufacturing.machines.status.running', 'Running') }}</option>
+                    <option value="Maintenance">{{ get_translation('manufacturing.machines.status.maintenance', 'Maintenance') }}</option>
+                    <option value="Down">{{ get_translation('manufacturing.machines.status.down', 'Down') }}</option>
+                </select>
+            </div>
+            <div class="col-md-2 form-check mt-4">
+                <input type="checkbox" class="form-check-input" id="filterActive" checked>
+                <label class="form-check-label">{{ get_translation('manufacturing.machines.filters.active_only', 'Active Only') }}</label>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{{ get_translation('manufacturing.machines.filters.search', 'Search') }}</label>
+                <input type="text" class="form-control" id="filterSearch" placeholder="{{ get_translation('global.search', 'Search...') }}">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" id="refreshBtn"><i class="fas fa-sync"></i> {{ get_translation('global.refresh', 'Refresh') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Machines Table -->
+    <div class="card">
+        <div class="card-header">{{ get_translation('manufacturing.machines.table.title', 'Machines') }}</div>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover align-middle table-sticky">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ get_translation('manufacturing.machines.table.code', 'Code') }}</th>
+                        <th>{{ get_translation('manufacturing.machines.table.name', 'Name') }}</th>
+                        <th>{{ get_translation('manufacturing.machines.table.workstation', 'Workstation') }}</th>
+                        <th>{{ get_translation('manufacturing.machines.table.status', 'Status') }}</th>
+                        <th>{{ get_translation('manufacturing.machines.table.current_job', 'Current Job') }}</th>
+                        <th>{{ get_translation('manufacturing.machines.table.capacity', 'Capacity') }}</th>
+                        <th>{{ get_translation('manufacturing.machines.table.rate', 'Hourly Rate') }}</th>
+                        <th>{{ get_translation('global.actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="machinesBody">
+                    <tr><td colspan="8" class="text-center">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Machine Modal -->
+<div class="modal fade" id="machineModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">{{ get_translation('manufacturing.machines.add_modal.title', 'Add Machine') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="machineForm">
+                    <input type="hidden" id="editMachineId">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.code', 'Code') }} *</label>
+                            <input type="text" class="form-control" id="machineCode" required>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.name', 'Name') }} *</label>
+                            <input type="text" class="form-control" id="machineName" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.workstation', 'Workstation') }}</label>
+                            <select class="form-select" id="machineWorkstation"></select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.type', 'Machine Type') }}</label>
+                            <select class="form-select" id="machineType">
+                                <option value="Standard">Standard</option>
+                                <option value="CNC">CNC</option>
+                                <option value="Lathe">Lathe</option>
+                                <option value="Mill">Mill</option>
+                                <option value="Grinder">Grinder</option>
+                                <option value="Drill">Drill</option>
+                                <option value="Press">Press</option>
+                                <option value="Welding">Welding</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.manufacturer', 'Manufacturer') }}</label>
+                            <input type="text" class="form-control" id="machineManufacturer">
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.model', 'Model') }}</label>
+                            <input type="text" class="form-control" id="machineModel">
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.serial', 'Serial Number') }}</label>
+                            <input type="text" class="form-control" id="machineSerial">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.capacity', 'Capacity (hrs)') }}</label>
+                            <input type="number" class="form-control" id="machineCapacity" min="0" step="0.5">
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.rate', 'Hourly Rate') }}</label>
+                            <input type="number" class="form-control" id="machineRate" min="0" step="0.01">
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.status', 'Status') }}</label>
+                            <select class="form-select" id="machineStatus">
+                                <option value="Available">{{ get_translation('manufacturing.machines.status.available', 'Available') }}</option>
+                                <option value="Running">{{ get_translation('manufacturing.machines.status.running', 'Running') }}</option>
+                                <option value="Maintenance">{{ get_translation('manufacturing.machines.status.maintenance', 'Maintenance') }}</option>
+                                <option value="Down">{{ get_translation('manufacturing.machines.status.down', 'Down') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <label>{{ get_translation('manufacturing.machines.form.currency', 'Currency') }}</label>
+                            <select class="form-select" id="machineCurrency">
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                                <option value="GBP">GBP</option>
+                                <option value="IRR">IRR</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-2 d-flex align-items-center">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="machineActive" checked>
+                                <label class="form-check-label">{{ get_translation('manufacturing.machines.form.active', 'Active') }}</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button type="button" class="btn btn-primary" id="saveMachineBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Job Modal -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.machines.assign.title', 'Assign Job to Machine') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="assignMachineId">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.machines.assign.job', 'Job') }}</label>
+                    <select class="form-select" id="assignJobId">
+                        <option value="">{{ get_translation('global.select', 'Select job...') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.machines.assign.duration', 'Estimated Duration (hours)') }}</label>
+                    <input type="number" class="form-control" id="assignDuration" min="0.5" step="0.5" value="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-success" id="confirmAssignBtn">{{ get_translation('manufacturing.machines.assign.confirm', 'Assign') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Downtime Modal -->
+<div class="modal fade" id="downtimeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('manufacturing.machines.downtime.title', 'Record Downtime') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="downtimeMachineId">
+                <div class="mb-2">
+                    <label>{{ get_translation('manufacturing.machines.downtime.reason', 'Reason') }}</label>
+                    <input type="text" class="form-control" id="downtimeReason">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-danger" id="confirmDowntimeBtn">{{ get_translation('manufacturing.machines.downtime.confirm', 'Record Downtime') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// MACHINE MANAGEMENT - PURE JAVASCRIPT
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Machine Management page loaded');
+
+    function getEl(id) { return document.getElementById(id); }
+
+    function showToast(message, type) {
+        type = type || 'success';
+        var bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+        var toastHtml = '<div class="toast align-items-center ' + bgClass + ' text-white border-0" role="alert" style="position:fixed; top:20px; right:20px; z-index:9999; min-width:250px;">' +
+            '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>';
+        document.body.insertAdjacentHTML('beforeend', toastHtml);
+        var toastEl = document.querySelector('.toast');
+        var toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        toast.show();
+        setTimeout(function() { if (toastEl) toastEl.remove(); }, 4500);
+    }
+
+    // Load KPIs
+    function loadKPIs() {
+        fetch('/api/manufacturing/machines/stats')
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                getEl('kpiAvailable').textContent = res.available || 0;
+                getEl('kpiRunning').textContent = res.running || 0;
+                getEl('kpiMaintenance').textContent = res.maintenance || 0;
+                getEl('kpiDown').textContent = res.down || 0;
+            })
+            .catch(function(err) { console.error('KPI error:', err); });
+    }
+
+    // Load Workstations dropdown
+    function loadWorkstations() {
+        fetch('/api/manufacturing/workstations')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var selects = ['filterWorkstation', 'machineWorkstation'];
+                selects.forEach(function(id) {
+                    var sel = getEl(id);
+                    if (!sel) return;
+                    var opts = '<option value="">{{ get_translation("global.all", "All") }}</option>';
+                    data.forEach(function(w) {
+                        opts += '<option value="' + w.id + '">' + w.name + '</option>';
+                    });
+                    sel.innerHTML = opts;
+                });
+            })
+            .catch(function(err) { console.error('Workstations error:', err); });
+    }
+
+    // Load Machines
+    function loadMachines() {
+        var tbody = getEl('machinesBody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading...</td></tr>';
+        
+        var params = new URLSearchParams();
+        var ws = getEl('filterWorkstation');
+        var status = getEl('filterStatus');
+        var active = getEl('filterActive');
+        var search = getEl('filterSearch');
+        
+        if (ws && ws.value) params.set('workstation_id', ws.value);
+        if (status && status.value) params.set('status', status.value);
+        if (active) params.set('active_only', active.checked ? 'true' : 'false');
+        if (search && search.value) params.set('search', search.value);
+        
+        var url = '/api/manufacturing/machines' + (params.toString() ? '?' + params.toString() : '');
+        
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var html = '';
+                if (!data || data.length === 0) {
+                    html = '<tr><td colspan="8" class="text-center">No machines found</td></tr>';
+                } else {
+                    data.forEach(function(m) {
+                        html += '<tr>' +
+                            '<td><strong>' + m.code + '</strong></td>' +
+                            '<td>' + m.name + '</td>' +
+                            '<td>' + m.workstationName + '</td>' +
+                            '<td>' + m.statusBadge + '</td>' +
+                            '<td>' + (m.currentProductName || '-') + '</td>' +
+                            '<td>' + (m.capacityHours || '-') + '</td>' +
+                            '<td>' + (m.hourlyRate ? '$' + m.hourlyRate : '-') + '</td>' +
+                            '<td>' +
+                                '<button class="btn btn-warning btn-sm edit-machine" data-id="' + m.id + '"><i class="fas fa-edit"></i></button> ' +
+                                (m.status === 'Available' ? '<button class="btn btn-success btn-sm assign-machine" data-id="' + m.id + '"><i class="fas fa-play"></i></button> ' : '') +
+                                (m.status === 'Running' ? '<button class="btn btn-info btn-sm complete-machine" data-id="' + m.id + '"><i class="fas fa-stop"></i></button> ' : '') +
+                                (m.status !== 'Down' ? '<button class="btn btn-danger btn-sm downtime-machine" data-id="' + m.id + '"><i class="fas fa-exclamation-triangle"></i></button> ' : '') +
+                            '</td>' +
+                        '</tr>';
+                    });
+                }
+                tbody.innerHTML = html;
+            })
+            .catch(function(err) {
+                console.error('Error:', err);
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading machines</td></tr>';
+            });
+    }
+
+    // Refresh all
+    function refreshAll() {
+        loadKPIs();
+        loadMachines();
+    }
+
+    // Clear modal
+    window.clearMachineModal = function() {
+        getEl('modalTitle').textContent = 'Add Machine';
+        getEl('editMachineId').value = '';
+        getEl('machineCode').value = '';
+        getEl('machineCode').disabled = false;
+        getEl('machineName').value = '';
+        getEl('machineType').value = 'Standard';
+        getEl('machineManufacturer').value = '';
+        getEl('machineModel').value = '';
+        getEl('machineSerial').value = '';
+        getEl('machineCapacity').value = '';
+        getEl('machineRate').value = '';
+        getEl('machineStatus').value = 'Available';
+        getEl('machineCurrency').value = 'USD';
+        getEl('machineActive').checked = true;
+    };
+
+    // Open machine modal for editing
+    function editMachine(id) {
+        fetch('/api/manufacturing/machines/' + id)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                getEl('modalTitle').textContent = 'Edit Machine';
+                getEl('editMachineId').value = data.id;
+                getEl('machineCode').value = data.code;
+                getEl('machineCode').disabled = true;
+                getEl('machineName').value = data.name;
+                getEl('machineWorkstation').value = data.workstationId || '';
+                getEl('machineType').value = data.machineType || 'Standard';
+                getEl('machineManufacturer').value = data.manufacturer || '';
+                getEl('machineModel').value = data.model || '';
+                getEl('machineSerial').value = data.serialNumber || '';
+                getEl('machineCapacity').value = data.capacityHours || '';
+                getEl('machineRate').value = data.hourlyRate || '';
+                getEl('machineStatus').value = data.status || 'Available';
+                getEl('machineCurrency').value = data.currencyCode || 'USD';
+                getEl('machineActive').checked = data.isActive !== false;
+                var modal = new bootstrap.Modal(getEl('machineModal'));
+                modal.show();
+            })
+            .catch(function(err) { console.error('Error:', err); alert('Failed to load machine'); });
+    }
+
+    // Save machine
+    function saveMachine() {
+        var id = getEl('editMachineId').value;
+        var data = {
+            code: getEl('machineCode').value,
+            name: getEl('machineName').value,
+            workstationId: getEl('machineWorkstation').value,
+            machineType: getEl('machineType').value,
+            manufacturer: getEl('machineManufacturer').value,
+            model: getEl('machineModel').value,
+            serialNumber: getEl('machineSerial').value,
+            capacityHours: parseFloat(getEl('machineCapacity').value) || 0,
+            hourlyRate: parseFloat(getEl('machineRate').value) || 0,
+            currencyCode: getEl('machineCurrency').value,
+            status: getEl('machineStatus').value,
+            isActive: getEl('machineActive').checked
+        };
+        
+        if (!data.code || !data.name) {
+            showToast('Code and Name are required', 'error');
+            return;
+        }
+        
+        var method = id ? 'PUT' : 'POST';
+        var url = id ? '/api/manufacturing/machines/' + id : '/api/manufacturing/machines';
+        
+        var btn = getEl('saveMachineBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(result.message || 'Saved successfully', 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('machineModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) {
+            console.error('Error:', err);
+            showToast('Error saving machine', 'error');
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = 'Save';
+        });
+    }
+
+    // Assign job
+    function assignJob(id) {
+        getEl('assignMachineId').value = id;
+        // Load available jobs
+        fetch('/api/manufacturing/orders?status=Released')
+            .then(function(r) { return r.json(); })
+            .then(function(orders) {
+                var select = getEl('assignJobId');
+                var opts = '<option value="">{{ get_translation("global.select", "Select job...") }}</option>';
+                if (orders && orders.length > 0) {
+                    orders.forEach(function(o) {
+                        opts += '<option value="' + o.id + '">' + o.id + ' - ' + (o.productName || '') + '</option>';
+                    });
+                }
+                select.innerHTML = opts;
+                var modal = new bootstrap.Modal(getEl('assignModal'));
+                modal.show();
+            })
+            .catch(function(err) { console.error('Error loading jobs:', err); alert('Failed to load jobs'); });
+    }
+
+    function confirmAssign() {
+        var machineId = getEl('assignMachineId').value;
+        var jobId = getEl('assignJobId').value;
+        var duration = parseFloat(getEl('assignDuration').value) || 1;
+        
+        if (!jobId) {
+            showToast('Please select a job', 'error');
+            return;
+        }
+        
+        fetch('/api/manufacturing/machines/' + machineId + '/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId: jobId, estimatedDuration: duration })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(result.message || 'Job assigned', 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('assignModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) {
+            console.error('Error:', err);
+            showToast('Error assigning job', 'error');
+        });
+    }
+
+    // Record downtime
+    function recordDowntime(id) {
+        getEl('downtimeMachineId').value = id;
+        getEl('downtimeReason').value = '';
+        var modal = new bootstrap.Modal(getEl('downtimeModal'));
+        modal.show();
+    }
+
+    function confirmDowntime() {
+        var machineId = getEl('downtimeMachineId').value;
+        var reason = getEl('downtimeReason').value || 'Unplanned downtime';
+        
+        fetch('/api/manufacturing/machines/' + machineId + '/downtime', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(result.message || 'Downtime recorded', 'success');
+            var modal = bootstrap.Modal.getInstance(getEl('downtimeModal'));
+            if (modal) modal.hide();
+            refreshAll();
+        })
+        .catch(function(err) {
+            console.error('Error:', err);
+            showToast('Error recording downtime', 'error');
+        });
+    }
+
+    // Complete job
+    function completeJob(id) {
+        if (!confirm('Complete the current job on this machine?')) return;
+        
+        fetch('/api/manufacturing/machines/' + id + '/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            showToast(result.message || 'Job completed', 'success');
+            refreshAll();
+        })
+        .catch(function(err) {
+            console.error('Error:', err);
+            showToast('Error completing job', 'error');
+        });
+    }
+
+    // Event binding
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        
+        if (btn.classList.contains('edit-machine')) {
+            editMachine(btn.getAttribute('data-id'));
+        }
+        if (btn.classList.contains('assign-machine')) {
+            assignJob(btn.getAttribute('data-id'));
+        }
+        if (btn.classList.contains('complete-machine')) {
+            completeJob(btn.getAttribute('data-id'));
+        }
+        if (btn.classList.contains('downtime-machine')) {
+            recordDowntime(btn.getAttribute('data-id'));
+        }
+    });
+
+    // Button bindings
+    getEl('saveMachineBtn').addEventListener('click', saveMachine);
+    getEl('confirmAssignBtn').addEventListener('click', confirmAssign);
+    getEl('confirmDowntimeBtn').addEventListener('click', confirmDowntime);
+    getEl('refreshBtn').addEventListener('click', refreshAll);
+
+    // Filter events
+    ['filterWorkstation', 'filterStatus', 'filterActive'].forEach(function(id) {
+        var el = getEl(id);
+        if (el) el.addEventListener('change', refreshAll);
+    });
+    
+    var searchInput = getEl('filterSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(this._timer);
+            this._timer = setTimeout(refreshAll, 300);
+        });
+    }
+
+    // Initial load
+    loadWorkstations();
+    refreshAll();
+    setInterval(refreshAll, 60000);
+});
+</script>
+{% endblock %}

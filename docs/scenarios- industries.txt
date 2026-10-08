@@ -1,0 +1,147 @@
+let's go back to app, database and propsed pages.
+
+I mention some real cases of manufacturing companies in which the app is expected to be utilised. I want may app to be adaptable to each of these industries and can a as flexible as much as that can be adapted to other industries as wellring body that is supposed to use the app as its SCM 
+I want to be sure that my current database structure and page configuration can respond to this reqirements
+
+
+
+in all the following scenarios, when I say "company", I mean the manufac
+
+1-
+a valve manufacturing company that manufacture one or multiple industrial valve for major clients in oil., gas, petrochemical industry based on defined project:
+
+-the sales engineers of the company communicate with the major client for taking/defining new project. the first efforts can be categorised as marketing leads but after certain efforts, the sales engineer can define a project (company project). 
+-Any company project should be linked to a parent customer project. without linking to that, it is impossible to define a company project
+-all company project have a uniform, non duplicated reference number whose components have a certain meanings: for example R-40-20260149.. 40 is the number of the sales engineer in the internal system of the company, 202601 mean January of 2026, 49 mean 49th project of that sales engineer in the current gregorian year..
+-the name of the sales engineer who creates a company project/customer project should be recorded
+-any marketing lead can be converted into a company project or may not
+-if the lead stops and cannot be converted into a new company project, the reason should be recorded (as an unsuccessful attempt)
+-when the company project is defined, there are multiple types of documents are exchanged between the sales engineer(s) who are responsible for that project and the client of the project. the main reason of versioning are the comments and modifications asked by the client's team toward the requirement. thos document can be datasheet, calculaiton sheet, Inspection/test protocol (ITP), delivery report,..
+- each project, usually, has three roles within the company : manager, supervisor and sales engineer at the same time. ( can be altered later) those roles usually have the right to prepared by, supervised by and finally approved by.
+- at each period during the project, the top manager (admin) can change those roles and for example change a project's supervisot or manager.. In  other word, each of (here 3 roles) of a project has both the employeeID or person ID, and also the starting date.. if a certain role changes, that no longer valid (for example the sales engineer is no longer in charge as project engineer)
+
+-at the time being, the company produces two categories of valves : control valves and safety valves.. ( in future, there might be some other classes of 
+products to be manufactured). each category of products, has some few subcategories
+
+-each category of product has its own system of calculation which is reflected in a big table named sizing- here we can call them
+ 	t_engineeringParameters_CV (sizing data for control valves)- 
+	t_engineeringParameters_SV (sizing data for safety valves)
+
+if another product is added to the company's portfolio, another  t_engineeringParameters table will be added (strongly probable)
+
+here is the structure of t_engineeringParameters tables:
+ starts with certain common fields : row, item, P&ID, location, p1,p2,p3...p400 (for CV it goes up to p400 or for example for SV it goes up to p200)
+p1,p2,p3... are engineering values/parameters and quantities like temperature, pressure, orifice size, has/has not sth,... and can take integer, float, boolean or text value types
+
+some of parameters are set by the client (but may be changed during communication with the sales engineering team) and some of them but will be set later (by calculation or any other assignment process)
+
+
+some first fields like row, item or serial number.. are important for later clients' follow up. For example the client can tell or refer to them just by item number and not necessarily the productID that the company refer to
+
+issues about item number: the item number is expected to be the ID of a valve.. but when there are multiple replications of a valve (exacly identical, say one for installing within the line and two as spare parts) they are shown as 102A2014A/B/C with qty 3, which means 102A2014A and 102A2014B and 102A2014C which are actually 3 valves with different item but in the communications with client we should also have them by their item/row number..
+
+previously, a mechanism like a table names t_actualItem may be essntial which explodes such rows into actual 2,3 or 4 items (it is up to you)
+
+another consideration is that, each engineering parameter table (which includes hundreds ot fields for each item) may also have multiple versions which we call it internal versions. even a tiny change in any field will generate a new internal version (it would be possible to be aware and show the user to see the exact change between two certain internal versions, say 2 and 16)
+
+as I said, for each project there are some certain list of mandatory documents: DataSheet, Calculation Sheet, ITP, Delivery Report..each of those document also has version. The issuance of each version of each document, with its date, the person who issues, check and approval..
+The point is that each of the above versions of mandatory document should be linked to a certain internal version (set of engineering parameter). For example Data Sheet ver02 is linked to internal Version 4 and the next version :Data Sheet ver03 is linked to internal version 7 (7 should be greater that 4)
+
+at this point: one of benefits of this app, can be the ability of the top manager to see -for each project- that which mandatory document have been sent and at what internal version - the important point is the security level and responsibility ... meaning that, the manager wants to knwo who make, check or approved a certain version and no one can disguise the other one and intentionally or non-intentionally make/send a document that will have responsibility for the company
+
+ok.. after some series of recieprocal rounds of commuincation between the client and sales engineer, a single, multiple ones or the whol items (here, valves) in the required list are approved by the client and can be sent to the next stage (which here is the engineering). As I insisted several times, it is too important that the user (sales engineer, project owner,..) can attach/assign the copy of any document/approval ofthe client related to the approval of the one or multiple items in the list.  ( those certificate also can be defined as one of the mandatory document types for a project)
+
+at this stage, the engineering phase of the approved item(s) starts. the apprpved items are seen by the engineering team/personnel. a BOM from repository of BOMs or a new designed one can be assigned to each item. after approving (passing the defined path for approving a BOM) the quality operations  and manufacturing processes can also be assigned to the whole valve or each parts of it. Here, the engineering team can run MRP calculations in order to see the what-if scenarios or calculating the needed Purchase Orders. Then the engineering team assign each part and each step of manufacturing to a certain division or machine within the company or a third party supplier of services/production proccessing.
+
+*; in  all these processes, it would be great if there is panoramic view over the sequence, position and status of each part (preferably visualized) specially per each defined company project . 
+I mean, if in the siide bar a project selected by the user, he/she would be able to see all elements related to that project. (filterred based on the project)
+
+
+**: filteration: in each page, some fields are proposed as the the criteria for filtering. Operationally, some filters are filter-as-you-type, or the table get filterred as the user type anything in it.. but some others needed that the text typed within them and then a button (like refresh or filter) clicked and then the page get filterred accordingly. I have heard that if the amount of data are too much, it would be difficult to have filter-as-you-type.. so it shoule waint for filtering..
+
+anyway, I think we need a unified approach for this 
+
+
+let's go to the manufacturing process: I want to make sure that nothing stops and each part after finishing an stage, automatically apears in the next stage and in the task list of the related employee/third party/supplier... . The qualities are important here: it should be made sure that, all the assigned quality operations related to each part or the whole product done/passed and if not, the reason recorded and an appropriate approach gone. For example, if the quality of painting is not acceptable, a certain process should be followed: executing the paiting, recording the reason, NCR report??, rehecting the part, repainting.. this process should be defined and more importantly strictly followed.
+
+documents: as I told, there are lots of document types exchanged between the client and the company (sales engineer). There are also some drawings per each part/finished product that similar to those document get version, date, prepared by, checked by and approved by.. I strongly propose to define them also as document type in order to avoid creating new entities
+
+any part in the company system has several identification number: product ID is unique for all similar parts, in the other words if two products are exactly the same their product ID are identical but their PNG (product generating number) are different. PNG is similar to serial number, the serial number is something which is commonly defined with the client and normally inscripted on the name plate on the finished product.
+
+
+during the manufacturing process (whether within the company or outsourced to the supplier) any manufacturing process and its result should be recorded by the person who is responsible for. For example the progress or quality test result of CNC machine on a part, is recorded by the operator who is responsible for that machining division. by this manner, he himself would be responsible for recorded numbers
+
+the documents, mainly drawings should accompany the parts, their manufacturing process and their quality process
+
+
+Please propose a simple process based on best practices of Odo, SAP or Dynamics:
+
+after finishing the manufacturing, please propose a delivery process, which register the info, who accepts the finished goods, delivery paper works and the location of installation (p&ID, line number.. or other info mentioned in the engineering parameters table)
+
+
+also please propose an appropriate after sales services
+
+
+2-
+a manufaturing company that manufacture some industrial aparatus (here guaging probes) that are used in steel manufacturing, power plants and other industries
+
+
+each customer, may have some subordinate divisions. For example Isfahan Steel Making company is a large complex and may have utility, power plant, unit 02, rolling mill.. and many other divisions
+
+the (potential) cutomer send a list of requirements (can be named RFQ), and the main concern of the engineering team is to incorporate all details of material and manufacturing costs into account. As most of key parts are imported and due to foreign exchange volatility, it is important to grab the last price or last average of three import price of key parts..
+
+the costs of producttion and quality operations should also be calculated for better estimation and faster quotation issuance
+
+
+
+
+
+3-
+a manufacturing/machining company that accept orders of making or troubleshooting heavy industrial equipments just based on orders issued by major clients in heavy industries (steel, oil, gas or similar)
+
+there are several machines in any work center, some of them are identical and some are not. I think the main concern should be on machines and not work centers.
+
+It would be great that the top manger can have panoramic view on their whole shop floor and know which parts, belongs to which project, which requirement.. have what percentage of progress with each machine.. it would be possible if each machine, or the employee responsible as the data entry operator of each machine enters the required data on a regular base within the system
+
+here again, I want robust system that after finishing a certain stage, the process goes to the next step
+
+
+
+
+
+
+4-
+
+m manufacturer of industrial
+
+the other sister of the above tw company is a company that produces similar testing probes, but based on make to stock logic.. There is an estimated master production schedule and then other processes are to somehow similar.
+
+
+
+
+
+
+some points to be considered -if possible but would be hight apreciated:
+
+
+Multiple currencies - when needed, specially for imported goods it is better to know the price in EUR, USD or other relevant currencies (there are no more than 5 active currencies)
+
+Sidebar: it would be great that all elements of the pages gget filtered based on project chosen in the sidebar
+
+
+in proposing the structure, as much as possible, think of adaptibility to other make to order industries like furniture, construction and special production 
+
+many contractors are too concerned about صورت وضعیت or Progress certificate in their project with major clients in oil gas and petrochemicals
+
+
+NCR, CAPA and many other reports and documents  should be related to a certain serial numbers (and not necessarily production ID)
+
+
+
+
+
+
+
+
+
+

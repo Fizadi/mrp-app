@@ -1,0 +1,688 @@
+{% extends "base.html" %}
+
+{% block title %}Production Orders{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.76105df1', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.81d247e0', 'Production Orders') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.f82f5e9c', 'Production Orders') }}</h2>
+<div>
+<button class="btn btn-success me-2" data-bs-target="#createOrderModal" data-bs-toggle="modal">
+<i class="fas fa-plus"></i>{{ get_translation('auto.27d7121e', 'New Order') }}</button>
+<button class="btn btn-secondary me-2" data-bs-target="#importModal" data-bs-toggle="modal">
+<i class="fas fa-upload"></i>{{ get_translation('auto.3d694d20', 'Import CSV') }}</button>
+<a class="btn btn-info" href="{{ url_for('manufacturing_api.export_csv') }}">
+<i class="fas fa-download"></i>{{ get_translation('auto.0a04ede2', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4 g-3" id="kpiCards">
+<div class="col-md-2 col-sm-6">
+<div class="card text-white bg-secondary">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.1987886b', 'Draft') }}</h6>
+<h3 class="card-text" id="kpiDraft">{{ get_translation('auto.ad9d9998', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-2 col-sm-6">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.183b2b4a', 'Released') }}</h6>
+<h3 class="card-text" id="kpiReleased">{{ get_translation('auto.e8ed4d87', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-2 col-sm-6">
+<div class="card text-white bg-info">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.b5c001af', 'In Progress') }}</h6>
+<h3 class="card-text" id="kpiInProgress">{{ get_translation('auto.fa049fd9', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-2 col-sm-6">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.467d5021', 'Completed') }}</h6>
+<h3 class="card-text" id="kpiCompleted">{{ get_translation('auto.6ece66a3', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-2 col-sm-6">
+<div class="card text-white bg-dark">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.a17f5725', 'Closed') }}</h6>
+<h3 class="card-text" id="kpiClosed">{{ get_translation('auto.a62e6405', '0') }}</h3>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body">
+<div class="row g-2">
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.dc4f8dab', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.982e31e3', 'All') }}</option>
+<option>{{ get_translation('auto.9d6df90b', 'Draft') }}</option>
+<option>{{ get_translation('auto.83a25e84', 'Released') }}</option>
+<option>{{ get_translation('auto.b8d293fd', 'InProgress') }}</option>
+<option>{{ get_translation('auto.afd13ba4', 'Completed') }}</option>
+<option>{{ get_translation('auto.55e09c19', 'Closed') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.048667a6', 'Product ID') }}</label>
+<input class="form-control" id="filterProduct" placeholder="e.g., VALVE-500-CTRL" type="text"/>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.053b6508', 'Project ID') }}</label>
+<input class="form-control" id="filterProject" placeholder="e.g., PROJ-001" type="text"/>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.2f061ce9', 'Due Date From') }}</label>
+<input class="form-control" id="filterDateFrom" type="date"/>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.53b8de48', 'Due Date To') }}</label>
+<input class="form-control" id="filterDateTo" type="date"/>
+</div>
+<div class="col-12 text-end mt-3">
+<button class="btn btn-primary" id="applyFiltersBtn"><i class="fas fa-search"></i>{{ get_translation('auto.310032e0', 'Apply') }}</button>
+<button class="btn btn-secondary ms-2" id="resetFiltersBtn"><i class="fas fa-undo"></i>{{ get_translation('auto.b5b5404d', 'Reset') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Orders Table -->
+<div class="card">
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover align-middle">
+<thead class="table-light">
+<tr>
+<th>{{ get_translation('auto.883f2c64', 'Order ID') }}</th>
+<th>{{ get_translation('auto.6e443b78', 'Product') }}</th>
+<th>{{ get_translation('auto.df4757c9', 'Type') }}</th>
+<th>{{ get_translation('auto.10dc3775', 'Quantity') }}</th>
+<th>{{ get_translation('auto.bac967d2', 'Status') }}</th>
+<th>{{ get_translation('auto.38320df8', 'Due Date') }}</th>
+<th>{{ get_translation('auto.afe2f6a5', 'Project') }}</th>
+<th>{{ get_translation('auto.2a6713bd', 'ECO Warning') }}</th>
+<th>{{ get_translation('auto.9495e93b', 'Eng Version') }}</th>
+<th>{{ get_translation('auto.c7a30684', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="ordersTableBody">
+<tr><td class="text-center text-muted" colspan="10">{{ get_translation('auto.662b1ebb', 'Loading orders...') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- ======================== MODALS ======================== -->
+<!-- Create Order Modal -->
+<div class="modal fade" id="createOrderModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.06659870', 'Create Production Order') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="createOrderForm">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.18e44478', 'Product') }}</label>
+<input autocomplete="off" class="form-control" id="productSearch" placeholder="Type product ID or name" type="text"/>
+<input id="productId" type="hidden"/>
+<div class="list-group mt-1" id="productSearchResults" style="display:none;"></div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.6a87225d', 'Order Type') }}</label>
+<select class="form-select" id="orderType">
+<option>{{ get_translation('auto.f1264c75', 'Manufacturing') }}</option>
+<option>{{ get_translation('auto.0303e44f', 'Subcontract') }}</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.2ba7efaa', 'Quantity') }}</label>
+<input class="form-control" id="orderQuantity" min="1" required="" step="1" type="number"/>
+</div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.591f8c6e', 'Due Date') }}</label>
+<input class="form-control" id="dueDate" type="date"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.e5bb88f1', 'Project ID') }}</label>
+<input class="form-control" id="projectId" placeholder="Optional" type="text"/>
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.31931818', 'Priority') }}</label>
+<select class="form-select" id="priority">
+<option value="1">{{ get_translation('auto.2b8a927a', '1 - Low') }}</option>
+<option selected="" value="2">{{ get_translation('auto.bfe7b8bb', '2 - Medium') }}</option>
+<option value="3">{{ get_translation('auto.bfd1a7e4', '3 - High') }}</option>
+</select>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.0037d5f1', 'Cancel') }}</button>
+<button class="btn btn-primary" id="createOrderBtn" type="button">{{ get_translation('auto.e47e0063', 'Create Order') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Issue Materials Modal -->
+<div class="modal fade" id="issueMaterialsModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.78fe222e', 'Issue Materials for Order') }}<span id="issueOrderId"></span></h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<div class="table-responsive">
+<table class="table table-sm">
+<thead>
+<tr><th>{{ get_translation('auto.b7fd3f36', 'Component') }}</th><th>{{ get_translation('auto.11ecfa78', 'Required') }}</th><th>{{ get_translation('auto.975ae67c', 'Issued So Far') }}</th><th>{{ get_translation('auto.cda2f707', 'To Issue Now') }}</th></tr>
+</thead>
+<tbody id="componentsList"></tbody>
+</table>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.824e5a17', 'Close') }}</button>
+<button class="btn btn-primary" id="confirmIssueBtn" type="button">{{ get_translation('auto.82ef12a0', 'Confirm Issue') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Report Completion Modal -->
+<div class="modal fade" id="reportCompletionModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.2558bd35', 'Report Completion - Order') }}<span id="compOrderId"></span></h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.e53dfae9', 'Completed Quantity') }}</label>
+<input class="form-control" id="completedQty" min="1" required="" step="1" type="number"/>
+</div>
+<div class="form-check mb-3">
+<input class="form-check-input" id="generateSerials" type="checkbox"/>
+<label class="form-check-label">{{ get_translation('auto.943bb5b8', 'Generate serial numbers') }}</label>
+</div>
+<div id="serialPrefixDiv" style="display:none;">
+<label class="form-label">{{ get_translation('auto.ecee3a6f', 'Serial Number Prefix') }}</label>
+<input class="form-control" id="serialPrefix" placeholder="e.g., VALVE-" type="text"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.a3de7e82', 'Cancel') }}</button>
+<button class="btn btn-success" id="confirmCompleteBtn" type="button">{{ get_translation('auto.ba89c0b6', 'Record Completion') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Issue to Supplier Modal -->
+<div class="modal fade" id="issueToSupplierModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.ce7f00b4', 'Issue Order to Supplier') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<input id="subcontractOrderId" type="hidden"/>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.ce56f5a9', 'Supplier ID') }}</label>
+<input class="form-control" id="supplierId" placeholder="e.g., SUPP-001" type="text"/>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.8cf3223d', 'Purchase Order Number (optional)') }}</label>
+<input class="form-control" id="poNumber" type="text"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.6855b6ab', 'Cancel') }}</button>
+<button class="btn btn-warning" id="confirmIssueSupplierBtn" type="button">{{ get_translation('auto.4244702c', 'Issue') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Receive from Supplier Modal -->
+<div class="modal fade" id="receiveFromSupplierModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.3a9cf08d', 'Receive from Supplier') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<input id="receiveOrderId" type="hidden"/>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.368634cc', 'Purchase Order ID') }}</label>
+<input class="form-control" id="receivePoId" placeholder="PO ID from supplier" type="text"/>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.8f61bcab', 'Received Quantity') }}</label>
+<input class="form-control" id="receivedQty" min="1" step="1" type="number"/>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.054813e6', 'Cancel') }}</button>
+<button class="btn btn-primary" id="confirmReceiveBtn" type="button">{{ get_translation('auto.b1b95811', 'Receive') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Edit Order Modal -->
+<div class="modal fade" id="editOrderModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.75a800cf', 'Edit Order:') }}<span id="editOrderId"></span></h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form id="editOrderForm">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.c7210486', 'Product') }}</label>
+<input class="form-control" id="editProductId" readonly="" type="text"/>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.c840bb84', 'Order Type') }}</label>
+<select class="form-select" id="editOrderType">
+<option>{{ get_translation('auto.c6be8a97', 'Manufacturing') }}</option>
+<option>{{ get_translation('auto.e3fb3c7a', 'Subcontract') }}</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.aa76f22f', 'Quantity') }}</label>
+<input class="form-control" id="editQuantity" min="1" required="" step="1" type="number"/>
+</div>
+</div>
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.b3d2fa1d', 'Due Date') }}</label>
+<input class="form-control" id="editDueDate" type="date"/>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label">{{ get_translation('auto.0178b8d6', 'Project ID') }}</label>
+<input class="form-control" id="editProjectId" type="text"/>
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.a20968e8', 'Priority') }}</label>
+<select class="form-select" id="editPriority">
+<option value="1">{{ get_translation('auto.b318e02f', '1 - Low') }}</option>
+<option selected="" value="2">{{ get_translation('auto.865a6c41', '2 - Medium') }}</option>
+<option value="3">{{ get_translation('auto.13cd2d15', '3 - High') }}</option>
+</select>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.42713a32', 'Cancel') }}</button>
+<button class="btn btn-primary" id="saveEditOrderBtn" type="button">{{ get_translation('auto.e9c02f30', 'Save Changes') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Import CSV Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">{{ get_translation('auto.426d1bca', 'Import Production Orders (CSV)') }}</h5>
+<button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<form enctype="multipart/form-data" id="importForm">
+<div class="mb-3">
+<label class="form-label">{{ get_translation('auto.e4379e90', 'CSV File') }}</label>
+<input accept=".csv" class="form-control" id="csvFile" required="" type="file"/>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('auto.4c9d868d', 'Cancel') }}</button>
+<button class="btn btn-primary" id="importBtn" type="button">{{ get_translation('auto.7e95b8e7', 'Upload &amp; Import') }}</button>
+</div>
+</div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    loadKPI();
+    loadOrders();
+
+    // Filter events
+    $('#applyFiltersBtn').click(function() { loadOrders(); });
+    $('#resetFiltersBtn').click(function() {
+        $('#filterStatus').val('');
+        $('#filterProduct').val('');
+        $('#filterProject').val('');
+        $('#filterDateFrom').val('');
+        $('#filterDateTo').val('');
+        loadOrders();
+    });
+
+// Edit order button click
+$(document).on('click', '.edit-order', function() {
+    let orderId = $(this).data('id');
+    $('#editOrderId').text(orderId);
+    $('#editOrderModal').data('orderId', orderId);
+    $.get(`/api/production-orders/${orderId}`, function(order) {
+        $('#editProductId').val(order.productId);
+        $('#editOrderType').val(order.orderType);
+        $('#editQuantity').val(order.quantity);
+        let dueDate = order.dueDateKey ? `${order.dueDateKey.toString().slice(0,4)}-${order.dueDateKey.toString().slice(4,6)}-${order.dueDateKey.toString().slice(6,8)}` : '';
+        $('#editDueDate').val(dueDate);
+        $('#editProjectId').val(order.projectId || '');
+        $('#editPriority').val(order.priority || 2);
+        $('#editOrderModal').modal('show');
+    }).fail(function() {
+        alert('Failed to load order details');
+    });
+});
+
+// Save edited order
+$('#saveEditOrderBtn').click(function() {
+    let orderId = $('#editOrderModal').data('orderId');
+    let data = {
+        orderType: $('#editOrderType').val(),
+        quantity: $('#editQuantity').val(),
+        dueDate: $('#editDueDate').val(),
+        projectId: $('#editProjectId').val(),
+        priority: $('#editPriority').val()
+    };
+    $.ajax({
+        url: `/api/production-orders/${orderId}`,
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+            $('#editOrderModal').modal('hide');
+            loadOrders();
+        },
+        error: function(err) {
+            alert('Error: ' + (err.responseJSON?.error || 'Update failed'));
+        }
+    });
+});
+
+
+    // Product search with autocomplete
+    $('#productSearch').on('input', function() {
+        let q = $(this).val();
+        if (q.length < 2) { $('#productSearchResults').hide(); return; }
+        $.get('/api/production-orders/products-search', { q: q }, function(data) {
+            let html = '';
+            data.forEach(p => {
+                html += `<a href="#" class="list-group-item list-group-item-action product-suggestion" data-id="${p.id}">${p.id} - ${p.name}</a>`;
+            });
+            $('#productSearchResults').html(html).show();
+        });
+    });
+    $(document).on('click', '.product-suggestion', function(e) {
+        e.preventDefault();
+        let id = $(this).data('id');
+        $('#productSearch').val(id);
+        $('#productId').val(id);
+        $('#productSearchResults').hide();
+    });
+
+    // Create order
+    $('#createOrderBtn').click(function() {
+        let productId = $('#productId').val();
+        if (!productId) { alert("Select a product"); return; }
+        let data = {
+            productId: productId,
+            quantity: $('#orderQuantity').val(),
+            dueDate: $('#dueDate').val(),
+            orderType: $('#orderType').val(),
+            projectId: $('#projectId').val(),
+            priority: $('#priority').val()
+        };
+        $.post('/api/production-orders/create', JSON.stringify(data), function() {
+            $('#createOrderModal').modal('hide');
+            loadOrders();
+            loadKPI();
+            $('#createOrderForm')[0].reset();
+            $('#productId').val('');
+        }).fail(err => alert('Error: ' + err.responseJSON?.error));
+    });
+
+    // Release order
+    $(document).on('click', '.release-order', function() {
+        let id = $(this).data('id');
+        if (confirm('Release order ' + id + '?')) {
+            $.post(`/api/production-orders/release/${id}`, function() {
+                loadOrders(); loadKPI();
+            });
+        }
+    });
+
+    // Issue Materials - show components modal
+    $(document).on('click', '.issue-materials', function() {
+        let id = $(this).data('id');
+        $('#issueOrderId').text(id);
+        $.get(`/api/production-orders/components/${id}`, function(components) {
+            let html = '';
+            components.forEach(c => {
+                html += `<tr>
+                    <td>${c.componentId}</td>
+                    <td>${c.requiredQuantity}</td>
+                    <td>${c.issuedQuantity}</td>
+                    <td><input type="number" class="form-control issue-qty" data-comp="${c.componentId}" placeholder="Qty" min="0" step="any"></td>
+                </tr>`;
+            });
+            $('#componentsList').html(html);
+            $('#issueMaterialsModal').data('orderId', id);
+            $('#issueMaterialsModal').modal('show');
+        });
+    });
+
+    $('#confirmIssueBtn').click(function() {
+        let orderId = $('#issueMaterialsModal').data('orderId');
+        let items = [];
+        $('.issue-qty').each(function() {
+            let qty = $(this).val();
+            if (qty && parseFloat(qty) > 0) {
+                items.push({ componentProductId: $(this).data('comp'), issuedQuantity: parseFloat(qty) });
+            }
+        });
+        if (items.length === 0) { alert("No items to issue"); return; }
+        $.ajax({
+            url: '/api/production-orders/issue-materials',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ orderId: orderId, items: items }),
+            success: function() {
+                $('#issueMaterialsModal').modal('hide');
+                loadOrders(); loadKPI();
+            },
+            error: function(err) { alert('Error: ' + err.responseJSON?.error); }
+        });
+    });
+
+    // Report Completion
+    $(document).on('click', '.report-completion', function() {
+        let id = $(this).data('id');
+        $('#compOrderId').text(id);
+        $('#reportCompletionModal').data('orderId', id);
+        $('#completedQty').val('');
+        $('#generateSerials').prop('checked', false);
+        $('#serialPrefixDiv').hide();
+        $('#reportCompletionModal').modal('show');
+    });
+    $('#generateSerials').change(function() { $('#serialPrefixDiv').toggle(this.checked); });
+    $('#confirmCompleteBtn').click(function() {
+        let orderId = $('#reportCompletionModal').data('orderId');
+        let completedQty = parseInt($('#completedQty').val());
+        if (isNaN(completedQty) || completedQty <= 0) { alert("Enter valid quantity"); return; }
+        let data = {
+            orderId: orderId,
+            completedQuantity: completedQty,
+            generateSerials: $('#generateSerials').is(':checked'),
+            serialPrefix: $('#serialPrefix').val()
+        };
+        $.ajax({
+            url: '/api/production-orders/report-completion',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                $('#reportCompletionModal').modal('hide');
+                loadOrders(); loadKPI();
+            },
+            error: function(err) { alert('Error: ' + err.responseJSON?.error); }
+        });
+    });
+
+    // Subcontract actions
+    $(document).on('click', '.issue-to-supplier', function() {
+        let id = $(this).data('id');
+        $('#subcontractOrderId').val(id);
+        $('#issueToSupplierModal').modal('show');
+    });
+    $('#confirmIssueSupplierBtn').click(function() {
+        let orderId = $('#subcontractOrderId').val();
+        let supplierId = $('#supplierId').val();
+        let poNumber = $('#poNumber').val();
+        if (!supplierId) { alert("Supplier ID required"); return; }
+        $.ajax({
+            url: '/api/production-orders/issue-to-supplier',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ orderId: orderId, supplierId: supplierId, poNumber: poNumber }),
+            success: function() {
+                $('#issueToSupplierModal').modal('hide');
+                loadOrders(); loadKPI();
+                $('#supplierId').val(''); $('#poNumber').val('');
+            }
+        });
+    });
+    $(document).on('click', '.receive-from-supplier', function() {
+        let id = $(this).data('id');
+        $('#receiveOrderId').val(id);
+        $('#receiveFromSupplierModal').modal('show');
+    });
+    $('#confirmReceiveBtn').click(function() {
+        let orderId = $('#receiveOrderId').val();
+        let poId = $('#receivePoId').val();
+        let qty = parseInt($('#receivedQty').val());
+        if (!poId || isNaN(qty)) { alert("PO ID and quantity required"); return; }
+        $.ajax({
+            url: '/api/production-orders/receive-from-supplier',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ orderId: orderId, purchaseOrderId: poId, receivedQuantity: qty }),
+            success: function() {
+                $('#receiveFromSupplierModal').modal('hide');
+                loadOrders(); loadKPI();
+                $('#receivePoId').val(''); $('#receivedQty').val('');
+            }
+        });
+    });
+
+    // Quality view
+    $(document).on('click', '.view-quality', function() {
+        let id = $(this).data('id');
+        window.open(`/quality/inspection-workbench?productionOrderId=${id}`, '_blank');
+    });
+
+    // Import CSV
+    $('#importBtn').click(function() {
+        let fileInput = $('#csvFile')[0].files[0];
+        if (!fileInput) { alert("Select a CSV file"); return; }
+        let formData = new FormData();
+        formData.append('file', fileInput);
+        $.ajax({
+            url: '/api/production-orders/import-csv',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function() {
+                $('#importModal').modal('hide');
+                loadOrders(); loadKPI();
+            },
+            error: function(err) { alert('Import failed'); }
+        });
+    });
+
+    // Helper functions
+    function loadKPI() {
+        $.get('/api/production-orders/kpi', function(res) {
+            $('#kpiDraft').text(res.Draft || 0);
+            $('#kpiReleased').text(res.Released || 0);
+            $('#kpiInProgress').text(res.InProgress || 0);
+            $('#kpiCompleted').text(res.Completed || 0);
+            $('#kpiClosed').text(res.Closed || 0);
+        });
+    }
+    function loadOrders() {
+        let params = {
+            status: $('#filterStatus').val(),
+            product: $('#filterProduct').val(),
+            project: $('#filterProject').val(),
+            date_from: $('#filterDateFrom').val(),
+            date_to: $('#filterDateTo').val()
+        };
+        $.get('/api/production-orders/list', params, function(orders) {
+            let html = '';
+            for (let o of orders) {
+                let dueDate = o.dueDateFormatted || '';
+                let ecoIcon = o.ecoWarning ? '<i class="fas fa-exclamation-triangle text-warning" title="Pending ECO"></i>' : '<i class="fas fa-check-circle text-success"></i>';
+                let engLink = o.engVersion !== 'N/A' ? `<a href="/engineering/workbench?product=${o.productId}" target="_blank">${o.engVersion}</a>` : o.engVersion;
+                let releaseBtn = o.status === 'Draft' ? `<button class="btn btn-sm btn-primary release-order" data-id="${o.id}">Release</button>` : '';
+                let issueBtn = (o.status === 'Released' || o.status === 'InProgress') ? `<button class="btn btn-sm btn-secondary issue-materials" data-id="${o.id}">Issue</button>` : '';
+                let completeBtn = (o.status === 'InProgress' || o.status === 'Released') ? `<button class="btn btn-sm btn-success report-completion" data-id="${o.id}">Complete</button>` : '';
+                let subBtn = o.orderType === 'Subcontract' && o.status !== 'Completed' ? `<button class="btn btn-sm btn-warning issue-to-supplier" data-id="${o.id}">To Supplier</button> <button class="btn btn-sm btn-info receive-from-supplier" data-id="${o.id}">Receive</button>` : '';
+                html += `<tr>
+                    <td><a href="/production-orders/${o.id}">${o.id}</a></td>
+                    <td><a href="/engineering/products/${o.productId}">${o.productName || o.productId}</a></td>
+                    <td>${o.orderType}</td>
+                    <td>${o.quantity}</td>
+                    <td>${o.status}</td>
+                    <td>${dueDate}</td>
+                    <td><a href="/project/${o.projectId}">${o.projectName || o.projectId}</a></td>
+                    <td class="text-center">${ecoIcon}</td>
+                    <td>${engLink}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary edit-order" data-id="${o.id}">Edit</button>
+                        ${releaseBtn}
+                        ${issueBtn}
+                        ${completeBtn}
+                        ${subBtn}
+                        <button class="btn btn-sm btn-outline-info view-quality" data-id="${o.id}">Quality</button>
+                    </td>
+                </tr>`;
+            }
+            $('#ordersTableBody').html(html || '<tr><td colspan="10" class="text-center">No orders found</td></tr>');
+        });
+    }
+});
+</script>
+{% endblock %}

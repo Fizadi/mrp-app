@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}External Users (Portal Accounts){% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+<h1 class="h3 mb-0"><i class="fas fa-users me-2"></i>{{ get_translation('auto.966885ec', 'External Users (Portal)') }}</h1>
+<div>
+<button class="btn btn-outline-secondary me-2" id="exportBtn"><i class="fas fa-file-export"></i>{{ get_translation('auto.33d1005b', 'Export') }}</button>
+<button class="btn btn-outline-primary me-2" id="importBtn"><i class="fas fa-upload"></i>{{ get_translation('auto.409dca01', 'Import CSV') }}</button>
+<button class="btn btn-primary" id="addUserBtn"><i class="fas fa-plus"></i>{{ get_translation('auto.3e6f6ffe', 'Create Portal User') }}</button>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+<div class="col-md-4">
+<div class="card text-white bg-primary">
+<div class="card-body">
+<div class="d-flex justify-content-between">
+<div><h6>{{ get_translation('auto.f3046813', 'Active External Users') }}</h6><h2 class="mb-0" id="kpiActive">{{ get_translation('auto.3b896a54', '0') }}</h2></div>
+<i class="fas fa-user-check fa-2x opacity-50"></i>
+</div>
+</div>
+</div>
+</div>
+<div class="col-md-8">
+<div class="card">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.f081c9ca', 'By Company Type') }}</h6>
+<div class="d-flex gap-3" id="kpiCompanyType">
+<span class="badge bg-info p-2">{{ get_translation('auto.b3c482f6', 'Customer:') }}<span id="kpiCustomer">{{ get_translation('auto.57a7bdcc', '0') }}</span></span>
+<span class="badge bg-warning p-2">{{ get_translation('auto.d8af8c90', 'Supplier:') }}<span id="kpiSupplier">{{ get_translation('auto.1f1806a4', '0') }}</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-4">
+<div class="card-body row g-3 align-items-end">
+<div class="col-md-4">
+<label class="form-label">{{ get_translation('auto.e7662ba9', 'Company Type') }}</label>
+<select class="form-select" id="filterCompanyType">
+<option value="">{{ get_translation('auto.68561f7e', 'All') }}</option>
+<option value="Customer">{{ get_translation('auto.035ee04c', 'Customers') }}</option>
+<option value="Supplier">{{ get_translation('auto.ea9df41a', 'Suppliers') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<label class="form-label">{{ get_translation('auto.fbe5bc3a', 'Status') }}</label>
+<select class="form-select" id="filterStatus">
+<option value="">{{ get_translation('auto.5eb3bece', 'All') }}</option>
+<option value="1">{{ get_translation('auto.4e7795a7', 'Active') }}</option>
+<option value="0">{{ get_translation('auto.c4d3e246', 'Inactive') }}</option>
+</select>
+</div>
+<div class="col-md-3">
+<button class="btn btn-secondary w-100" id="applyFiltersBtn"><i class="fas fa-search"></i>{{ get_translation('auto.dc76a8c6', 'Apply') }}</button>
+</div>
+<div class="col-md-2">
+<button class="btn btn-outline-secondary w-100" id="clearFiltersBtn"><i class="fas fa-undo-alt"></i>{{ get_translation('auto.0e296dd4', 'Clear') }}</button>
+</div>
+</div>
+</div>
+<!-- Main Table -->
+<div class="card">
+<div class="card-body p-0">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+<thead class="table-light"><tr><th>{{ get_translation('auto.91411395', 'Username') }}</th><th>{{ get_translation('auto.0144aea2', 'Company') }}</th><th>{{ get_translation('auto.09acf73f', 'Roles/Permissions') }}</th><th>{{ get_translation('auto.7ea066eb', 'Status') }}</th><th>{{ get_translation('auto.a7eea6ea', 'Last Login') }}</th><th style="width:120px">{{ get_translation('auto.460901a0', 'Actions') }}</th></tr></thead>
+<tbody id="usersTableBody"><tr><td class="text-center py-4" colspan="6">{{ get_translation('auto.46a62ab1', 'Loading...') }}</td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Create/Edit Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header bg-primary text-white"><h5 class="modal-title" id="userModalTitle">{{ get_translation('auto.d0b4f5eb', 'Create Portal User') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="userForm">
+<input id="editUserId" type="hidden"/>
+<div class="row g-3">
+<div class="col-md-6"><label>{{ get_translation('auto.8ec9aabf', 'Username *') }}</label><input class="form-control" id="username" required="" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.f6f57b1a', 'Email *') }}</label><input class="form-control" id="email" required="" type="email"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.aca1fc94', 'Full Name *') }}</label><input class="form-control" id="fullname" required="" type="text"/></div>
+<div class="col-md-6"><label>{{ get_translation('auto.5b40c1fe', 'Company *') }}</label><select class="form-select" id="companyId" required=""><option value="">{{ get_translation('auto.6d6ba97d', 'Select company') }}</option></select></div>
+<div class="col-12"><label>{{ get_translation('auto.1a5bb306', 'Portal Permissions (JSON)') }}</label><textarea class="form-control" id="portalPermissions" placeholder='{"modules": ["sales", "inventory"]}' rows="2"></textarea></div>
+<div class="col-md-6"><div class="form-check mt-2"><input checked="" class="form-check-input" id="isActive" type="checkbox"/><label>{{ get_translation('auto.c5cd0bc6', 'Active') }}</label></div></div>
+<div class="col-12"><label>{{ get_translation('auto.77365531', 'Roles (from t_Roles)') }}</label><br/><div class="d-flex flex-wrap gap-2" id="rolesCheckboxes"></div></div>
+</div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.0dba9a5c', 'Cancel') }}</button><button class="btn btn-primary" id="saveUserBtn">{{ get_translation('auto.40910d0e', 'Save User') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPwdModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.aaf10330', 'Reset Password') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body"><input id="resetUserId" type="hidden"/><label>{{ get_translation('auto.66722fb5', 'New Password (min 6)') }}</label><input class="form-control" id="newPassword" type="password"/><label>{{ get_translation('auto.23540de3', 'Confirm') }}</label><input class="form-control" id="confirmPassword" type="password"/></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.82296c9c', 'Cancel') }}</button><button class="btn btn-warning" id="confirmResetBtn">{{ get_translation('auto.b1a76014', 'Reset') }}</button></div></div></div></div>
+<!-- Audit Log Modal -->
+<div class="modal fade" id="auditModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header bg-info text-white"><h5>{{ get_translation('auto.bd981c33', 'Audit Log') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body" id="auditLogList"><p>{{ get_translation('auto.a1e782c2', 'Loading...') }}</p></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.8078b35e', 'Close') }}</button></div></div></div></div>
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.10c5fa4d', 'Import External Users CSV') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body"><p>{{ get_translation('auto.3a351213', 'Required columns:') }}<code>{{ get_translation('auto.d62d0dae', 'Username, Email, FullName, CompanyName, IsActive, Roles, PortalPermissions') }}</code><br/>{{ get_translation('auto.38713039', 'Roles pipe-separated.') }}</p>
+<input accept=".csv" class="form-control" id="importFile" type="file"/><div class="mt-2 small" id="importFeedback"></div></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.578c2b3a', 'Cancel') }}</button><button class="btn btn-primary" id="doImportBtn">{{ get_translation('auto.41132f5d', 'Import') }}</button></div></div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pure JavaScript version
+let allRoles = [];
+let companies = [];
+let usersData = [];
+let currentFilters = { company_type: '', active_status: '' };
+
+function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+function getEl(id) { return document.getElementById(id); }
+
+async function loadRolesAndCompanies() {
+    try {
+        const [rolesRes, companiesRes] = await Promise.all([
+            fetch('/api/admin/roles'),
+            fetch('/api/admin/external-users/companies')
+        ]);
+        allRoles = await rolesRes.json();
+        companies = await companiesRes.json();
+        const rolesDiv = getEl('rolesCheckboxes');
+        rolesDiv.innerHTML = '';
+        allRoles.forEach(r => {
+            rolesDiv.innerHTML += `<div class="form-check"><input class="form-check-input role-checkbox" type="checkbox" value="${r.code}" id="role_${r.code}"><label class="form-check-label" for="role_${r.code}">${r.name}</label></div>`;
+        });
+        const companySelect = getEl('companyId');
+        companySelect.innerHTML = '<option value="">Select company</option>';
+        companies.forEach(c => {
+            let type = c.isCustomer && c.isSupplier ? 'Both' : (c.isCustomer ? 'Customer' : 'Supplier');
+            companySelect.innerHTML += `<option value="${c.id}">${c.name} (${type})</option>`;
+        });
+    } catch(e) { console.error('loadRolesAndCompanies error', e); }
+}
+
+async function loadUsers() {
+    try {
+        const params = new URLSearchParams();
+        if (currentFilters.company_type) params.append('company_type', currentFilters.company_type);
+        if (currentFilters.active_status) params.append('active_status', currentFilters.active_status);
+        const res = await fetch(`/api/admin/external-users?${params.toString()}`);
+        const data = await res.json();
+        usersData = data.users;
+        getEl('kpiActive').innerText = data.kpi.active_users;
+        let cust = data.kpi.by_company_type.find(t => t.type === 'Customer')?.count || 0;
+        let supp = data.kpi.by_company_type.find(t => t.type === 'Supplier')?.count || 0;
+        getEl('kpiCustomer').innerText = cust;
+        getEl('kpiSupplier').innerText = supp;
+        renderUserTable(data.users);
+    } catch(e) { console.error('loadUsers error', e); }
+}
+
+function renderUserTable(users) {
+    const tbody = getEl('usersTableBody');
+    if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center">No external users</td></tr>'; return; }
+    let html = '';
+    users.forEach(u => {
+        const statusBadge = u.IsActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+        const lastLogin = u.LastLogin ? new Date(u.LastLogin).toLocaleString() : 'Never';
+        const rolesSpan = (u.UserRoles || []).map(r => `<span class="badge bg-info me-1">${escapeHtml(r)}</span>`).join('');
+        html += `<tr>
+            <td><strong>${escapeHtml(u.Username)}</strong><br><small>${escapeHtml(u.Email)}</small></td>
+            <td>${escapeHtml(u.CompanyName || '-')}</td>
+            <td>${rolesSpan || '-'}<br><small>${escapeHtml(u.PortalPermissions || '')}</small></td>
+            <td>${statusBadge}</td>
+            <td><small>${lastLogin}</small></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary edit-user" data-id="${u.UserID}" data-name="${escapeHtml(u.Username)}"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-danger reset-pwd" data-id="${u.UserID}"><i class="fas fa-key"></i></button>
+                <button class="btn btn-sm btn-outline-info audit-log" data-id="${u.UserID}"><i class="fas fa-history"></i></button>
+                <button class="btn btn-sm btn-outline-warning toggle-active" data-id="${u.UserID}" data-active="${u.IsActive}"><i class="fas ${u.IsActive ? 'fa-ban' : 'fa-check-circle'}"></i></button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+// Filters
+getEl('applyFiltersBtn').addEventListener('click', () => {
+    currentFilters.company_type = getEl('filterCompanyType').value;
+    currentFilters.active_status = getEl('filterStatus').value;
+    loadUsers();
+});
+getEl('clearFiltersBtn').addEventListener('click', () => {
+    getEl('filterCompanyType').value = '';
+    getEl('filterStatus').value = '';
+    currentFilters = { company_type: '', active_status: '' };
+    loadUsers();
+});
+
+// Modal handling
+let userModal, resetModal, auditModal, importModal;
+document.addEventListener('DOMContentLoaded', () => {
+    userModal = new bootstrap.Modal(getEl('userModal'));
+    resetModal = new bootstrap.Modal(getEl('resetPwdModal'));
+    auditModal = new bootstrap.Modal(getEl('auditModal'));
+    importModal = new bootstrap.Modal(getEl('importModal'));
+
+    getEl('addUserBtn').addEventListener('click', () => {
+        getEl('userModalTitle').innerText = 'Create Portal User';
+        getEl('userForm').reset();
+        getEl('editUserId').value = '';
+        getEl('isActive').checked = true;
+        document.querySelectorAll('.role-checkbox').forEach(cb => cb.checked = false);
+        userModal.show();
+    });
+
+    getEl('saveUserBtn').addEventListener('click', async () => {
+        const userId = getEl('editUserId').value;
+        const payload = {
+            Username: getEl('username').value,
+            Email: getEl('email').value,
+            FullName: getEl('fullname').value,
+            CompanyID: getEl('companyId').value,
+            IsActive: getEl('isActive').checked,
+            UserRoles: Array.from(document.querySelectorAll('.role-checkbox:checked')).map(cb => cb.value),
+            PortalPermissions: getEl('portalPermissions').value
+        };
+        if (!payload.CompanyID) { alert('Please select a company'); return; }
+        const url = userId ? `/api/admin/external-users/${userId}` : '/api/admin/external-users';
+        const method = userId ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) { userModal.hide(); loadUsers(); }
+        else { const err = await res.json(); alert(err.error || 'Error'); }
+    });
+
+    // Edit user delegation
+    document.getElementById('usersTableBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.edit-user');
+        if (btn) {
+            const uid = btn.dataset.id;
+            const res = await fetch('/api/admin/external-users');
+            const data = await res.json();
+            const user = data.users.find(u => u.UserID == uid);
+            if (user) {
+                getEl('userModalTitle').innerText = 'Edit External User';
+                getEl('editUserId').value = user.UserID;
+                getEl('username').value = user.Username; getEl('username').readOnly = true;
+                getEl('email').value = user.Email;
+                getEl('fullname').value = user.FullName;
+                getEl('companyId').value = user.CompanyID;
+                getEl('portalPermissions').value = user.PortalPermissions || '';
+                getEl('isActive').checked = user.IsActive;
+                document.querySelectorAll('.role-checkbox').forEach(cb => cb.checked = false);
+                if (user.UserRoles) user.UserRoles.forEach(r => { const cb = document.getElementById(`role_${r}`); if (cb) cb.checked = true; });
+                userModal.show();
+            }
+        }
+    });
+
+    // Reset password delegation
+    document.getElementById('usersTableBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.reset-pwd');
+        if (btn) {
+            getEl('resetUserId').value = btn.dataset.id;
+            resetModal.show();
+        }
+    });
+    getEl('confirmResetBtn').addEventListener('click', async () => {
+        const uid = getEl('resetUserId').value;
+        const pwd = getEl('newPassword').value;
+        const confirm = getEl('confirmPassword').value;
+        if (pwd !== confirm) { alert('Passwords do not match'); return; }
+        if (pwd.length < 6) { alert('Minimum 6 characters'); return; }
+        const res = await fetch(`/api/admin/external-users/${uid}/reset-password`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ new_password: pwd })
+        });
+        if (res.ok) { resetModal.hide(); alert('Password reset'); loadUsers(); }
+        else { const err = await res.json(); alert(err.error); }
+    });
+
+    // Audit log delegation
+    document.getElementById('usersTableBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.audit-log');
+        if (btn) {
+            const uid = btn.dataset.id;
+            const res = await fetch(`/api/admin/external-users/${uid}/audit-log`);
+            const logs = await res.json();
+            let html = logs.length ? '<ul class="list-group">' : '<div class="alert alert-info">No audit records</div>';
+            logs.forEach(l => {
+                html += `<li class="list-group-item"><strong>${l.action}</strong> - ${l.details}<br><small>${new Date(l.timestamp).toLocaleString()} by user ${l.actor_id}</small></li>`;
+            });
+            html += logs.length ? '</ul>' : '';
+            getEl('auditLogList').innerHTML = html;
+            auditModal.show();
+        }
+    });
+
+    // Toggle active delegation
+    document.getElementById('usersTableBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.toggle-active');
+        if (btn) {
+            const uid = btn.dataset.id;
+            const currentlyActive = btn.dataset.active === 'true';
+            const res = await fetch(`/api/admin/external-users/${uid}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ IsActive: !currentlyActive })
+            });
+            if (res.ok) loadUsers();
+        }
+    });
+
+    // Export / Import
+    getEl('exportBtn').addEventListener('click', () => { window.location.href = '/api/admin/external-users/export'; });
+    getEl('importBtn').addEventListener('click', () => { importModal.show(); });
+    getEl('doImportBtn').addEventListener('click', async () => {
+        const file = getEl('importFile').files[0];
+        if (!file) { alert('Select CSV file'); return; }
+        const formData = new FormData(); formData.append('file', file);
+        const res = await fetch('/api/admin/external-users/import', { method: 'POST', body: formData });
+        if (res.ok) { const resp = await res.json(); alert(resp.message + (resp.errors?.length ? '\nErrors: '+resp.errors.join('\n') : '')); importModal.hide(); loadUsers(); }
+        else { alert('Import failed'); }
+    });
+
+    // Initial load
+    loadRolesAndCompanies();
+    loadUsers();
+});
+</script>
+{% endblock %}

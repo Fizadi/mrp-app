@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Signature Audit Log{% endblock %}
+{% block content %}
+<div class="container mt-3">
+<h2>{{ get_translation('auto.99d02254', 'Signature Audit Log') }}</h2>
+<a class="btn btn-info mb-3" href="/api/quality/sign/audit-log">{{ get_translation('auto.06843964', 'Export CSV') }}</a>
+<div class="table-responsive">
+<table class="table table-bordered" id="auditTable">
+<thead><tr><th>{{ get_translation('auto.6b8d3eb7', 'Source') }}</th><th>{{ get_translation('auto.bf559358', 'Record ID') }}</th><th>{{ get_translation('auto.5ab51297', 'Signature') }}</th><th>{{ get_translation('auto.0affbc54', 'Signed By') }}</th><th>{{ get_translation('auto.4a94473c', 'Date Key') }}</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+<script>
+$(document).ready(function() {
+    $.get('/api/quality/sign/audit-log', function(data) {
+        var rows = data.split('\n');
+        var tbody = $('#auditTable tbody');
+        for (var i=1; i<rows.length-1; i++) {
+            var cols = rows[i].split(',');
+            tbody.append(`<tr>${cols.map(c=>`<td>${c}</td>`).join('')}</tr>`);
+        }
+    });
+});
+</script>
+{% endblock %}

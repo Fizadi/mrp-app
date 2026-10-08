@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Maintenance Management{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="#">{{ get_translation('auto.f7af2aa4', 'Manufacturing') }}</a></li>
+<li class="breadcrumb-item active">{{ get_translation('auto.1cff6a4c', 'Maintenance Management') }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2>{{ get_translation('auto.7d46b25d', 'Equipment Maintenance') }}</h2>
+<div>
+<button class="btn btn-success me-2" data-bs-target="#scheduleModal" data-bs-toggle="modal"><i class="fas fa-plus"></i>{{ get_translation('auto.2bddd2d2', 'Schedule Maintenance') }}</button>
+<button class="btn btn-secondary me-2" data-bs-target="#importModal" data-bs-toggle="modal"><i class="fas fa-upload"></i>{{ get_translation('auto.415affa9', 'Import CSV') }}</button>
+<a class="btn btn-info" href="/api/maintenance/export-csv"><i class="fas fa-download"></i>{{ get_translation('auto.bbcf29da', 'Export CSV') }}</a>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="row mb-4 g-3">
+<div class="col-md-4">
+<div class="card text-white bg-danger">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.dfdc41b3', 'Overdue') }}</h6>
+<h3 id="kpiOverdue">{{ get_translation('auto.e3f7c2df', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-4">
+<div class="card text-white bg-warning">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.0f44e252', 'Due This Week') }}</h6>
+<h3 id="kpiDueWeek">{{ get_translation('auto.f1c0cc21', '0') }}</h3>
+</div>
+</div>
+</div>
+<div class="col-md-4">
+<div class="card text-white bg-success">
+<div class="card-body">
+<h6 class="card-title">{{ get_translation('auto.27fcf412', 'Completed') }}</h6>
+<h3 id="kpiCompleted">{{ get_translation('auto.81552a41', '0') }}</h3>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="card mb-3">
+<div class="card-body row g-2 align-items-end">
+<div class="col-md-3">
+<label>{{ get_translation('auto.03180085', 'Equipment Type') }}</label>
+<select class="form-select" id="typeFilter">
+<option value="">{{ get_translation('auto.4c0b1a5d', 'All') }}</option>
+<option>{{ get_translation('auto.e2bd9dd5', 'Preventive') }}</option>
+<option>{{ get_translation('auto.b3744e0b', 'Calibration') }}</option>
+<option>{{ get_translation('auto.6efc1668', 'Repair') }}</option>
+<option>{{ get_translation('auto.aaec9022', 'Inspection') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.63dbc379', 'Status') }}</label>
+<select class="form-select" id="statusFilter">
+<option value="">{{ get_translation('auto.0c0470e5', 'All') }}</option>
+<option>{{ get_translation('auto.9ce8e6b0', 'Scheduled') }}</option>
+<option>{{ get_translation('auto.8c1260f8', 'In Progress') }}</option>
+<option>{{ get_translation('auto.d449284a', 'Completed') }}</option>
+</select>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.80449638', 'Due Date From') }}</label>
+<input class="form-control" id="dateFrom" type="date"/>
+</div>
+<div class="col-md-2">
+<label>{{ get_translation('auto.fef8d59e', 'Due Date To') }}</label>
+<input class="form-control" id="dateTo" type="date"/>
+</div>
+<div class="col-md-3 d-flex justify-content-end">
+<button class="btn btn-primary w-100" id="refreshBtn">{{ get_translation('auto.f65050f9', 'Refresh') }}</button>
+</div>
+</div>
+</div>
+<!-- Maintenance Table -->
+<div class="card">
+<div class="card-header">{{ get_translation('auto.d325a13b', 'Maintenance Schedule') }}</div>
+<div class="card-body table-responsive">
+<table class="table table-bordered table-hover">
+<thead class="table-light">
+<tr>
+<th>{{ get_translation('auto.49b95f0e', 'Equipment Name') }}</th>
+<th>{{ get_translation('auto.d6ef1f52', 'Type') }}</th>
+<th>{{ get_translation('auto.4b9d67eb', 'Last Maintenance') }}</th>
+<th>{{ get_translation('auto.3a6d78b7', 'Next Due') }}</th>
+<th>{{ get_translation('auto.640c50b5', 'Status') }}</th>
+<th>{{ get_translation('auto.96914001', 'Actions') }}</th>
+</tr>
+</thead>
+<tbody id="maintenanceBody">
+<tr><td class="text-center" colspan="6">{{ get_translation('auto.5b8e4727', 'Loading...&lt;\/td&gt;') }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Schedule Maintenance Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.a9be38f7', 'Schedule Maintenance') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<form id="scheduleForm">
+<div class="mb-2"><label>{{ get_translation('auto.448d6a05', 'Equipment ID') }}</label><input class="form-control" id="equipId" required="" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.bd1f5ca9', 'Equipment Name') }}</label><input class="form-control" id="equipName" required="" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.33b663bd', 'Work Center (optional)') }}</label><input class="form-control" id="workCenter" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.46e8b15d', 'Maintenance Type') }}</label><select class="form-select" id="maintenanceType"><option>{{ get_translation('auto.1fa7f346', 'Preventive') }}</option><option>{{ get_translation('auto.7322f4f4', 'Calibration') }}</option><option>{{ get_translation('auto.eb2c05c4', 'Repair') }}</option><option>{{ get_translation('auto.58209e07', 'Inspection') }}</option></select></div>
+<div class="mb-2"><label>{{ get_translation('auto.a017d584', 'Schedule Type') }}</label><select class="form-select" id="scheduleType"><option>{{ get_translation('auto.f17e4ee5', 'Once') }}</option><option>{{ get_translation('auto.fccc3867', 'Weekly') }}</option><option>{{ get_translation('auto.1bfb5e6a', 'Monthly') }}</option><option>{{ get_translation('auto.2ee17c5f', 'Quarterly') }}</option><option>{{ get_translation('auto.6c9b169a', 'Yearly') }}</option></select></div>
+<div class="mb-2"><label>{{ get_translation('auto.fdbc5955', 'Interval (days, for recurring)') }}</label><input class="form-control" id="intervalDays" type="number" value="0"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.df5e74d3', 'Last Maintenance Date') }}</label><input class="form-control" id="lastDate" type="date"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.fbcf4693', 'Next Due Date') }}</label><input class="form-control" id="nextDue" required="" type="date"/></div>
+</form>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.1d905e15', 'Cancel') }}</button><button class="btn btn-primary" id="confirmSchedule">{{ get_translation('auto.f86529de', 'Schedule') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Complete Work Order Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.0fca50f0', 'Complete Work Order') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="completeId" type="hidden"/>
+<div class="mb-2"><label>{{ get_translation('auto.39e038b4', 'Actual Completion Date') }}</label><input class="form-control" id="actualDate" required="" type="date"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.a6703859', 'Technician ID') }}</label><input class="form-control" id="technicianId" type="number"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.be6e7e69', 'Duration (hours)') }}</label><input class="form-control" id="durationHours" step="0.5" type="number"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.f87e08e2', 'Cost') }}</label><input class="form-control" id="cost" step="0.01" type="number"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.71372ae0', 'Notes') }}</label><textarea class="form-control" id="notes" rows="2"></textarea></div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.6a2b0343', 'Cancel') }}</button><button class="btn btn-success" id="confirmComplete">{{ get_translation('auto.78d081d9', 'Complete') }}</button></div>
+</div>
+</div>
+</div>
+<!-- Import CSV Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>{{ get_translation('auto.f473565d', 'Import Equipment CSV') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input accept=".csv" class="form-control" id="csvFile" type="file"/></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.f7c3c337', 'Cancel') }}</button><button class="btn btn-primary" id="importBtn">{{ get_translation('auto.fe0ad546', 'Upload') }}</button></div></div></div>
+</div>
+<script>
+(function() {
+    function loadKPIs() {
+        fetch('/api/maintenance/kpi')
+            .then(r => r.json())
+            .then(res => {
+                document.getElementById('kpiOverdue').innerText = res.overdue;
+                document.getElementById('kpiDueWeek').innerText = res.dueThisWeek;
+                document.getElementById('kpiCompleted').innerText = res.completed;
+            });
+    }
+
+    function loadMaintenance() {
+        const type = document.getElementById('typeFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        let url = `/api/maintenance/list?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+        fetch(url)
+            .then(r => r.json())
+            .then(items => {
+                const tbody = document.getElementById('maintenanceBody');
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="6">No maintenance records found<\/td><\/tr>';
+                    return;
+                }
+                let html = '';
+                items.forEach(m => {
+                    let statusBadge = '';
+                    if (m.status === 'Scheduled') statusBadge = '<span class="badge bg-warning">Scheduled</span>';
+                    else if (m.status === 'In Progress') statusBadge = '<span class="badge bg-primary">In Progress</span>';
+                    else statusBadge = '<span class="badge bg-success">Completed</span>';
+                    html += `<tr>
+                        <td><a href="#" class="equip-link" data-name="${escapeHtml(m.equipmentName)}">${escapeHtml(m.equipmentName)}</a></td>
+                        <td>${escapeHtml(m.type)}</td><td>${m.lastMaintenance || '-'}</td>
+                        <td>${m.nextDue || '-'}</td><td>${statusBadge}</td>
+                        <td>
+                            ${m.status !== 'Completed' ? `<button class="btn btn-sm btn-success complete-btn" data-id="${m.id}">Complete</button>` : ''}
+                         </td>
+                    </td>`;
+                });
+                tbody.innerHTML = html;
+                attachCompleteEvents();
+                attachEquipLinkEvents();
+            });
+    }
+
+    function attachCompleteEvents() {
+        document.querySelectorAll('.complete-btn').forEach(btn => {
+            btn.onclick = () => {
+                const id = btn.getAttribute('data-id');
+                document.getElementById('completeId').value = id;
+                new bootstrap.Modal(document.getElementById('completeModal')).show();
+            };
+        });
+    }
+
+    function attachEquipLinkEvents() {
+        document.querySelectorAll('.equip-link').forEach(link => {
+            link.onclick = (e) => {
+                e.preventDefault();
+                const name = link.getAttribute('data-name');
+                alert(`Navigate to calibration for ${name} (future enhancement)`);
+            };
+        });
+    }
+
+    function refreshAll() { loadKPIs(); loadMaintenance(); }
+
+    // Schedule maintenance
+    document.getElementById('confirmSchedule').onclick = () => {
+        const data = {
+            equipmentId: document.getElementById('equipId').value,
+            equipmentName: document.getElementById('equipName').value,
+            workCenter: document.getElementById('workCenter').value,
+            maintenanceType: document.getElementById('maintenanceType').value,
+            scheduleType: document.getElementById('scheduleType').value,
+            intervalDays: parseInt(document.getElementById('intervalDays').value) || 0,
+            lastDate: document.getElementById('lastDate').value,
+            nextDue: document.getElementById('nextDue').value
+        };
+        if (!data.equipmentId || !data.equipmentName || !data.nextDue) {
+            alert('Equipment ID, Name, and Next Due Date are required');
+            return;
+        }
+        fetch('/api/maintenance/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(() => {
+            bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+            refreshAll();
+        }).catch(() => alert('Failed to schedule'));
+    };
+
+    // Complete work order
+    document.getElementById('confirmComplete').onclick = () => {
+        const id = document.getElementById('completeId').value;
+        const data = {
+            actualDate: document.getElementById('actualDate').value,
+            technicianId: document.getElementById('technicianId').value,
+            durationHours: parseFloat(document.getElementById('durationHours').value),
+            cost: parseFloat(document.getElementById('cost').value),
+            notes: document.getElementById('notes').value
+        };
+        if (!data.actualDate) { alert('Completion date required'); return; }
+        fetch(`/api/maintenance/complete/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(() => {
+            bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
+            refreshAll();
+        }).catch(() => alert('Failed to complete'));
+    };
+
+    // Import CSV
+    document.getElementById('importBtn').onclick = () => {
+        const file = document.getElementById('csvFile').files[0];
+        if (!file) { alert('Select a file'); return; }
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/api/maintenance/import-csv', { method: 'POST', body: formData })
+            .then(() => {
+                bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+                refreshAll();
+            })
+            .catch(() => alert('Import failed'));
+    };
+
+    // Filter events
+    document.getElementById('refreshBtn').onclick = refreshAll;
+    document.getElementById('typeFilter').onchange = refreshAll;
+    document.getElementById('statusFilter').onchange = refreshAll;
+    document.getElementById('dateFrom').onchange = refreshAll;
+    document.getElementById('dateTo').onchange = refreshAll;
+
+    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, function(m) { if (m==='&') return '&amp;'; if (m==='<') return '&lt;'; if (m==='>') return '&gt;'; return m; }); }
+
+    refreshAll();
+})();
+</script>
+{% endblock %}

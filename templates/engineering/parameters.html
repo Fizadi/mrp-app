@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+
+{% block title %}{{ get_translation('engineering.parameters.title', 'Engineering Parameters') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('home', 'Home') }}</a></li>
+            <li class="breadcrumb-item">{{ get_translation('engineering', 'Engineering') }}</li>
+            <li class="breadcrumb-item active">{{ get_translation('engineering.parameters.title', 'Engineering Parameters') }}</li>
+        </ol>
+    </nav>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-2">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.parameters.kpi.total', 'Total Parameters') }}</h5>
+                    <p class="card-text display-6" id="kpiTotal">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-2">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.parameters.kpi.active', 'Active Parameters') }}</h5>
+                    <p class="card-text display-6" id="kpiActive">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-2">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.parameters.kpi.by_category', 'By Category') }}</h5>
+                    <p class="card-text display-6" id="kpiByCategory">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-2">
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <h5 class="card-title">{{ get_translation('engineering.parameters.kpi.types', 'Parameter Types') }}</h5>
+                    <p class="card-text display-6" id="kpiByType">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Actions -->
+    <div class="row mb-3 g-2">
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.parameters.filter.category', 'Category') }}</label>
+            <select class="form-select" id="filterCategory">
+                <option value="">{{ get_translation('all', 'All') }}</option>
+                {% for cat in categories %}
+                <option value="{{ cat.CategoryCode }}">{{ cat.CategoryName }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.parameters.filter.type', 'Parameter Type') }}</label>
+            <select class="form-select" id="filterType">
+                <option value="">{{ get_translation('all', 'All') }}</option>
+                <option value="String">{{ get_translation('engineering.parameters.type.string', 'String') }}</option>
+                <option value="Number">{{ get_translation('engineering.parameters.type.number', 'Number') }}</option>
+                <option value="Boolean">{{ get_translation('engineering.parameters.type.boolean', 'Boolean') }}</option>
+                <option value="Date">{{ get_translation('engineering.parameters.type.date', 'Date') }}</option>
+                <option value="List">{{ get_translation('engineering.parameters.type.list', 'List') }}</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.parameters.filter.status', 'Status') }}</label>
+            <select class="form-select" id="filterStatus">
+                <option value="">{{ get_translation('all', 'All') }}</option>
+                <option value="Active">{{ get_translation('engineering.parameters.status.active', 'Active') }}</option>
+                <option value="Inactive">{{ get_translation('engineering.parameters.status.inactive', 'Inactive') }}</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>{{ get_translation('engineering.parameters.filter.required', 'Required') }}</label>
+            <select class="form-select" id="filterRequired">
+                <option value="">{{ get_translation('all', 'All') }}</option>
+                <option value="true">{{ get_translation('engineering.parameters.required.yes', 'Required') }}</option>
+                <option value="false">{{ get_translation('engineering.parameters.required.no', 'Optional') }}</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary me-2" id="applyFiltersBtn">{{ get_translation('apply', 'Apply') }}</button>
+            <button class="btn btn-secondary" id="resetFiltersBtn">{{ get_translation('reset', 'Reset') }}</button>
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+            <button class="btn btn-success" id="addParameterBtn">{{ get_translation('engineering.parameters.add', '+ Add Parameter') }}</button>
+            <button class="btn btn-secondary" id="importBtn">{{ get_translation('import', 'Import') }}</button>
+            <button class="btn btn-secondary" id="exportBtn">{{ get_translation('export', 'Export') }}</button>
+        </div>
+    </div>
+
+    <!-- Parameters Table -->
+    <div class="card">
+        <div class="card-header">{{ get_translation('engineering.parameters.list', 'Engineering Parameters List') }}</div>
+        <div class="card-body" style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+            <table class="table table-striped table-hover table-sticky">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{{ get_translation('engineering.parameters.code', 'Parameter Code') }}</th>
+                        <th>{{ get_translation('engineering.parameters.name', 'Parameter Name') }}</th>
+                        <th>{{ get_translation('engineering.parameters.category', 'Category') }}</th>
+                        <th>{{ get_translation('engineering.parameters.type', 'Type') }}</th>
+                        <th>{{ get_translation('engineering.parameters.unit', 'Unit') }}</th>
+                        <th>{{ get_translation('engineering.parameters.display_order', 'Display Order') }}</th>
+                        <th>{{ get_translation('engineering.parameters.required', 'Required') }}</th>
+                        <th>{{ get_translation('engineering.parameters.status', 'Status') }}</th>
+                        <th>{{ get_translation('actions', 'Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="parametersTableBody">
+                    <tr><td colspan="10" class="text-center">{{ get_translation('loading', 'Loading...') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Parameter Modal -->
+<div class="modal fade" id="parameterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="parameterModalTitle">{{ get_translation('engineering.parameters.add_modal', 'Add Parameter') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editDefinitionId"/>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.code', 'Parameter Code') }} *</label>
+                    <input class="form-control" id="parameterCode" required/>
+                    <small class="text-muted">{{ get_translation('engineering.parameters.code_hint', 'Unique identifier, e.g., P1') }}</small>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.name', 'Parameter Name') }} (EN) *</label>
+                    <input class="form-control" id="parameterName" required/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.name_local', 'Parameter Name') }} (FA)</label>
+                    <input class="form-control" id="parameterNameLocal" dir="rtl"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.category', 'Category') }} *</label>
+                    <select class="form-select" id="parameterCategory">
+                        <option value="">{{ get_translation('select', 'Select a category...') }}</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.CategoryCode }}">{{ cat.CategoryName }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.type', 'Parameter Type') }} *</label>
+                    <select class="form-select" id="parameterType">
+                        <option value="String">{{ get_translation('engineering.parameters.type.string', 'String') }}</option>
+                        <option value="Number">{{ get_translation('engineering.parameters.type.number', 'Number') }}</option>
+                        <option value="Boolean">{{ get_translation('engineering.parameters.type.boolean', 'Boolean') }}</option>
+                        <option value="Date">{{ get_translation('engineering.parameters.type.date', 'Date') }}</option>
+                        <option value="List">{{ get_translation('engineering.parameters.type.list', 'List') }}</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.unit', 'Unit') }}</label>
+                    <input class="form-control" id="parameterUnit" placeholder="e.g., mm, class"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.display_order', 'Display Order') }}</label>
+                    <input class="form-control" id="parameterDisplayOrder" type="number" value="0"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.default_value', 'Default Value') }}</label>
+                    <input class="form-control" id="parameterDefaultValue"/>
+                </div>
+                <div class="mb-3">
+                    <label>{{ get_translation('engineering.parameters.validation', 'Validation Rules') }}</label>
+                    <textarea class="form-control" id="parameterValidation" rows="2" placeholder="e.g., regex: ^[A-Z]+$"></textarea>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" id="isClientInput" type="checkbox" checked/>
+                    <label class="form-check-label">{{ get_translation('engineering.parameters.is_client_input', 'Is Client Input (Required)') }}</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" id="isCalculated" type="checkbox"/>
+                    <label class="form-check-label">{{ get_translation('engineering.parameters.is_calculated', 'Is Calculated') }}</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" id="isActive" type="checkbox" checked/>
+                    <label class="form-check-label">{{ get_translation('engineering.parameters.is_active', 'Is Active') }}</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveParameterBtn">{{ get_translation('save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var editingId = null;
+
+    // ================================================================
+    // LOAD STATS
+    // ================================================================
+    function loadStats() {
+        $.get('/api/bom/parameters/stats')
+            .done(function(s) {
+                $('#kpiTotal').text(s.totalParameters || 0);
+                $('#kpiActive').text(s.activeParameters || 0);
+                if (s.byCategory && s.byCategory.length > 0) {
+                    var catNames = s.byCategory.map(function(c) { return c.category; }).join(', ');
+                    $('#kpiByCategory').text(catNames || '0');
+                } else {
+                    $('#kpiByCategory').text('0');
+                }
+                if (s.byType && s.byType.length > 0) {
+                    var typeNames = s.byType.map(function(t) { return t.type; }).join(', ');
+                    $('#kpiByType').text(typeNames || '0');
+                } else {
+                    $('#kpiByType').text('0');
+                }
+            })
+            .fail(console.error);
+    }
+
+    // ================================================================
+    // LOAD PARAMETERS
+    // ================================================================
+    function loadParameters() {
+        var params = {
+            category: $('#filterCategory').val(),
+            type: $('#filterType').val(),
+            status: $('#filterStatus').val(),
+            required: $('#filterRequired').val()
+        };
+        $.get('/api/bom/parameters', params)
+            .done(function(parameters) {
+                var $tbody = $('#parametersTableBody');
+                $tbody.empty();
+                if (!parameters || !parameters.length) {
+                    $tbody.html('<tr><td colspan="10" class="text-center">No parameters found</td></tr>');
+                    return;
+                }
+                parameters.forEach(function(p, i) {
+                    var statusBadge = p.isActive ? 
+                        '<span class="badge bg-success">Active</span>' : 
+                        '<span class="badge bg-secondary">Inactive</span>';
+                    var requiredBadge = p.isClientInput ? 
+                        '<span class="badge bg-danger">Required</span>' : 
+                        '<span class="badge bg-light">Optional</span>';
+                    var typeBadge = '<span class="badge bg-info">' + escapeHtml(p.parameterType) + '</span>';
+                    var row = '<tr>' +
+                        '<td>' + (i+1) + '</td>' +
+                        '<td><strong>' + escapeHtml(p.parameterCode) + '</strong></td>' +
+                        '<td>' + escapeHtml(p.parameterName) + '</td>' +
+                        '<td>' + escapeHtml(p.categoryCode) + '</td>' +
+                        '<td>' + typeBadge + '</td>' +
+                        '<td>' + escapeHtml(p.unit || '-') + '</td>' +
+                        '<td>' + (p.displayOrder || 0) + '</td>' +
+                        '<td>' + requiredBadge + '</td>' +
+                        '<td>' + statusBadge + '</td>' +
+                        '<td>' +
+                        '<button class="btn btn-sm btn-warning edit-parameter me-1" data-id="' + p.definitionId + '"><i class="fas fa-edit"></i></button>' +
+                        '<button class="btn btn-sm btn-danger delete-parameter" data-id="' + p.definitionId + '"><i class="fas fa-trash"></i></button>' +
+                        '</td>' +
+                        '</tr>';
+                    $tbody.append(row);
+                });
+            })
+            .fail(function() {
+                $('#parametersTableBody').html('<tr><td colspan="10" class="text-danger">Error loading parameters</td></tr>');
+            });
+    }
+
+    function escapeHtml(str) { return str ? $('<div>').text(str).html() : ''; }
+
+    // ================================================================
+    // OPEN MODAL
+    // ================================================================
+    function openModal(id) {
+        editingId = id;
+        $('#parameterModalTitle').text(id ? 'Edit Parameter' : 'Add Parameter');
+        if (id) {
+            $.get('/api/bom/parameters', {})
+                .done(function(parameters) {
+                    var p = parameters.find(function(x) { return x.definitionId === id; });
+                    if (p) {
+                        $('#editDefinitionId').val(p.definitionId);
+                        $('#parameterCode').val(p.parameterCode).prop('disabled', true);
+                        $('#parameterName').val(p.parameterName);
+                        $('#parameterNameLocal').val(p.parameterNameLocal || '');
+                        $('#parameterCategory').val(p.categoryCode);
+                        $('#parameterType').val(p.parameterType);
+                        $('#parameterUnit').val(p.unit || '');
+                        $('#parameterDisplayOrder').val(p.displayOrder || 0);
+                        $('#parameterDefaultValue').val(p.defaultValue || '');
+                        $('#parameterValidation').val(p.validationRules || '');
+                        $('#isClientInput').prop('checked', p.isClientInput);
+                        $('#isCalculated').prop('checked', p.isCalculated);
+                        $('#isActive').prop('checked', p.isActive);
+                        $('#parameterModal').modal('show');
+                    }
+                });
+        } else {
+            $('#editDefinitionId').val('');
+            $('#parameterCode').prop('disabled', false).val('');
+            $('#parameterName').val('');
+            $('#parameterNameLocal').val('');
+            $('#parameterCategory').val('');
+            $('#parameterType').val('String');
+            $('#parameterUnit').val('');
+            $('#parameterDisplayOrder').val('0');
+            $('#parameterDefaultValue').val('');
+            $('#parameterValidation').val('');
+            $('#isClientInput').prop('checked', true);
+            $('#isCalculated').prop('checked', false);
+            $('#isActive').prop('checked', true);
+            $('#parameterModal').modal('show');
+        }
+    }
+
+    // ================================================================
+    // SAVE PARAMETER
+    // ================================================================
+    function saveParameter() {
+        var data = {
+            categoryCode: $('#parameterCategory').val(),
+            parameterCode: $('#parameterCode').val(),
+            parameterName: $('#parameterName').val(),
+            parameterNameLocal: $('#parameterNameLocal').val(),
+            parameterType: $('#parameterType').val(),
+            unit: $('#parameterUnit').val(),
+            displayOrder: parseInt($('#parameterDisplayOrder').val()) || 0,
+            defaultValue: $('#parameterDefaultValue').val(),
+            validationRules: $('#parameterValidation').val(),
+            isClientInput: $('#isClientInput').is(':checked'),
+            isCalculated: $('#isCalculated').is(':checked'),
+            isActive: $('#isActive').is(':checked')
+        };
+        if (!data.categoryCode) { alert('Category is required'); return; }
+        if (!data.parameterCode) { alert('Parameter Code is required'); return; }
+        if (!data.parameterName) { alert('Parameter Name is required'); return; }
+
+        var id = $('#editDefinitionId').val();
+        var url = id ? '/api/bom/parameters/' + id : '/api/bom/parameters';
+        var method = id ? 'PUT' : 'POST';
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                $('#parameterModal').modal('hide');
+                loadParameters();
+                loadStats();
+                alert(id ? 'Parameter updated' : 'Parameter created');
+            },
+            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown error')); }
+        });
+    }
+
+    // ================================================================
+    // DELETE PARAMETER
+    // ================================================================
+    function deleteParameter(id) {
+        if (confirm('Delete this parameter?')) {
+            $.ajax({
+                url: '/api/bom/parameters/' + id,
+                method: 'DELETE',
+                success: function() {
+                    loadParameters();
+                    loadStats();
+                    alert('Parameter deleted');
+                },
+                error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Delete failed')); }
+            });
+        }
+    }
+
+    // ================================================================
+    // EVENT BINDINGS
+    // ================================================================
+    $('#addParameterBtn').click(function() { openModal(null); });
+    $('#saveParameterBtn').click(saveParameter);
+    $(document).on('click', '.edit-parameter', function() { openModal($(this).data('id')); });
+    $(document).on('click', '.delete-parameter', function() { deleteParameter($(this).data('id')); });
+
+    $('#applyFiltersBtn').click(function() { loadParameters(); });
+    $('#resetFiltersBtn').click(function() {
+        $('#filterCategory').val('');
+        $('#filterType').val('');
+        $('#filterStatus').val('');
+        $('#filterRequired').val('');
+        loadParameters();
+    });
+
+    $('#importBtn').click(function() { alert('CSV import coming soon'); });
+    $('#exportBtn').click(function() { window.location.href = '/api/bom/parameters/export'; });
+
+    // ================================================================
+    // INITIAL LOAD
+    // ================================================================
+    loadStats();
+    loadParameters();
+});
+</script>
+{% endblock %}

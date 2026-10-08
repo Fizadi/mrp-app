@@ -1,0 +1,375 @@
+PART A — Modifications to PROJECT CONTEXT (v46 → v47)
+Target file: PROJECT CONTEXT-V46.docx
+New version: v47
+Date: 2026-09-16
+
+These are the changes to the global project-context document. They affect the whole app, not just the Projects module.
+
+#	Where	Action
+A.1	Top of document, version history table	Append v47 row
+A.2	Section 1, after subsection 1.1	Insert new subsection 1.2 "Frontend JavaScript Contract"
+A.3	Section 7, after subsection 7.7.7	Insert new subsections 7.8, 7.9, 7.10
+A.4	Section 8, after subsection 8.21	Insert new subsections 8.22, 8.23
+A.5	Section 9.3	Replace the entire checklist
+A.6	Section 9.4	Replace the entire checklist
+A.7	Section 9.6	Replace the entire checklist
+A.8	Section 11	Replace the page count table
+A.9	End of document, after Section 19	Add new Section 20
+A.1 — Version History row
+Where: Top of document, version history table
+Action: Append this row at the end of the table
+
+text
+v47 | 2026-09-16 | JavaScript page pattern standardized (fetch + DOMContentLoaded + top-level trans; no jQuery in page scripts). Sidebar project selector rewritten in pure JS to escape jQuery ready-queue and CSP issues. Translation insertion rules hardened: NEVER derive English from key names — always extract from template fallback. `fix_translations.py` and `check_translations.py` scripts documented. Documented the LLM-invented-translation disaster of v46 and the delete-by-backup rollback pattern. Documented the composite-key MERGE requirement and the `auto.*` hash key trap.
+A.2 — Section 1, new subsection 1.2
+Where: Immediately after subsection 1.1 "CRITICAL POST-MIGRATION NOTE (v46)"
+Action: Insert this new subsection
+
+text
+### 1.2 FRONTEND JAVASCRIPT CONTRACT (v47)
+
+Every page in the app MUST follow the same JavaScript pattern. Deviation causes
+intermittent, hard-to-debug failures that appear unrelated to JavaScript
+(e.g., language switching stops, tables don't render, modals don't open).
+
+THE CONTRACT:
+
+1. base.html loads jQuery, Bootstrap, FontAwesome, and i18n helpers ONCE.
+   Do NOT re-load any of these in a page's `{% block scripts %}`.
+
+2. Inside `{% block scripts %}`:
+   a. Define `var trans = { ... }` at TOP LEVEL (not inside any function).
+      Values come from `{{ get_translation('key', 'fallback')|tojson }}`.
+   b. Define ALL helper functions at TOP LEVEL.
+   c. Define ALL state variables at TOP LEVEL.
+   d. Wrap ONLY init + event binding in
+      `document.addEventListener('DOMContentLoaded', function() { ... })`.
+
+3. Use `fetch()` for ALL API calls — never `$.get`, `$.post`, `$.ajax`.
+
+4. Use native DOM APIs — `document.getElementById('id')`,
+   `document.querySelectorAll('.class')`, `element.addEventListener(...)` —
+   never `$('#id').val()`, `$('#id').on(...)`.
+
+5. Modals use `new bootstrap.Modal(document.getElementById('id')).show()`,
+   never `$('#id').modal('show')`.
+
+6. Event delegation uses:
+   `document.addEventListener('click', function(e) {
+       var target = e.target.closest('.selector');
+       if (!target) return;
+       // handle
+   })`
+
+7. All user-visible strings in JS go through `trans.*`. All user-visible
+   strings in HTML use `{{ get_translation('semantic.key', 'fallback') }}`.
+
+WHY THIS CONTRACT EXISTS:
+
+- jQuery's `$(document).ready()` queue can silently stop processing further
+  callbacks after certain CSP interactions or after jQuery is re-loaded.
+- `$.ajax` is affected by CSP `script-src` policies that `fetch()` avoids.
+- `fetch()` uses native browser primitives — no library state to break.
+
+FAILURE MODES IF THE CONTRACT IS BROKEN:
+
+- Page renders but table/tree stays empty
+- Language switch has no effect on some pages
+- Modals don't open
+- Forms submit but nothing happens
+- Console shows NO errors (silent failure)
+A.3 — Section 7, new subsections 7.8 / 7.9 / 7.10
+Where: After existing subsection 7.7.7 "Emoji handling"
+Action: Insert these three new subsections
+
+text
+### 7.8 TRANSLATION INSERTION RULES (v47 — HARDENED)
+
+The v46 disaster: an LLM was asked to generate INSERT statements for missing
+translation keys. It derived English values from the last segment of each key
+(`engineering.categories.code_help` → `"Code Help"`). This works for simple
+keys but produces WRONG values when the actual template fallback differs from
+the key segment.
+
+Result: engineering BOM page title showed "Title" instead of "BOM"; a dozen
+other pages broke because the invented values overrode the correct
+template fallbacks.
+
+THE RULE:
+
+**The English value MUST come from the template's fallback string, never
+from the key name.**
+
+Correct workflow:
+
+1. Run `check_translations.py` (see Section 8.21) to list keys used in
+   templates that are missing from the DB.
+
+2. Run `fix_translations.py` (see Section 8.22) to extract the fallback string
+   from `get_translation('key', 'FALLBACK')` calls for each missing key.
+   Output: a MERGE SQL file where the English value IS the template fallback.
+
+3. Farsi values are translated separately from the CORRECT English source —
+   never from the key name.
+
+NEVER:
+- Ask an LLM to derive English from key names
+- Use `title_case(last_segment_of_key)` as the value
+- Insert translations without inspecting the templates
+- Assume that a key's meaning is obvious from its name
+
+### 7.9 SIDEBAR PROJECT SELECTOR PATTERN (v47)
+
+The sidebar project selector MUST be implemented in pure JavaScript, not
+jQuery. jQuery's delegated `$(document).on('change', '#projectSelector', ...)`
+fails intermittently after the SQLite → SQL Server migration and after the
+CSP header was introduced.
+
+Reference implementation (place at the bottom of sidebar.html, in its own
+<script> tag, AFTER the <select> element):
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var sel = document.getElementById('projectSelector');
+    if (!sel) { console.warn('#projectSelector not found'); return; }
+
+    sel.addEventListener('change', function() {
+        var projectId = this.value;
+        if (Array.isArray(projectId)) {
+            projectId = projectId.length > 0 ? projectId[0] : 'All';
+        }
+        fetch('/api/set-current-project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ project_id: projectId })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            window.location.href = window.location.pathname + '?t=' + Date.now();
+        })
+        .catch(function(err) {
+            alert('Failed to set project: ' + err.message);
+        });
+    });
+});
+</script>
+
+Server route (app/core/routes.py):
+
+@api_bp.route('/set-current-project', methods=['POST'])
+@login_required
+def set_current_project():
+    data = request.get_json(silent=True) or request.form
+    project_id = data.get('project_id')
+    if not project_id:
+        return jsonify({'status': 'error', 'message': 'Missing project_id'}), 400
+    if isinstance(project_id, list):
+        project_id = project_id[0] if project_id else 'All'
+    session['current_project_id'] = project_id
+    session.modified = True
+    session.permanent = True
+    return jsonify({'status': 'ok', 'project_id': project_id})
+
+### 7.10 COMPOSITE-KEY MERGE REQUIREMENT (v47)
+
+Every translation MERGE MUST use the composite key (translation_key,
+Language) in the ON clause. Using WHERE NOT EXISTS or a single-column
+match causes silent partial inserts — one language populated, the other
+missing.
+
+CORRECT:
+MERGE INTO t_Translations AS target
+USING (VALUES
+    ('key.path', 'key.path', 'en', 'English'),
+    ('key.path', 'key.path', 'fa', N'فارسی')
+) AS source (TranslationKey, translation_key, Language, Value)
+ON target.translation_key = source.translation_key
+   AND target.Language = source.Language
+WHEN NOT MATCHED THEN
+    INSERT (TranslationKey, translation_key, Language, Value)
+    VALUES (source.TranslationKey, source.translation_key,
+            source.Language, source.Value);
+
+The same key MUST appear twice (once 'en', once 'fa') to keep the languages
+in sync. If only one language is available, insert only that one — but
+verify with the parity query in Section 9.3.
+A.4 — Section 8, new subsections 8.22 / 8.23
+Where: After existing subsection 8.21 "Table Reference Audit Script"
+Action: Insert these two new subsections
+
+text
+### 8.22 THE auto.* HASH KEY TRAP (v47)
+
+Older pages use keys of the form `auto.XXXXXXXX` (hex hash) or
+`auto.qlt_assignments`. These were generated by the translation-sync tool
+when it scanned unwrapped English strings.
+
+RULES:
+
+1. NEVER insert `auto.*` keys into t_Translations. They have no meaningful
+   value — the last segment is a hash or an auto-generated slug.
+
+2. When auditing missing translations, FILTER OUT all keys starting with
+   `auto.` first. The count drops from ~1,600 to ~200 real gaps.
+
+3. The correct fix for a page using `auto.*` keys is to CONVERT the page to
+   semantic keys (Section 7.7), then add the new semantic keys to the DB.
+   Do NOT try to translate auto.* keys.
+
+4. Sync-tool findings are a symptom, not a to-do list.
+
+### 8.23 ROLLBACK PATTERN FOR BAD INSERTS (v47)
+
+If a MERGE inserts rows with wrong values (e.g., LLM-invented translations),
+rollback is:
+
+1. Back up first:
+   SELECT * INTO t_Translations_backup_YYYYMMDD FROM t_Translations;
+
+2. Preview what will be deleted:
+   SELECT COUNT(*) FROM t_Translations cur
+   WHERE NOT EXISTS (
+       SELECT 1 FROM t_Translations_backup_YYYYMMDD b
+       WHERE b.translation_key = cur.translation_key
+         AND b.Language = cur.Language
+   );
+
+3. Delete:
+   DELETE cur FROM t_Translations cur
+   WHERE NOT EXISTS (
+       SELECT 1 FROM t_Translations_backup_YYYYMMDD b
+       WHERE b.translation_key = cur.translation_key
+         AND b.Language = cur.Language
+   );
+
+4. Verify: SELECT Language, COUNT(*) FROM t_Translations GROUP BY Language
+   should match the backup's counts.
+
+This deletes ONLY the rows added after the backup, preserving all
+pre-existing rows.
+A.5 — Section 9.3 Translation Checklist (replace)
+Where: Replace the existing 9.3 checklist entirely
+
+text
+### 9.3 Translation (v47)
+
+Check Description
+☐ All UI translations exist in t_Translations (translation_key, Language, Value)
+☐ No `auto.*` keys inserted — filter them out during audit
+☐ English values derived from template fallbacks — never from key names
+☐ Composite-key MERGE used for all inserts
+☐ Parity check: SELECT Language, COUNT(*) FROM t_Translations GROUP BY Language
+  → both languages must have similar row counts
+☐ Farsi reviewed for accuracy — never trust LLM-generated Farsi for critical labels
+☐ Hard refresh (Ctrl+Shift+R) after adding translations
+☐ Test language switch on EVERY page (project module has 14 pages)
+☐ Verify the sidebar project selector fires (check browser console for
+  `🔵 Project changed to:` message)
+☐ Verify the page reloads after project selection
+☐ Verify the new project_id appears in subsequent API calls
+A.6 — Section 9.4 Frontend Checklist (replace)
+Where: Replace the existing 9.4 checklist entirely
+
+text
+### 9.4 Frontend (v47)
+
+Check Description
+☐ Page uses `{% block scripts %}` for page-specific JS only
+☐ NO `<script src="...jquery...">` inside `{% block scripts %}`
+☐ NO `<script src="...bootstrap...">` inside `{% block scripts %}`
+☐ `var trans = {...}` defined at TOP LEVEL of the script block
+☐ All helper functions at TOP LEVEL
+☐ Only init inside `document.addEventListener('DOMContentLoaded', ...)`
+☐ All API calls use `fetch()` — no `$.get` / `$.post` / `$.ajax`
+☐ All DOM lookups use `document.getElementById()` / `querySelectorAll()`
+☐ Modals use `bootstrap.Modal` — not `$('#id').modal()`
+☐ Event handlers use `addEventListener` — not `$(selector).on(...)`
+☐ Tables use `<thead><tr><th>...</th></tr></thead>` — `<tr>` wrapper required
+☐ Tables use `.table-sticky-dark` class (defined in app.css)
+☐ All action buttons use unified styles
+☐ All dates use DateKey with display_date() helper
+☐ Debounced search (300ms) on text filters
+☐ Toast notifications for user feedback
+☐ Read-only tabs auto-populate on parent selection
+☐ Dropdowns for all entity selection
+☐ `switchIndustry()` and `switchLanguage()` are global window functions
+☐ All libraries LOCAL — no CDN dependency
+A.7 — Section 9.6 Testing (replace)
+Where: Replace the existing 9.6 checklist entirely
+
+text
+### 9.6 Testing (v47)
+
+Check Description
+☐ Test with language switching (EN/FA) on EVERY page
+☐ Test with empty dropdowns (no data)
+☐ Test create, edit, and view modes
+☐ Test all tabs display data correctly
+☐ Test status-based action visibility
+☐ Hard refresh (Ctrl+Shift+R) after any template change
+☐ Test industry switcher with all scenarios
+☐ Verify data filtering after industry switch
+☐ Test project filtering: select a project, verify every page filters
+☐ Test MS Project Integration with and without project selected
+☐ Verify sidebar project selector fires change event (console log)
+☐ Verify session persists across page reloads (debug-set-project endpoint)
+☐ Verify Flask restart does not invalidate session (fixed SECRET_KEY)
+A.8 — Section 11 Page Count Summary (replace)
+Where: Replace the page count table entirely
+
+text
+Module               Pages  URL Prefix
+Dashboard            3      /dashboard/*
+Projects             14     /project/*
+Engineering          8      /engineering/*
+Manufacturing        8      /manufacturing/*
+Quality              10     /quality/*
+Supply Chain         7      /supply-chain/*
+CRM & Sales          4      /crm/*
+Finance              10     /finance/*
+Human Resources      4      /hr/*
+Workflow             5      /workflow/*
+Administration       4      /admin/*
+Reports              3      /reports/*
+TOTAL                80
+Note: Projects page count changed from 6 to 14 in v47 — 6 main + 8 sub-pages.
+A.9 — New Section 20 (append at end)
+Where: Append at end of document, after Section 19
+
+text
+## 20. AI-ASSISTED PAGE CONVERSION PROMPT (v47)
+
+When asking an AI to convert an existing HTML page to the standard pattern,
+use this prompt. Fill in the three bracketed placeholders.
+
+---
+
+Task: Refactor the attached Jinja HTML template to use the app's standard
+JavaScript pattern (see Section 1.2 of PROJECT CONTEXT v47).
+
+Rules:
+1. Remove any <script src="...jquery..."> and <script src="...bootstrap...">
+   from inside {% block scripts %}. base.html loads these once.
+2. Convert ALL jQuery calls to native JavaScript + fetch():
+   - $.get/$.post/$.ajax → fetch()
+   - $(document).ready() → document.addEventListener('DOMContentLoaded', ...)
+   - $('#id') → document.getElementById('id')
+   - $('#id').val()/.text()/.html()/.on()/.is(':checked') → native equivalents
+   - $('#id').modal('show'|'hide') → bootstrap.Modal API
+3. Move `var trans = {...}` and ALL helper functions to TOP LEVEL.
+4. Wrap ONLY init + event binding in DOMContentLoaded.
+5. Preserve all element IDs, classes, endpoints, and business logic.
+6. Every user-visible string in JS must go through `trans.*`.
+7. Every user-visible string in HTML must use {{ get_translation(...) }}.
+8. Do NOT invent English values from key names — preserve existing
+   get_translation keys exactly.
+9. Return the FULL file — no snippets.
+
+Module:               [e.g., Project]
+Page purpose:         [e.g., Milestone tracking with KPI cards]
+Semantic key prefix:  [e.g., project.milestones.*]
+Shared global keys:   [e.g., global.save, global.cancel, global.status]
+This prompt is safe to use on any page in any module. It only changes
+structure, not content. After conversion, run check_translations.py to
+find any keys the page references that are missing from the DB.

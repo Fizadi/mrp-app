@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-3 py-3">
+<nav aria-label="breadcrumb">
+<ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('auto.3d0d327d', 'Home') }}</a></li>
+<li class="breadcrumb-item"><a href="/project/customer_projects">{{ get_translation('auto.8c7a22b1', 'Customer Projects') }}</a></li>
+<li class="breadcrumb-item active">{{ cp_id }}</li>
+</ol>
+</nav>
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2 id="project-name">{{ get_translation('auto.47e548f1', 'Loading...') }}</h2>
+<a class="btn btn-secondary" href="/project/customer_projects">{{ get_translation('auto.156ac5fb', '← Back to List') }}</a>
+</div>
+<div class="row">
+<div class="col-md-6">
+<div class="card mb-3">
+<div class="card-header">{{ get_translation('auto.0e9809d6', 'Project Details') }}</div>
+<div class="card-body">
+<p><strong>{{ get_translation('auto.8d05689b', 'Company:') }}</strong> <span id="detail-company"></span></p>
+<p><strong>{{ get_translation('auto.4a680eb1', 'Description:') }}</strong> <span id="detail-desc"></span></p>
+<p><strong>{{ get_translation('auto.7ee522f8', 'Location:') }}</strong> <span id="detail-location"></span></p>
+<p><strong>{{ get_translation('auto.668efb36', 'Value:') }}</strong> <span id="detail-value"></span></p>
+<p><strong>{{ get_translation('auto.9bfb0bac', 'Status:') }}</strong> <span id="detail-status"></span></p>
+<p><strong>{{ get_translation('auto.c98aae7d', 'Start Date:') }}</strong> <span id="detail-start"></span></p>
+<p><strong>{{ get_translation('auto.e5298f48', 'End Date:') }}</strong> <span id="detail-end"></span></p>
+</div>
+</div>
+</div>
+<div class="col-md-6">
+<div class="card mb-3">
+<div class="card-header">{{ get_translation('auto.c3f22927', 'Internal Projects') }}</div>
+<div class="card-body">
+<ul class="list-group" id="internal-projects-list"></ul>
+<button class="btn btn-sm btn-primary mt-2" id="link-internal-btn">{{ get_translation('auto.d56372e2', '+ Link Internal Project') }}</button>
+</div>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-header">{{ get_translation('auto.ef03f542', 'Contacts') }}</div>
+<div class="card-body">
+<ul class="list-group mb-2" id="contacts-list"></ul>
+<button class="btn btn-sm btn-success" id="add-contact-btn">{{ get_translation('auto.28631b78', '+ Add Contact') }}</button>
+</div>
+</div>
+</div>
+<!-- Link Internal Project Modal -->
+<div class="modal fade" id="linkModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5>{{ get_translation('auto.586d15dc', 'Link Internal Project') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<select class="form-select" id="link-project-select">
+<option value="">{{ get_translation('auto.50aea389', 'Select internal project...') }}</option>
+</select>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="confirm-link">{{ get_translation('auto.d754e0c5', 'Link') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.8e43c2dd', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Add/Edit Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header"><h5 id="contact-modal-title">{{ get_translation('auto.ac21038f', 'Add Contact') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
+<div class="modal-body">
+<input id="contact-id" type="hidden"/>
+<div class="mb-2"><label>{{ get_translation('auto.0567d816', 'Name') }}</label><input class="form-control" id="contact-name" required="" type="text"/></div>
+<div class="mb-2"><label>{{ get_translation('auto.43e670d1', 'Role') }}</label><input class="form-control" id="contact-role" type="text"/></div>
+<div class="form-check"><input checked="" class="form-check-input" id="contact-active" type="checkbox"/> <label class="form-check-label">{{ get_translation('auto.0c64cc64', 'Active') }}</label></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" id="contact-save">{{ get_translation('auto.419d2225', 'Save') }}</button>
+<button class="btn btn-danger" id="contact-delete" style="display:none;">{{ get_translation('auto.61d10c66', 'Delete') }}</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('auto.11a78d96', 'Cancel') }}</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+const cpId = "{{ cp_id }}";
+
+function loadDetail() {
+    fetch(`/api/project/customer_project/${cpId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert(data.error); return; }
+            document.getElementById('project-name').innerText = data.project.name;
+            document.getElementById('detail-company').innerText = data.project.company;
+            document.getElementById('detail-desc').innerText = data.project.description || '-';
+            document.getElementById('detail-location').innerText = data.project.location || '-';
+            document.getElementById('detail-value').innerText = data.project.value.toLocaleString();
+            document.getElementById('detail-status').innerText = data.project.status;
+            const start = data.project.start_date ? `${data.project.start_date.toString().slice(0,4)}-${data.project.start_date.toString().slice(4,6)}-${data.project.start_date.toString().slice(6,8)}` : '-';
+            document.getElementById('detail-start').innerText = start;
+            const end = data.project.end_date ? `${data.project.end_date.toString().slice(0,4)}-${data.project.end_date.toString().slice(4,6)}-${data.project.end_date.toString().slice(6,8)}` : '-';
+            document.getElementById('detail-end').innerText = end;
+
+            const internalList = document.getElementById('internal-projects-list');
+            internalList.innerHTML = '';
+            data.internal_projects.forEach(p => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `<a href="/project/dashboard/${p.id}">${p.name}</a> (${p.status}, ${p.progress}%) <button class="btn btn-sm btn-danger unlink-internal" data-id="${p.id}">Unlink</button>`;
+                internalList.appendChild(li);
+            });
+
+            const contactsList = document.getElementById('contacts-list');
+            contactsList.innerHTML = '';
+            data.contacts.forEach(c => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `${c.name} (${c.role}) ${c.active ? '' : '[Inactive]'} <button class="btn btn-sm btn-warning edit-contact" data-id="${c.id}" data-name="${c.name}" data-role="${c.role}" data-active="${c.active}">Edit</button>`;
+                contactsList.appendChild(li);
+            });
+        });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadDetail();
+
+    // Unlink internal project (event delegation)
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('unlink-internal')) {
+            const projId = e.target.dataset.id;
+            if (confirm('Unlink this internal project?')) {
+                fetch(`/api/project/customer_project/${cpId}/unlink_internal/${projId}`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(res => { if (res.success) loadDetail(); else alert('Error'); });
+            }
+        }
+    });
+
+    // Link internal project – load available projects
+    document.getElementById('link-internal-btn').addEventListener('click', () => {
+        fetch('/api/project/customer_projects') // fetch all internal projects not linked? Simpler: load all projects and filter later
+            .then(r => r.json())
+            .then(data => {
+                const select = document.getElementById('link-project-select');
+                select.innerHTML = '<option value="">Select...</option>';
+                data.projects.forEach(p => { // These are customer projects, not internal. Need separate endpoint.
+                    // Actually, we need a list of internal projects not linked to this customer project.
+                    // For simplicity, we'll use a separate API later or fetch all t_Project and filter on frontend.
+                });
+            });
+        // We'll implement a simpler version: fetch all t_Project and filter out those already linked
+        fetch('/api/project/projects_list') // you need to create this endpoint or use existing
+            .then(r => r.json())
+            .then(projects => {
+                const select = document.getElementById('link-project-select');
+                select.innerHTML = '<option value="">Select...</option>';
+                projects.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.innerText = `${p.id} - ${p.name}`;
+                    select.appendChild(opt);
+                });
+                new bootstrap.Modal(document.getElementById('linkModal')).show();
+            });
+    });
+    document.getElementById('confirm-link').addEventListener('click', () => {
+        const projId = document.getElementById('link-project-select').value;
+        if (!projId) return;
+        fetch(`/api/project/customer_project/${cpId}/link_internal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projId })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                bootstrap.Modal.getInstance(document.getElementById('linkModal')).hide();
+                loadDetail();
+            } else alert('Error');
+        });
+    });
+
+    // Add/Edit contacts
+    document.getElementById('add-contact-btn').addEventListener('click', () => {
+        document.getElementById('contact-modal-title').innerText = 'Add Contact';
+        document.getElementById('contact-id').value = '';
+        document.getElementById('contact-name').value = '';
+        document.getElementById('contact-role').value = '';
+        document.getElementById('contact-active').checked = true;
+        document.getElementById('contact-delete').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('contactModal')).show();
+    });
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-contact')) {
+            document.getElementById('contact-modal-title').innerText = 'Edit Contact';
+            document.getElementById('contact-id').value = e.target.dataset.id;
+            document.getElementById('contact-name').value = e.target.dataset.name;
+            document.getElementById('contact-role').value = e.target.dataset.role;
+            document.getElementById('contact-active').checked = (e.target.dataset.active === 'true');
+            document.getElementById('contact-delete').style.display = 'inline-block';
+            document.getElementById('contact-delete').dataset.id = e.target.dataset.id;
+            new bootstrap.Modal(document.getElementById('contactModal')).show();
+        }
+    });
+    document.getElementById('contact-save').addEventListener('click', () => {
+        const id = document.getElementById('contact-id').value;
+        const data = {
+            name: document.getElementById('contact-name').value,
+            role: document.getElementById('contact-role').value,
+            active: document.getElementById('contact-active').checked
+        };
+        let url = id ? `/api/project/customer_project/contact/${id}` : `/api/project/customer_project/${cpId}/add_contact`;
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('contactModal')).hide();
+                    loadDetail();
+                } else alert('Error');
+            });
+    });
+    document.getElementById('contact-delete').addEventListener('click', () => {
+        const id = document.getElementById('contact-delete').dataset.id;
+        if (!id) return;
+        if (confirm('Delete this contact?')) {
+            fetch(`/api/project/customer_project/contact/${id}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        bootstrap.Modal.getInstance(document.getElementById('contactModal')).hide();
+                        loadDetail();
+                    } else alert('Error');
+                });
+        }
+    });
+});
+</script>
+{% endblock %}

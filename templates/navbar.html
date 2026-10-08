@@ -1,0 +1,27 @@
+<nav class="navbar navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('dashboard.dashboard') }}" style="color: white;">
+            <i class="fas fa-chart-line me-2"></i>
+            Taraz Tamin SCM
+            
+        </a>
+        
+        <div class="d-flex align-items-center gap-3">
+            <!-- User Info -->
+            <span class="navbar-text" style="color: white;">
+                <i class="fas fa-user-circle me-1"></i>
+                {{ user_display_name }}
+            </span>
+        </div>
+    </div>
+</nav>
+
+<style>
+    .project-context-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: normal;
+    }
+</style>

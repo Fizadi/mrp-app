@@ -1,0 +1,576 @@
+<!-- templates/sidebar.html -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <!-- Project Selector - Only show if user is authenticated -->
+    {% if current_user.is_authenticated %}
+    <div class="project-selector-container">
+
+      <!-- FIX #1: Removed multiple="multiple" — single-select is what we want -->
+      <select class="form-control" id="projectSelector" style="font-size: 14px; width: 100%;">
+        <option value="All">{{ get_translation('sidebar.project_selector.all_projects', 'All Projects') }}</option>
+        {% for project in projects %}
+        <option value="{{ project.ProjectID }}" {% if current_project and current_project.ProjectID == project.ProjectID %}selected{% endif %}>
+          {{ project.ProjectCode }} - {{ project.ProjectName }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <!-- Selected projects panel removed (only relevant with multi-select) -->
+
+      <small style="color: rgba(255,255,255,0.7); margin-top: 5px; display: block;">
+        {{ get_translation('sidebar.project_selector.active_projects', 'Active Projects') }}
+      </small>
+    </div>
+    {% endif %}
+
+
+    {# DEBUG — remove the surrounding Jinja comment to re-enable
+    <pre style="color:white; font-size:10px;">
+      current_project_id (session): {{ session.get('current_project_id', 'MISSING') }}
+      current_project: {{ current_project.ProjectID if current_project else 'None' }}
+      projects count: {{ projects|length }}
+    </pre>
+    #}
+
+
+    <!-- Industry Switcher - Show on all pages -->
+    <div class="industry-switcher mt-3">
+        <div class="dropdown w-100">
+            <button class="btn btn-sm btn-outline-light dropdown-toggle w-100" 
+                    data-bs-toggle="dropdown" 
+                    style="text-align: left;" 
+                    id="industryDropdownBtn">
+                <i class="fas {{ industry_icon or 'fa-industry' }}"></i>
+                <span>Industry:</span>
+                <span class="badge bg-info" id="currentIndustryDisplay">
+                    {{ industry_display or 'Valve Manufacturing (ETO)' }}
+                </span>
+            </button>
+            <ul class="dropdown-menu w-100" id="industryDropdownMenu">
+                {% for ind in industries %}
+                <li>
+                    <a class="dropdown-item {% if demo_industry == ind.code %}active{% endif %}" 
+                       href="#" 
+                       onclick="window.switchIndustry('{{ ind.code }}'); return false;">
+                        <i class="fas {{ ind.icon }}"></i> 
+                        {{ ind.name }}
+                        {% if demo_industry == ind.code %}
+                        <i class="fas fa-check float-end text-success"></i>
+                        {% endif %}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Language Switcher - JavaScript-based approach -->
+    <div class="language-switcher mt-2">
+        <div class="btn-group w-100" role="group">
+            <button class="btn btn-sm btn-outline-light {% if lang == 'en' %}active{% endif %}" 
+                    onclick="window.switchLanguage('en')">
+                <i class="fas fa-language"></i> EN
+            </button>
+            <button class="btn btn-sm btn-outline-light {% if lang == 'fa' %}active{% endif %}" 
+                    onclick="window.switchLanguage('fa')">
+                <i class="fas fa-language"></i> FA
+            </button>
+        </div>
+        <!-- Calendar indicator -->
+        <div class="text-center mt-1">
+            <small style="color: rgba(255,255,255,0.4); font-size: 0.65rem;">
+                {% if current_calendar == 'persian' %}📅 شمسی{% elif current_calendar == 'hijri' %}📅 هجری{% else %}📅 Gregorian{% endif %}
+            </small>
+        </div>
+    </div>
+  </div>
+
+  <div class="sidebar-menu">
+    <ul class="nav nav-pills nav-stacked">
+
+      <!-- ==================== CRM & SALES (4 pages) ==================== -->
+      {% set is_crm_expanded = active_menu == 'crm' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_crm_expanded %}active{% endif %}" href="#crmSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_crm_expanded else 'false' }}">
+          <i class="fas fa-users" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.crm.title', 'CRM & Sales') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_crm_expanded %}show{% endif %}" id="crmSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/crm/opportunities' %}active{% endif %}" href="/crm/opportunities">{{ get_translation('sidebar.crm.opportunities', 'Opportunities Pipeline') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/quotes' %}active{% endif %}" href="/crm/quotes">{{ get_translation('sidebar.crm.quotes', 'Quotes & Estimates') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/customers' %}active{% endif %}" href="/crm/customers">{{ get_translation('sidebar.crm.customers', 'Customer Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/sales-dashboard' %}active{% endif %}" href="/crm/sales-dashboard">{{ get_translation('sidebar.crm.sales_dashboard', 'Sales Dashboard') }}</a></li>
+        </ul>
+      </li>
+
+     
+	 
+	 <!-- ==================== PROJECTS (6 pages) ==================== -->
+{% set is_projects_expanded = active_menu == 'projects' %}
+<li class="nav-item">
+    <a class="nav-link {% if is_projects_expanded %}active{% endif %}" href="#projectsSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_projects_expanded else 'false' }}">
+        <i class="fas fa-tasks" style="margin-right: 8px;"></i>
+        <span>{{ get_translation('sidebar.projects.title', 'Projects') }}</span>
+        <i class="fas fa-chevron-right float-end"></i>
+    </a>
+    <ul class="collapse nav nav-pills nav-stacked {% if is_projects_expanded %}show{% endif %}" id="projectsSubmenu" style="padding-left: 20px;">
+        <li><a class="nav-link {% if request.path == '/project/project_portfolio' %}active{% endif %}" href="/project/project_portfolio">{{ get_translation('sidebar.projects.portfolio', 'Project Portfolio') }}</a></li>
+        <li><a class="nav-link {% if request.path == '/project/customer_projects' %}active{% endif %}" href="/project/customer_projects">{{ get_translation('sidebar.projects.customer_projects', 'Customer Projects') }}</a></li>
+        <li><a class="nav-link {% if request.path == '/project/product-tree' %}active{% endif %}" href="/project/product-tree">{{ get_translation('sidebar.projects.product_tree', 'Project Product Tree') }}</a></li>
+        <li><a class="nav-link {% if request.path == '/project/ms-project-integration' %}active{% endif %}" href="/project/ms-project-integration">{{ get_translation('sidebar.projects.ms_project', 'MS Project Integration') }}</a></li>
+    </ul>
+</li>
+
+      <!-- ==================== ENGINEERING (8 pages) ==================== -->
+      {% set is_engineering_expanded = active_menu == 'engineering' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_engineering_expanded %}active{% endif %}" href="#engineeringSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_engineering_expanded else 'false' }}">
+          <i class="fas fa-cogs" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.engineering.title', 'Engineering') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_engineering_expanded %}show{% endif %}" id="engineeringSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/engineering/parameters' %}active{% endif %}" href="/engineering/parameters">{{ get_translation('sidebar.engineering.parameters', 'Engineering Parameters') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/engineering/products' %}active{% endif %}" href="/engineering/products">{{ get_translation('sidebar.engineering.product_management', 'Product Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/engineering/bom' %}active{% endif %}" href="/engineering/bom">{{ get_translation('sidebar.engineering.bom', 'BOM Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/engineering/routings' %}active{% endif %}" href="/engineering/routings">{{ get_translation('sidebar.engineering.routings', 'Routings & Work Instructions') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/engineering/documents' %}active{% endif %}" href="/engineering/documents">{{ get_translation('sidebar.engineering.documents', 'Document Version Control') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/engineering/handover' %}active{% endif %}" href="/engineering/handover">{{ get_translation('sidebar.engineering.handover', 'Engineering Handover') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/engineering/eco' %}active{% endif %}" href="/engineering/eco">{{ get_translation('sidebar.engineering.eco', 'Engineering Change Order') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/engineering/product-categories' %}active{% endif %}" href="/engineering/product-categories">{{ get_translation('sidebar.engineering.product_categories', 'Product Categories') }}</a></li>
+        </ul>
+      </li>
+
+     
+	 
+	 
+	 <!-- ==================== SUPPLY CHAIN (6 pages) ==================== -->
+      {% set is_supply_chain_expanded = active_menu == 'supply_chain' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_supply_chain_expanded %}active{% endif %}" href="#supplyChainSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_supply_chain_expanded else 'false' }}">
+          <i class="fas fa-truck" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.supply_chain.title', 'Supply Chain') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_supply_chain_expanded %}show{% endif %}" id="supplyChainSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/supply-chain/purchase-orders' %}active{% endif %}" href="/supply-chain/purchase-orders">{{ get_translation('sidebar.supply_chain.purchase_orders', 'Purchase Orders') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/rfq' %}active{% endif %}" href="/supply-chain/rfq">{{ get_translation('sidebar.supply_chain.rfq', 'RFQ Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/suppliers' %}active{% endif %}" href="/supply-chain/suppliers">{{ get_translation('sidebar.supply_chain.suppliers', 'Supplier Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/stock-overview' %}active{% endif %}" href="/supply-chain/stock-overview">{{ get_translation('sidebar.supply_chain.stock_overview', 'Stock Overview') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/stock-movements' %}active{% endif %}" href="/supply-chain/stock-movements">{{ get_translation('sidebar.supply_chain.stock_movements', 'Stock Movements') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/inventory-valuation' %}active{% endif %}" href="/supply-chain/inventory-valuation">{{ get_translation('sidebar.supply_chain.inventory_valuation', 'Inventory Valuation') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/receiving' %}active{% endif %}" href="/supply-chain/receiving">{{ get_translation('sidebar.supply_chain.receiving', 'Receiving') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/shipping' %}active{% endif %}" href="/supply-chain/shipping">{{ get_translation('sidebar.supply_chain.shipping', 'Shipping') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/supply-chain/warehouses' %}active{% endif %}" href="/supply-chain/warehouses">{{ get_translation('sidebar.supply_chain.warehouses', 'Warehouse Management') }}</a></li>
+        </ul>
+      </li>
+
+      <!-- ==================== MANUFACTURING (8 pages) ==================== -->
+      {% set is_manufacturing_expanded = active_menu == 'manufacturing' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_manufacturing_expanded %}active{% endif %}" href="#manufacturingSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_manufacturing_expanded else 'false' }}">
+          <i class="fas fa-industry" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.manufacturing.title', 'Manufacturing') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_manufacturing_expanded %}show{% endif %}" id="manufacturingSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/manufacturing/job-orders' %}active{% endif %}" href="/manufacturing/job-orders">{{ get_translation('sidebar.manufacturing.job_orders', 'Job Orders') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/manufacturing/workstations' %}active{% endif %}" href="/manufacturing/workstations">{{ get_translation('sidebar.manufacturing.workstations', 'Workstations') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/manufacturing/machines' %}active{% endif %}" href="/manufacturing/machines">{{ get_translation('sidebar.manufacturing.machines', 'Machine Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/manufacturing/shop-floor' %}active{% endif %}" href="/manufacturing/shop-floor">{{ get_translation('sidebar.manufacturing.shop_floor', 'Shop Floor Control') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/manufacturing/load-board' %}active{% endif %}" href="/manufacturing/load-board">{{ get_translation('sidebar.manufacturing.load_board', 'Load Board') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/manufacturing/material-planning' %}active{% endif %}" href="/manufacturing/material-planning">{{ get_translation('sidebar.manufacturing.material_planning', 'Material Planning') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/manufacturing/subcontractors' %}active{% endif %}" href="/manufacturing/subcontractors">{{ get_translation('sidebar.manufacturing.subcontractors', 'Subcontractor Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/manufacturing/maintenance' %}active{% endif %}" href="/manufacturing/maintenance">{{ get_translation('sidebar.manufacturing.maintenance', 'Maintenance Management') }}</a></li>
+        </ul>
+      </li>
+
+      <!-- ==================== QUALITY (10 pages) ==================== -->
+      {% set is_quality_expanded = active_menu == 'quality' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_quality_expanded %}active{% endif %}" href="#qualitySubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_quality_expanded else 'false' }}">
+          <i class="fas fa-clipboard-check" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.quality.title', 'Quality') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_quality_expanded %}show{% endif %}" id="qualitySubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/quality/template/' %}active{% endif %}" href="/quality/template/">{{ get_translation('sidebar.quality.templates', 'Quality Templates') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/plan_assignment/' %}active{% endif %}" href="/quality/plan_assignment/">{{ get_translation('sidebar.quality.product_plans', 'Product Quality Plans') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/quality-plans/' %}active{% endif %}" href="/quality/quality-plans/">{{ get_translation('sidebar.quality.project_plans', 'Project Quality Plans') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/supplier-plans/' %}active{% endif %}" href="/quality/supplier-plans/">{{ get_translation('sidebar.quality.supplier_plans', 'Supplier Quality Plans') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/inspection-workbench/' %}active{% endif %}" href="/quality/inspection-workbench/">{{ get_translation('sidebar.quality.inspection_workbench', 'Inspection Workbench') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/ncr-register/' %}active{% endif %}" href="/quality/ncr-register/">{{ get_translation('sidebar.quality.ncr', 'NCR Register') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/capa/' %}active{% endif %}" href="/quality/capa/">{{ get_translation('sidebar.quality.capa', 'CAPA') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/certificates/' %}active{% endif %}" href="/quality/certificates/">{{ get_translation('sidebar.quality.certificates', 'Certificate Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/audit-management/' %}active{% endif %}" href="/quality/audit-management/">{{ get_translation('sidebar.quality.audits', 'Audit Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/quality/calibration-management/' %}active{% endif %}" href="/quality/calibration-management/">{{ get_translation('sidebar.quality.calibration', 'Calibration Management') }}</a></li>
+        </ul>
+      </li>
+
+      <!-- ==================== WORKFLOW (5 pages) ==================== -->
+      {% set is_workflow_expanded = active_menu == 'workflow' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_workflow_expanded %}active{% endif %}" href="#workflowSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_workflow_expanded else 'false' }}">
+          <i class="fas fa-sitemap" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.workflow.title', 'Workflow') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_workflow_expanded %}show{% endif %}" id="workflowSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/workflow/my-tasks' %}active{% endif %}" href="/workflow/my-tasks">{{ get_translation('sidebar.workflow.my_tasks', 'My Tasks') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/workflow/delivery' %}active{% endif %}" href="/workflow/delivery">{{ get_translation('sidebar.workflow.delivery', 'Delivery Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/workflow/service-requests' %}active{% endif %}" href="/workflow/service-requests">{{ get_translation('sidebar.workflow.service_requests', 'Service Requests') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/workflow/designer' %}active{% endif %}" href="/workflow/designer"><i class="fas fa-project-diagram me-1" style="font-size:0.8rem;"></i>{{ get_translation('sidebar.workflow.designer', 'Workflow Designer') }}</a></li>
+        </ul>
+      </li>
+
+      <!-- ==================== FINANCE (10 pages) ==================== -->
+      {% set is_finance_expanded = active_menu == 'finance' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_finance_expanded %}active{% endif %}" 
+           href="#financeSubmenu" data-bs-toggle="collapse" 
+           aria-expanded="{{ 'true' if is_finance_expanded else 'false' }}">
+          <i class="fas fa-coins" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.finance.title', 'Finance') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_finance_expanded %}show{% endif %}" 
+            id="financeSubmenu" style="padding-left: 20px;">
+          
+          <li class="text-muted small ps-2 mt-1">{{ get_translation('sidebar.finance.operational', 'Operational') }}</li>
+          <li><a class="nav-link {% if request.path == '/finance/job-costing' %}active{% endif %}" 
+                 href="/finance/job-costing">
+              <i class="fas fa-calculator me-1" style="font-size:0.8rem;"></i>
+              {{ get_translation('sidebar.finance.job_costing', 'Job Costing') }}
+          </a></li>
+          <li><a class="nav-link {% if request.path == '/finance/progress-certificates' %}active{% endif %}" 
+                 href="/finance/progress-certificates">
+              <i class="fas fa-file-invoice me-1" style="font-size:0.8rem;"></i>
+              {{ get_translation('sidebar.finance.progress_certificates', 'Progress Certificates') }}
+          </a></li>
+          <li><a class="nav-link {% if request.path == '/finance/supplier-invoices' %}active{% endif %}" 
+                 href="/finance/supplier-invoices">
+              <i class="fas fa-file-invoice-dollar me-1" style="font-size:0.8rem;"></i>
+              {{ get_translation('sidebar.finance.supplier_invoices', 'Supplier Invoices') }}
+          </a></li>
+          <li><a class="nav-link {% if request.path == '/finance/currencies' %}active{% endif %}" 
+                 href="/finance/currencies">
+              <i class="fas fa-dollar-sign me-1" style="font-size:0.8rem;"></i>
+              {{ get_translation('sidebar.finance.currencies', 'Currency Management') }}
+          </a></li>
+          
+          <li><hr class="dropdown-divider"></li>
+          <li class="text-muted small ps-2 mt-1">{{ get_translation('sidebar.finance.planning', 'Planning & Forecasting') }}</li>
+          
+          <li><a class="nav-link {% if request.path == '/finance/sales-forecast' %}active{% endif %}" 
+                 href="/finance/sales-forecast">
+              <i class="fas fa-chart-line me-1" style="font-size:0.8rem;"></i>
+              {{ get_translation('finance.sales_forecast.title', 'Sales Forecast') }}
+          </a></li>
+          
+          <li><a class="nav-link {% if request.path == '/finance/purchase-forecast' %}active{% endif %}" 
+                 href="/finance/purchase-forecast">
+              <i class="fas fa-shopping-cart me-1" style="font-size:0.8rem;"></i>
+              {{ get_translation('finance.purchase_forecast.title', 'Purchase Forecast') }}
+          </a></li>
+          
+          <li><a class="nav-link {% if request.path == '/finance/cash-flow/generate' %}active{% endif %}" 
+                 href="/finance/cash-flow/generate">
+              <i class="fas fa-plus-circle me-1" style="font-size:0.8rem; color:#28a745;"></i>
+              {{ get_translation('finance.cash_flow.generate', 'Generate Cash Flow') }}
+          </a></li>
+          
+          <li><a class="nav-link {% if request.path == '/finance/cash-flow' %}active{% endif %}" 
+                 href="/finance/cash-flow">
+              <i class="fas fa-list me-1" style="font-size:0.8rem;"></i>
+              {{ get_translation('finance.cash_flow.list', 'Cash Flow List') }}
+          </a></li>
+          
+          {% if request.path and request.path.startswith('/finance/cash-flow/') and request.path.endswith('/view') %}
+          <li>
+              <a class="nav-link active" href="{{ request.path }}" style="background: #17a2b8; color: white; border-radius: 4px; margin: 2px 0;">
+                  <i class="fas fa-file-invoice me-1"></i>
+                  {{ get_translation('finance.cash_flow.view.current', 'مشاهده جریان نقد') }}
+                  <span class="badge bg-light text-dark float-end" id="sidebarProjectionId">
+                      #{{ projection_id if projection_id else '...' }}
+                  </span>
+              </a>
+          </li>
+          {% endif %}
+        </ul>
+      </li>
+
+      <!-- ==================== HUMAN RESOURCES (4 pages) ==================== -->
+      {% set is_hr_expanded = active_menu == 'hr' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_hr_expanded %}active{% endif %}" href="#hrSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_hr_expanded else 'false' }}">
+          <i class="fas fa-user-tie" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.hr.title', 'Human Resources') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_hr_expanded %}show{% endif %}" id="hrSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/hr/employees' %}active{% endif %}" href="/hr/employees">{{ get_translation('sidebar.hr.employees', 'Employee Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/hr/skill-matrix' %}active{% endif %}" href="/hr/skill-matrix">{{ get_translation('sidebar.hr.skill_matrix', 'Skill Matrix') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/hr/training' %}active{% endif %}" href="/hr/training">{{ get_translation('sidebar.hr.training', 'Training Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/hr/work-schedule' %}active{% endif %}" href="/hr/work-schedule">{{ get_translation('sidebar.hr.work_schedule', 'Work Schedule') }}</a></li>
+        </ul>
+      </li>
+
+      <!-- ==================== ADMINISTRATION (4 pages) ==================== -->
+      {% set is_admin_expanded = active_menu == 'admin' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_admin_expanded %}active{% endif %}" href="#adminSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_admin_expanded else 'false' }}">
+          <i class="fas fa-user-shield" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.admin.title', 'Administration') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_admin_expanded %}show{% endif %}" id="adminSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/admin/users' %}active{% endif %}" href="/admin/users">{{ get_translation('sidebar.admin.users', 'Users & Roles') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/admin/system-config' %}active{% endif %}" href="/admin/system-config">{{ get_translation('sidebar.admin.system_config', 'System Configuration') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/admin/audit-log' %}active{% endif %}" href="/admin/audit-log">{{ get_translation('sidebar.admin.audit_log', 'Audit Log') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/admin/document-types' %}active{% endif %}" href="/admin/document-types">{{ get_translation('sidebar.admin.document_types', 'Document Types') }}</a></li>
+        </ul>
+      </li>
+
+      <!-- ==================== REPORTS (3 pages) ==================== -->
+      {% set is_reports_expanded = active_menu == 'reports' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_reports_expanded %}active{% endif %}" href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_reports_expanded else 'false' }}">
+          <i class="fas fa-chart-bar" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.reports.title', 'Reports') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_reports_expanded %}show{% endif %}" id="reportsSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/reports/operational' %}active{% endif %}" href="/reports/operational">{{ get_translation('sidebar.reports.operational', 'Operational Reports') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/reports/management' %}active{% endif %}" href="/reports/management">{{ get_translation('sidebar.reports.management', 'Management Reports') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/reports/supplier-performance' %}active{% endif %}" href="/reports/supplier-performance">{{ get_translation('sidebar.reports.supplier_performance', 'Supplier Performance') }}</a></li>
+        </ul>
+      </li>
+
+      <!-- ==================== DASHBOARD (3 pages) ==================== -->
+      {% set is_dashboard_expanded = active_menu == 'dashboard' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_dashboard_expanded %}active{% endif %}" href="#dashboardSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_dashboard_expanded else 'false' }}">
+          <i class="fas fa-chart-pie" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.dashboard.submenu', 'Dashboards') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_dashboard_expanded %}show{% endif %}" id="dashboardSubmenu" style="padding-left: 20px;">
+          <li>
+            <a class="nav-link {% if request.path == '/dashboard/executive_dashboard' %}active{% endif %}" href="/dashboard/executive_dashboard">
+              <i class="fas fa-tachometer-alt" style="margin-left: 20px; margin-right: 8px;"></i>
+              {{ get_translation('sidebar.dashboard.executive', 'Executive Dashboard') }}
+            </a>
+          </li>
+          <li>
+            <a class="nav-link {% if request.path == '/dashboard/shop-floor-dashboard' %}active{% endif %}" href="/dashboard/shop-floor-dashboard">
+              <i class="fas fa-industry" style="margin-left: 20px; margin-right: 8px;"></i>
+              {{ get_translation('sidebar.dashboard.shop_floor', 'Shop Floor Dashboard') }}
+            </a>
+          </li>
+          <li>
+            <a class="nav-link {% if request.path == '/dashboard/project-dashboard' %}active{% endif %}" href="/dashboard/project-dashboard">
+              <i class="fas fa-project-diagram" style="margin-left: 20px; margin-right: 8px;"></i>
+              {{ get_translation('sidebar.dashboard.project', 'Project Dashboard') }}
+            </a>
+          </li>
+        </ul>
+      </li>
+
+    </ul>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions" style="margin-top: 20px; padding: 15px;">
+      <h6 style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">
+        {{ get_translation('sidebar.quick_actions.title', 'Quick Actions') }}
+      </h6>
+      <div>
+        <button class="btn btn-sm btn-warning" onclick="location.href='/workflow/my-tasks'" style="width: 100%; color: white; border: 1px solid rgba(255,255,255,0.3);">
+          <i class="fas fa-tasks" style="margin-right: 5px;"></i> 
+          {{ get_translation('sidebar.quick_actions.my_tasks', 'My Tasks') }}
+          {% if workflow_task_count > 0 %}
+          <span class="badge" style="background-color: #dc3545; margin-left: 5px;">{{ workflow_task_count }}</span>
+          {% endif %}
+        </button>
+      </div>
+    </div>
+
+    <!-- System Status -->
+    <div class="system-status" style="margin-top: 20px; padding: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+      <h6 style="color: rgba(255,255,255,0.7); margin-bottom: 10px;">
+        {{ get_translation('sidebar.system_status.title', 'System Status') }}
+      </h6>
+      <div style="display: flex; align-items: center;">
+        <div style="margin-right: 8px;">
+          <i class="fas fa-circle" style="color: #28a745;"></i>
+        </div>
+        <div>
+          <small>{{ get_translation('sidebar.system_status.operational', 'Operational') }}</small>
+        </div>
+      </div>
+      <div style="margin-top: 8px;">
+        <small style="color: rgba(255,255,255,0.7);">
+          <i class="fas fa-clock" style="margin-right: 5px;"></i>
+          {{ get_translation('sidebar.system_status.last_updated', 'Last Updated') }} 
+          <span id="currentTime">{{ current_time }}</span>
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// SIDEBAR JAVASCRIPT - INDUSTRY SWITCHER & LANGUAGE SWITCHER
+// ============================================================================
+
+// Define switchIndustry globally
+window.switchIndustry = function(industry) {
+    console.log('🔄 Switching to industry:', industry);
+    
+    var btn = document.getElementById('industryDropdownBtn');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
+        btn.disabled = true;
+    }
+    
+    fetch('/api/set-demo-industry', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ industry: industry })
+    })
+    .then(function(response) {
+        console.log('📊 Response status:', response.status);
+        if (!response.ok) {
+            throw new Error('HTTP error ' + response.status);
+        }
+        return response.json();
+    })
+    .then(function(data) {
+        console.log('✅ Industry switch response:', data);
+        if (data.status === 'ok') {
+            window.location.href = window.location.pathname + '?t=' + Date.now();
+        } else {
+            throw new Error(data.message || 'Unknown error');
+        }
+    })
+    .catch(function(error) {
+        console.error('❌ Error switching industry:', error);
+        alert('Failed to switch industry: ' + error.message);
+        if (btn) {
+            btn.innerHTML = 'Industry: ' + document.getElementById('currentIndustryDisplay').textContent;
+            btn.disabled = false;
+        }
+    });
+};
+
+// ============================================================================
+// LANGUAGE SWITCHER - Calls the existing server route directly
+// ============================================================================
+
+window.switchLanguage = function(lang) {
+    console.log('🔄 Switching language to:', lang);
+    
+    var buttons = document.querySelectorAll('.language-switcher .btn');
+    buttons.forEach(function(btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    });
+    
+    // Call the existing server route directly
+    window.location.href = '/switch_language/' + lang;
+};
+
+// ============================================================================
+// MENU HIGHLIGHTING + OTHER JQUERY-DEPENDENT UI (kept as-is)
+// ============================================================================
+
+$(document).ready(function() {
+    console.log('Sidebar JS loaded');
+    console.log('Current industry:', '{{ demo_industry }}');
+    console.log('Current language:', '{{ lang }}');
+
+    // NOTE: The project selector handler has been moved to the pure-JS block
+    // at the bottom of this file. Do not re-add a jQuery handler here.
+
+    // ===== MENU HIGHLIGHTING =====
+    function highlightCurrentMenu() {
+        var currentPath = window.location.pathname;
+        $('.sidebar-menu .nav-link.active').removeClass('active');
+        
+        $('.sidebar-menu .nav-link[href]').each(function() {
+            var $link = $(this);
+            var linkUrl = $link.attr('href');
+            if (!linkUrl || linkUrl === '#') return;
+            
+            if (linkUrl === currentPath || (linkUrl !== '/' && currentPath.indexOf(linkUrl) === 0 && linkUrl.length > 1)) {
+                $link.addClass('active');
+                return false;
+            }
+        });
+    }
+    
+    setTimeout(highlightCurrentMenu, 200);
+    setTimeout(highlightCurrentMenu, 500);
+    setTimeout(highlightCurrentMenu, 1000);
+    
+    console.log('Sidebar initialized with industry:', '{{ demo_industry }}');
+    console.log('switchIndustry function available:', typeof window.switchIndustry);
+    console.log('switchLanguage function available:', typeof window.switchLanguage);
+});
+</script>
+
+<script>
+// ============================================================================
+// PURE-JS PROJECT SELECTOR HANDLER — no jQuery, no dependencies
+// Placed at the very bottom of sidebar.html so #projectSelector is guaranteed
+// to exist in the DOM by the time this runs.
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('===== SIDEBAR INIT =====');
+
+    var projectSelector = document.getElementById('projectSelector');
+
+    if (!projectSelector) {
+        console.warn('⚠️ #projectSelector not found');
+        return;
+    }
+
+    console.log('✅ #projectSelector found. Attaching change handler.');
+
+    projectSelector.addEventListener('change', function() {
+        var projectId = this.value;
+
+        // Handle array (legacy multi-select)
+        if (Array.isArray(projectId)) {
+            projectId = projectId.length > 0 ? projectId[0] : 'All';
+        }
+
+        console.log('🔵 Project changed to:', projectId);
+
+        fetch('/api/set-current-project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ project_id: projectId })
+        })
+        .then(function(r) {
+            console.log('📡 POST status:', r.status);
+            return r.json();
+        })
+        .then(function(res) {
+            console.log('✅ Session set:', res);
+            window.location.href = window.location.pathname + '?t=' + Date.now();
+        })
+        .catch(function(err) {
+            console.error('❌ Failed:', err);
+            alert('Failed to set project: ' + err.message);
+        });
+    });
+
+    console.log('✅ Handler attached successfully.');
+});
+</script>
