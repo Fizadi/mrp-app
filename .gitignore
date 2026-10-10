@@ -26,3 +26,4 @@ static/documents/generated/
 !.env.example
 docs/AI API.txt
 *.save.*
+docs/GitHub Token.txt
