@@ -27,3 +27,7 @@ static/documents/generated/
 docs/AI API.txt
 *.save.*
 docs/GitHub Token.txt
+*Token*
+*token*
+*Key*.txt
+*key*.txt
