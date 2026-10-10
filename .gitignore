@@ -24,3 +24,5 @@ static/documents/generated/
 static/documents/generated/
 !.env.example
 !.env.example
+docs/AI API.txt
+*.save.*
