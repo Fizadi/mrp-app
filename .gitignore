@@ -22,3 +22,5 @@ docs/Git Token.txt
 docs/*Token*
 static/documents/generated/
 static/documents/generated/
+!.env.example
+!.env.example
