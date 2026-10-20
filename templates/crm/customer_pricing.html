@@ -1,76 +1,183 @@
 {% extends "base.html" %}
 
-{% block title %}Customer Pricing Overrides{% endblock %}
+{% block title %}{{ get_translation('crm.customer_pricing.title', 'Customer Pricing Overrides') }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-2 px-md-3">
-    <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
-        <h2>Customer Pricing Overrides</h2>
-        <button class="btn btn-primary" id="refreshBtn" onclick="loadData()">Refresh</button>
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 mb-3 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-tags me-2"></i>{{ get_translation('crm.customer_pricing.title', 'Customer Pricing Overrides') }}
+            <span class="badge bg-secondary ms-2" id="overridesCount">0</span>
+        </h2>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
+            </button>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <label class="form-label">{{ get_translation('global.search', 'Search') }}</label>
+                    <input class="form-control" id="filterSearch"
+                           placeholder="{{ get_translation('crm.customer_pricing.search_hint', 'Customer, product, reason...') }}"
+                           type="text"/>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="card">
         <div class="card-header">
-            <h5>Price Overrides</h5>
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list me-2"></i>{{ get_translation('crm.customer_pricing.list_title', 'Price Overrides') }}
+            </h5>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-bordered mb-0">
-                    <thead class="table-dark">
+            <div class="table-responsive" style="max-height:70vh; overflow-y:auto;">
+                <table class="table table-hover table-striped mb-0 table-sticky-dark" id="overridesTable">
+                    <thead>
                         <tr>
-                            <th>Customer</th>
-                            <th>Product</th>
-                            <th>Override Price</th>
-                            <th>Min Qty</th>
-                            <th>Valid Period</th>
-                            <th>Reason</th>
+                            <th>{{ get_translation('crm.customer_pricing.customer', 'Customer') }}</th>
+                            <th>{{ get_translation('crm.customer_pricing.product', 'Product') }}</th>
+                            <th>{{ get_translation('crm.customer_pricing.override_price', 'Override Price') }}</th>
+                            <th>{{ get_translation('crm.customer_pricing.min_qty', 'Min Qty') }}</th>
+                            <th>{{ get_translation('crm.customer_pricing.valid_from', 'Valid From') }}</th>
+                            <th>{{ get_translation('crm.customer_pricing.valid_to', 'Valid To') }}</th>
+                            <th>{{ get_translation('crm.customer_pricing.reason', 'Reason') }}</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
-                        <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                        <tr><td colspan="7" class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
+// ============================================================================
+// 1. STATE — TOP LEVEL
+// ============================================================================
+var allOverrides = [];
+
+// ============================================================================
+// 2. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+function el(id) { return document.getElementById(id); }
+
+// ============================================================================
+// 3. LOADERS — TOP LEVEL, fetch() only
+// ============================================================================
 function loadData() {
-    fetch('/api/crm/customer-pricing')
-        .then(response => response.json())
-        .then(data => {
-            var tbody = document.getElementById('tableBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No data found</td></tr>';
-                return;
-            }
-            
-            var html = '';
-            for (var i = 0; i < data.length; i++) {
-                var item = data[i];
-                var fromDate = item.valid_from_date_key ? 
-                    String(item.valid_from_date_key).slice(0,4) + '-' + String(item.valid_from_date_key).slice(4,6) + '-' + String(item.valid_from_date_key).slice(6,8) : 'Any';
-                var toDate = item.valid_to_date_key ? 
-                    String(item.valid_to_date_key).slice(0,4) + '-' + String(item.valid_to_date_key).slice(4,6) + '-' + String(item.valid_to_date_key).slice(6,8) : 'Any';
-                
-                html += '<tr>' +
-                    '<td>' + (item.customer_name || item.customer_id) + '</td>' +
-                    '<td>' + (item.product_id || '') + (item.product_name ? ' - ' + item.product_name : '') + '</td>' +
-                    '<td>$' + (item.override_price || 0).toLocaleString() + '</td>' +
-                    '<td>' + (item.min_order_qty || 1) + '</td>' +
-                    '<td>' + fromDate + ' → ' + toDate + '</td>' +
-                    '<td>' + (item.reason || '') + '</td>' +
-                '</tr>';
-            }
-            tbody.innerHTML = html;
+    var tbody = el('tableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">' +
+        escapeHtml(t('global.loading', 'Loading...')) + '</td></tr>';
+
+    fetch('/api/crm/customer-pricing', { credentials: 'same-origin' })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
         })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading data</td></tr>';
+        .then(function (data) {
+            allOverrides = data || [];
+            render();
+        })
+        .catch(function (err) {
+            console.error('load overrides failed:', err);
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">' +
+                escapeHtml(t('global.error_loading', 'Error loading data')) + '</td></tr>';
         });
 }
 
-loadData();
+function render() {
+    var tbody = el('tableBody');
+    if (!tbody) return;
+
+    var search = ((el('filterSearch') || {}).value || '').toLowerCase();
+    var filtered = allOverrides.filter(function (o) {
+        if (!search) return true;
+        return (o.customer_name || '').toLowerCase().indexOf(search) !== -1
+            || (o.product_name || '').toLowerCase().indexOf(search) !== -1
+            || (o.reason || '').toLowerCase().indexOf(search) !== -1;
+    });
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">' +
+            escapeHtml(t('crm.customer_pricing.no_data', 'No price overrides found')) + '</td></tr>';
+        var cnt = el('overridesCount'); if (cnt) cnt.textContent = 0;
+        return;
+    }
+
+    var html = '';
+    filtered.forEach(function (o) {
+        // Dates: ALWAYS use formatted twin from server
+        var fromDisplay = o.valid_from_date_formatted || t('crm.customer_pricing.any', 'Any');
+        var toDisplay   = o.valid_to_date_formatted   || t('crm.customer_pricing.any', 'Any');
+
+        var priceDisplay = '$' + Number(o.override_price || 0).toLocaleString();
+        if (o.currency && o.currency !== 'USD') {
+            priceDisplay = Number(o.override_price || 0).toLocaleString() + ' ' + o.currency;
+        }
+
+        html += '<tr>' +
+            '<td>' + escapeHtml(o.customer_name || o.customer_id || '') + '</td>' +
+            '<td>' +
+                escapeHtml(o.product_id || '') +
+                (o.product_name ? ' — ' + escapeHtml(o.product_name) : '') +
+            '</td>' +
+            '<td>' + escapeHtml(priceDisplay) + '</td>' +
+            '<td>' + escapeHtml(String(o.min_order_qty || 1)) + '</td>' +
+            '<td>' + escapeHtml(fromDisplay) + '</td>' +
+            '<td>' + escapeHtml(toDisplay) + '</td>' +
+            '<td>' + escapeHtml(o.reason || '') + '</td>' +
+        '</tr>';
+    });
+    tbody.innerHTML = html;
+    var cnt = el('overridesCount'); if (cnt) cnt.textContent = filtered.length;
+}
+
+// ============================================================================
+// 4. INIT — ONLY init + event binding
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('CRM customer pricing page loaded | lang:', window.currentLanguage);
+
+    loadData();
+
+    var rb = el('refreshBtn');
+    if (rb) rb.addEventListener('click', loadData);
+
+    var searchEl = el('filterSearch');
+    if (searchEl) {
+        var timer = null;
+        searchEl.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(render, 250);
+        });
+    }
+});
 </script>
 {% endblock %}

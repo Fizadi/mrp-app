@@ -237,7 +237,7 @@ function renderQuotes() {
             '<td>$' + Number(q.total_amount || 0).toLocaleString() + '</td>' +
             '<td><span class="badge ' + statusCls + '">' + escapeHtml(statusLabel(q.status)) + '</span></td>' +
             '<td>' + oppCell + '</td>' +
-            '<td>Rev. ' + (q.revision || 1) + '</td>' +
+            '<td>' + escapeHtml(t('crm.quotes.revision', 'Rev')) + ' ' + escapeHtml(String(q.revision || 1)) + '</td>' +
             '<td>' + escapeHtml(validUntil) + '</td>' +
             '<td>' + escapeHtml(q.created_by_name || '') + '</td>' +
             '<td>' + actions + '</td>' +

@@ -6,11 +6,11 @@
 <div class="container-fluid px-2 px-md-3">
 
     <!-- Header -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start mt-3 mb-3 gap-2">
+    <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-start mt-3 mb-3 gap-2">
         <div>
             <h2 id="pageTitle" class="mb-1">
                 {{ get_translation('crm.opportunity.detail.title', 'Opportunity Detail') }}:
-                <span id="oppNameSpan">Loading...</span>
+                <span id="oppNameSpan">{{ get_translation('global.loading', 'Loading...') }}</span>
             </h2>
             <div id="oppSubline" class="text-muted"></div>
         </div>
@@ -209,9 +209,9 @@
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.task.priority', 'Priority') }}</label>
                         <select class="form-select" id="taskPriority">
-                            <option value="Low">Low</option>
-                            <option value="Medium" selected>Medium</option>
-                            <option value="High">High</option>
+                            <option value="Low">{{ get_translation('crm.priority.low', 'Low') }}</option>
+                            <option value="Medium" selected>{{ get_translation('crm.priority.medium', 'Medium') }}</option>
+                            <option value="High">{{ get_translation('crm.priority.high', 'High') }}</option>
                         </select>
                     </div>
                 </div>
@@ -247,19 +247,19 @@
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.contact.role', 'Role on Deal') }}</label>
                         <select class="form-select" id="linkContactRole">
-                            <option value="DecisionMaker">Decision Maker</option>
-                            <option value="Influencer">Influencer</option>
-                            <option value="Champion">Champion</option>
-                            <option value="Blocker">Blocker</option>
-                            <option value="Technical">Technical</option>
-                            <option value="Procurement">Procurement</option>
+                            <option value="DecisionMaker">{{ get_translation('crm.contact.role.decision_maker', 'Decision Maker') }}</option>
+                            <option value="Influencer">{{ get_translation('crm.contact.role.influencer', 'Influencer') }}</option>
+                            <option value="Champion">{{ get_translation('crm.contact.role.champion', 'Champion') }}</option>
+                            <option value="Blocker">{{ get_translation('crm.contact.role.blocker', 'Blocker') }}</option>
+                            <option value="Technical">{{ get_translation('crm.contact.role.technical', 'Technical') }}</option>
+                            <option value="Procurement">{{ get_translation('crm.contact.role.procurement', 'Procurement') }}</option>
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.contact.primary', 'Primary Contact?') }}</label>
                         <select class="form-select" id="linkContactPrimary">
-                            <option value="0">No</option>
-                            <option value="1">Yes</option>
+                            <option value="0">{{ get_translation('global.no', 'No') }}</option>
+                            <option value="1">{{ get_translation('global.yes', 'Yes') }}</option>
                         </select>
                     </div>
                 </div>
@@ -284,10 +284,10 @@
                 <div class="mb-2">
                     <label class="form-label">{{ get_translation('crm.activity.type', 'Type') }}</label>
                     <select class="form-select" id="activityType">
-                        <option value="Call">Call</option>
-                        <option value="Meeting">Meeting</option>
-                        <option value="Email">Email</option>
-                        <option value="Note">Note</option>
+                        <option value="Call">{{ get_translation('crm.activity.call', 'Call') }}</option>
+                        <option value="Meeting">{{ get_translation('crm.activity.meeting', 'Meeting') }}</option>
+                        <option value="Email">{{ get_translation('crm.activity.email', 'Email') }}</option>
+                        <option value="Note">{{ get_translation('crm.activity.note', 'Note') }}</option>
                     </select>
                 </div>
                 <div class="mb-2">
@@ -326,24 +326,24 @@
             <div class="modal-body">
                 <div class="mb-2">
                     <label class="form-label">{{ get_translation('crm.document.name', 'Document Name') }} *</label>
-                    <input class="form-control" id="docName" placeholder="e.g., Offer_2026-09-24.pdf">
+                    <input class="form-control" id="docName" placeholder="{{ get_translation('crm.document.name_hint', 'e.g., Offer_2026-09-24.pdf') }}">
                 </div>
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.document.type', 'Type') }}</label>
                         <select class="form-select" id="docType">
-                            <option value="Offer">Offer</option>
-                            <option value="Drawing">Drawing</option>
-                            <option value="Spec">Spec</option>
-                            <option value="Contract">Contract</option>
-                            <option value="Other">Other</option>
+                            <option value="Offer">{{ get_translation('crm.document.type.offer', 'Offer') }}</option>
+                            <option value="Drawing">{{ get_translation('crm.document.type.drawing', 'Drawing') }}</option>
+                            <option value="Spec">{{ get_translation('crm.document.type.spec', 'Spec') }}</option>
+                            <option value="Contract">{{ get_translation('crm.document.type.contract', 'Contract') }}</option>
+                            <option value="Other">{{ get_translation('crm.document.type.other', 'Other') }}</option>
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.document.direction', 'Direction') }}</label>
                         <select class="form-select" id="docDirection">
-                            <option value="Sent">Sent</option>
-                            <option value="Received">Received</option>
+                            <option value="Sent">{{ get_translation('crm.document.direction.sent', 'Sent') }}</option>
+                            <option value="Received">{{ get_translation('crm.document.direction.received', 'Received') }}</option>
                         </select>
                     </div>
                 </div>
@@ -351,26 +351,26 @@
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.document.channel', 'Channel') }}</label>
                         <select class="form-select" id="docChannel">
-                            <option value="Email">Email</option>
-                            <option value="WhatsApp">WhatsApp</option>
-                            <option value="Telegram">Telegram</option>
-                            <option value="Bale">Bale</option>
-                            <option value="InPerson">In Person</option>
+                            <option value="Email">{{ get_translation('crm.document.channel.email', 'Email') }}</option>
+                            <option value="WhatsApp">{{ get_translation('crm.document.channel.whatsapp', 'WhatsApp') }}</option>
+                            <option value="Telegram">{{ get_translation('crm.document.channel.telegram', 'Telegram') }}</option>
+                            <option value="Bale">{{ get_translation('crm.document.channel.bale', 'Bale') }}</option>
+                            <option value="InPerson">{{ get_translation('crm.document.channel.in_person', 'In Person') }}</option>
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.document.storage', 'Storage Type') }}</label>
                         <select class="form-select" id="docStorage">
-                            <option value="URL">URL</option>
-                            <option value="LocalPath">Local Path</option>
-                            <option value="SharedDrive">Shared Drive</option>
-                            <option value="EmailAttachment">Email Attachment</option>
+                            <option value="URL">{{ get_translation('crm.document.storage.url', 'URL') }}</option>
+                            <option value="LocalPath">{{ get_translation('crm.document.storage.local_path', 'Local Path') }}</option>
+                            <option value="SharedDrive">{{ get_translation('crm.document.storage.shared_drive', 'Shared Drive') }}</option>
+                            <option value="EmailAttachment">{{ get_translation('crm.document.storage.email_attachment', 'Email Attachment') }}</option>
                         </select>
                     </div>
                 </div>
                 <div class="mb-2 mt-2">
                     <label class="form-label">{{ get_translation('crm.document.location', 'Link / Path') }} *</label>
-                    <input class="form-control" id="docLocation" placeholder="https://... or \\server\share\...">
+                    <input class="form-control" id="docLocation" placeholder="{{ get_translation('crm.document.location_hint', 'https://... or \\\\server\\share\\...') }}">
                 </div>
                 <div class="mb-2">
                     <label class="form-label">{{ get_translation('crm.document.notes', 'Notes') }}</label>
@@ -397,32 +397,32 @@
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.phone.number', 'Phone Number') }} *</label>
-                        <input class="form-control" id="phoneNumber" placeholder="e.g., 22334567">
+                        <input class="form-control" id="phoneNumber" placeholder="{{ get_translation('crm.phone.number_hint', 'e.g., 22334567') }}">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.phone.range_end', 'Range End (optional)') }}</label>
-                        <input class="form-control" id="phoneRangeEnd" placeholder="e.g., 22334569">
+                        <input class="form-control" id="phoneRangeEnd" placeholder="{{ get_translation('crm.phone.range_end_hint', 'e.g., 22334569') }}">
                     </div>
                 </div>
                 <div class="row g-2 mt-1">
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.phone.type', 'Type') }}</label>
                         <select class="form-select" id="phoneType">
-                            <option value="Main">Main</option>
-                            <option value="Sales">Sales</option>
-                            <option value="Support">Support</option>
-                            <option value="Fax">Fax</option>
-                            <option value="CompanyMobile">Company Mobile</option>
+                            <option value="Main">{{ get_translation('crm.phone.type.main', 'Main') }}</option>
+                            <option value="Sales">{{ get_translation('crm.phone.type.sales', 'Sales') }}</option>
+                            <option value="Support">{{ get_translation('crm.phone.type.support', 'Support') }}</option>
+                            <option value="Fax">{{ get_translation('crm.phone.type.fax', 'Fax') }}</option>
+                            <option value="CompanyMobile">{{ get_translation('crm.phone.type.company_mobile', 'Company Mobile') }}</option>
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.phone.extension', 'Extension (optional)') }}</label>
-                        <input class="form-control" id="phoneExt" placeholder="e.g., 114">
+                        <input class="form-control" id="phoneExt" placeholder="{{ get_translation('crm.phone.extension_hint', 'e.g., 114') }}">
                     </div>
                 </div>
                 <div class="mt-2">
                     <label class="form-label">{{ get_translation('crm.phone.label', 'Label') }}</label>
-                    <input class="form-control" id="phoneLabel" placeholder="e.g., Switchboard">
+                    <input class="form-control" id="phoneLabel" placeholder="{{ get_translation('crm.phone.label_hint', 'e.g., Switchboard') }}">
                 </div>
                 <div class="form-check mt-2">
                     <input class="form-check-input" type="checkbox" id="phonePrimary">
@@ -451,19 +451,19 @@
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.channel.type', 'Type') }}</label>
                         <select class="form-select" id="channelType">
-                            <option value="Mobile">Mobile</option>
-                            <option value="DirectPhone">Direct Phone</option>
-                            <option value="Email">Email</option>
-                            <option value="WhatsApp">WhatsApp</option>
-                            <option value="Telegram">Telegram</option>
-                            <option value="Bale">Bale</option>
-                            <option value="LinkedIn">LinkedIn</option>
-                            <option value="Other">Other</option>
+                            <option value="Mobile">{{ get_translation('crm.channel.type.mobile', 'Mobile') }}</option>
+                            <option value="DirectPhone">{{ get_translation('crm.channel.type.direct_phone', 'Direct Phone') }}</option>
+                            <option value="Email">{{ get_translation('crm.channel.type.email', 'Email') }}</option>
+                            <option value="WhatsApp">{{ get_translation('crm.channel.type.whatsapp', 'WhatsApp') }}</option>
+                            <option value="Telegram">{{ get_translation('crm.channel.type.telegram', 'Telegram') }}</option>
+                            <option value="Bale">{{ get_translation('crm.channel.type.bale', 'Bale') }}</option>
+                            <option value="LinkedIn">{{ get_translation('crm.channel.type.linkedin', 'LinkedIn') }}</option>
+                            <option value="Other">{{ get_translation('crm.channel.type.other', 'Other') }}</option>
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ get_translation('crm.channel.value', 'Value') }} *</label>
-                        <input class="form-control" id="channelValue" placeholder="e.g., 0937...">
+                        <input class="form-control" id="channelValue" placeholder="{{ get_translation('crm.channel.value_hint', 'e.g., 0937...') }}">
                     </div>
                 </div>
                 <div class="row g-2 mt-1">
@@ -494,15 +494,342 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
+// ============================================================================
+// 1. SERVER-INJECTED TRANSLATIONS — TOP LEVEL
+// ============================================================================
+var trans = {
+    // Global
+    loading:                 {{ get_translation('global.loading', 'Loading...')|tojson }},
+    back:                    {{ get_translation('global.back', 'Back')|tojson }},
+    cancel:                  {{ get_translation('global.cancel', 'Cancel')|tojson }},
+    save:                    {{ get_translation('global.save', 'Save')|tojson }},
+    select:                  {{ get_translation('global.select', 'Select')|tojson }},
+    yes:                     {{ get_translation('global.yes', 'Yes')|tojson }},
+    no:                      {{ get_translation('global.no', 'No')|tojson }},
+    delete:                  {{ get_translation('global.delete', 'Delete')|tojson }},
+    view:                    {{ get_translation('global.view', 'View')|tojson }},
+    edit:                    {{ get_translation('global.edit', 'Edit')|tojson }},
+
+    // Page titles / tabs
+    'crm.opportunity.detail.title': {{ get_translation('crm.opportunity.detail.title', 'Opportunity Detail')|tojson }},
+    'crm.opportunity.tab.summary':   {{ get_translation('crm.opportunity.tab.summary', 'Summary')|tojson }},
+    'crm.opportunity.tab.activities': {{ get_translation('crm.opportunity.tab.activities', 'Activities')|tojson }},
+    'crm.opportunity.tab.contacts':  {{ get_translation('crm.opportunity.tab.contacts', 'Contacts')|tojson }},
+    'crm.opportunity.tab.documents': {{ get_translation('crm.opportunity.tab.documents', 'Documents')|tojson }},
+    'crm.opportunity.tab.tasks':     {{ get_translation('crm.opportunity.tab.tasks', 'Tasks')|tojson }},
+
+    // Buttons
+    'crm.opportunities.btn.log_activity': {{ get_translation('crm.opportunities.btn.log_activity', 'Log Activity')|tojson }},
+    'crm.opportunity.add_activity':  {{ get_translation('crm.opportunity.add_activity', 'Add Activity')|tojson }},
+    'crm.opportunity.link_contact':  {{ get_translation('crm.opportunity.link_contact', 'Link Contact')|tojson }},
+    'crm.opportunity.add_document':  {{ get_translation('crm.opportunity.add_document', 'Add Document')|tojson }},
+    'crm.opportunity.add_task':      {{ get_translation('crm.opportunity.add_task', 'Add Task')|tojson }},
+    'crm.phone.add':                 {{ get_translation('crm.phone.add', 'Add Phone')|tojson }},
+
+    // Summary card labels
+    value:       {{ get_translation('crm.opportunity.value', 'Value')|tojson }},
+    probability: {{ get_translation('crm.opportunity.probability', 'Probability')|tojson }},
+    stage:       {{ get_translation('crm.opportunities.table.stage', 'Stage')|tojson }},
+    status:      {{ get_translation('global.status', 'Status')|tojson }},
+
+    // Summary table row labels
+    'crm.opportunity.field.name':            {{ get_translation('crm.opportunity.field.name', 'Name')|tojson }},
+    'crm.opportunity.field.customer':        {{ get_translation('crm.opportunity.field.customer', 'Customer')|tojson }},
+    'crm.opportunity.field.expected_close':  {{ get_translation('crm.opportunity.field.expected_close', 'Expected Close')|tojson }},
+    'crm.opportunity.field.contact_person':  {{ get_translation('crm.opportunity.field.contact_person', 'Contact Person')|tojson }},
+    'crm.opportunity.field.contact_email':   {{ get_translation('crm.opportunity.field.contact_email', 'Contact Email')|tojson }},
+    'crm.opportunity.field.contact_phone':   {{ get_translation('crm.opportunity.field.contact_phone', 'Contact Phone')|tojson }},
+    'crm.opportunity.field.win_loss_reason': {{ get_translation('crm.opportunity.field.win_loss_reason', 'Win/Loss Reason')|tojson }},
+    'crm.opportunity.field.notes':           {{ get_translation('crm.opportunity.field.notes', 'Notes')|tojson }},
+
+    // Activity modal
+    'crm.activity.type':     {{ get_translation('crm.activity.type', 'Type')|tojson }},
+    'crm.activity.subject':  {{ get_translation('crm.activity.subject', 'Subject')|tojson }},
+    'crm.activity.date':     {{ get_translation('crm.activity.date', 'Activity Date')|tojson }},
+    'crm.activity.notes':    {{ get_translation('crm.activity.notes', 'Notes')|tojson }},
+    'crm.activity.reminder': {{ get_translation('crm.activity.reminder', 'Reminder Date')|tojson }},
+
+    // Task modal
+    'crm.task.subject':  {{ get_translation('crm.task.subject', 'Subject')|tojson }},
+    'crm.task.notes':    {{ get_translation('crm.task.notes', 'Notes')|tojson }},
+    'crm.task.due':      {{ get_translation('crm.task.due', 'Due Date')|tojson }},
+    'crm.task.priority': {{ get_translation('crm.task.priority', 'Priority')|tojson }},
+
+    // Contact modal
+    'crm.contact.search':        {{ get_translation('crm.contact.search', 'Search Contacts')|tojson }},
+    'crm.contact.select':        {{ get_translation('crm.contact.select', 'Select Contact')|tojson }},
+    'crm.contact.role':          {{ get_translation('crm.contact.role', 'Role on Deal')|tojson }},
+    'crm.contact.primary':       {{ get_translation('crm.contact.primary', 'Primary Contact?')|tojson }},
+    'crm.contact.primary_badge': {{ get_translation('crm.contact.primary_badge', 'Primary')|tojson }},
+
+    // Document modal
+    'crm.document.name':       {{ get_translation('crm.document.name', 'Document Name')|tojson }},
+    'crm.document.type':       {{ get_translation('crm.document.type', 'Type')|tojson }},
+    'crm.document.direction':  {{ get_translation('crm.document.direction', 'Direction')|tojson }},
+    'crm.document.channel':    {{ get_translation('crm.document.channel', 'Channel')|tojson }},
+    'crm.document.storage':    {{ get_translation('crm.document.storage', 'Storage Type')|tojson }},
+    'crm.document.location':   {{ get_translation('crm.document.location', 'Link / Path')|tojson }},
+    'crm.document.notes':      {{ get_translation('crm.document.notes', 'Notes')|tojson }},
+
+    // Phone modal
+    'crm.phone.number':       {{ get_translation('crm.phone.number', 'Phone Number')|tojson }},
+    'crm.phone.range_end':    {{ get_translation('crm.phone.range_end', 'Range End (optional)')|tojson }},
+    'crm.phone.type':         {{ get_translation('crm.phone.type', 'Type')|tojson }},
+    'crm.phone.extension':    {{ get_translation('crm.phone.extension', 'Extension (optional)')|tojson }},
+    'crm.phone.label':        {{ get_translation('crm.phone.label', 'Label')|tojson }},
+    'crm.phone.primary':      {{ get_translation('crm.phone.primary', 'Primary phone')|tojson }},
+
+    // Channel modal
+    'crm.channel.type':       {{ get_translation('crm.channel.type', 'Type')|tojson }},
+    'crm.channel.value':      {{ get_translation('crm.channel.value', 'Value')|tojson }},
+    'crm.channel.extension':  {{ get_translation('crm.channel.extension', 'Extension (optional)')|tojson }},
+    'crm.channel.label':      {{ get_translation('crm.channel.label', 'Label')|tojson }},
+    'crm.channel.primary':    {{ get_translation('crm.channel.primary', 'Primary')|tojson }},
+    'crm.channel.preferred':  {{ get_translation('crm.channel.preferred', 'Preferred')|tojson }},
+
+    // Empty states / messages
+    'crm.opportunity.no_activities': {{ get_translation('crm.opportunity.no_activities', 'No activities yet')|tojson }},
+    'crm.opportunity.no_contacts':   {{ get_translation('crm.opportunity.no_contacts', 'No contacts linked yet')|tojson }},
+    'crm.opportunity.no_documents':  {{ get_translation('crm.opportunity.no_documents', 'No documents yet')|tojson }},
+    'crm.opportunity.no_tasks':      {{ get_translation('crm.opportunity.no_tasks', 'No tasks yet')|tojson }},
+    'crm.opportunity.no_phones':     {{ get_translation('crm.opportunity.no_phones', 'No phones yet')|tojson }},
+    'crm.opportunity.no_customer':   {{ get_translation('crm.opportunity.no_customer', 'No customer linked')|tojson }},
+    'crm.opportunity.no_channels':   {{ get_translation('crm.opportunity.no_channels', 'No channels yet')|tojson }},
+    'global.error_loading':          {{ get_translation('global.error_loading', 'Error loading data')|tojson }},
+
+    // Confirm dialogs
+    'crm.opportunity.confirm_unlink':      {{ get_translation('crm.opportunity.confirm_unlink', 'Unlink this contact?')|tojson }},
+    'crm.opportunity.confirm_delete_task': {{ get_translation('crm.opportunity.confirm_delete_task', 'Delete this task?')|tojson }},
+    'crm.opportunity.confirm_delete_doc':  {{ get_translation('crm.opportunity.confirm_delete_doc', 'Delete this document?')|tojson }},
+    'crm.opportunity.confirm_delete_phone':{{ get_translation('crm.opportunity.confirm_delete_phone', 'Delete this phone?')|tojson }},
+    'crm.opportunity.confirm_delete_channel': {{ get_translation('crm.opportunity.confirm_delete_channel', 'Remove this channel?')|tojson }},
+
+    // Alerts
+    'crm.opportunity.alert.value_required':    {{ get_translation('crm.opportunity.alert.value_required', 'Value is required')|tojson }},
+    'crm.opportunity.alert.name_link_required':{{ get_translation('crm.opportunity.alert.name_link_required', 'Name and link are required')|tojson }},
+    'crm.opportunity.alert.phone_required':    {{ get_translation('crm.opportunity.alert.phone_required', 'Phone number is required')|tojson }},
+    'crm.opportunity.alert.subject_required':  {{ get_translation('crm.opportunity.alert.subject_required', 'Subject required')|tojson }},
+    'crm.opportunity.alert.select_contact':    {{ get_translation('crm.opportunity.alert.select_contact', 'Select a contact')|tojson }},
+
+    // Status/Stage/Priority/Activity labels
+    'global.status.open':          {{ get_translation('global.status.open', 'Open')|tojson }},
+    'global.status.closed_won':    {{ get_translation('global.status.closed_won', 'Closed Won')|tojson }},
+    'global.status.closed_lost':   {{ get_translation('global.status.closed_lost', 'Closed Lost')|tojson }},
+    'crm.stage.prospecting':       {{ get_translation('crm.stage.prospecting', 'Prospecting')|tojson }},
+    'crm.stage.qualification':     {{ get_translation('crm.stage.qualification', 'Qualification')|tojson }},
+    'crm.stage.proposal':          {{ get_translation('crm.stage.proposal', 'Proposal')|tojson }},
+    'crm.stage.negotiation':       {{ get_translation('crm.stage.negotiation', 'Negotiation')|tojson }},
+    'crm.stage.closed_won':        {{ get_translation('crm.stage.closed_won', 'Closed Won')|tojson }},
+    'crm.stage.closed_lost':       {{ get_translation('crm.stage.closed_lost', 'Closed Lost')|tojson }},
+    'crm.priority.low':            {{ get_translation('crm.priority.low', 'Low')|tojson }},
+    'crm.priority.medium':         {{ get_translation('crm.priority.medium', 'Medium')|tojson }},
+    'crm.priority.high':           {{ get_translation('crm.priority.high', 'High')|tojson }},
+    'crm.activity.call':           {{ get_translation('crm.activity.call', 'Call')|tojson }},
+    'crm.activity.meeting':        {{ get_translation('crm.activity.meeting', 'Meeting')|tojson }},
+    'crm.activity.email':          {{ get_translation('crm.activity.email', 'Email')|tojson }},
+    'crm.activity.note':           {{ get_translation('crm.activity.note', 'Note')|tojson }},
+
+    // Phone type labels
+    'crm.phone.type.main':           {{ get_translation('crm.phone.type.main', 'Main')|tojson }},
+    'crm.phone.type.sales':          {{ get_translation('crm.phone.type.sales', 'Sales')|tojson }},
+    'crm.phone.type.support':        {{ get_translation('crm.phone.type.support', 'Support')|tojson }},
+    'crm.phone.type.fax':            {{ get_translation('crm.phone.type.fax', 'Fax')|tojson }},
+    'crm.phone.type.company_mobile': {{ get_translation('crm.phone.type.company_mobile', 'Company Mobile')|tojson }},
+
+    // Channel type labels
+    'crm.channel.type.mobile':       {{ get_translation('crm.channel.type.mobile', 'Mobile')|tojson }},
+    'crm.channel.type.direct_phone': {{ get_translation('crm.channel.type.direct_phone', 'Direct Phone')|tojson }},
+    'crm.channel.type.email':        {{ get_translation('crm.channel.type.email', 'Email')|tojson }},
+    'crm.channel.type.whatsapp':     {{ get_translation('crm.channel.type.whatsapp', 'WhatsApp')|tojson }},
+    'crm.channel.type.telegram':     {{ get_translation('crm.channel.type.telegram', 'Telegram')|tojson }},
+    'crm.channel.type.bale':         {{ get_translation('crm.channel.type.bale', 'Bale')|tojson }},
+    'crm.channel.type.linkedin':     {{ get_translation('crm.channel.type.linkedin', 'LinkedIn')|tojson }},
+    'crm.channel.type.other':        {{ get_translation('crm.channel.type.other', 'Other')|tojson }},
+
+    // Document type labels
+    'crm.document.type.offer':    {{ get_translation('crm.document.type.offer', 'Offer')|tojson }},
+    'crm.document.type.drawing':  {{ get_translation('crm.document.type.drawing', 'Drawing')|tojson }},
+    'crm.document.type.spec':     {{ get_translation('crm.document.type.spec', 'Spec')|tojson }},
+    'crm.document.type.contract': {{ get_translation('crm.document.type.contract', 'Contract')|tojson }},
+    'crm.document.type.other':    {{ get_translation('crm.document.type.other', 'Other')|tojson }},
+
+    // Document direction labels
+    'crm.document.direction.sent':     {{ get_translation('crm.document.direction.sent', 'Sent')|tojson }},
+    'crm.document.direction.received': {{ get_translation('crm.document.direction.received', 'Received')|tojson }},
+
+    // Document channel labels
+    'crm.document.channel.email':     {{ get_translation('crm.document.channel.email', 'Email')|tojson }},
+    'crm.document.channel.whatsapp':  {{ get_translation('crm.document.channel.whatsapp', 'WhatsApp')|tojson }},
+    'crm.document.channel.telegram':  {{ get_translation('crm.document.channel.telegram', 'Telegram')|tojson }},
+    'crm.document.channel.bale':      {{ get_translation('crm.document.channel.bale', 'Bale')|tojson }},
+    'crm.document.channel.in_person': {{ get_translation('crm.document.channel.in_person', 'In Person')|tojson }},
+
+    // Contact role labels
+    'crm.contact.role.decision_maker': {{ get_translation('crm.contact.role.decision_maker', 'Decision Maker')|tojson }},
+    'crm.contact.role.influencer':     {{ get_translation('crm.contact.role.influencer', 'Influencer')|tojson }},
+    'crm.contact.role.champion':       {{ get_translation('crm.contact.role.champion', 'Champion')|tojson }},
+    'crm.contact.role.blocker':        {{ get_translation('crm.contact.role.blocker', 'Blocker')|tojson }},
+    'crm.contact.role.technical':      {{ get_translation('crm.contact.role.technical', 'Technical')|tojson }},
+    'crm.contact.role.procurement':    {{ get_translation('crm.contact.role.procurement', 'Procurement')|tojson }},
+};
+
+// ============================================================================
+// 2. LANGUAGE + CALENDAR CONTEXT — TOP LEVEL
+// ============================================================================
+var currentLanguage = '{{ session.get("lang", "en") }}';
+var currentCalendar = '{{ session.get("calendar", "gregorian") }}';
+var isRTL = currentLanguage === 'fa';
+if (isRTL) { document.documentElement.dir = 'rtl'; }
+
+// ============================================================================
+// 3. HELPERS — TOP LEVEL
+// ============================================================================
+function t(key, fallback) {
+    if (window.trans && trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && window.i18n.t) {
+        return window.i18n.t(key, fallback);
+    }
+    return fallback || key;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+var statusKeys = {
+    'Open':         'global.status.open',
+    'Closed Won':   'global.status.closed_won',
+    'Closed Lost':  'global.status.closed_lost',
+};
+
+function statusLabel(rawStatus) {
+    var key = statusKeys[rawStatus] || ('global.status.' + String(rawStatus).toLowerCase());
+    return t(key, rawStatus);
+}
+
+function stageLabel(raw) {
+    if (!raw) return '';
+    var key = 'crm.stage.' + String(raw).toLowerCase().replace(/ /g, '_');
+    return t(key, raw);
+}
+
+function priorityLabel(raw) {
+    if (!raw) return '';
+    var key = 'crm.priority.' + String(raw).toLowerCase();
+    return t(key, raw);
+}
+
+function activityTypeLabel(raw) {
+    if (!raw) return '';
+    var key = 'crm.activity.' + String(raw).toLowerCase();
+    return t(key, raw);
+}
+
+// ============================================================================
+// 3b. ENUM → TRANSLATION-KEY MAPS (Playbook §3.5)
+// ============================================================================
+
+// ---- Phone type ----
+var phoneTypeKeys = {
+    'Main':          'crm.phone.type.main',
+    'Sales':         'crm.phone.type.sales',
+    'Support':       'crm.phone.type.support',
+    'Fax':           'crm.phone.type.fax',
+    'CompanyMobile': 'crm.phone.type.company_mobile'
+};
+function phoneTypeLabel(raw) {
+    if (!raw) return '';
+    var key = phoneTypeKeys[raw] || ('crm.phone.type.' + String(raw).toLowerCase());
+    return t(key, raw);
+}
+
+// ---- Channel type ----
+var channelTypeKeys = {
+    'Mobile':      'crm.channel.type.mobile',
+    'DirectPhone': 'crm.channel.type.direct_phone',
+    'Email':       'crm.channel.type.email',
+    'WhatsApp':    'crm.channel.type.whatsapp',
+    'Telegram':    'crm.channel.type.telegram',
+    'Bale':        'crm.channel.type.bale',
+    'LinkedIn':    'crm.channel.type.linkedin',
+    'Other':       'crm.channel.type.other'
+};
+function channelTypeLabel(raw) {
+    if (!raw) return '';
+    var key = channelTypeKeys[raw] || ('crm.channel.type.' + String(raw).toLowerCase());
+    return t(key, raw);
+}
+
+// ---- Document direction ----
+var docDirectionKeys = {
+    'Sent':     'crm.document.direction.sent',
+    'Received': 'crm.document.direction.received'
+};
+function docDirectionLabel(raw) {
+    if (!raw) return '';
+    var key = docDirectionKeys[raw] || ('crm.document.direction.' + String(raw).toLowerCase());
+    return t(key, raw);
+}
+
+// ---- Document type ----
+var docTypeKeys = {
+    'Offer':    'crm.document.type.offer',
+    'Drawing':  'crm.document.type.drawing',
+    'Spec':     'crm.document.type.spec',
+    'Contract': 'crm.document.type.contract',
+    'Other':    'crm.document.type.other'
+};
+function docTypeLabel(raw) {
+    if (!raw) return '';
+    var key = docTypeKeys[raw] || ('crm.document.type.' + String(raw).toLowerCase());
+    return t(key, raw);
+}
+
+// ---- Document channel ----
+var docChannelKeys = {
+    'Email':    'crm.document.channel.email',
+    'WhatsApp': 'crm.document.channel.whatsapp',
+    'Telegram': 'crm.document.channel.telegram',
+    'Bale':     'crm.document.channel.bale',
+    'InPerson': 'crm.document.channel.in_person'
+};
+function docChannelLabel(raw) {
+    if (!raw) return '';
+    var key = docChannelKeys[raw] || ('crm.document.channel.' + String(raw).toLowerCase());
+    return t(key, raw);
+}
+
+// ---- Contact role ----
+var roleKeys = {
+    'DecisionMaker': 'crm.contact.role.decision_maker',
+    'Influencer':    'crm.contact.role.influencer',
+    'Champion':      'crm.contact.role.champion',
+    'Blocker':       'crm.contact.role.blocker',
+    'Technical':     'crm.contact.role.technical',
+    'Procurement':   'crm.contact.role.procurement'
+};
+function roleLabel(raw) {
+    if (!raw) return '';
+    var key = roleKeys[raw] || ('crm.contact.role.' + String(raw).toLowerCase());
+    return t(key, raw);
+}
+
+// ============================================================================
+// 4. PAGE SCRIPT — IIFE (kept intact; uses top-level helpers/trans)
+// ============================================================================
 (function () {
     'use strict';
 
-    // ========================================================================
-    // Defensive picker-reinit aliasing (mirrors Option A in Playbook §5.8)
-    // Ensures both names always exist regardless of date-utils.js state.
-    // ========================================================================
+    // Defensive picker-reinit aliasing (Playbook §5.8)
     function noopReinit() {
         if (typeof window.__realReinitDateTimePickers === 'function') {
             window.__realReinitDateTimePickers();
@@ -512,26 +839,25 @@
     window.reinitDatePickers     = window.reinitDatePickers     || window.reinitDateTimePickers;
     window.reinitDateTimePickers = window.reinitDateTimePickers || window.reinitDatePickers;
 
+    // opportunityId is a GUID string, not int — do NOT parseInt (§26.8)
     var pathParts = window.location.pathname.split('/').filter(Boolean);
-    var opportunityId = parseInt(pathParts[pathParts.length - 1]);
+    var opportunityId = pathParts[pathParts.length - 1];
     var currentOpp = null;
     console.log('🎯 opportunity_detail: id =', opportunityId);
 
-    if (!opportunityId || isNaN(opportunityId)) {
+    if (!opportunityId) {
         console.error('❌ cannot parse opportunityId');
         return;
     }
 
-    function esc(s) {
-        return String(s == null ? '' : s).replace(/[&<>]/g, function (m) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m];
-        });
-    }
+    function esc(s) { return escapeHtml(s); }
+
     function fmtKey(k) {
         if (!k) return '';
         var s = String(k);
         return s.length === 8 ? s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8) : s;
     }
+
     function api(url) {
         return fetch(url, { credentials: 'same-origin' })
             .then(function (r) {
@@ -550,10 +876,10 @@
             if (subEl) subEl.textContent = (opp.customer_name || '') + ' · Created ' + (fmtKey(opp.created_date_key) || '—');
 
             var cards = [
-                { label: 'Value',       value: '$' + (opp.value || 0).toLocaleString(), color: 'primary' },
-                { label: 'Probability', value: (opp.probability || 0) + '%',             color: 'info' },
-                { label: 'Stage',       value: opp.stage || '',                          color: 'warning' },
-                { label: 'Status',      value: opp.status || '',                         color: 'success' }
+                { label: t('crm.opportunity.value', 'Value'),       value: '$' + (opp.value || 0).toLocaleString(), color: 'primary' },
+                { label: t('crm.opportunity.probability', 'Probability'), value: (opp.probability || 0) + '%',             color: 'info' },
+                { label: t('crm.opportunities.table.stage', 'Stage'),       value: stageLabel(opp.stage),                    color: 'warning' },
+                { label: t('global.status', 'Status'),      value: statusLabel(opp.status),                  color: 'success' }
             ];
             var cardsEl = document.getElementById('summaryCards');
             if (cardsEl) {
@@ -565,27 +891,29 @@
             }
 
             var rows = [
-                ['Name', opp.name],
-                ['Customer', opp.customer_name || '—'],
-                ['Value', '$' + (opp.value || 0).toLocaleString()],
-                ['Probability', (opp.probability || 0) + '%'],
-                ['Stage', opp.stage || '—'],
-                ['Status', opp.status || '—'],
-                ['Expected Close', opp.expected_close_date_formatted || '—'],
-                ['Contact Person', opp.contact_person || '—'],
-                ['Contact Email', opp.contact_email || '—'],
-                ['Contact Phone', opp.contact_phone || '—'],
-                ['Win/Loss Reason', opp.win_loss_reason || '—'],
-                ['Notes', opp.notes || '—']
+                [t('crm.opportunity.field.name', 'Name'), opp.name],
+                [t('crm.opportunity.field.customer', 'Customer'), opp.customer_name || '—'],
+                [t('crm.opportunity.value', 'Value'), '$' + (opp.value || 0).toLocaleString()],
+                [t('crm.opportunity.probability', 'Probability'), (opp.probability || 0) + '%'],
+                [t('crm.opportunities.table.stage', 'Stage'), stageLabel(opp.stage) || '—'],
+                [t('global.status', 'Status'), statusLabel(opp.status) || '—'],
+                [t('crm.opportunity.field.expected_close', 'Expected Close'), opp.expected_close_date_formatted || '—'],
+                [t('crm.opportunity.field.contact_person', 'Contact Person'), opp.contact_person || '—'],
+                [t('crm.opportunity.field.contact_email', 'Contact Email'), opp.contact_email || '—'],
+                [t('crm.opportunity.field.contact_phone', 'Contact Phone'), opp.contact_phone || '—'],
+                [t('crm.opportunity.field.win_loss_reason', 'Win/Loss Reason'), opp.win_loss_reason || '—'],
+                [t('crm.opportunity.field.notes', 'Notes'), opp.notes || '—']
             ];
             var tbl = document.getElementById('summaryTable');
             if (tbl) {
                 tbl.innerHTML = rows.map(function (r) {
-                    return '<tr><th style="width:220px;">' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>';
+                    return '<tr>' +
+                        '<th style="min-width:180px; white-space:normal;" dir="auto">' + esc(r[0]) + '</th>' +
+                        '<td style="word-break:break-word;">' + esc(r[1]) + '</td>' +
+                    '</tr>';
                 }).join('');
             }
 
-            // Now that currentOpp is populated, load the phones
             loadCompanyPhones();
         }).catch(function (err) {
             console.error('opp load failed:', err);
@@ -599,7 +927,7 @@
             var el = document.getElementById('activitiesList');
             if (!el) return;
             if (!list || !list.length) {
-                el.innerHTML = '<div class="text-center text-muted py-3">No activities yet</div>';
+                el.innerHTML = '<div class="text-center text-muted py-3">' + t('crm.opportunity.no_activities', 'No activities yet') + '</div>';
                 return;
             }
             el.innerHTML = list.map(function (a) {
@@ -609,7 +937,7 @@
                     : '';
                 return '<div class="border-start ps-3 mb-3">' +
                     '<i class="fas ' + icon + ' me-2 text-primary"></i>' +
-                    '<strong>' + esc(a.activity_type) + '</strong> ' + esc(a.subject) +
+                    '<strong>' + esc(activityTypeLabel(a.activity_type)) + '</strong> ' + esc(a.subject) +
                     '<small class="text-muted ms-2">' + esc(a.activity_date_formatted || '') + '</small>' + reminder +
                     (a.notes ? '<div class="text-muted small mt-1">' + esc(a.notes) + '</div>' : '') +
                     '</div>';
@@ -634,11 +962,10 @@
     };
 
     function channelOpenUrl(type, value) {
-        // Return a URL that opens the app for messaging channels
         var v = String(value || '').replace(/[^0-9+@a-zA-Z\.\-_]/g, '');
         if (type === 'WhatsApp') {
             var num = v.replace(/[^0-9]/g, '');
-            if (num.startsWith('0')) num = '98' + num.substring(1); // Iran default
+            if (num.startsWith('0')) num = '98' + num.substring(1);
             return 'https://wa.me/' + num;
         }
         if (type === 'Telegram') {
@@ -658,43 +985,44 @@
                 var el = document.getElementById('contactsBody');
                 if (!el) return;
                 if (!list || !list.length) {
-                    el.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No contacts linked yet</td></tr>';
+                    el.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">' + t('crm.opportunity.no_contacts', 'No contacts linked yet') + '</td></tr>';
                     return;
                 }
                 var html = '';
                 list.forEach(function (c) {
-                    var primary = (c.is_primary === '1' || c.is_primary === 1)
-                        ? ' <span class="badge bg-success">Primary</span>' : '';
+                    var isPrimary = (c.is_primary === '1' || c.is_primary === 1);
+                    var primary = isPrimary
+                        ? '<span class="badge bg-success">' + t('crm.contact.primary_badge', 'Primary') + '</span>' : '';
 
                     html += '<tr class="contact-row" data-contact-id="' + esc(c.contact_id) + '">' +
                         '<td><i class="fas fa-chevron-right contact-caret" style="transition:.15s;"></i></td>' +
-                        '<td>' + esc(c.full_name) + primary + '</td>' +
+                        '<td>' +
+                            '<div>' + esc(c.full_name) + '</div>' +
+                            (primary ? '<div class="mt-1">' + primary + '</div>' : '') +
+                        '</td>' +
                         '<td>' + esc(c.job_title || '') + '</td>' +
                         '<td>' + esc(c.mobile || '') + '</td>' +
                         '<td>' + esc(c.email || '') + '</td>' +
-                        '<td><span class="badge bg-secondary">' + esc(c.role || '') + '</span></td>' +
+                        '<td><span class="badge bg-secondary">' + esc(roleLabel(c.role)) + '</span></td>' +
                         '<td>' +
-                            '<button class="btn btn-sm btn-outline-success add-channel-btn me-1" data-contact-id="' + esc(c.contact_id) + '" data-contact-name="' + esc(c.full_name) + '" title="Add channel"><i class="fas fa-plus"></i></button>' +
-                            '<button class="btn btn-sm btn-outline-danger unlink-btn" data-link="' + esc(c.link_id) + '" title="Unlink"><i class="fas fa-unlink"></i></button>' +
+                            '<button class="btn btn-sm btn-outline-success add-channel-btn me-1" data-contact-id="' + esc(c.contact_id) + '" data-contact-name="' + esc(c.full_name) + '" title="' + t('crm.channel.add_title', 'Add Channel') + '"><i class="fas fa-plus"></i></button>' +
+                            '<button class="btn btn-sm btn-outline-danger unlink-btn" data-link="' + esc(c.link_id) + '" title="' + t('crm.opportunity.confirm_unlink', 'Unlink this contact?') + '"><i class="fas fa-unlink"></i></button>' +
                         '</td>' +
                     '</tr>';
 
-                    // Hidden details row
                     html += '<tr class="contact-details" data-contact-id="' + esc(c.contact_id) + '" style="display:none;">' +
                         '<td></td>' +
                         '<td colspan="6">' +
                             '<div class="channels-container" data-contact-id="' + esc(c.contact_id) + '">' +
-                                '<div class="text-muted small py-2">Loading channels...</div>' +
+                                '<div class="text-muted small py-2">' + t('global.loading', 'Loading...') + '</div>' +
                             '</div>' +
                         '</td>' +
                     '</tr>';
                 });
                 el.innerHTML = html;
 
-                // Row toggle
                 document.querySelectorAll('.contact-row').forEach(function (row) {
                     row.addEventListener('click', function (ev) {
-                        // Don't toggle if clicking a button
                         if (ev.target.closest('button')) return;
                         var cid = row.getAttribute('data-contact-id');
                         var detail = document.querySelector('.contact-details[data-contact-id="' + cid + '"]');
@@ -711,17 +1039,15 @@
                     });
                 });
 
-                // Add channel button
                 document.querySelectorAll('.add-channel-btn').forEach(function (btn) {
                     btn.addEventListener('click', function () {
                         openChannelModal(btn.getAttribute('data-contact-id'), btn.getAttribute('data-contact-name'));
                     });
                 });
 
-                // Unlink button
                 document.querySelectorAll('.unlink-btn').forEach(function (btn) {
                     btn.addEventListener('click', function () {
-                        if (!confirm('Unlink this contact?')) return;
+                        if (!confirm(t('crm.opportunity.confirm_unlink', 'Unlink this contact?'))) return;
                         fetch('/api/crm/opportunities/contacts/' + btn.getAttribute('data-link'), {
                             method: 'DELETE', credentials: 'same-origin'
                         }).then(loadContacts);
@@ -742,29 +1068,31 @@
         api('/api/crm/contacts/' + contactId + '/channels')
             .then(function (channels) {
                 if (!channels || !channels.length) {
-                    container.innerHTML = '<div class="text-muted small py-2">No channels yet</div>';
+                    container.innerHTML = '<div class="text-muted small py-2">' + t('crm.opportunity.no_channels', 'No channels yet') + '</div>';
                     return;
                 }
                 var html = '<div class="row g-2 py-2">';
                 channels.forEach(function (ch) {
                     var icon = CHANNEL_ICONS[ch.channel_type] || 'fa-circle';
                     var openUrl = channelOpenUrl(ch.channel_type, ch.value);
-                    var preferred = ch.is_preferred === '1' ? ' <span class="badge bg-info">Preferred</span>' : '';
-                    var primary = ch.is_primary === '1' ? ' <span class="badge bg-success">Primary</span>' : '';
+                    var isPreferred = (ch.is_preferred === '1' || ch.is_preferred === 1);
+                    var isPrimary   = (ch.is_primary   === '1' || ch.is_primary   === 1);
+                    var preferred = isPreferred ? ' <span class="badge bg-info">' + t('crm.channel.preferred', 'Preferred') + '</span>' : '';
+                    var primary   = isPrimary   ? ' <span class="badge bg-success">' + t('crm.channel.primary', 'Primary') + '</span>' : '';
                     var ext = ch.extension ? ' (ext. ' + esc(ch.extension) + ')' : '';
 
                     html += '<div class="col-md-6 col-lg-4">' +
                         '<div class="border rounded p-2 h-100 d-flex align-items-start gap-2">' +
                             '<i class="fas ' + icon + ' fa-lg text-primary mt-1" style="width:24px;"></i>' +
                             '<div class="flex-grow-1 min-width-0">' +
-                                '<div class="small text-muted">' + esc(ch.channel_type) + '</div>' +
+                                '<div class="small text-muted">' + esc(channelTypeLabel(ch.channel_type)) + '</div>' +
                                 '<div class="fw-bold text-truncate" title="' + esc(ch.value) + '">' + esc(ch.value) + ext + '</div>' +
                                 '<div class="mt-1">' + primary + preferred + '</div>' +
                             '</div>' +
                             '<div class="d-flex flex-column gap-1">' +
                                 '<button class="btn btn-sm btn-outline-secondary copy-channel-btn" data-value="' + esc(ch.value) + '" title="Copy"><i class="fas fa-copy"></i></button>' +
                                 (openUrl ? '<a class="btn btn-sm btn-outline-primary" href="' + openUrl + '" target="_blank" rel="noopener" title="Open"><i class="fas fa-external-link-alt"></i></a>' : '') +
-                                '<button class="btn btn-sm btn-outline-danger del-channel-btn" data-id="' + esc(ch.channel_id) + '" title="Delete"><i class="fas fa-trash"></i></button>' +
+                                '<button class="btn btn-sm btn-outline-danger del-channel-btn" data-id="' + esc(ch.channel_id) + '" title="' + t('global.delete', 'Delete') + '"><i class="fas fa-trash"></i></button>' +
                             '</div>' +
                         '</div>' +
                     '</div>';
@@ -772,7 +1100,6 @@
                 html += '</div>';
                 container.innerHTML = html;
 
-                // Copy
                 container.querySelectorAll('.copy-channel-btn').forEach(function (btn) {
                     btn.addEventListener('click', function () {
                         var val = btn.getAttribute('data-value');
@@ -784,10 +1111,9 @@
                     });
                 });
 
-                // Delete
                 container.querySelectorAll('.del-channel-btn').forEach(function (btn) {
                     btn.addEventListener('click', function () {
-                        if (!confirm('Remove this channel?')) return;
+                        if (!confirm(t('crm.opportunity.confirm_delete_channel', 'Remove this channel?'))) return;
                         fetch('/api/crm/channels/' + btn.getAttribute('data-id'), {
                             method: 'DELETE', credentials: 'same-origin'
                         }).then(function () { loadChannelsForContact(contactId); });
@@ -821,7 +1147,7 @@
             is_primary:   document.getElementById('channelPrimary').checked ? 1 : 0,
             is_preferred: document.getElementById('channelPreferred').checked ? 1 : 0
         };
-        if (!data.value) { alert('Value is required'); return; }
+        if (!data.value) { alert(t('crm.opportunity.alert.value_required', 'Value is required')); return; }
 
         fetch('/api/crm/contacts/' + contactId + '/channels', {
             method: 'POST',
@@ -843,13 +1169,13 @@
             var el = document.getElementById('tasksBody');
             if (!el) return;
             if (!list || !list.length) {
-                el.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No tasks yet</td></tr>';
+                el.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">' + t('crm.opportunity.no_tasks', 'No tasks yet') + '</td></tr>';
                 return;
             }
             el.innerHTML = list.map(function (tk) {
                 var statusBadge = tk.status === 'Done'
-                    ? '<span class="badge bg-success">Done</span>'
-                    : '<span class="badge bg-warning text-dark">' + esc(tk.status || 'Open') + '</span>';
+                    ? '<span class="badge bg-success">' + t('global.status.completed', 'Completed') + '</span>'
+                    : '<span class="badge bg-warning text-dark">' + esc(statusLabel(tk.status || 'Open')) + '</span>';
                 var priBadge = ({High:'danger', Medium:'warning', Low:'secondary'})[tk.priority] || 'secondary';
                 var checkbox = tk.status === 'Done'
                     ? '<input type="checkbox" checked disabled>'
@@ -858,7 +1184,7 @@
                     '<td>' + checkbox + '</td>' +
                     '<td>' + esc(tk.subject) + '</td>' +
                     '<td>' + esc(tk.due_date_formatted || '—') + '</td>' +
-                    '<td><span class="badge bg-' + priBadge + '">' + esc(tk.priority || '') + '</span></td>' +
+                    '<td><span class="badge bg-' + priBadge + '">' + esc(priorityLabel(tk.priority)) + '</span></td>' +
                     '<td>' + statusBadge + '</td>' +
                     '<td><button class="btn btn-sm btn-outline-danger del-task" data-id="' + esc(tk.task_id) + '"><i class="fas fa-trash"></i></button></td>' +
                     '</tr>';
@@ -876,7 +1202,7 @@
             });
             document.querySelectorAll('.del-task').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    if (!confirm('Delete this task?')) return;
+                    if (!confirm(t('crm.opportunity.confirm_delete_task', 'Delete this task?'))) return;
                     fetch('/api/crm/tasks/' + btn.getAttribute('data-id'), {
                         method: 'DELETE', credentials: 'same-origin'
                     }).then(loadTasks);
@@ -895,27 +1221,44 @@
             var el = document.getElementById('documentsBody');
             if (!el) return;
             if (!list || !list.length) {
-                el.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No documents yet</td></tr>';
+                el.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">' + t('crm.opportunity.no_documents', 'No documents yet') + '</td></tr>';
                 return;
             }
             el.innerHTML = list.map(function (d) {
                 var dirClass = d.direction === 'Sent' ? 'bg-primary' : 'bg-secondary';
-                var link = d.location
-                    ? '<a href="' + esc(d.location) + '" target="_blank" rel="noopener">' + esc(d.location) + '</a>'
-                    : '—';
+
+                // Resolve the href based on storage_type.
+                //   LocalPath  → /static/<Location>          (served by Flask)
+                //   URL        → Location as-is              (e.g. Google Drive)
+                //   SharedDrive/EmailAttachment → shown but not clickable
+                var href = null;
+                var display = d.location || '';
+                if (d.location) {
+                    if (d.storage_type === 'LocalPath') {
+                        href = '/static/' + d.location;
+                        display = d.document_name || d.location;   // show filename, not full path
+                    } else if (d.storage_type === 'URL') {
+                        href = d.location;
+                    }
+                }
+
+                var link = href
+                    ? '<a href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(display) + '</a>'
+                    : (display ? esc(display) : '—');
+
                 return '<tr>' +
                     '<td><strong>' + esc(d.document_name) + '</strong><br><small class="text-muted">' + link + '</small></td>' +
-                    '<td>' + esc(d.document_type || '') + '</td>' +
-                    '<td><span class="badge ' + dirClass + '">' + esc(d.direction || '') + '</span></td>' +
-                    '<td>' + esc(d.channel || '') + '</td>' +
+                    '<td>' + esc(docTypeLabel(d.document_type)) + '</td>' +
+                    '<td><span class="badge ' + dirClass + '">' + esc(docDirectionLabel(d.direction)) + '</span></td>' +
+                    '<td>' + esc(docChannelLabel(d.channel)) + '</td>' +
                     '<td>' + esc(d.created_date_formatted || '') + '</td>' +
-                    '<td><button class="btn btn-sm btn-outline-danger del-doc" data-id="' + d.doc_id + '"><i class="fas fa-trash"></i></button></td>' +
+                    '<td><button class="btn btn-sm btn-outline-danger del-doc" data-id="' + esc(d.doc_id) + '"><i class="fas fa-trash"></i></button></td>' +
                 '</tr>';
             }).join('');
 
             document.querySelectorAll('.del-doc').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    if (!confirm('Delete this document?')) return;
+                    if (!confirm(t('crm.opportunity.confirm_delete_doc', 'Delete this document?'))) return;
                     fetch('/api/crm/documents/' + btn.getAttribute('data-id'), {
                         method: 'DELETE', credentials: 'same-origin'
                     }).then(loadDocuments);
@@ -950,7 +1293,7 @@
             notes:         document.getElementById('docNotes').value
         };
         if (!data.document_name || !data.location) {
-            alert('Name and link are required');
+            alert(t('crm.opportunity.alert.name_link_required', 'Name and link are required'));
             return;
         }
         fetch('/api/crm/opportunities/' + opportunityId + '/documents', {
@@ -967,11 +1310,10 @@
 
     // ---------- Load Company Phones ----------
     function loadCompanyPhones() {
-        // Get the customer_id from the loaded opportunity
         var customerId = currentOpp ? currentOpp.customer_id : null;
         if (!customerId) {
             var el = document.getElementById('companyPhonesBody');
-            if (el) el.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No customer linked</td></tr>';
+            if (el) el.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">' + t('crm.opportunity.no_customer', 'No customer linked') + '</td></tr>';
             return;
         }
 
@@ -979,16 +1321,17 @@
             var el = document.getElementById('companyPhonesBody');
             if (!el) return;
             if (!list || !list.length) {
-                el.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No phones yet</td></tr>';
+                el.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">' + t('crm.opportunity.no_phones', 'No phones yet') + '</td></tr>';
                 return;
             }
             el.innerHTML = list.map(function (p) {
                 var range = p.phone_range_end ? '–' + esc(p.phone_range_end) : '';
                 var ext = p.extension ? ' (ext. ' + esc(p.extension) + ')' : '';
-                var primary = p.is_primary === '1' ? ' <span class="badge bg-success">Primary</span>' : '';
+                var isPrimary = (p.is_primary === '1' || p.is_primary === 1);
+                var primary = isPrimary ? ' <span class="badge bg-success">' + t('crm.channel.primary', 'Primary') + '</span>' : '';
                 return '<tr>' +
                     '<td><i class="fas fa-phone me-1 text-muted"></i>' + esc(p.phone_number) + range + ext + primary + '</td>' +
-                    '<td>' + esc(p.phone_type || '') + '</td>' +
+                    '<td>' + esc(phoneTypeLabel(p.phone_type)) + '</td>' +
                     '<td>' + esc(p.label || '') + '</td>' +
                     '<td><button class="btn btn-sm btn-outline-danger del-phone-btn" data-id="' + esc(p.phone_id) + '"><i class="fas fa-trash"></i></button></td>' +
                 '</tr>';
@@ -996,7 +1339,7 @@
 
             document.querySelectorAll('.del-phone-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    if (!confirm('Delete this phone?')) return;
+                    if (!confirm(t('crm.opportunity.confirm_delete_phone', 'Delete this phone?'))) return;
                     fetch('/api/crm/phones/' + btn.getAttribute('data-id'), {
                         method: 'DELETE', credentials: 'same-origin'
                     }).then(loadCompanyPhones);
@@ -1021,7 +1364,7 @@
 
     function savePhone() {
         var customerId = currentOpp ? currentOpp.customer_id : null;
-        if (!customerId) { alert('No customer on this opportunity'); return; }
+        if (!customerId) { alert(t('crm.opportunity.no_customer', 'No customer linked')); return; }
 
         var data = {
             phone_number:   document.getElementById('phoneNumber').value,
@@ -1031,7 +1374,7 @@
             label:          document.getElementById('phoneLabel').value,
             is_primary:     document.getElementById('phonePrimary').checked ? 1 : 0
         };
-        if (!data.phone_number) { alert('Phone number is required'); return; }
+        if (!data.phone_number) { alert(t('crm.opportunity.alert.phone_required', 'Phone number is required')); return; }
 
         fetch('/api/crm/companies/' + customerId + '/phones', {
             method: 'POST',
@@ -1065,7 +1408,7 @@
             notes: document.getElementById('activityNotes').value,
             reminder_date: document.getElementById('activityReminder').value
         };
-        if (!data.subject) { alert('Subject required'); return; }
+        if (!data.subject) { alert(t('crm.opportunity.alert.subject_required', 'Subject required')); return; }
         fetch('/api/crm/opportunities/' + opportunityId + '/activity', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -1093,7 +1436,7 @@
             due_date: document.getElementById('taskDue').value,
             priority: document.getElementById('taskPriority').value
         };
-        if (!data.subject) { alert('Subject required'); return; }
+        if (!data.subject) { alert(t('crm.opportunity.alert.subject_required', 'Subject required')); return; }
         fetch('/api/crm/opportunities/' + opportunityId + '/tasks', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -1112,7 +1455,7 @@
             .then(function (r) { return r.json(); })
             .then(function (list) {
                 var sel = document.getElementById('linkContactSelect');
-                var html = '<option value="">Select</option>';
+                var html = '<option value="">' + t('global.select', 'Select') + '</option>';
                 list.forEach(function (c) {
                     html += '<option value="' + esc(c.contact_id) + '">' + esc(c.full_name) +
                             (c.job_title ? ' — ' + esc(c.job_title) : '') + '</option>';
@@ -1131,7 +1474,7 @@
             role: document.getElementById('linkContactRole').value,
             is_primary: document.getElementById('linkContactPrimary').value
         };
-        if (!data.contact_id) { alert('Select a contact'); return; }
+        if (!data.contact_id) { alert(t('crm.opportunity.alert.select_contact', 'Select a contact')); return; }
         fetch('/api/crm/opportunities/' + opportunityId + '/contacts', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -1157,7 +1500,6 @@
         el = document.getElementById('addDocumentBtn'); if (el) el.addEventListener('click', openDocumentModal);
         el = document.getElementById('saveDocumentBtn'); if (el) el.addEventListener('click', saveDocument);
 
-        // Phase 3 — Phones + Channels
         el = document.getElementById('addPhoneBtn'); if (el) el.addEventListener('click', openPhoneModal);
         el = document.getElementById('savePhoneBtn'); if (el) el.addEventListener('click', savePhone);
         el = document.getElementById('saveChannelBtn'); if (el) el.addEventListener('click', saveChannel);
@@ -1171,7 +1513,6 @@
             });
         }
 
-        // Modal date-picker re-init hooks (defensive — works with either alias)
         var activityModalEl = document.getElementById('activityModal');
         if (activityModalEl) {
             activityModalEl.addEventListener('shown.bs.modal', function () {

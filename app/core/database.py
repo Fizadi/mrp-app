@@ -17,10 +17,10 @@ def _build_connection_string():
     """
     return (
         'DRIVER={ODBC Driver 17 for SQL Server};'
-        'SERVER=localhost\\SQLEXPRESS;'
+        'SERVER=.\\SQLEXPRESS;'
         'DATABASE=MRP_database;'
         'UID=mrp_user;'
-        'PWD=YourStrongPassword123!;'
+        'PWD=TarazTamin2026!;'
         'TrustServerCertificate=yes;'
         'Encrypt=no;'
     )

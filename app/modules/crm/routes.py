@@ -7,7 +7,7 @@ from . import crm_bp
 def opportunities():
     return render_template('crm/opportunities.html')
 
-@crm_bp.route('/opportunity/<int:opportunity_id>')
+@crm_bp.route('/opportunity/<string:opportunity_id>')
 @login_required
 def opportunity_detail(opportunity_id):
     return render_template('crm/opportunity_detail.html', opportunity_id=opportunity_id)

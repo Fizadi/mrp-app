@@ -63,6 +63,26 @@
     .ai-preview-section .field-row .value { font-weight: 500; }
     .ai-preview-section.ai-warn { background: #fff3cd; border-color: #ffc107; }
     .ai-preview-section.ai-no-save { background: #e7f3ff; border-color: #b6d4fe; }
+
+    /* ---- 4c: AI candidate items ---- */
+    .ai-candidate-item {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 8px 10px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        background: #fff;
+    }
+    .ai-candidate-item:hover {
+        border-color: #0d6efd;
+        background: #e7f3ff;
+        transform: translateX(2px);
+    }
+    .ai-preview-section.ai-candidates {
+        background: #f0f8ff;
+        border-color: #0d6efd;
+    }
 </style>
 {% endblock %}
 
@@ -280,6 +300,10 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">
                     {{ get_translation('global.cancel', 'Cancel') }}
+                </button>
+                <!-- 4f: "Create New Instead" — shown only when candidates exist -->
+                <button class="btn btn-outline-success" id="aiCreateNewBtn" type="button" style="display:none;">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('crm.ai.create_new', 'Create New Instead') }}
                 </button>
                 <button class="btn btn-success" id="aiUseValuesBtn" type="button" disabled>
                     <i class="fas fa-check me-1"></i>{{ get_translation('crm.ai.use_values', 'Use These Values') }}
@@ -504,6 +528,9 @@ var statusKeys = {
     'Closed Lost':  'global.status.closed_lost',
 };
 var lastAIParsed = null;   // holds the last successful AI parse result
+// ---- 4a: AI candidate state ----
+var lastAICandidates = [];      // opportunity candidate list from AI
+var lastAISelectedOppId = null; // user-picked existing opportunity ID
 
 // ============================================================================
 // 2. HELPERS — TOP LEVEL
@@ -775,6 +802,17 @@ function openAIAssist() {
         '</div>';
     el('aiUseValuesBtn').disabled = true;
     lastAIParsed = null;
+    // ---- 4e: reset candidate state ----
+    lastAICandidates = [];
+    lastAISelectedOppId = null;
+    // ---- 4f: hide "Create New Instead" and reset button label ----
+    var cnBtn = el('aiCreateNewBtn');
+    if (cnBtn) cnBtn.style.display = 'none';
+    var btn = el('aiUseValuesBtn');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>' +
+            t('crm.ai.use_values', 'Use These Values');
+    }
     bootstrap.Modal.getOrCreateInstance(el('aiAssistModal')).show();
 }
 
@@ -810,8 +848,23 @@ function parseWithAI() {
         var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
         if (res.status === 200 && res.body.ok) {
             lastAIParsed = res.body.parsed;
+            // ---- 4a/4e: reset selection, store candidates ----
+            lastAICandidates = (res.body.parsed && res.body.parsed.opportunity_candidates) || [];
+            lastAISelectedOppId = null;
             renderAIPreview(res.body.parsed, elapsed);
             el('aiUseValuesBtn').disabled = false;
+            // ---- 4f: show "Create New Instead" only if there are candidates ----
+            var cnBtn = el('aiCreateNewBtn');
+            if (cnBtn) {
+                cnBtn.style.display = (res.body.parsed.opportunity_candidates || []).length
+                    ? 'inline-block' : 'none';
+            }
+            // ---- 4e: reset "Use These Values" label ----
+            var uv = el('aiUseValuesBtn');
+            if (uv) {
+                uv.innerHTML = '<i class="fas fa-check me-1"></i>' +
+                    t('crm.ai.use_values', 'Use These Values');
+            }
         } else {
             var errMsg = (res.body && res.body.error) || 'AI parsing failed';
             el('aiErrorBox').textContent = errMsg;
@@ -822,6 +875,8 @@ function parseWithAI() {
                 '<p>' + escapeHtml(t('crm.ai.error', 'AI parsing failed')) + '</p>' +
                 '</div>';
             el('aiUseValuesBtn').disabled = true;
+            var cnBtn2 = el('aiCreateNewBtn');
+            if (cnBtn2) cnBtn2.style.display = 'none';
         }
     })
     .catch(function (err) {
@@ -829,6 +884,8 @@ function parseWithAI() {
         el('aiErrorBox').style.display = 'block';
         el('aiPreviewPanel').innerHTML = '';
         el('aiUseValuesBtn').disabled = true;
+        var cnBtn3 = el('aiCreateNewBtn');
+        if (cnBtn3) cnBtn3.style.display = 'none';
     })
     .finally(function () {
         btn.disabled = false;
@@ -908,6 +965,37 @@ function renderAIPreview(parsed, elapsed) {
         html += '</div>';
     }
 
+    // ---- 4b: Opportunity candidates (existing records that might match) ----
+    var candidates = (parsed && parsed.opportunity_candidates) || [];
+    if (candidates.length) {
+        html += '<div class="ai-preview-section ai-candidates">';
+        html += '<h6><i class="fas fa-search me-1"></i>' +
+                escapeHtml(t('crm.ai.candidates_title', 'Existing opportunities that may match')) +
+                '</h6>';
+        html += '<div class="small text-muted mb-2">' +
+                escapeHtml(t('crm.ai.candidates_hint', 'Click one to update it, or ignore to create a new opportunity.')) +
+                '</div>';
+        candidates.forEach(function (c) {
+            var name = c.name || c.name_fa || '(unnamed)';
+            html += '<div class="ai-candidate-item" data-opp-id="' + escapeHtml(c.opportunity_id) + '">' +
+                '<div class="d-flex justify-content-between align-items-start">' +
+                    '<div>' +
+                        '<div class="fw-bold">' + escapeHtml(name) + '</div>' +
+                        '<div class="small text-muted">' +
+                            escapeHtml(c.customer_name || c.customer_name_fa || '—') +
+                            ' · ' + escapeHtml(c.stage || '') +
+                            ' · ' + escapeHtml(c.status || '') +
+                        '</div>' +
+                        '<div class="small"><span class="badge bg-info">' +
+                            escapeHtml(c.match_reason) + '</span></div>' +
+                    '</div>' +
+                    '<i class="fas fa-arrow-right text-primary"></i>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+    }
+
     // ---- Warnings ----
     if (warnings.length) {
         html += '<div class="ai-preview-section ai-warn">';
@@ -927,61 +1015,216 @@ function renderAIPreview(parsed, elapsed) {
     el('aiPreviewPanel').innerHTML = html + footer;
 }
 
+
+// ---- 4d: Full replacement — routes to CREATE or UPDATE mode ----
 function useAIParsedValues() {
-    if (!lastAIParsed) return;
+    if (!lastAIParsed) { console.warn('[AI] no parsed data'); return; }
+
+    // If user hasn't picked a candidate and there ARE candidates, ask them first.
+    var candidates = lastAIParsed.opportunity_candidates || [];
+    if (candidates.length && !lastAISelectedOppId) {
+        // Leave AI modal open — user must pick candidate OR click "Create New"
+        showToast(
+            t('crm.ai.pick_candidate_first',
+              'Pick an existing opportunity, or click "Create New" to start fresh.'),
+            'warning'
+        );
+        return;
+    }
+
+    // Determine mode
+    var isUpdate = !!lastAISelectedOppId;
+
+    if (isUpdate) {
+        _applyAIAndOpenEditModal(lastAISelectedOppId);
+    } else {
+        _applyAIAndOpenCreateModal();
+    }
+}
+
+function _applyAIAndOpenCreateModal() {
     var ents = lastAIParsed.entities || {};
     var opp = ents.opportunity || {};
 
-    // 1. Close AI modal
+    console.log('[AI] CREATE mode — parsed opp:', JSON.stringify(opp));
+
+    // Close AI modal
     var aiModal = bootstrap.Modal.getInstance(el('aiAssistModal'));
     if (aiModal) aiModal.hide();
 
-    // 2. Open Create modal (reset first)
+    // Reset form
     var form = el('opportunityForm');
     if (form) form.reset();
     el('opportunityId').value = '';
     el('opportunityModalTitle').textContent = t('crm.opportunities.create', 'Create Opportunity');
 
-    // 3. Fill values from AI parse
-    if (opp.name)                el('oppName').value = opp.name;
-    if (opp.value)               el('oppValue').value = opp.value;
-    if (opp.probability !== undefined) el('oppProbability').value = opp.probability;
-    if (opp.stage)               el('oppStage').value = opp.stage;
-    if (opp.expected_close_date) el('oppExpectedClose').value = opp.expected_close_date;
-    if (opp.notes)               el('oppNotes').value = opp.notes;
-    if (opp.contact_person)      el('oppContactPerson').value = opp.contact_person;
+    // Null-safe field setter
+    function setVal(id, value) {
+        var node = el(id);
+        if (!node) { console.warn('[AI] missing field:', id); return; }
+        if (value === undefined || value === null) return;
+        node.value = value;
+        console.log('[AI] set', id, '=', value);
+    }
 
-    // 4. Show "filled by AI" banner
+    setVal('oppName',          opp.name);
+    setVal('oppValue',         opp.value);
+    setVal('oppProbability',   opp.probability);
+    setVal('oppStage',         opp.stage);
+    setVal('oppExpectedClose', opp.expected_close_date);
+    setVal('oppNotes',         opp.notes);
+    setVal('oppContactPerson', opp.contact_person);
+    setVal('oppContactEmail',  opp.contact_email);
+    setVal('oppContactPhone',  opp.contact_phone);
+    setVal('oppWinLossReason', opp.win_loss_reason);
+
+    // Banners
     el('aiFromBanner').style.display = 'block';
+    _showAIBanners();
 
-    // 5. Show "not saved" info for contacts/activities
-    var notSavedParts = [];
-    var contacts = ents.contacts || [];
-    var activities = ents.activities || [];
-    if (contacts.length) {
-        notSavedParts.push(contacts.length + ' ' + t('crm.ai.contacts', 'contact(s)'));
-    }
-    if (activities.length) {
-        notSavedParts.push(activities.length + ' ' + t('crm.ai.activities', 'activity(ies)'));
-    }
-    if (notSavedParts.length) {
-        el('aiNotSavedInfoText').textContent =
-            t('crm.ai.not_saved_prefix', 'AI also extracted:') + ' ' + notSavedParts.join(', ') +
-            '. ' + t('crm.ai.not_saved_suffix', 'Save them separately after creating the opportunity.');
-        el('aiNotSavedInfo').style.display = 'block';
-    } else {
-        el('aiNotSavedInfo').style.display = 'none';
-    }
-
-    // 6. Open the Create modal
     bootstrap.Modal.getOrCreateInstance(el('opportunityModal')).show();
 
-    // 7. Clear the "filled by AI" banner once the modal is hidden
     el('opportunityModal').addEventListener('hidden.bs.modal', function () {
         el('aiFromBanner').style.display = 'none';
         el('aiNotSavedInfo').style.display = 'none';
     }, { once: true });
 }
+
+function _applyAIAndOpenEditModal(oppId) {
+    var ents = lastAIParsed.entities || {};
+    var opp = ents.opportunity || {};
+
+    console.log('[AI] UPDATE mode — opp id:', oppId, '| parsed:', JSON.stringify(opp));
+
+    // Close AI modal
+    var aiModal = bootstrap.Modal.getInstance(el('aiAssistModal'));
+    if (aiModal) aiModal.hide();
+
+    // Fetch existing record, then overlay AI updates
+    fetch('/api/crm/opportunities/' + oppId, { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (existing) {
+            el('opportunityModalTitle').textContent = t('crm.opportunities.edit_title', 'Edit Opportunity');
+            el('opportunityId').value = existing.opportunity_id;
+
+            // Prefill from existing record
+            el('oppName').value = existing.name || '';
+            el('oppNameFa').value = existing.name_fa || '';
+            el('oppCustomerId').value = existing.customer_id || '';
+            el('oppAssignedTo').value = existing.assigned_user_id || '';
+            el('oppValue').value = existing.value || '';
+            el('oppProbability').value = existing.probability || '';
+            el('oppStage').value = existing.stage || 'Prospecting';
+            el('oppExpectedClose').value = existing.expected_close_date_formatted || '';
+            el('oppProjectId').value = existing.project_id || '';
+            el('oppContactPerson').value = existing.contact_person || '';
+            el('oppContactPersonFa').value = existing.contact_person_fa || '';
+            el('oppContactEmail').value = existing.contact_email || '';
+            el('oppContactPhone').value = existing.contact_phone || '';
+            el('oppWinLossReason').value = existing.win_loss_reason || '';
+            el('oppWinLossReasonFa').value = existing.win_loss_reason_fa || '';
+            el('oppNotes').value = existing.notes || '';
+            el('oppNotesFa').value = existing.notes_fa || '';
+
+            // Now overlay AI updates on top
+            function overlay(id, value) {
+                if (value === undefined || value === null) return;
+                var node = el(id);
+                if (node) {
+                    node.value = value;
+                    console.log('[AI] overlay', id, '=', value);
+                }
+            }
+
+            overlay('oppValue',         opp.value);
+            overlay('oppProbability',   opp.probability);
+            overlay('oppStage',         opp.stage);
+            overlay('oppExpectedClose', opp.expected_close_date);
+            overlay('oppContactPerson', opp.contact_person);
+
+            // Notes: APPEND AI note rather than overwrite (preserves history)
+            if (opp.notes) {
+                var existing_notes = el('oppNotes').value || '';
+                var new_notes = opp.notes;
+                if (existing_notes && existing_notes.indexOf(new_notes) === -1) {
+                    el('oppNotes').value = existing_notes + '\n\n--- AI update (' +
+                        new Date().toISOString().slice(0, 10) + ') ---\n' + new_notes;
+                } else if (!existing_notes) {
+                    el('oppNotes').value = new_notes;
+                }
+            }
+            if (opp.win_loss_reason) {
+                overlay('oppWinLossReason', opp.win_loss_reason);
+            }
+
+            // Banners
+            el('aiFromBanner').style.display = 'block';
+            el('aiFromBannerText').textContent =
+                t('crm.ai.updating_existing',
+                  'You are UPDATING an existing opportunity. Review changes before saving.');
+            _showAIBanners();
+
+            bootstrap.Modal.getOrCreateInstance(el('opportunityModal')).show();
+
+            el('opportunityModal').addEventListener('hidden.bs.modal', function () {
+                el('aiFromBanner').style.display = 'none';
+                el('aiNotSavedInfo').style.display = 'none';
+                el('aiFromBannerText').textContent =
+                    t('crm.ai.filled_from_ai', 'Fields filled by AI. Please review before saving.');
+            }, { once: true });
+        })
+        .catch(function (e) {
+            console.error('[AI] failed to load existing opportunity:', e);
+            showToast(t('global.error_loading', 'Error loading data'), 'error');
+        });
+}
+
+function _showAIBanners() {
+    var ents = lastAIParsed.entities || {};
+    var contacts = ents.contacts || [];
+    var activities = ents.activities || [];
+    var parts = [];
+    if (contacts.length)   parts.push(contacts.length + ' ' + t('crm.ai.contacts', 'contact(s)'));
+    if (activities.length) parts.push(activities.length + ' ' + t('crm.ai.activities', 'activity(ies)'));
+    if (parts.length) {
+        el('aiNotSavedInfoText').textContent =
+            t('crm.ai.not_saved_prefix', 'AI also extracted:') + ' ' +
+            parts.join(', ') + '. ' +
+            t('crm.ai.not_saved_suffix', 'Save them separately after creating the opportunity.');
+        el('aiNotSavedInfo').style.display = 'block';
+    } else {
+        el('aiNotSavedInfo').style.display = 'none';
+    }
+}
+
+function pickAICandidate(oppId) {
+    lastAISelectedOppId = oppId;
+    var candidates = lastAIParsed.opportunity_candidates || [];
+    var picked = candidates.find(function (c) { return c.opportunity_id === oppId; });
+    var name = picked ? (picked.name || picked.name_fa) : oppId;
+    console.log('[AI] selected candidate:', oppId, name);
+    showToast(
+        t('crm.ai.candidate_selected', 'Will update: ') + ' ' + name,
+        'success'
+    );
+    // Visually highlight the picked item
+    document.querySelectorAll('.ai-candidate-item').forEach(function (node) {
+        if (node.getAttribute('data-opp-id') === oppId) {
+            node.style.borderColor = '#198754';
+            node.style.background = '#d1e7dd';
+        } else {
+            node.style.borderColor = '';
+            node.style.background = '';
+        }
+    });
+    // ---- 4e: dynamically relabel the "Use These Values" button ----
+    var btn = el('aiUseValuesBtn');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>' +
+            t('crm.ai.update_selected', 'Update Selected Opportunity');
+    }
+}
+
 
 // ============================================================================
 // 5. OPPORTUNITY CRUD (unchanged)
@@ -1221,10 +1464,36 @@ document.addEventListener('DOMContentLoaded', function () {
         el('aiUseValuesBtn').disabled = true;
         el('aiErrorBox').style.display = 'none';
         lastAIParsed = null;
+        lastAICandidates = [];
+        lastAISelectedOppId = null;
+        var cn = el('aiCreateNewBtn'); if (cn) cn.style.display = 'none';
+        var uv = el('aiUseValuesBtn');
+        if (uv) {
+            uv.innerHTML = '<i class="fas fa-check me-1"></i>' +
+                t('crm.ai.use_values', 'Use These Values');
+        }
     });
     var aiText = el('aiInputText');
     if (aiText) aiText.addEventListener('input', function () {
         el('aiCharCount').textContent = String(aiText.value.length);
+    });
+
+    // ---- 4e: Candidate click delegation (inside AI preview panel) ----
+    var aiPreview = el('aiPreviewPanel');
+    if (aiPreview) {
+        aiPreview.addEventListener('click', function (e) {
+            var item = e.target.closest('.ai-candidate-item');
+            if (!item) return;
+            var oppId = item.getAttribute('data-opp-id');
+            if (oppId) pickAICandidate(oppId);
+        });
+    }
+
+    // ---- 4f: "Create New Instead" handler ----
+    var aiCreateNewBtn = el('aiCreateNewBtn');
+    if (aiCreateNewBtn) aiCreateNewBtn.addEventListener('click', function () {
+        lastAISelectedOppId = null;
+        _applyAIAndOpenCreateModal();
     });
 
     // Delegated row actions

@@ -269,19 +269,57 @@ function loadCustomerDetail(customerId) {
 document.addEventListener('DOMContentLoaded', function () {
     console.log('CRM customers page loaded | lang:', window.currentLanguage);
 
+    // ---- BOOTSTRAP FOCUS-TRAP FIX ----
+    // Prevents modal focus-enforcement from looping when modal is hidden.
+    // Without this, Bootstrap's focusTrap on a display:none modal steals
+    // focus on every keystroke, causing input to lose focus silently.
+    document.querySelectorAll('.modal').forEach(function (modalEl) {
+        // Dispose the modal instance the moment it's fully hidden
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            var inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.dispose();
+        });
+
+        // Also: if the modal is hidden on page load, remove any lingering state
+        if (getComputedStyle(modalEl).display === 'none') {
+            modalEl.removeAttribute('aria-hidden');
+            modalEl.style.display = '';
+            // then force-hide it properly
+            modalEl.style.display = 'none';
+        }
+    });
+
+    // ---- Search input: bind to input + change + keyup + paste ----
+    // input  → fires on every keystroke (standard)
+    // change → fires on Enter / blur
+    // keyup  → safety net for some browsers / IMEs
+    // paste  → fires before value is updated; use setTimeout(0) to read after
     var searchInput = el('filterSearch');
     if (searchInput) {
-        var timer = null;
-        searchInput.addEventListener('input', function () {
-            clearTimeout(timer);
-            timer = setTimeout(renderCustomers, 250);
+        var searchTimer = null;
+        function onSearchChanged() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () {
+                renderCustomers();
+            }, 250);
+        }
+        searchInput.addEventListener('input', onSearchChanged);
+        searchInput.addEventListener('change', onSearchChanged);
+        searchInput.addEventListener('keyup', onSearchChanged);
+        searchInput.addEventListener('paste', function () {
+            setTimeout(onSearchChanged, 0);
         });
     }
+
+    // ---- Filter dropdown ----
     var fho = el('filterHasOpportunities');
     if (fho) fho.addEventListener('change', renderCustomers);
+
+    // ---- Refresh button ----
     var rb = el('refreshBtn');
     if (rb) rb.addEventListener('click', loadCustomers);
 
+    // ---- Delegated row click → open customer detail ----
     document.addEventListener('click', function (e) {
         var link = e.target.closest('.view-customer-link');
         if (!link) return;
@@ -289,6 +327,7 @@ document.addEventListener('DOMContentLoaded', function () {
         loadCustomerDetail(link.getAttribute('data-id'));
     });
 
+    // ---- Initial load ----
     loadCustomers();
 });
 </script>

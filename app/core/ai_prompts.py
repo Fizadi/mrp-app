@@ -23,6 +23,16 @@ RULES:
 7. If the text contains multiple entities (e.g. 2 contacts), return all of them.
 8. If the text suggests an update to an existing record, set intent="update".
    If it suggests creating a new record, set intent="create".
+9. Never invent an opportunity name from a reason or descriptor.
+   If the text contains no explicit opportunity name, leave
+   "opportunity.name" empty.
+10. When the text says the deal is closed/lost/won, set stage
+    accordingly and put the reason in "win_loss_reason" — not
+    in "opportunity.name".
+11. ALWAYS add a "search_hint" field inside the "opportunity" object:
+    a short string of distinguishing keywords (company name + any
+    topic/product/person mentioned). This is used to locate existing
+    records. Example: "Nargan DCC valve".
 """
 
 
@@ -63,7 +73,8 @@ CONTEXT_SCHEMAS = {
       "stage": "Prospecting|Qualification|Proposal|Negotiation|Closed Won|Closed Lost",
       "expected_close_date": "YYYY-MM-DD",
       "notes": "string",
-      "contact_person": "string (primary contact name)"
+      "contact_person": "string (primary contact name)",
+      "search_hint": "string (distinguishing keywords, e.g. 'Nargan DCC valve')"
     },
     "activities": [
       {
@@ -218,7 +229,8 @@ EXAMPLE OUTPUT:
       "name": "Ball Valve Project with Petrofanavr",
       "value": 200000000,
       "currency": "IRR",
-      "notes": "Budget around 200 million tomans"
+      "notes": "Budget around 200 million tomans",
+      "search_hint": "Petrofanavr ball valve"
     },
     "activities": [
       {

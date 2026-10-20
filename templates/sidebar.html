@@ -89,20 +89,24 @@
     <ul class="nav nav-pills nav-stacked">
 
       <!-- ==================== CRM & SALES (4 pages) ==================== -->
-      {% set is_crm_expanded = active_menu == 'crm' %}
-      <li class="nav-item">
-        <a class="nav-link {% if is_crm_expanded %}active{% endif %}" href="#crmSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_crm_expanded else 'false' }}">
-          <i class="fas fa-users" style="margin-right: 8px;"></i>
-          <span>{{ get_translation('sidebar.crm.title', 'CRM & Sales') }}</span>
-          <i class="fas fa-chevron-right float-end"></i>
-        </a>
-        <ul class="collapse nav nav-pills nav-stacked {% if is_crm_expanded %}show{% endif %}" id="crmSubmenu" style="padding-left: 20px;">
-          <li><a class="nav-link {% if request.path == '/crm/opportunities' %}active{% endif %}" href="/crm/opportunities">{{ get_translation('sidebar.crm.opportunities', 'Opportunities Pipeline') }}</a></li>
-          <li><a class="nav-link {% if request.path == '/crm/quotes' %}active{% endif %}" href="/crm/quotes">{{ get_translation('sidebar.crm.quotes', 'Quotes & Estimates') }}</a></li>
-          <li><a class="nav-link {% if request.path == '/crm/customers' %}active{% endif %}" href="/crm/customers">{{ get_translation('sidebar.crm.customers', 'Customer Management') }}</a></li>
-          <li><a class="nav-link {% if request.path == '/crm/sales-dashboard' %}active{% endif %}" href="/crm/sales-dashboard">{{ get_translation('sidebar.crm.sales_dashboard', 'Sales Dashboard') }}</a></li>
-        </ul>
-      </li>
+      <!-- ==================== CRM & SALES (7 pages) ==================== -->
+{% set is_crm_expanded = active_menu == 'crm' %}
+<li class="nav-item">
+  <a class="nav-link {% if is_crm_expanded %}active{% endif %}" href="#crmSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_crm_expanded else 'false' }}">
+    <i class="fas fa-users" style="margin-right: 8px;"></i>
+    <span>{{ get_translation('sidebar.crm.title', 'CRM & Sales') }}</span>
+    <i class="fas fa-chevron-right float-end"></i>
+  </a>
+  <ul class="collapse nav nav-pills nav-stacked {% if is_crm_expanded %}show{% endif %}" id="crmSubmenu" style="padding-left: 20px;">
+    <li><a class="nav-link {% if request.path == '/crm/opportunities' %}active{% endif %}" href="/crm/opportunities">{{ get_translation('sidebar.crm.opportunities', 'Opportunities Pipeline') }}</a></li>
+    <li><a class="nav-link {% if request.path == '/crm/quotes' %}active{% endif %}" href="/crm/quotes">{{ get_translation('sidebar.crm.quotes', 'Quotes & Estimates') }}</a></li>
+    <li><a class="nav-link {% if request.path == '/crm/customers' %}active{% endif %}" href="/crm/customers">{{ get_translation('sidebar.crm.customers', 'Customer Management') }}</a></li>
+    <li><a class="nav-link {% if request.path == '/crm/activities' %}active{% endif %}" href="/crm/activities">{{ get_translation('sidebar.crm.activities', 'Activity Log') }}</a></li>
+    <li><a class="nav-link {% if request.path == '/crm/forecast' %}active{% endif %}" href="/crm/forecast">{{ get_translation('sidebar.crm.forecast', 'Sales Forecast') }}</a></li>
+    <li><a class="nav-link {% if request.path == '/crm/customer-pricing' %}active{% endif %}" href="/crm/customer-pricing">{{ get_translation('sidebar.crm.customer_pricing', 'Customer Pricing') }}</a></li>
+    <li><a class="nav-link {% if request.path == '/crm/sales-dashboard' %}active{% endif %}" href="/crm/sales-dashboard">{{ get_translation('sidebar.crm.sales_dashboard', 'Sales Dashboard') }}</a></li>
+  </ul>
+</li>
 
      
 	 

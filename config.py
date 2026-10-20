@@ -16,7 +16,7 @@ class Config:
     _db_port     = os.environ.get('DB_PORT', '').strip()
     _db_name     = os.environ.get('DB_NAME', 'MRP_database')
     _db_user     = os.environ.get('DB_USER', 'mrp_user')
-    _db_pass     = os.environ.get('DB_PASSWORD', '')
+    _db_pass     = os.environ.get('DB_PASSWORD', 'TarazTamin2026!')
 
     # SQLAlchemy host syntax: 'host' for named instance, 'host:port' for TCP.
     _host_part = f'{_db_server}:{_db_port}' if _db_port else _db_server

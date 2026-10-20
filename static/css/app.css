@@ -625,37 +625,58 @@ body.modal-open {
 }
 
 /* ============================================================================
-   STICKY TABLE HEADERS (v37) - APPLIES TO ALL MODULES
+   STICKY TABLE HEADERS — v48 GLOBAL FIX
+   ============================================================================
+   Bootstrap's .table-responsive doesn't set max-height or overflow-y by
+   default. Without those, position: sticky headers compute against the
+   page and overlap the first row.
+
+   This fix uses a class-based approach (browser-agnostic, no :has()):
+
+   1. A small JS block in base.html adds class .sticky-wrapper to every
+      .table-responsive that contains a .table-sticky-dark table.
+   2. .sticky-wrapper gets max-height + overflow-y, creating an
+      independent scroll area.
+   3. The sticky header pins to the top of the wrapper, not the page.
+   4. When scrolled to top, the first data row is visible below the header.
+
+   Non-sticky tables are unaffected (no .sticky-wrapper class added).
    ============================================================================ */
 
+.table-responsive.sticky-wrapper {
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+}
+
+.table-sticky-dark {
+    margin-bottom: 0;
+}
+
+.table-sticky-dark thead th {
+    position: sticky;
+    top: 0;   /* pins to the wrapper top, not the page */
+    z-index: 10;
+    background-color: #212529;
+    color: #ffffff;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.15);
+    border-bottom: 2px solid #dee2e6 !important;
+}
+
+/* Light sticky header variant (unchanged) */
 .table-sticky thead th {
     position: sticky;
-    top: 56px; /* Height of fixed navbar */
+    top: 0;
     z-index: 10;
     background-color: #f8f9fa;
     box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* For RTL (if navbar height differs) */
-[dir="rtl"] .table-sticky thead th {
-    top: 56px;
-}
-
-/* If navbar is not fixed, use top: 0 */
+/* If navbar is not fixed, top: 0 is still correct since wrapper is scrollable */
 body:not(.has-fixed-navbar) .table-sticky thead th {
     top: 0;
 }
-
-/* Sticky table headers with dark theme */
-.table-sticky-dark thead th {
-    position: sticky;
-    top: 56px;   /* offset for fixed navbar */
-    z-index: 10;
-    background-color: #212529;   /* Bootstrap dark */
-    color: #ffffff;
-    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.15);
-}
-
 
 /* ============================================================================
    SIDEBAR ENGINEERING MENU - ACTIVE STATE FIX
@@ -667,7 +688,6 @@ body:not(.has-fixed-navbar) .table-sticky thead th {
     color: white;
     border-left: 4px solid #4fc3f7;
 }
-
 
 /* ============================================================================
    LOAD BOARD / GANTT CHART - FIXED

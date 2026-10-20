@@ -301,8 +301,9 @@ def list_opportunities():
                    c.companyID AS CustomerID,
                    c.Name      AS CustomerName,
                    c.NameFa    AS CustomerNameFa,
-                   u.UserID    AS AssignedUserID,
-                   u.FullName  AS AssignedUserName,
+                   u.UserID         AS AssignedUserID,
+                   u.FullName       AS AssignedUserName,
+                   u.FullNameLocal  AS AssignedUserNameFa,
                    o.CreatedDateKey,
                    o.ModifiedDateKey,
                    acts.LastActivityKey,
@@ -385,7 +386,7 @@ def list_opportunities():
                 'contact_phone':  r.get('ContactPhone'),
                 'customer_id':    r.get('CustomerID'),
                 'assigned_user_id':   r.get('AssignedUserID'),
-                'assigned_user_name': r.get('AssignedUserName'),
+                'assigned_user_name': pick_localized(r, 'AssignedUserName'),
                 # ---- dates: key + formatted twin ----
                 'expected_close_date_key':       expected_close_date_key,
                 'expected_close_date_formatted': _safe_format(expected_close_date_key),
@@ -407,10 +408,12 @@ def list_opportunities():
 # OPPORTUNITIES — GET ONE
 # ============================================================================
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>', methods=['GET'])
+
+
+@crm_api_bp.route('/opportunities/<string:opportunity_id>', methods=['GET'])
 @login_required
 def get_opportunity(opportunity_id):
-    """Get a single opportunity, industry-scoped, bilingual."""
+    """Get a single opportunity, industry-scoped, bilingual, with localized customer name."""
     industry = current_industry()
     engine = get_engine()
     with engine.connect() as conn:
@@ -418,6 +421,7 @@ def get_opportunity(opportunity_id):
             SELECT
                 o.OpportunityID,
                 o.OpportunityName,   o.OpportunityNameFa,
+                c.Name  AS CustomerName,  c.NameFa  AS CustomerNameFa,
                 o.Value, o.Probability,
                 o.Stage,
                 o.ExpectedCloseDateKey,
@@ -429,6 +433,7 @@ def get_opportunity(opportunity_id):
                 o.CustomerID, o.ProjectID, o.AssignedToUserID,
                 o.CreatedDateKey, o.ModifiedDateKey
             FROM t_Opportunity o
+            LEFT JOIN t_companies c ON o.CustomerID = c.companyID
             WHERE o.OpportunityID = :id
               AND (o.DemoIndustryCode = :industry OR o.DemoIndustryCode IS NULL)
               AND (o.IsActive IS NULL OR o.IsActive = '1')
@@ -460,6 +465,8 @@ def get_opportunity(opportunity_id):
         return jsonify({
             'opportunity_id': r['OpportunityID'],
             'name':           pick_localized(r, 'OpportunityName'),
+            'customer_id':    r['CustomerID'],
+            'customer_name':  pick_localized(r, 'CustomerName'),   # NEW
             'value':          to_float(r['Value']),
             'probability':    to_int(r['Probability']) or 0,
             'stage':          r['Stage'],
@@ -471,11 +478,9 @@ def get_opportunity(opportunity_id):
             'contact_email':  r['ContactEmail'],
             'contact_phone':  r['ContactPhone'],
             'notes':          pick_localized(r, 'Notes'),
-            'customer_id':    r['CustomerID'],
             'project_id':     r['ProjectID'],
             'assigned_user_id': r['AssignedToUserID'],
         })
-
 
 # ============================================================================
 # OPPORTUNITIES — CREATE / UPDATE / DELETE / DUPLICATE
@@ -556,7 +561,7 @@ def create_opportunity():
         return jsonify({'message': 'Opportunity created', 'opportunity_id': opp_id}), 201
 
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>', methods=['PUT'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>', methods=['PUT'])
 @login_required
 def update_opportunity(opportunity_id):
     industry = current_industry()
@@ -635,7 +640,7 @@ def update_opportunity(opportunity_id):
         return jsonify({'message': 'Opportunity updated'})
 
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>', methods=['DELETE'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>', methods=['DELETE'])
 @login_required
 def delete_opportunity(opportunity_id):
     industry = current_industry()
@@ -669,7 +674,7 @@ def delete_opportunity(opportunity_id):
     return jsonify({'message': 'Opportunity deleted'})
 
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/duplicate', methods=['POST'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/duplicate', methods=['POST'])
 @login_required
 def duplicate_opportunity(opportunity_id):
     industry = current_industry()
@@ -748,7 +753,7 @@ def duplicate_opportunity(opportunity_id):
     return jsonify({'message': 'Opportunity duplicated', 'opportunity_id': new_id}), 201
 
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/inline', methods=['PATCH'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/inline', methods=['PATCH'])
 @login_required
 def inline_update_opportunity(opportunity_id):
     industry = current_industry()
@@ -808,7 +813,7 @@ def inline_update_opportunity(opportunity_id):
 # ACTIVITY LOG — bilingual
 # ============================================================================
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/activity', methods=['POST'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/activity', methods=['POST'])
 @login_required
 def log_activity(opportunity_id):
     industry = current_industry()
@@ -856,7 +861,7 @@ def log_activity(opportunity_id):
         return jsonify({'message': 'Activity logged'}), 201
 
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/activities')
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/activities')
 @login_required
 def get_activities(opportunity_id):
     industry = current_industry()
@@ -904,7 +909,7 @@ def get_activities(opportunity_id):
 # TASKS — bilingual
 # ============================================================================
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/tasks', methods=['GET'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/tasks', methods=['GET'])
 @login_required
 def get_opportunity_tasks(opportunity_id):
     industry = current_industry()
@@ -958,7 +963,7 @@ def get_opportunity_tasks(opportunity_id):
         return jsonify(tasks)
 
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/tasks', methods=['POST'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/tasks', methods=['POST'])
 @login_required
 def create_opportunity_task(opportunity_id):
     industry = current_industry()
@@ -1111,58 +1116,62 @@ def _next_int_id(conn, table, id_col):
 # CONTACTS — bilingual
 # ============================================================================
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/contacts', methods=['GET'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/contacts')
 @login_required
 def get_opportunity_contacts(opportunity_id):
     industry = current_industry()
+    lang = _lang()
     engine = get_engine()
     with engine.connect() as conn:
-        parent = conn.execute(text("""
-            SELECT 1 FROM t_Opportunity
-            WHERE OpportunityID = :id
-              AND (DemoIndustryCode = :industry OR DemoIndustryCode IS NULL)
-              AND (IsActive IS NULL OR IsActive = '1')
-        """), {'id': opportunity_id, 'industry': industry}).first()
-        if not parent:
-            return jsonify({'error': 'Opportunity not found'}), 404
-
         rows = conn.execute(text("""
             SELECT
-                oc.LinkID, oc.ContactID, oc.Role, oc.IsPrimary,
-                c.FirstName, c.FirstNameFa,
-                c.LastName,  c.LastNameFa,
-                c.JobTitle,  c.JobTitleFa,
-                c.Department, c.DepartmentFa,
-                c.Email, c.Mobile, c.DirectPhone, c.CompanyID
+                oc.LinkID,
+                oc.ContactID,
+                oc.Role,
+                oc.IsPrimary,
+                c.FirstName,   c.FirstNameFa,
+                c.LastName,    c.LastNameFa,
+                c.JobTitle,    c.JobTitleFa,
+                c.Department,  c.DepartmentFa,
+                c.Email, c.Mobile, c.DirectPhone, c.Extension
             FROM t_OpportunityContact oc
-            LEFT JOIN t_CompanyContact c ON oc.ContactID = c.ContactID
+            JOIN t_CompanyContact   c ON oc.ContactID = c.ContactID
             WHERE oc.OpportunityID = :opp_id
-            ORDER BY oc.IsPrimary DESC, c.FirstName
-        """), {'opp_id': opportunity_id}).fetchall()
+              AND (c.IsActive IS NULL OR c.IsActive = '1')
+            ORDER BY
+                CASE WHEN oc.IsPrimary = '1' THEN 0 ELSE 1 END,
+                c.FirstName
+        """), {'opp_id': str(opportunity_id)}).fetchall()
 
         contacts = []
         for row in rows:
             m = row._mapping
-            fn = pick_localized(m, 'FirstName')
-            ln = pick_localized(m, 'LastName')
+
+            if lang != 'en':
+                fa_first = (m['FirstNameFa'] or '').strip()
+                fa_last  = (m['LastNameFa']  or '').strip()
+                if fa_first or fa_last:
+                    full_name = ' '.join(p for p in [fa_first, fa_last] if p)
+                else:
+                    full_name = ' '.join(p for p in [(m['FirstName'] or ''), (m['LastName'] or '')] if p)
+                job_title = (m['JobTitleFa'] or '').strip() or m['JobTitle']
+            else:
+                full_name = ' '.join(p for p in [(m['FirstName'] or ''), (m['LastName'] or '')] if p)
+                job_title = m['JobTitle']
+
             contacts.append({
-                'link_id':     m['LinkID'],
-                'contact_id':  m['ContactID'],
-                'role':        m['Role'],
-                'is_primary':  m['IsPrimary'],
-                'first_name':  fn,
-                'last_name':   ln,
-                'full_name':   ' '.join(filter(None, [fn, ln])),
-                'job_title':   pick_localized(m, 'JobTitle'),
-                'department':  pick_localized(m, 'Department'),
-                'email':       m['Email'],
-                'mobile':      m['Mobile'],
+                'link_id':      m['LinkID'],
+                'contact_id':   m['ContactID'],
+                'full_name':    full_name,
+                'job_title':    job_title,
+                'email':        m['Email'],
+                'mobile':       m['Mobile'],
                 'direct_phone': m['DirectPhone'],
-                'company_id':  m['CompanyID'],
+                'extension':    m['Extension'],
+                'role':         m['Role'],
+                'is_primary':   m['IsPrimary'],
             })
-
         return jsonify(contacts)
-
 
 @crm_api_bp.route('/contacts/search', methods=['GET'])
 @login_required
@@ -1206,7 +1215,7 @@ def search_contacts():
         return jsonify(contacts)
 
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/contacts', methods=['POST'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/contacts', methods=['POST'])
 @login_required
 def link_opportunity_contact(opportunity_id):
     industry = current_industry()
@@ -1275,44 +1284,32 @@ def unlink_opportunity_contact(link_id):
 # DOCUMENTS — bilingual
 # ============================================================================
 
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/documents', methods=['GET'])
+
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/documents')
 @login_required
 def get_opportunity_documents(opportunity_id):
     industry = current_industry()
     engine = get_engine()
     with engine.connect() as conn:
-        parent = conn.execute(text("""
-            SELECT 1 FROM t_Opportunity
-            WHERE OpportunityID = :id
-              AND (DemoIndustryCode = :industry OR DemoIndustryCode IS NULL)
-              AND (IsActive IS NULL OR IsActive = '1')
-        """), {'id': opportunity_id, 'industry': industry}).first()
-        if not parent:
-            return jsonify({'error': 'Opportunity not found'}), 404
-
         rows = conn.execute(text("""
-            SELECT d.DocID, d.ActivityID,
-                   d.DocumentName, d.DocumentNameFa,
-                   d.DocumentType, d.StorageType, d.Location,
-                   d.FileSizeKB, d.Direction, d.Channel,
-                   d.Notes, d.NotesFa,
-                   d.CreatedDateKey,
-                   a.Subject AS ActivitySubject,
-                   a.SubjectFa AS ActivitySubjectFa,
-                   a.ActivityDateKey
+            SELECT
+                d.DocID,
+                d.DocumentName,   d.DocumentNameFa,
+                d.DocumentType,   d.StorageType, d.Location,
+                d.FileSizeKB,     d.Direction,   d.Channel,
+                d.Notes,          d.NotesFa,
+                d.CreatedDateKey
             FROM t_ActivityDocument d
-            LEFT JOIN t_OpportunityActivity a ON d.ActivityID = a.ActivityID
-            WHERE d.OpportunityID = :oid
+            WHERE CAST(d.OpportunityID AS NVARCHAR(50)) = :opp_id
             ORDER BY d.CreatedDateKey DESC, d.DocID DESC
-        """), {'oid': opportunity_id}).fetchall()
+        """), {'opp_id': str(opportunity_id)}).fetchall()
 
-        documents = []
-        for r in rows:
-            m = r._mapping
+        docs = []
+        for row in rows:
+            m = row._mapping
             cdk = m['CreatedDateKey']
-            documents.append({
+            docs.append({
                 'doc_id':        m['DocID'],
-                'activity_id':   m['ActivityID'],
                 'document_name': pick_localized(m, 'DocumentName'),
                 'document_type': m['DocumentType'],
                 'storage_type':  m['StorageType'],
@@ -1323,12 +1320,10 @@ def get_opportunity_documents(opportunity_id):
                 'notes':         pick_localized(m, 'Notes'),
                 'created_date_key': cdk,
                 'created_date_formatted': format_date(int(cdk)) if cdk else '',
-                'activity_subject': pick_localized(m, 'ActivitySubject'),
             })
-        return jsonify(documents)
+        return jsonify(docs)
 
-
-@crm_api_bp.route('/opportunities/<int:opportunity_id>/documents', methods=['POST'])
+@crm_api_bp.route('/opportunities/<string:opportunity_id>/documents', methods=['POST'])
 @login_required
 def add_opportunity_document(opportunity_id):
     industry = current_industry()
@@ -1631,6 +1626,7 @@ def get_all_activities():
 # QUOTES — bilingual
 # ============================================================================
 
+
 @crm_api_bp.route('/quotes')
 @login_required
 def list_quotes():
@@ -1667,8 +1663,8 @@ def list_quotes():
                    q.Notes, q.NotesFa,
                    q.ParentQuoteID,
                    o.OpportunityName, o.OpportunityNameFa,
-                   c.Name, c.NameFa,
-                   u.FullName,
+                   c.Name AS CustomerName, c.NameFa AS CustomerNameFa,
+                   u.FullName AS CreatedByName, u.FullNameLocal AS CreatedByNameFa,
                    q.CreatedDateKey
             FROM t_Quote q
             LEFT JOIN t_Opportunity o ON q.OpportunityID = o.OpportunityID
@@ -1683,27 +1679,47 @@ def list_quotes():
             m = row._mapping
             vu = m['ValidUntilDateKey']
             cd = m['CreatedDateKey']
+
+            def _to_int(v):
+                if v is None or v == '':
+                    return None
+                try:
+                    return int(v)
+                except (TypeError, ValueError):
+                    try:
+                        return int(float(v))
+                    except (TypeError, ValueError):
+                        return None
+
+            def _safe_format(v):
+                k = _to_int(v)
+                if not k:
+                    return ''
+                try:
+                    return format_date(k)
+                except Exception:
+                    return ''
+
             quotes.append({
-                'quote_id': m['QuoteID'],
-                'quote_number': m['QuoteNumber'],
-                'opportunity_id': m['OpportunityID'],
+                'quote_id':         m['QuoteID'],
+                'quote_number':     m['QuoteNumber'],
+                'opportunity_id':   m['OpportunityID'],
                 'opportunity_name': pick_localized(m, 'OpportunityName'),
-                'customer_id': m['CustomerID'],
-                'customer_name': pick_localized(m, 'Name'),
-                'revision': m['Revision'],
-                'status': m['Status'],
-                'subject': pick_localized(m, 'Subject'),
-                'valid_until_date_key': vu,
-                'valid_until_date_formatted': format_date(int(vu)) if vu else '',
-                'total_amount': float(m['TotalAmount']) if m['TotalAmount'] else 0,
-                'notes': pick_localized(m, 'Notes'),
-                'parent_quote_id': m['ParentQuoteID'],
-                'created_by_name': m['FullName'],
-                'created_date_key': cd,
-                'created_date_formatted': format_date(int(cd)) if cd else '',
+                'customer_id':      m['CustomerID'],
+                'customer_name':    pick_localized(m, 'CustomerName'),
+                'revision':         m['Revision'],
+                'status':           m['Status'],
+                'subject':          pick_localized(m, 'Subject'),
+                'valid_until_date_key':       _to_int(vu),
+                'valid_until_date_formatted': _safe_format(vu),
+                'total_amount':     float(m['TotalAmount']) if m['TotalAmount'] else 0,
+                'notes':            pick_localized(m, 'Notes'),
+                'parent_quote_id':  m['ParentQuoteID'],
+                'created_by_name':  pick_localized(m, 'CreatedByName'),
+                'created_date_key':       _to_int(cd),
+                'created_date_formatted': _safe_format(cd),
             })
         return jsonify(quotes)
-
 
 @crm_api_bp.route('/quotes/<string:quote_id>')
 @login_required
@@ -2143,3 +2159,89 @@ def dashboard_forecast():
             'next_60_days': {'total': float(row[1] or 0)},
             'next_90_days': {'total': float(row[2] or 0)},
         })
+        
+        
+ 
+
+# ============================================================================
+# CUSTOMER PRICE OVERRIDES — LIST
+# ============================================================================
+
+@crm_api_bp.route('/customer-pricing')
+@login_required
+def list_customer_price_overrides():
+    """List all active customer price overrides, localized, with product/customer names."""
+    industry = current_industry()
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT
+                o.OverrideID,
+                o.CustomerID,
+                c.Name   AS CustomerName,
+                c.NameFa AS CustomerNameFa,
+                o.ProductID,
+                p.descEnglish      AS ProductName,
+                p.ProductNameLocal AS ProductNameFa,
+                o.OverridePrice,
+                o.Currency,
+                o.MinOrderQty,
+                o.ValidFromDateKey,
+                o.ValidToDateKey,
+                o.Reason,
+                o.ReasonLocal AS ReasonFa,
+                o.IsActive,
+                o.CreatedDateKey
+            FROM t_CustomerPriceOverride o
+            LEFT JOIN t_companies c ON o.CustomerID = c.companyID
+            LEFT JOIN t_Product   p ON o.ProductID  = p.ProductId
+            WHERE (o.DemoIndustryCode = :industry OR o.DemoIndustryCode IS NULL)
+              AND (o.IsActive IS NULL OR o.IsActive = '1')
+            ORDER BY o.CreatedDateKey DESC, o.OverrideID DESC
+        """), {'industry': industry}).fetchall()
+
+        overrides = []
+        for row in rows:
+            m = row._mapping
+
+            def _to_int(v):
+                if v is None or v == '': return None
+                try: return int(v)
+                except (TypeError, ValueError):
+                    try: return int(float(v))
+                    except (TypeError, ValueError): return None
+
+            def _safe_format(v):
+                k = _to_int(v)
+                if not k: return ''
+                try: return format_date(k)
+                except Exception: return ''
+
+            currency = m['Currency'] or 'USD'
+            override_price = m['OverridePrice']
+            try:
+                override_price = float(override_price) if override_price is not None else 0.0
+            except (TypeError, ValueError):
+                override_price = 0.0
+
+            overrides.append({
+                'override_id':     m['OverrideID'],
+                'customer_id':     m['CustomerID'],
+                'customer_name':   pick_localized(m, 'CustomerName'),
+                'product_id':      m['ProductID'],
+                'product_name':    pick_localized(m, 'ProductName'),
+                'override_price':  override_price,
+                'currency':        currency,
+                'min_order_qty':   _to_int(m['MinOrderQty']) or 1,
+                'valid_from_date_key':       _to_int(m['ValidFromDateKey']),
+                'valid_from_date_formatted': _safe_format(m['ValidFromDateKey']),
+                'valid_to_date_key':         _to_int(m['ValidToDateKey']),
+                'valid_to_date_formatted':   _safe_format(m['ValidToDateKey']),
+                'reason':          pick_localized(m, 'Reason'),
+                'created_date_key':       _to_int(m['CreatedDateKey']),
+                'created_date_formatted': _safe_format(m['CreatedDateKey']),
+            })
+
+        return jsonify(overrides)
+        
+        

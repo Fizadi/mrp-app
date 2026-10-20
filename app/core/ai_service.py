@@ -98,6 +98,128 @@ def _apply_defaults(parsed, context):
 
 
 # ============================================================================
+# OPPORTUNITY CANDIDATE SEARCH
+# ============================================================================
+def find_opportunity_candidates(conn, parsed, industry_code, max_results=5):
+    """
+    Given a parsed AI result, search for matching opportunities in the DB.
+
+    Matching strategy (in priority order, deduplicated):
+      1. Customer name (exact or LIKE) — highest weight
+      2. Contact person name (exact or LIKE)
+      3. Notes keyword match (search_hint)
+
+    Returns list of dicts:
+      [{ 'opportunity_id': ..., 'name': ..., 'customer_name': ...,
+         'stage': ..., 'status': ..., 'match_reason': ... }, ...]
+    """
+    from sqlalchemy.sql import text
+
+    ents = (parsed or {}).get('entities', {})
+    opp = ents.get('opportunity', {}) or {}
+    company = ents.get('company', {}) or {}
+
+    hint = (opp.get('search_hint') or '').strip()
+    company_name = (company.get('name') or '').strip()
+    contact_person = (opp.get('contact_person') or '').strip()
+
+    # If we have no hints at all, don't search
+    if not hint and not company_name and not contact_person:
+        return []
+
+    # --- Build query: we UNION three match types and rank by confidence ---
+    # Confidence: 3 = company match, 2 = contact match, 1 = notes keyword
+    sql = """
+    SELECT * FROM (
+        SELECT
+            o.OpportunityID AS opportunity_id,
+            o.OpportunityName AS name,
+            o.OpportunityNameFa AS name_fa,
+            o.CustomerID,
+            c.Name AS customer_name,
+            c.NameFa AS customer_name_fa,
+            o.Stage,
+            o.Status,
+            o.ContactPerson,
+            o.Notes,
+            3 AS confidence,
+            N'customer name' AS match_reason
+        FROM t_Opportunity o
+        LEFT JOIN t_companies c ON c.companyID = o.CustomerID
+        WHERE o.DemoIndustryCode = :ind
+          AND (o.IsActive IS NULL OR o.IsActive = '1')
+          AND (:company_name = N'' OR
+               c.Name LIKE N'%' + :company_name + N'%' OR
+               c.NameFa LIKE N'%' + :company_name + N'%')
+
+        UNION
+
+        SELECT
+            o.OpportunityID, o.OpportunityName, o.OpportunityNameFa,
+            o.CustomerID, c.Name, c.NameFa,
+            o.Stage, o.Status, o.ContactPerson, o.Notes,
+            2 AS confidence,
+            N'contact person' AS match_reason
+        FROM t_Opportunity o
+        LEFT JOIN t_companies c ON c.companyID = o.CustomerID
+        WHERE o.DemoIndustryCode = :ind
+          AND (o.IsActive IS NULL OR o.IsActive = '1')
+          AND (:contact_person = N'' OR o.ContactPerson LIKE N'%' + :contact_person + N'%')
+
+        UNION
+
+        SELECT
+            o.OpportunityID, o.OpportunityName, o.OpportunityNameFa,
+            o.CustomerID, c.Name, c.NameFa,
+            o.Stage, o.Status, o.ContactPerson, o.Notes,
+            1 AS confidence,
+            N'notes keyword' AS match_reason
+        FROM t_Opportunity o
+        LEFT JOIN t_companies c ON c.companyID = o.CustomerID
+        WHERE o.DemoIndustryCode = :ind
+          AND (o.IsActive IS NULL OR o.IsActive = '1')
+          AND (:hint = N'' OR o.Notes LIKE N'%' + :hint + N'%'
+                        OR o.OpportunityName LIKE N'%' + :hint + N'%')
+    ) AS matches
+    ORDER BY confidence DESC, name
+    """
+
+    try:
+        rows = conn.execute(text(sql), {
+            'ind': industry_code,
+            'company_name': company_name,
+            'contact_person': contact_person,
+            'hint': hint,
+        }).fetchall()
+    except Exception as e:
+        print(f'[AI] candidate search failed: {e}')
+        return []
+
+    # Deduplicate by opportunity_id, keeping highest-confidence match
+    seen = {}
+    for r in rows:
+        m = r._mapping
+        oid = m['opportunity_id']
+        if oid in seen:
+            continue
+        seen[oid] = {
+            'opportunity_id': str(oid),
+            'name': m['name'] or '',
+            'name_fa': m['name_fa'] or '',
+            'customer_name': m['customer_name'] or '',
+            'customer_name_fa': m['customer_name_fa'] or '',
+            'stage': m['Stage'] or '',
+            'status': m['Status'] or '',
+            'contact_person': m['ContactPerson'] or '',
+            'match_reason': m['match_reason'],
+        }
+        if len(seen) >= max_results:
+            break
+
+    return list(seen.values())
+
+
+# ============================================================================
 # Main entry point
 # ============================================================================
 def parse_crm_text(user_text, context='opportunity', temperature=0.1):
@@ -111,6 +233,7 @@ def parse_crm_text(user_text, context='opportunity', temperature=0.1):
 
     Returns:
       dict — parsed entities with defaults applied.
+      If context == 'opportunity', also includes 'opportunity_candidates'.
 
     Raises:
       AIServiceError — if every model in the chain fails.
@@ -217,7 +340,25 @@ def parse_crm_text(user_text, context='opportunity', temperature=0.1):
             continue
 
         print(f'[AI] ✓ {model} succeeded', flush=True)
-        return _apply_defaults(parsed, context)
+        parsed = _apply_defaults(parsed, context)
+
+        # ---- Candidate search (opportunity context only) ----
+        if context == 'opportunity':
+            try:
+                from flask import session
+                industry_code = session.get('demo_industry', 'valve')
+                engine = current_app.extensions['sqlalchemy'].engine
+                with engine.connect() as conn:
+                    parsed['opportunity_candidates'] = find_opportunity_candidates(
+                        conn, parsed, industry_code
+                    )
+            except Exception as e:
+                print(f'[AI] candidate search error: {e}')
+                parsed['opportunity_candidates'] = []
+        else:
+            parsed['opportunity_candidates'] = []
+
+        return parsed
 
     # Every model failed
     raise AIServiceError(

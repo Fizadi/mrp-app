@@ -481,6 +481,27 @@
 })();
 </script>
 
+<!-- ============================================================================
+     STICKY TABLE HEADERS — v48 GLOBAL FIX
+     ============================================================================
+     Auto-adds .sticky-wrapper class to every .table-responsive that
+     contains a .table-sticky-dark table. The CSS rule (in app.css)
+     then sets max-height + overflow-y so the sticky header pins to
+     the wrapper top instead of the page.
+
+     This is the browser-agnostic alternative to :has() — works on
+     every browser, no polyfill needed.
+     ============================================================================ -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.table-responsive').forEach(function (wrapper) {
+        if (wrapper.querySelector('.table-sticky-dark')) {
+            wrapper.classList.add('sticky-wrapper');
+        }
+    });
+});
+</script>
+
 {% block scripts %}{% endblock %}
 
 </body>

@@ -33,6 +33,17 @@ def ai_parse():
     """
     POST { text, context? } → parsed JSON.
     Used by the AI Assist modal on the Opportunities page.
+
+    Response shape when context == 'opportunity':
+      {
+        "ok": true,
+        "parsed": {
+          "intent": "...",
+          "entities": {...},
+          "warnings": [...],
+          "opportunity_candidates": [ {...}, ... ]
+        }
+      }
     """
     data = request.get_json(silent=True) or {}
     text = (data.get('text') or '').strip()
