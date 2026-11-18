@@ -4,6 +4,14 @@
 
 {% block content %}
 <div class="container-fluid mt-3">
+
+<!-- ✅ ADDED: Page Header -->
+<div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mt-1 mb-3 gap-2">
+    <h2 class="page-title mb-0">
+        <i class="fas fa-sitemap me-2"></i>{{ get_translation('engineering.bom.title', 'BOM Management') }}
+    </h2>
+</div>
+
 <nav aria-label="breadcrumb">
 <ol class="breadcrumb">
 <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('home', 'Home') }}</a></li>
@@ -97,8 +105,9 @@
 </div>
 </div>
 
+
 <!-- Side Panel (Offcanvas) -->
-<div aria-labelledby="bomSidePanelLabel" class="offcanvas offcanvas-end" id="bomSidePanel" style="width: 450px;" tabindex="-1">
+<div aria-labelledby="bomSidePanelLabel" class="offcanvas {% if lang == 'fa' %}offcanvas-start{% else %}offcanvas-end{% endif %}" id="bomSidePanel" style="width: 450px;" tabindex="-1">
 <div class="offcanvas-header">
 <h5 id="bomSidePanelLabel">{{ get_translation('engineering.bom.sidepanel.title', 'Component Details') }}</h5>
 <button class="btn-close" data-bs-dismiss="offcanvas" type="button"></button>
@@ -130,11 +139,21 @@
 </div>
 <!-- Actions Tab -->
 <div class="tab-pane fade" id="actionsTab">
-<button class="btn btn-warning mb-2 w-100" id="actionRaiseNCR">{{ get_translation('engineering.bom.actions.raise_ncr', 'Raise NCR') }}</button>
-<button class="btn btn-success mb-2 w-100" id="actionCreatePO">{{ get_translation('engineering.bom.actions.create_po', 'Create PO') }}</button>
-<button class="btn btn-info mb-2 w-100" id="actionViewQualityPlan">{{ get_translation('engineering.bom.actions.view_quality', 'View Quality Plan') }}</button>
-<button class="btn btn-secondary mb-2 w-100" id="actionRequestECO">{{ get_translation('engineering.bom.actions.request_eco', 'Request ECO') }}</button>
-<button class="btn btn-primary mb-2 w-100" id="actionViewDocuments">{{ get_translation('engineering.bom.actions.view_docs', 'View Documents') }}</button>
+    <button class="btn btn-warning mb-2 w-100" id="actionRaiseNCR">
+        {{ get_translation('engineering.bom.actions.raise_ncr', 'Raise NCR') }}
+    </button>
+    <button class="btn btn-success mb-2 w-100" id="actionCreatePO">
+        {{ get_translation('engineering.bom.actions.create_po', 'Create PO') }}
+    </button>
+    <button class="btn btn-info mb-2 w-100" id="actionViewQualityPlan">
+        {{ get_translation('engineering.bom.actions.view_quality', 'View Quality Plan') }}
+    </button>
+    <button class="btn btn-secondary mb-2 w-100" id="actionRequestECO">
+        {{ get_translation('engineering.bom.actions.request_eco', 'Request ECO') }}
+    </button>
+    <button class="btn btn-primary mb-2 w-100" id="actionViewDocuments">
+        {{ get_translation('engineering.bom.actions.view_docs', 'View Documents') }}
+    </button>
 </div>
 <!-- Where-Used Tab -->
 <div class="tab-pane fade" id="whereUsedTab">
@@ -255,6 +274,35 @@ var trans = {
     view_quality: {{ get_translation('engineering.bom.actions.view_quality', 'View Quality Plan')|tojson }},
     request_eco: {{ get_translation('engineering.bom.actions.request_eco', 'Request ECO')|tojson }},
     view_docs: {{ get_translation('engineering.bom.actions.view_docs', 'View Documents')|tojson }},
+
+    // Step 3 additions — error/confirm/prompt strings
+    error_adding:         {{ get_translation('global.error', 'Error adding component')|tojson }},
+    confirm_delete:       {{ get_translation('engineering.bom.sidepanel.delete_confirm', 'Delete this component?')|tojson }},
+    edit_prompt:          {{ get_translation('engineering.bom.sidepanel.edit_prompt', 'New quantity')|tojson }},
+    select_product_first: {{ get_translation('engineering.bom.sidepanel.select_product_first', 'Please select a product first')|tojson }},
+    import_failed:        {{ get_translation('global.error', 'Import failed')|tojson }},
+
+    // Side panel summary labels (short keys)
+    inv_header:     {{ get_translation('engineering.bom.sidepanel.inventory', 'Inventory')|tojson }},
+    on_hand:        {{ get_translation('engineering.bom.sidepanel.on_hand', 'On Hand')|tojson }},
+    available:      {{ get_translation('engineering.bom.sidepanel.available', 'Available')|tojson }},
+    qual_header:    {{ get_translation('engineering.bom.sidepanel.quality', 'Quality')|tojson }},
+    qc_ops:         {{ get_translation('engineering.bom.sidepanel.qc_ops', 'Assigned QC Ops')|tojson }},
+    last_insp:      {{ get_translation('engineering.bom.sidepanel.last_insp', 'Last Inspection')|tojson }},
+    pur_header:     {{ get_translation('engineering.bom.sidepanel.purchasing', 'Purchasing')|tojson }},
+    open_pos:       {{ get_translation('engineering.bom.sidepanel.open_pos', 'Open POs')|tojson }},
+    overdue:        {{ get_translation('engineering.bom.sidepanel.overdue', 'Overdue')|tojson }},
+    prod_header:    {{ get_translation('engineering.bom.sidepanel.production', 'Production')|tojson }},
+    active_orders:  {{ get_translation('engineering.bom.sidepanel.active_orders', 'Active Orders')|tojson }},
+    req_30:         {{ get_translation('engineering.bom.sidepanel.req_30', 'Required Next 30 Days')|tojson }},
+    nc_header:      {{ get_translation('engineering.bom.sidepanel.non_conf', 'Non-Conformance')|tojson }},
+    open_ncrs:      {{ get_translation('engineering.bom.sidepanel.open_ncrs', 'Open NCRs')|tojson }},
+    closed:         {{ get_translation('engineering.bom.sidepanel.closed', 'Closed')|tojson }},
+    eng_header:     {{ get_translation('engineering.bom.sidepanel.engineering', 'Engineering')|tojson }},
+    documents:      {{ get_translation('engineering.bom.sidepanel.documents', 'Documents')|tojson }},
+    sales_header:   {{ get_translation('engineering.bom.sidepanel.sales', 'Sales & Service')|tojson }},
+    sold_spare:     {{ get_translation('engineering.bom.sidepanel.sold_spare', 'Sold as Spare')|tojson }},
+    failed_summary: {{ get_translation('engineering.bom.sidepanel.failed_summary', 'Failed to load summary')|tojson }},
 };
 
 function t(key, defaultText) {
@@ -388,17 +436,17 @@ window.showSidePanel = function(node) {
     $.get('/api/bom/component/' + encodeURIComponent(node.component_id) + '/summary')
         .done(function(data) {
             var html = '';
-            html += `<div><h6>📦 Inventory</h6><p>On Hand: ${data.inventory.on_hand} | Available: ${data.inventory.available}</p></div>`;
-            html += `<div><h6>✅ Quality</h6><p>Assigned QC Ops: ${data.quality.assigned_operations_count}<br>Last Inspection: ${data.quality.last_inspection_result}</p></div>`;
-            html += `<div><h6>🛒 Purchasing</h6><p>Open POs: ${data.purchasing.open_pos_count} | Overdue: ${data.purchasing.overdue_pos_count}</p></div>`;
-            html += `<div><h6>⚙️ Production</h6><p>Active Orders: ${data.production.active_orders_using_count}<br>Required Next 30 Days: ${data.production.required_next_30_days}</p></div>`;
-            html += `<div><h6>⚠️ Non-Conformance</h6><p>Open NCRs: ${data.non_conformance.open_ncrs_count} | Closed: ${data.non_conformance.closed_ncrs_count}</p></div>`;
-            html += `<div><h6>🔄 Engineering</h6><p>Documents: ${data.engineering.document_count}</p></div>`;
-            html += `<div><h6>📊 Sales & Service</h6><p>Sold as Spare: ${data.sales.sold_as_spare_ytd}</p></div>`;
+            html += `<div><h6>📦 ${t('inv_header', 'Inventory')}</h6><p>${t('on_hand', 'On Hand')}: ${data.inventory.on_hand} | ${t('available', 'Available')}: ${data.inventory.available}</p></div>`;
+            html += `<div><h6>✅ ${t('qual_header', 'Quality')}</h6><p>${t('qc_ops', 'Assigned QC Ops')}: ${data.quality.assigned_operations_count}<br>${t('last_insp', 'Last Inspection')}: ${data.quality.last_inspection_result}</p></div>`;
+            html += `<div><h6>🛒 ${t('pur_header', 'Purchasing')}</h6><p>${t('open_pos', 'Open POs')}: ${data.purchasing.open_pos_count} | ${t('overdue', 'Overdue')}: ${data.purchasing.overdue_pos_count}</p></div>`;
+            html += `<div><h6>⚙️ ${t('prod_header', 'Production')}</h6><p>${t('active_orders', 'Active Orders')}: ${data.production.active_orders_using_count}<br>${t('req_30', 'Required Next 30 Days')}: ${data.production.required_next_30_days}</p></div>`;
+            html += `<div><h6>⚠️ ${t('nc_header', 'Non-Conformance')}</h6><p>${t('open_ncrs', 'Open NCRs')}: ${data.non_conformance.open_ncrs_count} | ${t('closed', 'Closed')}: ${data.non_conformance.closed_ncrs_count}</p></div>`;
+            html += `<div><h6>🔄 ${t('eng_header', 'Engineering')}</h6><p>${t('documents', 'Documents')}: ${data.engineering.document_count}</p></div>`;
+            html += `<div><h6>📊 ${t('sales_header', 'Sales & Service')}</h6><p>${t('sold_spare', 'Sold as Spare')}: ${data.sales.sold_as_spare_ytd}</p></div>`;
             $('#componentSummary').html(html);
         })
         .fail(function() {
-            $('#componentSummary').html('<p class="text-danger">Failed to load summary</p>');
+            $('#componentSummary').html('<p class="text-danger">' + t('failed_summary', 'Failed to load summary') + '</p>');
         });
 
     var offcanvas = new bootstrap.Offcanvas($('#bomSidePanel'));
@@ -479,7 +527,7 @@ $(document).ready(function() {
                     window.loadStats();
                     showToast(t('component_added', 'Import completed'), 'success');
                 },
-                error: function() { showToast('Import failed', 'error'); }
+                error: function() { showToast(t('import_failed', 'Import failed'), 'error'); }
             });
         });
         input.click();
@@ -490,7 +538,7 @@ $(document).ready(function() {
         if (productId) {
             window.location.href = '/api/bom/export/' + encodeURIComponent(productId);
         } else {
-            showToast('Please select a product first', 'warning');
+            showToast(t('select_product_first', 'Please select a product first'), 'warning');
         }
     });
 
@@ -529,14 +577,14 @@ $(document).ready(function() {
                 window.loadStats();
                 showToast(t('component_added', 'Component added'), 'success');
             })
-            .fail(function() { showToast('Error adding component', 'error'); });
+            .fail(function() { showToast(t('error_adding', 'Error adding component'), 'error'); });
     });
 
     // EDIT / DELETE COMPONENT
     $(document).on('click', '.editComponentBtn', function() {
         var node = window.currentNodeData;
         if (node) {
-            var newQty = prompt('New quantity', node.quantity);
+            var newQty = prompt(t('edit_prompt', 'New quantity'), node.quantity);
             if (newQty) {
                 $.ajax({
                     url: '/api/bom/component/' + node.id,
@@ -554,7 +602,7 @@ $(document).ready(function() {
 
     $(document).on('click', '.deleteComponentBtn', function() {
         var node = window.currentNodeData;
-        if (node && confirm('Delete this component?')) {
+        if (node && confirm(t('confirm_delete', 'Delete this component?'))) {
             $.ajax({
                 url: '/api/bom/component/' + node.id,
                 method: 'DELETE',

@@ -1,5 +1,7 @@
 # app/modules/quality/api.py
 from datetime import datetime, timedelta
+import uuid
+import re
 from flask import Blueprint, jsonify, request, session, send_file, current_app
 from app.core.database import get_db_connection
 from sqlalchemy.sql import text
@@ -18,6 +20,10 @@ def get_engine():
 
 def _today_key():
     return int(datetime.now().strftime('%Y%m%d'))
+
+def _tenant_id():
+    """Return current tenant_id from session (0 = Super Admin sees all)."""
+    return session.get('tenant_id', 1)
 
 
 # ========== REMOVED PAGES (Not in 10-page Quality Module) ==========
@@ -355,14 +361,27 @@ def products_placeholder():
 @quality_api.route('/quality_templates/list')
 @login_required
 def quality_templates_list():
+    tenant_id = _tenant_id()
+    engine = get_engine()
     family = request.args.get('family', '')
     active_only = request.args.get('active_only', 'false') == 'true'
     search = request.args.get('search', '')
-    
-    engine = get_engine()
-    
-    # SQL Server compatible query (no LIMIT, use TOP 1000)
-    query = """
+
+    conditions = ["(t.TenantID = :tenant_id OR :tenant_id = 0)"]
+    params = {'tenant_id': tenant_id}
+
+    if family:
+        conditions.append("t.ProductFamily = :family")
+        params['family'] = family
+    if active_only:
+        conditions.append("t.IsActive = 1")
+    if search:
+        conditions.append("(t.TemplateName LIKE :search OR t.Description LIKE :search)")
+        params['search'] = f'%{search}%'
+
+    where_clause = " AND ".join(conditions)
+
+    query = f"""
         SELECT TOP 1000
             t.TemplateID,
             t.TemplateName,
@@ -372,18 +391,9 @@ def quality_templates_list():
             t.CreatedDateKey,
             t.CreatedBy
         FROM t_QualityPlanTemplate t
-        WHERE 1=1
+        WHERE {where_clause}
+        ORDER BY t.TemplateName
     """
-    params = {}
-    if family:
-        query += " AND t.ProductFamily = :family"
-        params['family'] = family
-    if active_only:
-        query += " AND t.IsActive = 1"
-    if search:
-        query += " AND (t.TemplateName LIKE :search OR t.Description LIKE :search)"
-        params['search'] = f'%{search}%'
-    query += " ORDER BY t.TemplateName"
     
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
@@ -403,12 +413,33 @@ def quality_templates_list():
 @quality_api.route('/quality_templates/stats')
 @login_required
 def quality_templates_stats():
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.connect() as conn:
-        total = conn.execute(text("SELECT COUNT(*) FROM t_QualityPlanTemplate")).scalar() or 0
-        active = conn.execute(text("SELECT COUNT(*) FROM t_QualityPlanTemplate WHERE IsActive = 1")).scalar() or 0
-        used_in_products = conn.execute(text("SELECT COUNT(DISTINCT TemplateID) FROM t_ProjectQualityPlan WHERE TemplateID IS NOT NULL")).scalar() or 0
-        used_in_projects = conn.execute(text("SELECT COUNT(DISTINCT TemplateID) FROM t_ProjectQualityPlan WHERE ProjectID IS NOT NULL AND TemplateID IS NOT NULL")).scalar() or 0
+        total = conn.execute(
+            text("SELECT COUNT(*) FROM t_QualityPlanTemplate WHERE (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
+        active = conn.execute(
+            text("SELECT COUNT(*) FROM t_QualityPlanTemplate WHERE IsActive = 1 AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
+        used_in_products = conn.execute(
+            text("""
+                SELECT COUNT(DISTINCT TemplateID) FROM t_ProjectQualityPlan
+                WHERE TemplateID IS NOT NULL
+                  AND (TenantID = :tenant_id OR :tenant_id = 0)
+            """),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
+        used_in_projects = conn.execute(
+            text("""
+                SELECT COUNT(DISTINCT TemplateID) FROM t_ProjectQualityPlan
+                WHERE ProjectID IS NOT NULL AND TemplateID IS NOT NULL
+                  AND (TenantID = :tenant_id OR :tenant_id = 0)
+            """),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
     
     return jsonify({
         'total': total,
@@ -418,14 +449,19 @@ def quality_templates_stats():
     })
 
 
-@quality_api.route('/quality_templates/<int:template_id>')
+@quality_api.route('/quality_templates/<string:template_id>')
 @login_required
 def get_quality_template(template_id):
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.connect() as conn:
         row = conn.execute(
-            text("SELECT * FROM t_QualityPlanTemplate WHERE TemplateID = :tid"),
-            {'tid': template_id}
+            text("""
+                SELECT * FROM t_QualityPlanTemplate
+                WHERE TemplateID = :tid
+                  AND (TenantID = :tenant_id OR :tenant_id = 0)
+            """),
+            {'tid': template_id, 'tenant_id': tenant_id}
         ).first()
         if not row:
             return jsonify({'error': 'Template not found'}), 404
@@ -448,15 +484,18 @@ def create_quality_template():
     engine = get_engine()
     today_key = _today_key()
     
+    template_id = str(uuid.uuid4())
     with engine.begin() as conn:
-        result = conn.execute(
+        conn.execute(
             text("""
                 INSERT INTO t_QualityPlanTemplate
-                (TemplateName, ProductFamily, Description, IsActive, CreatedBy, CreatedDateKey, Version)
-                OUTPUT INSERTED.TemplateID
-                VALUES (:name, :family, :desc, :active, :user, :date, 1)
+                (TemplateID, TenantID, TemplateName, ProductFamily, Description, IsActive,
+                 CreatedBy, CreatedDateKey)
+                VALUES (:tid, :tenant_id, :name, :family, :desc, :active, :user, :date)
             """),
             {
+                'tid': template_id,
+                'tenant_id': _tenant_id(),
                 'name': data['TemplateName'],
                 'family': data.get('ProductFamily'),
                 'desc': data.get('Description'),
@@ -465,24 +504,24 @@ def create_quality_template():
                 'date': today_key
             }
         )
-        template_id = result.scalar()
         
         if data.get('copyFromTemplateId'):
             copy_id = data['copyFromTemplateId']
             conn.execute(
                 text("""
-                    INSERT INTO t_QualityPlanTemplateDetail (TemplateID, QCOperationID, OperationSequence, IsCritical, SamplingSize)
-                    SELECT :tid, QCOperationID, OperationSequence, IsCritical, SamplingSize
+                    INSERT INTO t_QualityPlanTemplateDetail
+                    (DetailID, TenantID, TemplateID, QCOperationID, OperationSequence, IsCritical, SamplingSize)
+                    SELECT NEWID(), TenantID, :tid, QCOperationID, OperationSequence, IsCritical, SamplingSize
                     FROM t_QualityPlanTemplateDetail
-                    WHERE TemplateID = :copy_id
+                    WHERE TemplateID = :copy_id AND (TenantID = :tenant_id OR :tenant_id = 0)
                 """),
-                {'tid': template_id, 'copy_id': copy_id}
+                {'tid': template_id, 'copy_id': copy_id, 'tenant_id': _tenant_id()}
             )
     
     return jsonify({'TemplateID': template_id, 'message': 'Template created'}), 201
 
 
-@quality_api.route('/quality_templates/<int:template_id>', methods=['PUT'])
+@quality_api.route('/quality_templates/<string:template_id>', methods=['PUT'])
 @login_required
 def update_quality_template(template_id):
     data = request.get_json()
@@ -492,36 +531,37 @@ def update_quality_template(template_id):
             text("""
                 UPDATE t_QualityPlanTemplate
                 SET TemplateName = :name, ProductFamily = :family, Description = :desc, IsActive = :active
-                WHERE TemplateID = :tid
+                WHERE TemplateID = :tid AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
             {
                 'name': data.get('TemplateName'),
                 'family': data.get('ProductFamily'),
                 'desc': data.get('Description'),
                 'active': data.get('IsActive', 1),
-                'tid': template_id
+                'tid': template_id,
+                'tenant_id': _tenant_id()
             }
         )
     return jsonify({'message': 'Template updated'})
 
 
-@quality_api.route('/quality_templates/<int:template_id>', methods=['DELETE'])
+@quality_api.route('/quality_templates/<string:template_id>', methods=['DELETE'])
 @login_required
 def delete_quality_template(template_id):
     engine = get_engine()
     with engine.begin() as conn:
         count = conn.execute(
-            text("SELECT COUNT(*) FROM t_ProjectQualityPlan WHERE TemplateID = :tid"),
-            {'tid': template_id}
+            text("SELECT COUNT(*) FROM t_ProjectQualityPlan WHERE TemplateID = :tid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tid': template_id, 'tenant_id': _tenant_id()}
         ).scalar()
         if count > 0:
             return jsonify({'error': 'Cannot delete template because it is used in quality plans'}), 400
-        conn.execute(text("DELETE FROM t_QualityPlanTemplateDetail WHERE TemplateID = :tid"), {'tid': template_id})
-        conn.execute(text("DELETE FROM t_QualityPlanTemplate WHERE TemplateID = :tid"), {'tid': template_id})
+        conn.execute(text("DELETE FROM t_QualityPlanTemplateDetail WHERE TemplateID = :tid AND (TenantID = :tenant_id OR :tenant_id = 0)"), {'tid': template_id, 'tenant_id': _tenant_id()})
+        conn.execute(text("DELETE FROM t_QualityPlanTemplate WHERE TemplateID = :tid AND (TenantID = :tenant_id OR :tenant_id = 0)"), {'tid': template_id, 'tenant_id': _tenant_id()})
     return jsonify({'message': 'Template deleted'})
 
 
-@quality_api.route('/quality_templates/<int:template_id>/copy', methods=['POST'])
+@quality_api.route('/quality_templates/<string:template_id>/copy', methods=['POST'])
 @login_required
 def copy_quality_template(template_id):
     engine = get_engine()
@@ -529,8 +569,8 @@ def copy_quality_template(template_id):
     
     with engine.begin() as conn:
         row = conn.execute(
-            text("SELECT * FROM t_QualityPlanTemplate WHERE TemplateID = :tid"),
-            {'tid': template_id}
+            text("SELECT * FROM t_QualityPlanTemplate WHERE TemplateID = :tid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tid': template_id, 'tenant_id': _tenant_id()}
         ).first()
         if not row:
             return jsonify({'error': 'Template not found'}), 404
@@ -538,14 +578,17 @@ def copy_quality_template(template_id):
         original = dict(row._mapping)
         new_name = f"{original['TemplateName']} (Copy)"
         
-        result = conn.execute(
+        new_id = str(uuid.uuid4())
+        conn.execute(
             text("""
                 INSERT INTO t_QualityPlanTemplate
-                (TemplateName, ProductFamily, Description, IsActive, CreatedBy, CreatedDateKey, Version)
-                OUTPUT INSERTED.TemplateID
-                VALUES (:name, :family, :desc, :active, :user, :date, 1)
+                (TemplateID, TenantID, TemplateName, ProductFamily, Description, IsActive,
+                 CreatedBy, CreatedDateKey)
+                VALUES (:tid, :tenant_id, :name, :family, :desc, :active, :user, :date)
             """),
             {
+                'tid': new_id,
+                'tenant_id': original['TenantID'],
                 'name': new_name,
                 'family': original['ProductFamily'],
                 'desc': original['Description'],
@@ -554,16 +597,16 @@ def copy_quality_template(template_id):
                 'date': today_key
             }
         )
-        new_id = result.scalar()
         
         conn.execute(
             text("""
-                INSERT INTO t_QualityPlanTemplateDetail (TemplateID, QCOperationID, OperationSequence, IsCritical, SamplingSize)
-                SELECT :new_id, QCOperationID, OperationSequence, IsCritical, SamplingSize
+                INSERT INTO t_QualityPlanTemplateDetail
+                (DetailID, TenantID, TemplateID, QCOperationID, OperationSequence, IsCritical, SamplingSize)
+                SELECT NEWID(), TenantID, :new_id, QCOperationID, OperationSequence, IsCritical, SamplingSize
                 FROM t_QualityPlanTemplateDetail
-                WHERE TemplateID = :old_id
+                WHERE TemplateID = :old_id AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {'new_id': new_id, 'old_id': template_id}
+            {'new_id': new_id, 'old_id': template_id, 'tenant_id': _tenant_id()}
         )
     
     return jsonify({'newTemplateId': new_id, 'message': 'Template copied'})
@@ -580,9 +623,9 @@ def export_quality_templates():
     query = """
         SELECT t.TemplateID, t.TemplateName, t.ProductFamily, t.Description, t.IsActive, t.CreatedDateKey
         FROM t_QualityPlanTemplate t
-        WHERE 1=1
+        WHERE (t.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if family:
         query += " AND t.ProductFamily = :family"
         params['family'] = family
@@ -603,7 +646,7 @@ def export_quality_templates():
     return output.getvalue(), 200, {'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename=quality_templates.csv'}
 
 
-@quality_api.route('/quality_templates/<int:template_id>/operations')
+@quality_api.route('/quality_templates/<string:template_id>/operations')
 @login_required
 def get_template_operations(template_id):
     engine = get_engine()
@@ -614,10 +657,10 @@ def get_template_operations(template_id):
                        om.Code as OperationCode, om.Name as OperationName, om.Category, om.UnitOfMeasure
                 FROM t_QualityPlanTemplateDetail td
                 JOIN t_QualityOperationMaster om ON td.QCOperationID = om.DefinitionID
-                WHERE td.TemplateID = :tid
+                WHERE td.TemplateID = :tid AND (td.TenantID = :tenant_id OR :tenant_id = 0)
                 ORDER BY td.OperationSequence
             """),
-            {'tid': template_id}
+            {'tid': template_id, 'tenant_id': _tenant_id()}
         ).fetchall()
         
         ops = []
@@ -654,7 +697,7 @@ def list_all_operations():
     return jsonify(ops)
 
 
-@quality_api.route('/quality_templates/<int:template_id>/operations', methods=['POST'])
+@quality_api.route('/quality_templates/<string:template_id>/operations', methods=['POST'])
 @login_required
 def add_template_operations(template_id):
     data = request.get_json()
@@ -664,33 +707,41 @@ def add_template_operations(template_id):
     
     engine = get_engine()
     with engine.begin() as conn:
+        template_tenant_id = conn.execute(
+            text("SELECT TenantID FROM t_QualityPlanTemplate WHERE TemplateID = :tid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tid': template_id, 'tenant_id': _tenant_id()}
+        ).scalar()
+        if template_tenant_id is None:
+            return jsonify({'error': 'Template not found'}), 404
         max_seq = conn.execute(
-            text("SELECT MAX(OperationSequence) FROM t_QualityPlanTemplateDetail WHERE TemplateID = :tid"),
-            {'tid': template_id}
+            text("SELECT MAX(OperationSequence) FROM t_QualityPlanTemplateDetail WHERE TemplateID = :tid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tid': template_id, 'tenant_id': _tenant_id()}
         ).scalar() or 0
         seq = max_seq + 1
         
         for op_id in operation_ids:
+            detail_id = str(uuid.uuid4())
             conn.execute(
                 text("""
-                    INSERT INTO t_QualityPlanTemplateDetail (TemplateID, QCOperationID, OperationSequence, IsCritical, SamplingSize)
-                    VALUES (:tid, :op_id, :seq, 0, 1)
+                    INSERT INTO t_QualityPlanTemplateDetail
+                    (DetailID, TenantID, TemplateID, QCOperationID, OperationSequence, IsCritical, SamplingSize)
+                    VALUES (:did, :tenant_id, :tid, :op_id, :seq, 0, 1)
                 """),
-                {'tid': template_id, 'op_id': op_id, 'seq': seq}
+                {'did': detail_id, 'tenant_id': template_tenant_id, 'tid': template_id, 'op_id': op_id, 'seq': seq}
             )
             seq += 1
     
     return jsonify({'message': f'{len(operation_ids)} operations added'})
 
 
-@quality_api.route('/quality_templates/operation-detail/<int:detail_id>', methods=['DELETE'])
+@quality_api.route('/quality_templates/operation-detail/<string:detail_id>', methods=['DELETE'])
 @login_required
 def remove_template_operation(detail_id):
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(
-            text("DELETE FROM t_QualityPlanTemplateDetail WHERE DetailID = :did"),
-            {'did': detail_id}
+            text("DELETE FROM t_QualityPlanTemplateDetail WHERE DetailID = :did AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'did': detail_id, 'tenant_id': _tenant_id()}
         )
     return jsonify({'message': 'Operation removed'})
 
@@ -731,9 +782,9 @@ def planning_assignments_list():
             CAST(a.ExpiryDateKey AS VARCHAR(8)) as ExpiryDateFormatted
         FROM t_QualityOperationAssignment a
         LEFT JOIN t_QualityOperationMaster o ON a.QCOperationID = o.DefinitionID
-        WHERE 1=1
+        WHERE (a.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if source_type:
         query += " AND a.SourceType = :source_type"
         params['source_type'] = source_type
@@ -747,6 +798,12 @@ def planning_assignments_list():
         query += " AND a.IsActive = 1"
     elif is_active_param == 'false':
         query += " AND a.IsActive = 0"
+    # C-25: is_critical filter (IsCritical is nvarchar → compare as string)
+    is_critical_param = request.args.get('is_critical', '')
+    if is_critical_param == 'true':
+        query += " AND a.IsCritical = '1'"
+    elif is_critical_param == 'false':
+        query += " AND (a.IsCritical = '0' OR a.IsCritical IS NULL)"
     if search:
         query += " AND (o.Code LIKE :search OR o.Name LIKE :search OR a.SourceID LIKE :search)"
         params['search'] = f"%{search}%"
@@ -787,21 +844,23 @@ def create_planning_assignment():
     data = request.get_json()
     engine = get_engine()
     try:
+        assignment_id = str(uuid.uuid4())
         with engine.begin() as conn:
-            result = conn.execute(
+            conn.execute(
                 text("""
                     INSERT INTO t_QualityOperationAssignment
-                    (QCOperationID, SourceType, SourceID, WorkCenterID, OperationSequence,
+                    (AssignmentID, TenantID, QCOperationID, SourceType, SourceID, WorkCenterID, OperationSequence,
                      IsRequired, IsCritical, SamplingSize, SamplingFrequency,
                      EffectiveDateKey, ExpiryDateKey, IsActive, WorkflowStatus,
                      ApprovalRequired, ProjectID, CreatedDate, CreatedBy)
-                    OUTPUT INSERTED.AssignmentID
-                    VALUES (:qcop, :stype, :sid, :wc, :seq,
+                    VALUES (:aid, :tenant_id, :qcop, :stype, :sid, :wc, :seq,
                             :req, :crit, :ssize, :sfreq,
                             :eff, :exp, :active, :wfs,
                             :approv, :proj, GETDATE(), :user)
                 """),
                 {
+                    'aid': assignment_id,
+                    'tenant_id': _tenant_id(),
                     'qcop': data['QCOperationID'],
                     'stype': data['SourceType'],
                     'sid': data['SourceID'],
@@ -820,19 +879,39 @@ def create_planning_assignment():
                     'user': current_user.get_id()
                 }
             )
-            assignment_id = result.scalar()
         return jsonify({'success': True, 'message': 'Assignment created', 'assignment_id': assignment_id}), 201
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@quality_api.route('/planning/assignments/<int:assignment_id>', methods=['PUT'])
+# C-29: tolerate IsActive-only payload + safe .get() fallbacks on full update
+@quality_api.route('/planning/assignments/<string:assignment_id>', methods=['PUT'])
 @login_required
 def update_planning_assignment(assignment_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     engine = get_engine()
     try:
         with engine.begin() as conn:
+            # Activation-only path: only IsActive supplied
+            if set(data.keys()) <= {'IsActive', 'isActive', 'is_active'}:
+                is_active = data.get('IsActive', data.get('isActive', data.get('is_active', 1)))
+                conn.execute(
+                    text("""
+                        UPDATE t_QualityOperationAssignment
+                        SET IsActive = :active, UpdatedDate = GETDATE()
+                        WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)
+                    """),
+                    {'active': is_active, 'aid': assignment_id,
+                    'tenant_id': _tenant_id()}
+                )
+                return jsonify({'success': True, 'message': 'Activation status updated'})
+
+            # Full-update path — use .get() with safe defaults
+            required = ('QCOperationID', 'SourceType', 'SourceID', 'OperationSequence')
+            missing = [f for f in required if data.get(f) in (None, '')]
+            if missing:
+                return jsonify({'success': False, 'error': f"Missing fields: {', '.join(missing)}"}), 400
+
             conn.execute(
                 text("""
                     UPDATE t_QualityOperationAssignment
@@ -841,7 +920,7 @@ def update_planning_assignment(assignment_id):
                         SamplingSize = :ssize, SamplingFrequency = :sfreq, EffectiveDateKey = :eff,
                         ExpiryDateKey = :exp, IsActive = :active, WorkflowStatus = :wfs,
                         ApprovalRequired = :approv, ProjectID = :proj, UpdatedDate = GETDATE()
-                    WHERE AssignmentID = :aid
+                    WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)
                 """),
                 {
                     'qcop': data['QCOperationID'],
@@ -859,7 +938,8 @@ def update_planning_assignment(assignment_id):
                     'wfs': data.get('WorkflowStatus', 'Draft'),
                     'approv': data.get('ApprovalRequired', 0),
                     'proj': data.get('ProjectID'),
-                    'aid': assignment_id
+                    'aid': assignment_id,
+                    'tenant_id': _tenant_id()
                 }
             )
         return jsonify({'success': True, 'message': 'Assignment updated'})
@@ -867,22 +947,22 @@ def update_planning_assignment(assignment_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@quality_api.route('/planning/assignments/<int:assignment_id>', methods=['DELETE'])
+@quality_api.route('/planning/assignments/<string:assignment_id>', methods=['DELETE'])
 @login_required
 def delete_planning_assignment(assignment_id):
     engine = get_engine()
     try:
         with engine.begin() as conn:
             conn.execute(
-                text("UPDATE t_QualityOperationAssignment SET IsActive = 0 WHERE AssignmentID = :aid"),
-                {'aid': assignment_id}
+                text("UPDATE t_QualityOperationAssignment SET IsActive = 0 WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+                {'aid': assignment_id, 'tenant_id': _tenant_id()}
             )
         return jsonify({'success': True, 'message': 'Assignment deactivated'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@quality_api.route('/planning/assignments/<int:assignment_id>', methods=['GET'])
+@quality_api.route('/planning/assignments/<string:assignment_id>', methods=['GET'])
 @login_required
 def get_planning_assignment(assignment_id):
     engine = get_engine()
@@ -911,8 +991,9 @@ def get_planning_assignment(assignment_id):
                 FROM t_QualityOperationAssignment a
                 LEFT JOIN t_QualityOperationMaster o ON a.QCOperationID = o.DefinitionID
                 WHERE a.AssignmentID = :aid
+                  AND (a.TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {'aid': assignment_id}
+            {'aid': assignment_id, 'tenant_id': _tenant_id()}
         ).first()
         if not row:
             return jsonify({'success': False, 'error': 'Assignment not found'}), 404
@@ -931,7 +1012,22 @@ def get_planning_assignment(assignment_id):
 @quality_api.route('/quality-plans/kpi')
 @login_required
 def quality_plans_kpi():
-    return jsonify({'Draft': 2, 'Pending Approval': 1, 'Approved': 5})
+    engine = get_engine()
+    tenant_id = _tenant_id()
+    with engine.connect() as conn:
+        draft = conn.execute(
+            text("SELECT COUNT(*) FROM t_ProjectQualityPlan WHERE PlanStatus = 'Draft' AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
+        pending = conn.execute(
+            text("SELECT COUNT(*) FROM t_ProjectQualityPlan WHERE PlanStatus = 'Pending Approval' AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
+        approved = conn.execute(
+            text("SELECT COUNT(*) FROM t_ProjectQualityPlan WHERE PlanStatus = 'Approved' AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
+    return jsonify({'Draft': draft, 'Pending Approval': pending, 'Approved': approved})
 
 
 @quality_api.route('/quality-plans/list')
@@ -946,9 +1042,9 @@ def quality_plans_list():
         FROM t_ProjectQualityPlan pqp
         JOIN t_Project p ON pqp.ProjectID = p.ProjectID
         JOIN t_Product pr ON pqp.ProductID = pr.ProductId
-        WHERE 1=1
+        WHERE (pqp.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if project:
         query += " AND pqp.ProjectID = :project"
         params['project'] = project
@@ -974,15 +1070,18 @@ def create_quality_plan():
     today_key = _today_key()
     
     engine = get_engine()
+    plan_id = str(uuid.uuid4())
     with engine.begin() as conn:
-        result = conn.execute(
+        conn.execute(
             text("""
                 INSERT INTO t_ProjectQualityPlan
-                (ProjectID, ProductID, PlanName, PlanStatus, RevisionNumber, CreatedBy, CreatedDate, EffectiveDateKey)
-                OUTPUT INSERTED.ProjectQualityPlanID
-                VALUES (:proj, :prod, :name, 'Draft', 1, :user, GETDATE(), :date)
+                (ProjectQualityPlanID, TenantID, ProjectID, ProductID, PlanName, PlanStatus,
+                 RevisionNumber, CreatedBy, CreatedDate, EffectiveDateKey)
+                VALUES (:pid, :tenant_id, :proj, :prod, :name, 'Draft', 1, :user, GETDATE(), :date)
             """),
             {
+                'pid': plan_id,
+                'tenant_id': _tenant_id(),
                 'proj': data['projectId'],
                 'prod': data['productId'],
                 'name': data['planName'],
@@ -990,39 +1089,54 @@ def create_quality_plan():
                 'date': today_key
             }
         )
-        plan_id = result.scalar()
     return jsonify({'id': plan_id, 'message': 'Plan created'}), 201
 
 
-@quality_api.route('/quality-plans/plan/<int:plan_id>', methods=['GET'])
+@quality_api.route('/quality-plans/plan/<string:plan_id>', methods=['GET'])
 @login_required
 def get_quality_plan(plan_id):
     engine = get_engine()
+
+    conditions = [
+        "(pqp.TenantID = :tenant_id OR :tenant_id = 0)"
+    ]
+    params = {'tenant_id': _tenant_id(), 'pid': plan_id}
+    where_clause = " AND ".join(conditions)
+
+    query = f"""
+        SELECT *
+        FROM t_ProjectQualityPlan pqp
+        WHERE pqp.ProjectQualityPlanID = :pid
+          AND {where_clause}
+    """
+
+    conditions_d = [
+        "(qoa.TenantID = :tenant_id OR :tenant_id = 0)"
+    ]
+    params_d = {'tenant_id': _tenant_id(), 'pid': plan_id}
+    where_clause_d = " AND ".join(conditions_d)
+
+    detail_query = f"""
+        SELECT qoa.AssignmentID, qom.DefinitionID as operationId, qom.Code, qom.Name,
+               qoa.OperationSequence, qoa.SamplingSize, qoa.IsCritical,
+               qoa.SpecMin, qoa.SpecMax, qoa.MeasurementUnit,
+               qoa.ApprovalStatus
+        FROM t_QualityOperationAssignment qoa
+        JOIN t_QualityOperationMaster qom ON qoa.QCOperationID = qom.DefinitionID
+        WHERE qoa.PlanID = :pid
+          AND {where_clause_d}
+        ORDER BY qoa.OperationSequence
+    """
+
     with engine.connect() as conn:
-        row = conn.execute(
-            text("SELECT * FROM t_ProjectQualityPlan WHERE ProjectQualityPlanID = :pid"),
-            {'pid': plan_id}
-        ).first()
+        row = conn.execute(text(query), params).first()
         if not row:
             return jsonify({'error': 'Not found'}), 404
-        
+
         plan = dict(row._mapping)
-        
-        detail_rows = conn.execute(
-            text("""
-                SELECT qoa.AssignmentID, qom.DefinitionID as operationId, qom.Code, qom.Name,
-                       qoa.OperationSequence, qoa.SamplingSize, qoa.IsCritical,
-                       qoa.SpecMin, qoa.SpecMax, qoa.MeasurementUnit,
-                       qoa.ApprovalStatus
-                FROM t_QualityOperationAssignment qoa
-                JOIN t_QualityOperationMaster qom ON qoa.QCOperationID = qom.DefinitionID
-                WHERE qoa.PlanID = :pid
-                ORDER BY qoa.OperationSequence
-            """),
-            {'pid': plan_id}
-        ).fetchall()
+        detail_rows = conn.execute(text(detail_query), params_d).fetchall()
         details = [dict(r._mapping) for r in detail_rows]
-    
+
     return jsonify({
         'id': plan['ProjectQualityPlanID'],
         'projectId': plan['ProjectID'],
@@ -1036,7 +1150,7 @@ def get_quality_plan(plan_id):
     })
 
 
-@quality_api.route('/quality-plans/plan/<int:plan_id>', methods=['PUT'])
+@quality_api.route('/quality-plans/plan/<string:plan_id>', methods=['PUT'])
 @login_required
 def update_quality_plan(plan_id):
     data = request.get_json()
@@ -1046,19 +1160,20 @@ def update_quality_plan(plan_id):
             text("""
                 UPDATE t_ProjectQualityPlan
                 SET PlanName = :name, EffectiveDateKey = :date, Notes = :notes
-                WHERE ProjectQualityPlanID = :pid
+                WHERE ProjectQualityPlanID = :pid AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
             {
                 'name': data['planName'],
                 'date': data.get('effectiveDateKey'),
                 'notes': data.get('notes'),
-                'pid': plan_id
+                'pid': plan_id,
+                'tenant_id': _tenant_id()
             }
         )
     return jsonify({'message': 'Plan updated'})
 
 
-@quality_api.route('/quality-plans/plan/<int:plan_id>/detail', methods=['POST'])
+@quality_api.route('/quality-plans/plan/<string:plan_id>/detail', methods=['POST'])
 @login_required
 def save_plan_detail(plan_id):
     data = request.get_json()
@@ -1071,7 +1186,7 @@ def save_plan_detail(plan_id):
                     SET OperationSequence = :seq, SamplingSize = :ssize, IsCritical = :crit,
                         SpecMin = :min, SpecMax = :max, MeasurementUnit = :unit,
                         UpdatedDate = GETDATE()
-                    WHERE AssignmentID = :aid
+                    WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)
                 """),
                 {
                     'seq': data['sequence'],
@@ -1080,19 +1195,23 @@ def save_plan_detail(plan_id):
                     'min': data.get('specMin'),
                     'max': data.get('specMax'),
                     'unit': data.get('unit'),
-                    'aid': data['assignmentId']
+                    'aid': data['assignmentId'],
+                    'tenant_id': _tenant_id()
                 }
             )
         else:
             conn.execute(
                 text("""
                     INSERT INTO t_QualityOperationAssignment
-                    (QCOperationID, SourceType, SourceID, OperationSequence, SamplingSize, IsCritical,
-                     SpecMin, SpecMax, MeasurementUnit, PlanID, CreatedDate, CreatedBy, IsActive)
-                    VALUES (:opid, 'Plan', :plan, :seq, :ssize, :crit,
+                    (AssignmentID, TenantID, QCOperationID, SourceType, SourceID, OperationSequence,
+                     SamplingSize, IsCritical, SpecMin, SpecMax, MeasurementUnit,
+                     PlanID, CreatedDate, CreatedBy, IsActive)
+                    VALUES (:aid, :tenant_id, :opid, 'Plan', :plan, :seq, :ssize, :crit,
                             :min, :max, :unit, :plan, GETDATE(), :user, 1)
                 """),
                 {
+                    'aid': str(uuid.uuid4()),
+                    'tenant_id': _tenant_id(),
                     'opid': data['operationId'],
                     'plan': str(plan_id),
                     'seq': data['sequence'],
@@ -1107,26 +1226,26 @@ def save_plan_detail(plan_id):
     return jsonify({'message': 'Detail saved'})
 
 
-@quality_api.route('/quality-plans/plan/<int:plan_id>/detail/<int:assignment_id>', methods=['DELETE'])
+@quality_api.route('/quality-plans/plan/<string:plan_id>/detail/<string:assignment_id>', methods=['DELETE'])
 @login_required
 def delete_plan_detail(plan_id, assignment_id):
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(
-            text("DELETE FROM t_QualityOperationAssignment WHERE AssignmentID = :aid"),
-            {'aid': assignment_id}
+            text("DELETE FROM t_QualityOperationAssignment WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'aid': assignment_id, 'tenant_id': _tenant_id()}
         )
     return jsonify({'message': 'Deleted'})
 
 
-@quality_api.route('/quality-plans/plan/<int:plan_id>/submit', methods=['POST'])
+@quality_api.route('/quality-plans/plan/<string:plan_id>/submit', methods=['POST'])
 @login_required
 def submit_quality_plan(plan_id):
     engine = get_engine()
     with engine.begin() as conn:
         row = conn.execute(
-            text("SELECT PlanStatus FROM t_ProjectQualityPlan WHERE ProjectQualityPlanID = :pid"),
-            {'pid': plan_id}
+            text("SELECT PlanStatus FROM t_ProjectQualityPlan WHERE ProjectQualityPlanID = :pid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'pid': plan_id, 'tenant_id': _tenant_id()}
         ).first()
         if not row or row[0] != 'Draft':
             return jsonify({'error': 'Only draft plans can be submitted'}), 400
@@ -1152,9 +1271,9 @@ def submit_quality_plan(plan_id):
             text("""
                 UPDATE t_ProjectQualityPlan
                 SET WorkflowInstanceID = :wfid, PlanStatus = 'Pending Approval'
-                WHERE ProjectQualityPlanID = :pid
+                WHERE ProjectQualityPlanID = :pid AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {'wfid': wf_id, 'pid': plan_id}
+            {'wfid': wf_id, 'pid': plan_id, 'tenant_id': _tenant_id()}
         )
     return jsonify({'message': 'Plan submitted', 'workflowId': wf_id})
 
@@ -1176,8 +1295,8 @@ def project_products_for_plan(project_id):
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT ProductID FROM t_ProjectProducts WHERE ProjectID = :pid"),
-            {'pid': project_id}
+            text("SELECT pp.ProductID FROM t_ProjectProducts pp JOIN t_Product p ON p.ProductId = pp.ProductID WHERE pp.ProjectID = :pid AND (p.TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'pid': project_id, 'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'productId': r[0]} for r in rows])
 
@@ -1189,15 +1308,18 @@ def supplier_plans_kpi():
     engine = get_engine()
     with engine.connect() as conn:
         total = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityOperationAssignment WHERE SourceType = 'SupplierProduct' AND IsActive = 1")
+            text("SELECT COUNT(*) FROM t_QualityOperationAssignment WHERE SourceType = 'SupplierProduct' AND IsActive = 1 AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
         
         suppliers = conn.execute(
-            text("SELECT COUNT(DISTINCT LEFT(SourceID, CHARINDEX('||', SourceID) - 1)) FROM t_QualityOperationAssignment WHERE SourceType = 'SupplierProduct' AND IsActive = 1")
+            text("SELECT COUNT(DISTINCT LEFT(SourceID, CHARINDEX('||', SourceID) - 1)) FROM t_QualityOperationAssignment WHERE SourceType = 'SupplierProduct' AND IsActive = 1 AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
         
         products = conn.execute(
-            text("SELECT COUNT(DISTINCT SUBSTRING(SourceID, CHARINDEX('||', SourceID) + 2, LEN(SourceID))) FROM t_QualityOperationAssignment WHERE SourceType = 'SupplierProduct' AND IsActive = 1")
+            text("SELECT COUNT(DISTINCT SUBSTRING(SourceID, CHARINDEX('||', SourceID) + 2, LEN(SourceID))) FROM t_QualityOperationAssignment WHERE SourceType = 'SupplierProduct' AND IsActive = 1 AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
     
     return jsonify({'total': total, 'suppliers': suppliers, 'products': products})
@@ -1220,8 +1342,9 @@ def supplier_plans_list():
         FROM t_QualityOperationAssignment qoa
         LEFT JOIN t_QualityOperationMaster qom ON qoa.QCOperationID = qom.DefinitionID
         WHERE qoa.SourceType = 'SupplierProduct'
+          AND (qoa.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if supplier_filter:
         query += " AND qoa.SourceID LIKE :supplier"
         params['supplier'] = f"{supplier_filter}||%"
@@ -1284,18 +1407,20 @@ def create_supplier_plan_assignment():
     engine = get_engine()
     try:
         with engine.begin() as conn:
-            result = conn.execute(
+            assignment_id = str(uuid.uuid4())
+            conn.execute(
                 text("""
                     INSERT INTO t_QualityOperationAssignment
-                    (QCOperationID, SourceType, SourceID, OperationSequence, SamplingSize, SamplingFrequency,
+                    (AssignmentID, TenantID, QCOperationID, SourceType, SourceID, OperationSequence, SamplingSize, SamplingFrequency,
                      SpecMin, SpecMax, MeasurementUnit, IsRequired, IsCritical, CertificateRequired,
                      EffectiveDateKey, ExpiryDateKey, IsActive, CreatedDate, CreatedBy)
-                    OUTPUT INSERTED.AssignmentID
-                    VALUES (:opid, 'SupplierProduct', :sid, :seq, :ssize, :sfreq,
+                    VALUES (:aid, :tenant_id, :opid, 'SupplierProduct', :sid, :seq, :ssize, :sfreq,
                             :min, :max, :unit, :req, :crit, :cert,
                             :eff, :exp, 1, GETDATE(), :user)
                 """),
                 {
+                    'aid': assignment_id,
+                    'tenant_id': _tenant_id(),
                     'opid': data['operationId'],
                     'sid': source_id,
                     'seq': data.get('sequence', 1),
@@ -1312,13 +1437,12 @@ def create_supplier_plan_assignment():
                     'user': request.headers.get('X-User-ID', 'system')
                 }
             )
-            assignment_id = result.scalar()
         return jsonify({'assignmentId': assignment_id, 'message': 'Created'}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@quality_api.route('/supplier-plans/assignment/<int:assignment_id>', methods=['PUT'])
+@quality_api.route('/supplier-plans/assignment/<string:assignment_id>', methods=['PUT'])
 @login_required
 def update_supplier_plan_assignment(assignment_id):
     data = request.get_json()
@@ -1333,7 +1457,7 @@ def update_supplier_plan_assignment(assignment_id):
                 SET QCOperationID = :opid, OperationSequence = :seq, SamplingSize = :ssize, SamplingFrequency = :sfreq,
                     SpecMin = :min, SpecMax = :max, MeasurementUnit = :unit, IsRequired = :req, IsCritical = :crit,
                     CertificateRequired = :cert, EffectiveDateKey = :eff, ExpiryDateKey = :exp, UpdatedDate = GETDATE()
-                WHERE AssignmentID = :aid
+                WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
             {
                 'opid': data['operationId'],
@@ -1348,32 +1472,32 @@ def update_supplier_plan_assignment(assignment_id):
                 'cert': data.get('certificateRequired', 0),
                 'eff': data.get('effectiveDateKey'),
                 'exp': data.get('expiryDateKey'),
-                'aid': assignment_id
+                'aid': assignment_id, 'tenant_id': _tenant_id()
             }
         )
     return jsonify({'message': 'Updated'})
 
 
-@quality_api.route('/supplier-plans/assignment/<int:assignment_id>', methods=['DELETE'])
+@quality_api.route('/supplier-plans/assignment/<string:assignment_id>', methods=['DELETE'])
 @login_required
 def delete_supplier_plan_assignment(assignment_id):
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(
-            text("DELETE FROM t_QualityOperationAssignment WHERE AssignmentID = :aid"),
-            {'aid': assignment_id}
+            text("DELETE FROM t_QualityOperationAssignment WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'aid': assignment_id, 'tenant_id': _tenant_id()}
         )
     return jsonify({'message': 'Deleted'})
 
 
-@quality_api.route('/supplier-plans/assignment/<int:assignment_id>', methods=['GET'])
+@quality_api.route('/supplier-plans/assignment/<string:assignment_id>', methods=['GET'])
 @login_required
 def get_supplier_plan_assignment(assignment_id):
     engine = get_engine()
     with engine.connect() as conn:
         row = conn.execute(
-            text("SELECT * FROM t_QualityOperationAssignment WHERE AssignmentID = :aid"),
-            {'aid': assignment_id}
+            text("SELECT * FROM t_QualityOperationAssignment WHERE AssignmentID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'aid': assignment_id, 'tenant_id': _tenant_id()}
         ).first()
         if not row:
             return jsonify({'error': 'Not found'}), 404
@@ -1390,251 +1514,255 @@ def get_supplier_plan_assignment(assignment_id):
 @login_required
 def inspection_kpi():
     engine = get_engine()
+    tenant_id = _tenant_id()
     today_key = _today_key()
+    params = {'tenant_id': tenant_id, 'today': today_key}
     with engine.connect() as conn:
         pending = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityInspectionBatch WHERE Status = 'Pending'")
+            text("SELECT COUNT(*) FROM t_QualityInspectionBatch WHERE Status = 'Pending' AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': tenant_id}
         ).scalar() or 0
-        
         completed_today = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityInspectionBatch WHERE InspectionDateKey = :today AND Status = 'Completed'"),
-            {'today': today_key}
+            text("SELECT COUNT(*) FROM t_QualityInspectionBatch WHERE InspectionDateKey = :today AND Status = 'Completed' AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            params
         ).scalar() or 0
-        
         defects_today = conn.execute(
             text("""
                 SELECT COUNT(*) FROM t_NonConformance n
                 JOIN t_QualityInspectionBatch b ON n.BatchLotNumber = b.BatchNumber
                 WHERE b.InspectionDateKey = :today
+                  AND (b.TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {'today': today_key}
+            params
         ).scalar() or 0
-    
     return jsonify({
         'pending': pending,
         'completedToday': completed_today,
-        'defectRate': f"{(defects_today / max(completed_today,1)) * 100:.1f}%"
+        'defectRate': f"{(defects_today / max(completed_today, 1)) * 100:.1f}%"
     })
-
 
 @quality_api.route('/inspection/batches')
 @login_required
 def inspection_batches():
+    tenant_id = _tenant_id()
     workcenter = request.args.get('workcenter', '')
     status = request.args.get('status', '')
     inspector = request.args.get('inspector', '')
     critical_only = request.args.get('critical_only', 'false') == 'true'
-    
-    query = """
-        SELECT b.BatchID, b.BatchNumber, b.ProductID, b.Quantity, b.Status,
-               b.InspectionDateKey, b.DueDateKey, b.WorkCenterID, b.InspectorID,
-               CASE WHEN EXISTS (SELECT 1 FROM t_QualityOperationAssignment a
-                       WHERE a.SourceType='Product' AND a.SourceID=b.ProductID AND a.IsCritical=1) 
-                    THEN 1 ELSE 0 END AS HasCritical
-        FROM t_QualityInspectionBatch b
-        WHERE 1=1
-    """
-    params = {}
+
+    conditions = ["(b.TenantID = :tenant_id OR :tenant_id = 0)"]
+    params = {'tenant_id': tenant_id}
     if workcenter:
-        query += " AND b.WorkCenterID = :wc"
+        conditions.append("b.WorkCenterID = :wc")
         params['wc'] = workcenter
     if status:
-        query += " AND b.Status = :status"
+        conditions.append("b.Status = :status")
         params['status'] = status
     if inspector:
-        query += " AND b.InspectorID = :inspector"
+        conditions.append("b.InspectorID = :inspector")
         params['inspector'] = inspector
+
+    critical_exists = """EXISTS (
+        SELECT 1 FROM t_QualityOperationAssignment a
+        WHERE a.SourceType = 'Product'
+          AND a.SourceID = b.ProductID
+          AND (a.TenantID = :tenant_id OR :tenant_id = 0)
+          AND LOWER(LTRIM(RTRIM(CAST(a.IsCritical AS nvarchar(20))))) IN ('1', 'true', 'yes')
+    )"""
     if critical_only:
-        query += " AND HasCritical = 1"
-    query += " ORDER BY b.DueDateKey, b.BatchNumber"
-    
+        conditions.append(critical_exists)
+
+    query = f"""
+        SELECT b.BatchID, b.BatchNumber, b.ProductID, b.Quantity, b.Status,
+               b.InspectionDateKey, b.DueDateKey, b.WorkCenterID, b.InspectorID,
+               CASE WHEN {critical_exists} THEN 1 ELSE 0 END AS HasCritical
+        FROM t_QualityInspectionBatch b
+        WHERE {' AND '.join(conditions)}
+        ORDER BY b.DueDateKey, b.BatchNumber
+    """
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
         batches = [dict(r._mapping) for r in rows]
     return jsonify(batches)
 
-
-@quality_api.route('/inspection/batch/<int:batch_id>')
+@quality_api.route('/inspection/batch/<string:batch_id>')
 @login_required
 def get_inspection_batch(batch_id):
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.connect() as conn:
         row = conn.execute(
-            text("SELECT * FROM t_QualityInspectionBatch WHERE BatchID = :bid"),
-            {'bid': batch_id}
+            text("SELECT * FROM t_QualityInspectionBatch WHERE BatchID = :bid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'bid': batch_id, 'tenant_id': tenant_id}
         ).first()
         if not row:
             return jsonify({'error': 'Batch not found'}), 404
-        
         batch = dict(row._mapping)
-        
+
         op_rows = conn.execute(
             text("""
                 SELECT a.*, m.Code, m.Name, m.UnitOfMeasure,
-                       CASE WHEN EXISTS (SELECT ResultID FROM t_QualityInspectionResult WHERE BatchID = :bid AND QCOperationID = a.QCOperationID) 
-                            THEN 1 ELSE 0 END AS HasResult
+                       CASE WHEN EXISTS (
+                           SELECT ResultID FROM t_QualityInspectionResult
+                           WHERE BatchID = :bid AND QCOperationID = a.QCOperationID
+                             AND (TenantID = :tenant_id OR :tenant_id = 0)
+                       ) THEN 1 ELSE 0 END AS HasResult
                 FROM t_QualityOperationAssignment a
                 JOIN t_QualityOperationMaster m ON a.QCOperationID = m.DefinitionID
-                WHERE a.SourceType = 'Product' AND a.SourceID = :pid AND a.IsActive = 1
+                WHERE a.SourceType = 'Product' AND a.SourceID = :pid
+                  AND (a.TenantID = :tenant_id OR :tenant_id = 0)
+                  AND LOWER(LTRIM(RTRIM(CAST(a.IsActive AS nvarchar(20))))) IN ('1', 'true', 'yes')
             """),
-            {'bid': batch_id, 'pid': batch['ProductID']}
+            {'bid': batch_id, 'pid': batch['ProductID'], 'tenant_id': tenant_id}
         ).fetchall()
         operations = [dict(r._mapping) for r in op_rows]
-        
+
         result_rows = conn.execute(
             text("""
                 SELECT r.*, m.Code, m.Name
                 FROM t_QualityInspectionResult r
                 JOIN t_QualityOperationMaster m ON r.QCOperationID = m.DefinitionID
-                WHERE r.BatchID = :bid
+                WHERE r.BatchID = :bid AND (r.TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {'bid': batch_id}
+            {'bid': batch_id, 'tenant_id': tenant_id}
         ).fetchall()
         results = [dict(r._mapping) for r in result_rows]
-    
     return jsonify({'batch': batch, 'operations': operations, 'results': results})
-
 
 @quality_api.route('/inspection/result', methods=['POST'])
 @login_required
 def save_inspection_result():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    if not data.get('batchId') or not data.get('operationId'):
+        return jsonify({'error': 'batchId and operationId are required'}), 400
+    user_id = current_user.get_id()
+    today_key = _today_key()
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.begin() as conn:
+        batch_tid = conn.execute(
+            text("SELECT TenantID FROM t_QualityInspectionBatch WHERE BatchID = :bid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'bid': data['batchId'], 'tenant_id': tenant_id}
+        ).scalar()
+        if batch_tid is None:
+            return jsonify({'error': 'Batch not found'}), 404
+
         existing = conn.execute(
-            text("SELECT ResultID FROM t_QualityInspectionResult WHERE BatchID = :bid AND QCOperationID = :qcid"),
-            {'bid': data['batchId'], 'qcid': data['operationId']}
+            text("""SELECT ResultID FROM t_QualityInspectionResult
+                   WHERE BatchID = :bid AND QCOperationID = :qcid
+                     AND (TenantID = :tenant_id OR :tenant_id = 0)"""),
+            {'bid': data['batchId'], 'qcid': data['operationId'], 'tenant_id': tenant_id}
         ).first()
-        
         if existing:
             conn.execute(
                 text("""
                     UPDATE t_QualityInspectionResult
                     SET SerialNumber = :sn, MeasuredValue = :mv, PassFail = :pf, InspectorNotes = :notes,
-                        InspectedBy = :insp, InspectedDateKey = :date, DigitalSignature = :ds, SignedBy = :signed_by, SignedDateKey = :signed_date
-                    WHERE ResultID = :rid
+                        InspectedBy = :insp, InspectedDateKey = :date, DigitalSignature = :ds,
+                        SignedBy = :signed_by, SignedDateKey = :signed_date
+                    WHERE ResultID = :rid AND (TenantID = :tenant_id OR :tenant_id = 0)
                 """),
-                {
-                    'sn': data.get('serialNumber'),
-                    'mv': data.get('measuredValue'),
-                    'pf': data.get('passFail'),
-                    'notes': data.get('notes'),
-                    'insp': data.get('inspectedBy'),
-                    'date': data.get('inspectedDateKey'),
-                    'ds': data.get('digitalSignature'),
-                    'signed_by': data.get('signedBy'),
-                    'signed_date': data.get('signedDateKey'),
-                    'rid': existing[0]
-                }
+                {'sn': data.get('serialNumber'), 'mv': data.get('measuredValue'), 'pf': data.get('passFail'),
+                 'notes': data.get('notes'), 'insp': user_id, 'date': today_key,
+                 'ds': data.get('digitalSignature'), 'signed_by': user_id, 'signed_date': today_key,
+                 'rid': existing[0], 'tenant_id': tenant_id}
             )
             result_id = existing[0]
         else:
-            result = conn.execute(
+            result_id = str(uuid.uuid4())
+            conn.execute(
                 text("""
                     INSERT INTO t_QualityInspectionResult
-                    (BatchID, QCOperationID, SerialNumber, MeasuredValue, PassFail, InspectorNotes,
-                     InspectedBy, InspectedDateKey, DigitalSignature, SignedBy, SignedDateKey)
-                    OUTPUT INSERTED.ResultID
-                    VALUES (:bid, :qcid, :sn, :mv, :pf, :notes,
-                            :insp, :date, :ds, :signed_by, :signed_date)
+                    (ResultID, BatchID, QCOperationID, SerialNumber, MeasuredValue, PassFail, InspectorNotes,
+                     InspectedBy, InspectedDateKey, DigitalSignature, SignedBy, SignedDateKey, TenantID)
+                    VALUES (:rid, :bid, :qcid, :sn, :mv, :pf, :notes,
+                            :insp, :date, :ds, :signed_by, :signed_date, :tenant_id)
                 """),
-                {
-                    'bid': data['batchId'],
-                    'qcid': data['operationId'],
-                    'sn': data.get('serialNumber'),
-                    'mv': data.get('measuredValue'),
-                    'pf': data.get('passFail'),
-                    'notes': data.get('notes'),
-                    'insp': data.get('inspectedBy'),
-                    'date': data.get('inspectedDateKey'),
-                    'ds': data.get('digitalSignature'),
-                    'signed_by': data.get('signedBy'),
-                    'signed_date': data.get('signedDateKey')
-                }
+                {'rid': result_id, 'bid': data['batchId'], 'qcid': data['operationId'],
+                 'sn': data.get('serialNumber'), 'mv': data.get('measuredValue'), 'pf': data.get('passFail'),
+                 'notes': data.get('notes'), 'insp': user_id, 'date': today_key,
+                 'ds': data.get('digitalSignature'), 'signed_by': user_id, 'signed_date': today_key,
+                 'tenant_id': batch_tid}
             )
-            result_id = result.scalar()
-    
     return jsonify({'resultId': result_id, 'message': 'Result saved'})
 
-
-@quality_api.route('/inspection/batch/<int:batch_id>/defect', methods=['POST'])
+@quality_api.route('/inspection/batch/<string:batch_id>/defect', methods=['POST'])
 @login_required
 def report_defect(batch_id):
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    user_id = current_user.get_id()
+    today = datetime.now().strftime('%Y-%m-%d')
+    ncr_id = str(uuid.uuid4())
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.begin() as conn:
         batch = conn.execute(
-            text("SELECT BatchNumber, ProductID FROM t_QualityInspectionBatch WHERE BatchID = :bid"),
-            {'bid': batch_id}
+            text("""SELECT BatchNumber, ProductID, TenantID FROM t_QualityInspectionBatch
+                   WHERE BatchID = :bid AND (TenantID = :tenant_id OR :tenant_id = 0)"""),
+            {'bid': batch_id, 'tenant_id': tenant_id}
         ).first()
         if not batch:
             return jsonify({'error': 'Batch not found'}), 404
-        
         ncr_count = conn.execute(
-            text("SELECT COUNT(*) FROM t_NonConformance")
-        ).scalar() + 1
-        ncr_number = f"NCR-{datetime.now().strftime('%Y%m')}-{ncr_count:04d}"
-        
+            text("SELECT COUNT(*) FROM t_NonConformance WHERE (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': tenant_id}
+        ).scalar() or 0
+        ncr_number = f"NCR-{datetime.now().strftime('%Y%m')}-{ncr_count + 1:04d}"
         conn.execute(
             text("""
                 INSERT INTO t_NonConformance
-                (NCRNumber, DateRaised, RaisedBy, SourceType, ProductID, BatchLotNumber, Quantity,
-                 DefectCode, DefectDescription, Severity, Status, CreatedDate, ProjectID)
-                VALUES (:ncr, :date, :raised, 'Inspection', :pid, :batch, :qty,
-                        :code, :desc, :sev, 'Open', GETDATE(), :proj)
+                (NCRID, NCRNumber, DateRaised, RaisedBy, SourceType, ProductID, BatchLotNumber, Quantity,
+                 DefectCode, DefectDescription, Severity, Status, CreatedDate, ProjectID, TenantID)
+                VALUES (:ncr_id, :ncr, :date, :raised, 'Inspection', :pid, :batch, :qty,
+                        :code, :desc, :sev, 'Open', :created, :proj, :tenant_id)
             """),
-            {
-                'ncr': ncr_number,
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'raised': data.get('raisedBy'),
-                'pid': batch[1],
-                'batch': batch[0],
-                'qty': data.get('quantity'),
-                'code': data.get('defectCode'),
-                'desc': data.get('defectDescription'),
-                'sev': data.get('severity'),
-                'proj': data.get('projectId')
-            }
+            {'ncr_id': ncr_id, 'ncr': ncr_number, 'date': today, 'raised': user_id, 'created': today,
+             'pid': batch[1], 'batch': batch[0], 'qty': data.get('quantity'), 'code': data.get('defectCode'),
+             'desc': data.get('defectDescription'), 'sev': data.get('severity'),
+             'proj': data.get('projectId'), 'tenant_id': batch[2]}
         )
-        ncr_id = conn.execute(
-            text("SELECT SCOPE_IDENTITY()")
-        ).scalar()
-    
-    return jsonify({'ncrId': ncr_id, 'ncrNumber': ncr_number, 'message': 'Defect reported'})
+    return jsonify({'ncrId': ncr_id, 'ncrNumber': ncr_number, 'message': 'Defect reported'}), 201
 
-
-@quality_api.route('/inspection/batch/<int:batch_id>/signoff', methods=['POST'])
+@quality_api.route('/inspection/batch/<string:batch_id>/signoff', methods=['POST'])
 @login_required
 def batch_sign_off(batch_id):
-    data = request.get_json()
+    user_id = current_user.get_id()
+    today_key = _today_key()
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.begin() as conn:
+        batch_row = conn.execute(
+            text("SELECT ProductID FROM t_QualityInspectionBatch WHERE BatchID = :bid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'bid': batch_id, 'tenant_id': tenant_id}
+        ).first()
+        if not batch_row:
+            return jsonify({'error': 'Batch not found'}), 404
         pending = conn.execute(
             text("""
                 SELECT COUNT(*) FROM t_QualityOperationAssignment a
-                WHERE a.SourceType='Product' AND a.SourceID = (SELECT ProductID FROM t_QualityInspectionBatch WHERE BatchID=:bid)
-                AND NOT EXISTS (SELECT 1 FROM t_QualityInspectionResult r WHERE r.BatchID=:bid AND r.QCOperationID=a.QCOperationID AND r.PassFail=1)
+                WHERE a.SourceType = 'Product' AND a.SourceID = :pid
+                  AND (a.TenantID = :tenant_id OR :tenant_id = 0)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM t_QualityInspectionResult r
+                      WHERE r.BatchID = :bid AND r.QCOperationID = a.QCOperationID
+                        AND (r.TenantID = :tenant_id OR :tenant_id = 0)
+                        AND LOWER(LTRIM(RTRIM(CAST(r.PassFail AS nvarchar(20))))) IN ('1', 'true', 'yes')
+                  )
             """),
-            {'bid': batch_id}
-        ).scalar()
+            {'bid': batch_id, 'pid': batch_row[0], 'tenant_id': tenant_id}
+        ).scalar() or 0
         if pending > 0:
             return jsonify({'error': f'{pending} operations not passed.'}), 400
-        
         conn.execute(
             text("""
                 UPDATE t_QualityInspectionBatch
                 SET Status = 'Completed', OverallResult = 'Pass', InspectionDateKey = :date, InspectorID = :insp
-                WHERE BatchID = :bid
+                WHERE BatchID = :bid AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {
-                'date': data.get('inspectionDateKey'),
-                'insp': data.get('inspectorId'),
-                'bid': batch_id
-            }
+            {'date': today_key, 'insp': user_id, 'bid': batch_id, 'tenant_id': tenant_id}
         )
     return jsonify({'message': 'Batch signed off successfully'})
-
 
 @quality_api.route('/inspection/workcenters')
 @login_required
@@ -1642,10 +1770,10 @@ def inspection_workcenters():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT DISTINCT WorkCenterID FROM t_QualityInspectionBatch WHERE WorkCenterID IS NOT NULL")
+            text("SELECT DISTINCT WorkCenterID FROM t_QualityInspectionBatch WHERE WorkCenterID IS NOT NULL AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'id': r[0], 'name': r[0]} for r in rows])
-
 
 @quality_api.route('/inspection/inspectors')
 @login_required
@@ -1653,12 +1781,12 @@ def inspection_inspectors():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT UserID, FullName FROM t_Users WHERE UserRoles LIKE '%INSPECTOR%'")
+            text("SELECT UserID, FullName FROM t_Users WHERE UserRoles LIKE '%INSPECTOR%' AND (TenantID = :tenant_id OR :tenant_id = 0)"), {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
 
 
-@quality_api.route('/inspection/batch/<int:batch_id>/attachments', methods=['GET', 'POST'])
+@quality_api.route('/inspection/batch/<string:batch_id>/attachments', methods=['GET', 'POST'])
 @login_required
 def batch_attachments(batch_id):
     if request.method == 'GET':
@@ -1669,46 +1797,40 @@ def batch_attachments(batch_id):
                     SELECT DocumentID, DocumentNumber, Title, FileName, CreatedDateKey
                     FROM t_EngineeringDocument
                     WHERE EngineeringEntityType = 'InspectionBatch' AND EngineeringEntityID = :bid
+                      AND (TenantID = :tenant_id OR :tenant_id = 0)
                 """),
-                {'bid': batch_id}
+                {'bid': batch_id, 'tenant_id': _tenant_id()}
             ).fetchall()
         return jsonify([{'id': r[0], 'number': r[1], 'title': r[2], 'filename': r[3], 'dateKey': r[4]} for r in rows])
-    else:
-        return jsonify({'message': 'Attachment upload not yet implemented'}), 501
+    return jsonify({'message': 'Attachment upload not yet implemented'}), 501
 
-
-# ========== 6. NCR REGISTER API ==========
 @quality_api.route('/ncr/kpi')
 @login_required
 def ncr_kpi():
     engine = get_engine()
+    tenant_id = _tenant_id()
+    params = {'tenant_id': tenant_id}
     with engine.connect() as conn:
         open_count = conn.execute(
-            text("SELECT COUNT(*) FROM t_NonConformance WHERE Status='Open'")
+            text("SELECT COUNT(*) FROM t_NonConformance WHERE Status = 'Open' AND (TenantID = :tenant_id OR :tenant_id = 0)"), params
         ).scalar() or 0
         closed_count = conn.execute(
-            text("SELECT COUNT(*) FROM t_NonConformance WHERE Status='Closed'")
+            text("SELECT COUNT(*) FROM t_NonConformance WHERE Status = 'Closed' AND (TenantID = :tenant_id OR :tenant_id = 0)"), params
         ).scalar() or 0
         severity_rows = conn.execute(
-            text("SELECT Severity, COUNT(*) FROM t_NonConformance GROUP BY Severity")
+            text("SELECT Severity, COUNT(*) FROM t_NonConformance WHERE (TenantID = :tenant_id OR :tenant_id = 0) GROUP BY Severity"), params
         ).fetchall()
         unsigned_critical = conn.execute(
-            text("SELECT COUNT(*) FROM t_NonConformance WHERE Severity='Critical' AND DispositionSignedBy IS NULL")
+            text("SELECT COUNT(*) FROM t_NonConformance WHERE Severity = 'Critical' AND DispositionSignedBy IS NULL AND (TenantID = :tenant_id OR :tenant_id = 0)"), params
         ).scalar() or 0
-    
     severity_counts = {'Critical': 0, 'Major': 0, 'Minor': 0}
     for row in severity_rows:
         severity_counts[row[0]] = row[1]
-    
-    return jsonify({
-        'open': open_count,
-        'closed': closed_count,
-        'critical': severity_counts.get('Critical', 0),
-        'major': severity_counts.get('Major', 0),
-        'minor': severity_counts.get('Minor', 0),
-        'unsignedCritical': unsigned_critical
-    })
-
+    return jsonify({'open': open_count, 'closed': closed_count,
+                    'critical': severity_counts.get('Critical', 0),
+                    'major': severity_counts.get('Major', 0),
+                    'minor': severity_counts.get('Minor', 0),
+                    'unsignedCritical': unsigned_critical})
 
 @quality_api.route('/ncr/list')
 @login_required
@@ -1717,120 +1839,123 @@ def ncr_list():
     status = request.args.get('status', '')
     source = request.args.get('source', '')
     signature_status = request.args.get('signature_status', '')
-    
-    query = """
+    tenant_id = _tenant_id()
+    conditions = ["(n.TenantID = :tenant_id OR :tenant_id = 0)"]
+    params = {'tenant_id': tenant_id}
+    if severity:
+        conditions.append("n.Severity = :sev")
+        params['sev'] = severity
+    if status:
+        conditions.append("n.Status = :stat")
+        params['stat'] = status
+    if source:
+        conditions.append("n.SourceType = :src")
+        params['src'] = source
+    if signature_status == 'signed':
+        conditions.append("n.DispositionSignedBy IS NOT NULL")
+    elif signature_status == 'unsigned':
+        conditions.append("n.DispositionSignedBy IS NULL")
+    query = f"""
         SELECT n.NCRID, n.NCRNumber, n.SourceType, n.ProductID, n.Severity, n.Status,
                CASE WHEN n.DispositionSignedBy IS NOT NULL THEN 'Yes' ELSE 'No' END AS DispositionSigned,
                n.DateRaised, n.DefectDescription
         FROM t_NonConformance n
-        WHERE 1=1
+        WHERE {' AND '.join(conditions)}
+        ORDER BY n.DateRaised DESC
     """
-    params = {}
-    if severity:
-        query += " AND n.Severity = :sev"
-        params['sev'] = severity
-    if status:
-        query += " AND n.Status = :stat"
-        params['stat'] = status
-    if source:
-        query += " AND n.SourceType = :src"
-        params['src'] = source
-    if signature_status == 'signed':
-        query += " AND n.DispositionSignedBy IS NOT NULL"
-    elif signature_status == 'unsigned':
-        query += " AND n.DispositionSignedBy IS NULL"
-    query += " ORDER BY n.DateRaised DESC"
-    
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
         ncrs = [dict(r._mapping) for r in rows]
     return jsonify(ncrs)
 
-
-@quality_api.route('/ncr/<int:ncr_id>')
+@quality_api.route('/ncr/<string:ncr_id>')
 @login_required
 def get_ncr(ncr_id):
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.connect() as conn:
         row = conn.execute(
-            text("SELECT * FROM t_NonConformance WHERE NCRID = :nid"),
-            {'nid': ncr_id}
+            text("SELECT * FROM t_NonConformance WHERE NCRID = :nid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'nid': ncr_id, 'tenant_id': tenant_id}
         ).first()
         if not row:
             return jsonify({'error': 'NCR not found'}), 404
-        
         ncr = dict(row._mapping)
-        
         action_rows = conn.execute(
             text("""
                 SELECT ActionID, ActionNumber, ActionType, Description, Status, DueDateKey
                 FROM t_QualityAction
                 WHERE SourceType = 'NonConformance' AND SourceID = :nid
+                  AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {'nid': ncr_id}
+            {'nid': ncr_id, 'tenant_id': tenant_id}
         ).fetchall()
         actions = [dict(r._mapping) for r in action_rows]
     return jsonify({'ncr': ncr, 'actions': actions})
 
-
 @quality_api.route('/ncr', methods=['POST'])
 @login_required
 def create_ncr():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    if not data.get('sourceType'):
+        return jsonify({'error': 'sourceType is required'}), 400
+    ncr_id = str(uuid.uuid4())
+    tenant_id = _tenant_id()
     engine = get_engine()
     with engine.begin() as conn:
+        if data.get('sourceType') == 'Inspection' and data.get('batchNumber'):
+            batch = conn.execute(
+                text("SELECT TenantID FROM t_QualityInspectionBatch WHERE BatchNumber = :batch AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+                {'batch': data['batchNumber'], 'tenant_id': tenant_id}
+            ).first()
+            if not batch:
+                return jsonify({'error': 'Batch not found'}), 404
+            ncr_tenant_id = batch[0]
+        else:
+            ncr_tenant_id = session.get('tenant_id', 1)
+
         ncr_count = conn.execute(
-            text("SELECT COUNT(*) FROM t_NonConformance")
-        ).scalar() + 1
-        ncr_number = f"NCR-{datetime.now().strftime('%Y%m')}-{ncr_count:04d}"
+            text("SELECT COUNT(*) FROM t_NonConformance WHERE TenantID = :tenant_id"),
+            {'tenant_id': ncr_tenant_id}
+        ).scalar() or 0
+        ncr_number = f"NCR-{datetime.now().strftime('%Y%m')}-{ncr_count + 1:04d}"
         date_raised = datetime.now().strftime('%Y-%m-%d')
-        
         conn.execute(
             text("""
                 INSERT INTO t_NonConformance
-                (NCRNumber, DateRaised, RaisedBy, SourceType, ProductID, BatchLotNumber, Quantity,
-                 DefectCode, DefectDescription, Severity, Status, CreatedDate, ProjectID)
-                VALUES (:ncr, :date, :raised, :stype, :pid, :batch, :qty,
-                        :code, :desc, :sev, 'Open', GETDATE(), :proj)
+                (NCRID, NCRNumber, DateRaised, RaisedBy, SourceType, ProductID, BatchLotNumber, Quantity,
+                 DefectCode, DefectDescription, Severity, Status, CreatedDate, ProjectID, TenantID)
+                VALUES (:ncr_id, :ncr, :date, :raised, :stype, :pid, :batch, :qty,
+                        :code, :desc, :sev, 'Open', :created, :proj, :tenant_id)
             """),
-            {
-                'ncr': ncr_number,
-                'date': date_raised,
-                'raised': current_user.get_id(),
-                'stype': data['sourceType'],
-                'pid': data.get('productId'),
-                'batch': data.get('batchNumber'),
-                'qty': data.get('quantity'),
-                'code': data.get('defectCode'),
-                'desc': data.get('description'),
-                'sev': data.get('severity'),
-                'proj': data.get('projectId')
-            }
+            {'ncr_id': ncr_id, 'ncr': ncr_number, 'date': date_raised,
+             'raised': current_user.get_id(), 'created': date_raised,
+             'stype': data['sourceType'], 'pid': data.get('productId'),
+             'batch': data.get('batchNumber'), 'qty': data.get('quantity'),
+             'code': data.get('defectCode'), 'desc': data.get('description'),
+             'sev': data.get('severity'), 'proj': data.get('projectId'),
+             'tenant_id': ncr_tenant_id}
         )
-        ncr_id = conn.execute(
-            text("SELECT SCOPE_IDENTITY()")
-        ).scalar()
     return jsonify({'ncrId': ncr_id, 'ncrNumber': ncr_number, 'message': 'NCR raised'}), 201
 
-
-@quality_api.route('/ncr/<int:ncr_id>/close', methods=['POST'])
+@quality_api.route('/ncr/<string:ncr_id>/close', methods=['POST'])
 @login_required
 def close_ncr(ncr_id):
-    data = request.get_json()
     date_closed = datetime.now().strftime('%Y-%m-%d')
     engine = get_engine()
     with engine.begin() as conn:
-        conn.execute(
+        result = conn.execute(
             text("""
                 UPDATE t_NonConformance
                 SET Status = 'Closed', ClosedDate = :date
-                WHERE NCRID = :nid
+                WHERE NCRID = :nid AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
-            {'date': date_closed, 'nid': ncr_id}
+            {'date': date_closed, 'nid': ncr_id, 'tenant_id': _tenant_id()}
         )
+        if result.rowcount == 0:
+            return jsonify({'error': 'NCR not found'}), 404
     return jsonify({'message': 'NCR closed'})
-
 
 @quality_api.route('/ncr/sources')
 @login_required
@@ -1838,10 +1963,10 @@ def ncr_sources():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT DISTINCT SourceType FROM t_NonConformance ORDER BY SourceType")
+            text("SELECT DISTINCT SourceType FROM t_NonConformance WHERE (TenantID = :tenant_id OR :tenant_id = 0) ORDER BY SourceType"),
+            {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'source': r[0]} for r in rows])
-
 
 @quality_api.route('/ncr/products')
 @login_required
@@ -1849,10 +1974,10 @@ def ncr_products():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT DISTINCT ProductID FROM t_NonConformance WHERE ProductID IS NOT NULL ORDER BY ProductID")
+            text("SELECT DISTINCT ProductID FROM t_NonConformance WHERE ProductID IS NOT NULL AND (TenantID = :tenant_id OR :tenant_id = 0) ORDER BY ProductID"),
+            {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'id': r[0]} for r in rows])
-
 
 @quality_api.route('/ncr/export')
 @login_required
@@ -1865,10 +1990,11 @@ def export_ncr():
                        CASE WHEN DispositionSignedBy IS NOT NULL THEN 'Yes' ELSE 'No' END AS Signed,
                        DateRaised, DefectDescription
                 FROM t_NonConformance
+                WHERE (TenantID = :tenant_id OR :tenant_id = 0)
                 ORDER BY DateRaised DESC
-            """)
+            """),
+            {'tenant_id': _tenant_id()}
         ).fetchall()
-    
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['NCR Number', 'Source', 'Product', 'Severity', 'Status', 'Signed', 'Date Raised', 'Description'])
@@ -1876,8 +2002,6 @@ def export_ncr():
         writer.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]])
     return output.getvalue(), 200, {'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename=ncr_register.csv'}
 
-
-# ========== 7. CAPA API ==========
 @quality_api.route('/capa/kpi')
 @login_required
 def capa_kpi():
@@ -1885,116 +2009,202 @@ def capa_kpi():
     today_key = _today_key()
     with engine.connect() as conn:
         open_actions = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAction WHERE Status NOT IN ('Closed', 'Completed')")
+            text("SELECT COUNT(*) FROM t_QualityAction WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND Status NOT IN ('Closed', 'Completed')"), {'tenant_id': _tenant_id()}
         ).scalar() or 0
         overdue = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAction WHERE Status NOT IN ('Closed', 'Completed') AND DueDateKey < :today"),
-            {'today': today_key}
+            text("SELECT COUNT(*) FROM t_QualityAction WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND Status NOT IN ('Closed', 'Completed') AND DueDateKey < :today"),
+            {'today': today_key, 'tenant_id': _tenant_id()}
         ).scalar() or 0
         completed = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAction WHERE Status IN ('Closed', 'Completed')")
+            text("SELECT COUNT(*) FROM t_QualityAction WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND Status IN ('Closed', 'Completed')"), {'tenant_id': _tenant_id()}
         ).scalar() or 0
-    return jsonify({'open': open_actions, 'overdue': overdue, 'completed': completed})
+    return jsonify({'open': int(open_actions), 'overdue': int(overdue), 'completed': int(completed)})
 
 
 @quality_api.route('/capa/list')
 @login_required
 def capa_list():
-    action_type = request.args.get('type', '')
-    status = request.args.get('status', '')
-    assignee = request.args.get('assignee', '')
-    
+    action_type = request.args.get('type', '').strip()
+    status = request.args.get('status', '').strip()
+    assignee = request.args.get('assignee', '').strip()
+
     query = """
         SELECT a.ActionID, a.ActionNumber, a.ActionType, a.SourceType, a.SourceID,
                a.Description, a.AssignedTo, a.DueDateKey, a.Status, a.CompletionDateKey,
                a.EffectivenessCheck, u.FullName AS AssigneeName
         FROM t_QualityAction a
         LEFT JOIN t_Users u ON a.AssignedTo = u.UserID
-        WHERE 1=1
+        WHERE (a.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if action_type:
+        if action_type not in ('Corrective', 'Preventive'):
+            return jsonify({'error': 'Invalid action type'}), 400
         query += " AND a.ActionType = :atype"
         params['atype'] = action_type
     if status:
+        if status not in ('Open', 'InProgress', 'Completed', 'Closed'):
+            return jsonify({'error': 'Invalid status'}), 400
         query += " AND a.Status = :stat"
         params['stat'] = status
     if assignee:
         query += " AND a.AssignedTo = :assign"
         params['assign'] = assignee
     query += " ORDER BY a.DueDateKey, a.ActionID"
-    
+
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
         actions = [dict(r._mapping) for r in rows]
+
+    # Return a predictable display field without changing the stored DateKey.
+    for action in actions:
+        raw = action.get('DueDateKey')
+        value = str(raw).strip() if raw is not None else ''
+        if len(value) == 8 and value.isdigit():
+            action['DueDateFormatted'] = f'{value[:4]}-{value[4:6]}-{value[6:8]}'
+        else:
+            action['DueDateFormatted'] = ''
     return jsonify(actions)
 
 
 @quality_api.route('/capa/action', methods=['POST'])
 @login_required
 def create_capa_action():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'error': 'A JSON request body is required'}), 400
+
+    action_type = data.get('actionType')
+    source_type = data.get('sourceType')
+    description = data.get('description')
+    source_id = data.get('sourceID')
+    assigned_to = data.get('assignedTo')
+    due_date = data.get('dueDateKey')
+
+    if action_type not in ('Corrective', 'Preventive'):
+        return jsonify({'error': 'Action type must be Corrective or Preventive'}), 400
+    if source_type not in ('NCR', 'Audit', 'Internal', 'Supplier'):
+        return jsonify({'error': 'Invalid source type'}), 400
+    if not isinstance(description, str) or not description.strip():
+        return jsonify({'error': 'Description/action plan is required'}), 400
+    description = description.strip()
+    if len(description) > 4000:
+        return jsonify({'error': 'Description is too long (maximum 4000 characters)'}), 400
+
+    if source_id is not None:
+        source_id = str(source_id).strip() or None
+        if source_id and len(source_id) > 100:
+            return jsonify({'error': 'Source reference is too long'}), 400
+    if assigned_to is not None:
+        assigned_to = str(assigned_to).strip() or None
+
+    if due_date not in (None, ''):
+        due_text = str(due_date).strip()
+        if not re.fullmatch(r'\d{8}', due_text):
+            return jsonify({'error': 'Due date must be a valid date in YYYYMMDD format'}), 400
+        try:
+            datetime.strptime(due_text, '%Y%m%d')
+        except ValueError:
+            return jsonify({'error': 'Due date is not a valid calendar date'}), 400
+        due_date = int(due_text)
+    else:
+        due_date = None
+
     engine = get_engine()
+    action_id = str(uuid.uuid4())
     with engine.begin() as conn:
-        count = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAction")
-        ).scalar() + 1
-        action_number = f"CAPA-{datetime.now().strftime('%Y%m')}-{count:04d}"
-        
-        result = conn.execute(
+        if assigned_to:
+            user_exists = conn.execute(
+                text("SELECT 1 FROM t_Users WHERE UserID = :uid AND UserType = 'Internal' AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+                {'uid': assigned_to, 'tenant_id': _tenant_id()}
+            ).first()
+            if not user_exists:
+                return jsonify({'error': 'Selected assignee is not a valid internal user'}), 400
+
+        # Serialize SQL Server CAPA numbering to reduce duplicate numbers during
+        # simultaneous requests. SQLite test mode uses its normal transaction lock.
+        if engine.dialect.name == 'mssql':
+            count_query = "SELECT COUNT(*) FROM t_QualityAction WITH (TABLOCKX, HOLDLOCK) WHERE (TenantID = :tenant_id OR :tenant_id = 0)"
+        else:
+            count_query = "SELECT COUNT(*) FROM t_QualityAction WHERE (TenantID = :tenant_id OR :tenant_id = 0)"
+        count = conn.execute(text(count_query), {'tenant_id': _tenant_id()}).scalar() or 0
+        action_number = f"CAPA-{datetime.now().strftime('%Y%m')}-{int(count) + 1:04d}"
+
+        conn.execute(
             text("""
                 INSERT INTO t_QualityAction
-                (ActionNumber, ActionType, SourceType, SourceID, Description, AssignedTo, DueDateKey, Status)
-                OUTPUT INSERTED.ActionID
-                VALUES (:num, :atype, :stype, :sid, :desc, :assign, :due, 'Open')
+                (ActionID, TenantID, ActionNumber, ActionType, SourceType, SourceID, Description,
+                 AssignedTo, DueDateKey, Status)
+                VALUES (:aid, :tenant_id, :num, :atype, :stype, :sid, :desc, :assign, :due, 'Open')
             """),
             {
+                'aid': action_id,
+                    'tenant_id': _tenant_id(),
                 'num': action_number,
-                'atype': data['actionType'],
-                'stype': data['sourceType'],
-                'sid': data.get('sourceID'),
-                'desc': data['description'],
-                'assign': data.get('assignedTo'),
-                'due': data.get('dueDateKey')
+                'atype': action_type,
+                'stype': source_type,
+                'sid': source_id,
+                'desc': description,
+                'assign': assigned_to,
+                'due': due_date
             }
         )
-        action_id = result.scalar()
     return jsonify({'actionId': action_id, 'actionNumber': action_number, 'message': 'Action created'}), 201
 
 
-@quality_api.route('/capa/action/<int:action_id>/verify', methods=['POST'])
+@quality_api.route('/capa/action/<string:action_id>/verify', methods=['POST'])
 @login_required
 def verify_capa_action(action_id):
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'error': 'A JSON request body is required'}), 400
     effectiveness = data.get('effectivenessCheck')
+    if not isinstance(effectiveness, str) or not effectiveness.strip():
+        return jsonify({'error': 'Effectiveness notes are required'}), 400
+    effectiveness = effectiveness.strip()
+    if len(effectiveness) > 4000:
+        return jsonify({'error': 'Effectiveness notes are too long (maximum 4000 characters)'}), 400
+
     completed_date_key = _today_key()
     engine = get_engine()
     with engine.begin() as conn:
-        conn.execute(
+        existing = conn.execute(
+            text("SELECT Status FROM t_QualityAction WHERE ActionID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'aid': action_id, 'tenant_id': _tenant_id()}
+        ).first()
+        if not existing:
+            return jsonify({'error': 'CAPA action not found'}), 404
+        if existing[0] in ('Closed', 'Completed'):
+            return jsonify({'error': 'This action is already completed'}), 409
+        result = conn.execute(
             text("""
                 UPDATE t_QualityAction
-                SET EffectivenessCheck = :eff, Status = 'Completed', CompletionDateKey = :date, ClosedBy = :user
-                WHERE ActionID = :aid
+                SET EffectivenessCheck = :eff, Status = 'Completed',
+                    CompletionDateKey = :date, ClosedBy = :user
+                WHERE ActionID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0) AND Status NOT IN ('Closed', 'Completed')
             """),
             {
                 'eff': effectiveness,
                 'date': completed_date_key,
                 'user': current_user.get_id(),
-                'aid': action_id
+                'aid': action_id,
+                'tenant_id': _tenant_id()
             }
         )
+        if result.rowcount == 0:
+            return jsonify({'error': 'Action was changed by another user; refresh and try again'}), 409
     return jsonify({'message': 'Action verified and closed'})
 
 
-@quality_api.route('/capa/action/<int:action_id>', methods=['GET'])
+@quality_api.route('/capa/action/<string:action_id>', methods=['GET'])
 @login_required
 def get_capa_action(action_id):
     engine = get_engine()
     with engine.connect() as conn:
         row = conn.execute(
-            text("SELECT * FROM t_QualityAction WHERE ActionID = :aid"),
-            {'aid': action_id}
+            text("SELECT * FROM t_QualityAction WHERE ActionID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'aid': action_id, 'tenant_id': _tenant_id()}
         ).first()
         if not row:
             return jsonify({'error': 'Not found'}), 404
@@ -2010,7 +2220,7 @@ def capa_types():
 @quality_api.route('/capa/statuses')
 @login_required
 def capa_statuses():
-    return jsonify([{'status': 'Open'}, {'status': 'InProgress'}, {'status': 'Completed'}])
+    return jsonify([{'status': 'Open'}, {'status': 'InProgress'}, {'status': 'Completed'}, {'status': 'Closed'}])
 
 
 @quality_api.route('/capa/assignees')
@@ -2019,7 +2229,7 @@ def capa_assignees():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT UserID, FullName FROM t_Users WHERE UserType='Internal' ORDER BY FullName")
+            text("SELECT UserID, FullName FROM t_Users WHERE UserType='Internal' AND (TenantID = :tenant_id OR :tenant_id = 0) ORDER BY FullName"), {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
 
@@ -2027,24 +2237,47 @@ def capa_assignees():
 @quality_api.route('/capa/export')
 @login_required
 def export_capa():
+    action_type = request.args.get('type', '').strip()
+    status = request.args.get('status', '').strip()
+    assignee = request.args.get('assignee', '').strip()
+    if action_type and action_type not in ('Corrective', 'Preventive'):
+        return jsonify({'error': 'Invalid action type'}), 400
+    if status and status not in ('Open', 'InProgress', 'Completed', 'Closed'):
+        return jsonify({'error': 'Invalid status'}), 400
+
+    query = """
+        SELECT a.ActionNumber, a.ActionType, a.SourceType, a.SourceID, a.Description,
+               u.FullName AS Assignee, a.DueDateKey, a.Status, a.CompletionDateKey,
+               a.EffectivenessCheck
+        FROM t_QualityAction a
+        LEFT JOIN t_Users u ON a.AssignedTo = u.UserID
+        WHERE (a.TenantID = :tenant_id OR :tenant_id = 0)
+    """
+    params = {'tenant_id': _tenant_id()}
+    if action_type:
+        query += " AND a.ActionType = :atype"
+        params['atype'] = action_type
+    if status:
+        query += " AND a.Status = :stat"
+        params['stat'] = status
+    if assignee:
+        query += " AND a.AssignedTo = :assign"
+        params['assign'] = assignee
+    query += " ORDER BY a.DueDateKey, a.ActionID"
+
     engine = get_engine()
     with engine.connect() as conn:
-        rows = conn.execute(
-            text("""
-                SELECT a.ActionNumber, a.ActionType, a.SourceType, a.SourceID, a.Description,
-                       u.FullName AS Assignee, a.DueDateKey, a.Status, a.CompletionDateKey, a.EffectivenessCheck
-                FROM t_QualityAction a
-                LEFT JOIN t_Users u ON a.AssignedTo = u.UserID
-                ORDER BY a.DueDateKey
-            """)
-        ).fetchall()
-    
-    output = io.StringIO()
+        rows = conn.execute(text(query), params).fetchall()
+
+    output = io.StringIO(newline='')
     writer = csv.writer(output)
     writer.writerow(['Action #', 'Type', 'Source Type', 'Source ID', 'Description', 'Assignee', 'Due Date', 'Status', 'Completion Date', 'Effectiveness'])
-    for r in rows:
-        writer.writerow(r)
-    return output.getvalue(), 200, {'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename=capa_report.csv'}
+    writer.writerows(rows)
+    return output.getvalue(), 200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename=capa_report.csv',
+        'X-Content-Type-Options': 'nosniff'
+    }
 
 
 # ========== 8. CERTIFICATE MANAGEMENT API ==========
@@ -2056,11 +2289,12 @@ def certificates_kpi():
     first_day = int(datetime.now().replace(day=1).strftime('%Y%m%d'))
     with engine.connect() as conn:
         generated_this_month = conn.execute(
-            text("SELECT COUNT(*) FROM t_EngineeringDocument WHERE DocumentType='COC' AND CreatedDateKey BETWEEN :first AND :today"),
-            {'first': first_day, 'today': today_key}
+            text("SELECT COUNT(*) FROM t_EngineeringDocument WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND DocumentType='COC' AND CreatedDateKey BETWEEN :first AND :today"),
+            {'first': first_day, 'today': today_key, 'tenant_id': _tenant_id()}
         ).scalar() or 0
         pending_signatures = conn.execute(
-            text("SELECT COUNT(*) FROM t_EngineeringDocument WHERE DocumentType='COC' AND Status='Draft'")
+            text("SELECT COUNT(*) FROM t_EngineeringDocument WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND DocumentType='COC' AND Status='Draft'"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
     return jsonify({
         'generatedThisMonth': generated_this_month,
@@ -2080,9 +2314,9 @@ def certificates_list():
         SELECT d.DocumentID, d.DocumentNumber, d.Title, d.CreatedDateKey, d.Status,
                d.Notes, d.ProjectID, d.EngineeringEntityID
         FROM t_EngineeringDocument d
-        WHERE d.DocumentType = 'COC'
+        WHERE d.DocumentType = 'COC' AND (d.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if product:
         query += " AND d.Title LIKE :product"
         params['product'] = f'%{product}%'
@@ -2134,13 +2368,14 @@ def generate_certificate():
     engine = get_engine()
     with engine.begin() as conn:
         count = conn.execute(
-            text("SELECT COUNT(*) FROM t_EngineeringDocument WHERE DocumentType='COC'")
+            text("SELECT COUNT(*) FROM t_EngineeringDocument WHERE DocumentType='COC' AND (TenantID = :tenant_id OR :tenant_id = 0)"), {'tenant_id': _tenant_id()}
         ).scalar() + 1
         cert_number = f"COC-{datetime.now().strftime('%Y%m')}-{count:04d}"
+        cert_id = str(uuid.uuid4())
         
         product = conn.execute(
-            text("SELECT descEnglish FROM t_Product WHERE ProductId = :pid"),
-            {'pid': product_id}
+            text("SELECT descEnglish FROM t_Product WHERE ProductId = :pid AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'pid': product_id, 'tenant_id': _tenant_id()}
         ).first()
         product_desc = product[0] if product else product_id
         title = f"Certificate of Conformance - {product_desc}"
@@ -2149,23 +2384,24 @@ def generate_certificate():
         serials_json = json.dumps(serial_numbers)
         today_key = _today_key()
         
-        result = conn.execute(
+        conn.execute(
             text("""
                 INSERT INTO t_EngineeringDocument
-                (DocumentNumber, DocumentType, Title, Status, CreatedDateKey, Notes, ProjectID, EngineeringEntityType, EngineeringEntityID)
-                OUTPUT INSERTED.DocumentID
-                VALUES (:num, 'COC', :title, 'Draft', :date, :notes, :proj, 'Certificate', :id)
+                (DocumentID, TenantID, DocumentNumber, DocumentType, Title, Status, CreatedDateKey,
+                 Notes, ProjectID, EngineeringEntityType, EngineeringEntityID)
+                VALUES (:id, :tenant_id, :num, 'COC', :title, 'Draft', :date,
+                        :notes, :proj, 'Certificate', :id)
             """),
             {
+                'id': cert_id,
+                'tenant_id': _tenant_id(),
                 'num': cert_number,
                 'title': title,
                 'date': today_key,
                 'notes': serials_json,
-                'proj': project_id,
-                'id': count
+                'proj': project_id
             }
         )
-        cert_id = result.scalar()
     
     return jsonify({
         'certificateId': cert_id,
@@ -2175,7 +2411,7 @@ def generate_certificate():
     })
 
 
-@quality_api.route('/certificates/<int:cert_id>/view')
+@quality_api.route('/certificates/<string:cert_id>/view')
 @login_required
 def view_certificate(cert_id):
     engine = get_engine()
@@ -2240,7 +2476,7 @@ def view_certificate(cert_id):
     return html, 200, {'Content-Type': 'text/html'}
 
 
-@quality_api.route('/certificates/<int:cert_id>/status', methods=['PUT'])
+@quality_api.route('/certificates/<string:cert_id>/status', methods=['PUT'])
 @login_required
 def update_certificate_status(cert_id):
     data = request.get_json()
@@ -2248,8 +2484,8 @@ def update_certificate_status(cert_id):
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(
-            text("UPDATE t_EngineeringDocument SET Status = :stat WHERE DocumentID = :id"),
-            {'stat': status, 'id': cert_id}
+            text("UPDATE t_EngineeringDocument SET Status = :stat WHERE DocumentID = :id AND (TenantID = :tenant_id OR :tenant_id = 0)"),
+            {'stat': status, 'id': cert_id, 'tenant_id': _tenant_id()}
         )
     return jsonify({'message': f'Status updated to {status}'})
 
@@ -2260,7 +2496,7 @@ def certificate_products():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT DISTINCT ProductId, descEnglish FROM t_Product ORDER BY ProductId")
+            text("SELECT DISTINCT ProductId, descEnglish FROM t_Product WHERE (TenantID = :tenant_id OR :tenant_id = 0) ORDER BY ProductId"), {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
 
@@ -2274,15 +2510,15 @@ def certificate_serial_numbers(product_id):
             text("""
                 SELECT s.SerialNumber, s.Status
                 FROM t_SerialNumbers s
-                WHERE s.ProductID = :pid AND s.Status = 'InProduction' 
+                WHERE s.ProductID = :pid AND s.Status = 'InProduction' AND EXISTS (SELECT 1 FROM t_Product p WHERE p.ProductId = s.ProductID AND (p.TenantID = :tenant_id OR :tenant_id = 0)) 
                 UNION
                 SELECT s.SerialNumber, s.Status
                 FROM t_SerialNumbers s
                 JOIN t_QualityInspectionResult r ON r.SerialNumber = s.SerialNumber
-                WHERE s.ProductID = :pid AND r.PassFail = 1
+                WHERE s.ProductID = :pid AND r.PassFail = 1 AND EXISTS (SELECT 1 FROM t_Product p WHERE p.ProductId = s.ProductID AND (p.TenantID = :tenant_id OR :tenant_id = 0))
                 GROUP BY s.SerialNumber, s.Status
             """),
-            {'pid': product_id}
+            {'pid': product_id, 'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'serialNumber': r[0], 'status': r[1]} for r in rows])
 
@@ -2294,13 +2530,16 @@ def audit_kpi():
     engine = get_engine()
     with engine.connect() as conn:
         planned = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAudit WHERE Status='Planned'")
+            text("SELECT COUNT(*) FROM t_QualityAudit WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND Status='Planned'"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
         in_progress = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAudit WHERE Status='InProgress'")
+            text("SELECT COUNT(*) FROM t_QualityAudit WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND Status='InProgress'"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
         completed = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAudit WHERE Status='Completed'")
+            text("SELECT COUNT(*) FROM t_QualityAudit WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND Status='Completed'"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
     return jsonify({'planned': planned, 'inProgress': in_progress, 'completed': completed})
 
@@ -2318,9 +2557,9 @@ def audit_list():
                u.FullName AS AuditorName
         FROM t_QualityAudit a
         LEFT JOIN t_Users u ON a.AuditorID = u.UserID
-        WHERE 1=1
+        WHERE (a.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if audit_type:
         query += " AND a.AuditType = :atype"
         params['atype'] = audit_type
@@ -2349,19 +2588,23 @@ def create_audit():
     engine = get_engine()
     with engine.begin() as conn:
         count = conn.execute(
-            text("SELECT COUNT(*) FROM t_QualityAudit")
+            text("SELECT COUNT(*) FROM t_QualityAudit WHERE (TenantID = :tenant_id OR :tenant_id = 0)"), {'tenant_id': _tenant_id()}
         ).scalar() + 1
         audit_number = f"AUD-{datetime.now().strftime('%Y%m')}-{count:04d}"
         today_key = _today_key()
         
-        result = conn.execute(
+        audit_id = str(uuid.uuid4())
+        conn.execute(
             text("""
                 INSERT INTO t_QualityAudit
-                (AuditNumber, AuditType, AuditDateKey, Scope, Status, CreatedBy, CreatedDateKey, ModifiedDateKey, AuditorID)
-                OUTPUT INSERTED.AuditID
-                VALUES (:num, :atype, :date, :scope, 'Planned', :user, :created, :modified, :auditor)
+                (AuditID, TenantID, AuditNumber, AuditType, AuditDateKey, Scope, Status,
+                 CreatedBy, CreatedDateKey, ModifiedDateKey, AuditorID)
+                VALUES (:aid, :tenant_id, :num, :atype, :date, :scope, 'Planned',
+                        :user, :created, :modified, :auditor)
             """),
             {
+                'aid': audit_id,
+                'tenant_id': _tenant_id(),
                 'num': audit_number,
                 'atype': data['auditType'],
                 'date': data['auditDateKey'],
@@ -2372,11 +2615,10 @@ def create_audit():
                 'auditor': data.get('auditorId')
             }
         )
-        audit_id = result.scalar()
     return jsonify({'auditId': audit_id, 'auditNumber': audit_number}), 201
 
 
-@quality_api.route('/audit/<int:audit_id>', methods=['GET'])
+@quality_api.route('/audit/<string:audit_id>', methods=['GET'])
 @login_required
 def get_audit(audit_id):
     engine = get_engine()
@@ -2390,7 +2632,7 @@ def get_audit(audit_id):
     return jsonify(dict(row._mapping))
 
 
-@quality_api.route('/audit/<int:audit_id>/conduct', methods=['POST'])
+@quality_api.route('/audit/<string:audit_id>/conduct', methods=['POST'])
 @login_required
 def conduct_audit(audit_id):
     data = request.get_json()
@@ -2403,14 +2645,15 @@ def conduct_audit(audit_id):
             text("""
                 UPDATE t_QualityAudit
                 SET Status = :stat, Findings = :findings, ReportDocumentID = :doc, ModifiedDateKey = :date
-                WHERE AuditID = :aid
+                WHERE AuditID = :aid AND (TenantID = :tenant_id OR :tenant_id = 0)
             """),
             {
                 'stat': status,
                 'findings': findings,
                 'doc': report_doc_id,
                 'date': _today_key(),
-                'aid': audit_id
+                'aid': audit_id,
+                'tenant_id': _tenant_id()
             }
         )
     return jsonify({'message': f'Audit updated to {status}'})
@@ -2434,7 +2677,7 @@ def audit_auditors():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT UserID, FullName FROM t_Users WHERE UserType='Internal' ORDER BY FullName")
+            text("SELECT UserID, FullName FROM t_Users WHERE UserType='Internal' AND (TenantID = :tenant_id OR :tenant_id = 0) ORDER BY FullName"), {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
 
@@ -2449,8 +2692,9 @@ def export_audit():
                 SELECT a.AuditNumber, a.AuditType, a.AuditDateKey, a.Scope, a.Status, a.Findings, u.FullName AS Auditor
                 FROM t_QualityAudit a
                 LEFT JOIN t_Users u ON a.AuditorID = u.UserID
+                WHERE (a.TenantID = :tenant_id OR :tenant_id = 0)
                 ORDER BY a.AuditDateKey DESC
-            """)
+            """), {'tenant_id': _tenant_id()}
         ).fetchall()
     
     output = io.StringIO()
@@ -2473,22 +2717,24 @@ def calibration_kpi():
     
     with engine.connect() as conn:
         overdue = conn.execute(
-            text("SELECT COUNT(*) FROM t_EquipmentMaintenance WHERE MaintenanceType='Calibration' AND Status='Scheduled' AND NextMaintenanceDate < :today"),
-            {'today': today_str}
+            text("SELECT COUNT(*) FROM t_EquipmentMaintenance WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND MaintenanceType='Calibration' AND Status='Scheduled' AND NextMaintenanceDate < :today"),
+            {'today': today_str, 'tenant_id': _tenant_id()}
         ).scalar() or 0
         
         due_this_month = conn.execute(
-            text("SELECT COUNT(*) FROM t_EquipmentMaintenance WHERE MaintenanceType='Calibration' AND NextMaintenanceDate BETWEEN :first AND :last"),
-            {'first': first_day, 'last': last_day.strftime('%Y-%m-%d')}
+            text("SELECT COUNT(*) FROM t_EquipmentMaintenance WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND MaintenanceType='Calibration' AND NextMaintenanceDate BETWEEN :first AND :last"),
+            {'first': first_day, 'last': last_day.strftime('%Y-%m-%d'), 'tenant_id': _tenant_id()}
         ).scalar() or 0
         
         calibrated = conn.execute(
-            text("SELECT COUNT(*) FROM t_EquipmentMaintenance WHERE MaintenanceType='Calibration' AND Status='Completed'")
+            text("SELECT COUNT(*) FROM t_EquipmentMaintenance WHERE (TenantID = :tenant_id OR :tenant_id = 0) AND MaintenanceType='Calibration' AND Status='Completed'"),
+            {'tenant_id': _tenant_id()}
         ).scalar() or 0
     
     return jsonify({'overdue': overdue, 'dueThisMonth': due_this_month, 'calibrated': calibrated})
 
 
+# C-28: join t_Machine / t_WorkCenter, COALESCE EquipmentName, include MaintenanceID
 @quality_api.route('/calibration/list')
 @login_required
 def calibration_list():
@@ -2498,25 +2744,29 @@ def calibration_list():
     due_to = request.args.get('due_to', '')
     
     query = """
-        SELECT eq.EquipmentID, eq.EquipmentName, eq.MaintenanceType, eq.LastMaintenanceDate, eq.NextMaintenanceDate,
-               eq.Status, eq.Notes
-        FROM t_EquipmentMaintenance eq
-        WHERE eq.MaintenanceType = 'Calibration'
+        SELECT em.MaintenanceID, em.EquipmentID,
+               COALESCE(em.EquipmentName, m.MachineName, wc.Name, em.EquipmentID) AS EquipmentName,
+               em.MaintenanceType, em.LastMaintenanceDate, em.NextMaintenanceDate,
+               em.Status, em.Notes
+        FROM t_EquipmentMaintenance em
+        LEFT JOIN t_Machine m ON em.EquipmentID = m.MachineID
+        LEFT JOIN t_WorkCenter wc ON em.EquipmentID = wc.WorkCenterID
+        WHERE em.MaintenanceType = 'Calibration' AND (em.TenantID = :tenant_id OR :tenant_id = 0)
     """
-    params = {}
+    params = {'tenant_id': _tenant_id()}
     if equip_type:
-        query += " AND eq.EquipmentName LIKE :type"
+        query += " AND (em.EquipmentName LIKE :type OR m.MachineName LIKE :type OR wc.Name LIKE :type)"
         params['type'] = f'%{equip_type}%'
     if status:
-        query += " AND eq.Status = :stat"
+        query += " AND em.Status = :stat"
         params['stat'] = status
     if due_from:
-        query += " AND eq.NextMaintenanceDate >= :from"
+        query += " AND em.NextMaintenanceDate >= :from"
         params['from'] = due_from
     if due_to:
-        query += " AND eq.NextMaintenanceDate <= :to"
+        query += " AND em.NextMaintenanceDate <= :to"
         params['to'] = due_to
-    query += " ORDER BY eq.NextMaintenanceDate"
+    query += " ORDER BY em.NextMaintenanceDate"
     
     engine = get_engine()
     with engine.connect() as conn:
@@ -2524,13 +2774,15 @@ def calibration_list():
         equipment = []
         for r in rows:
             equipment.append({
-                'id': r[0],
-                'name': r[1],
-                'type': r[2],
-                'lastCalibration': r[3],
-                'nextDue': r[4],
-                'status': r[5],
-                'notes': r[6]
+                'maintenanceId': r[0],
+                'equipmentId': r[1],
+                'id': r[0],  # backward-compatible alias for the list 'id' field
+                'name': r[2],
+                'type': r[3],
+                'lastCalibration': r[4],
+                'nextDue': r[5],
+                'status': r[6],
+                'notes': r[7]
             })
     return jsonify(equipment)
 
@@ -2540,60 +2792,79 @@ def calibration_list():
 def create_equipment():
     data = request.get_json()
     engine = get_engine()
+    maint_id = str(uuid.uuid4())
     with engine.begin() as conn:
-        result = conn.execute(
+        conn.execute(
             text("""
                 INSERT INTO t_EquipmentMaintenance
-                (EquipmentID, EquipmentName, MaintenanceType, LastMaintenanceDate, NextMaintenanceDate, Status, Notes)
-                OUTPUT INSERTED.EquipmentID
-                VALUES (:id, :name, 'Calibration', :last, :next, 'Scheduled', :notes)
+                (MaintenanceID, TenantID, EquipmentID, EquipmentName, MaintenanceType,
+                 LastMaintenanceDate, NextMaintenanceDate, Status, Notes)
+                VALUES (:mid, :tenant_id, :eid, :ename, 'Calibration', :last, :next, 'Scheduled', :notes)
             """),
             {
-                'id': data['equipmentId'],
-                'name': data['equipmentName'],
+                'mid': maint_id,
+                'tenant_id': _tenant_id(),
+                'eid': data['equipmentId'],
+                'ename': data['equipmentName'],
                 'last': data.get('lastCalibration'),
                 'next': data.get('nextDue'),
                 'notes': data.get('notes')
             }
         )
-        eq_id = result.scalar()
-    return jsonify({'equipmentId': eq_id, 'message': 'Equipment added'}), 201
+    return jsonify({'maintenanceId': maint_id, 'equipmentId': data['equipmentId'], 'message': 'Equipment added'}), 201
 
 
 @quality_api.route('/calibration/record', methods=['POST'])
 @login_required
 def record_calibration():
     data = request.get_json()
-    eq_id = data['equipmentId']
     last_date = data['lastCalibration']
     next_date = data['nextDue']
+    maintenance_id = data.get('maintenanceId')
+    eq_id = data.get('equipmentId')
     engine = get_engine()
     with engine.begin() as conn:
-        conn.execute(
-            text("""
-                UPDATE t_EquipmentMaintenance
-                SET LastMaintenanceDate = :last, NextMaintenanceDate = :next, Status = 'Completed'
-                WHERE EquipmentID = :id AND MaintenanceType = 'Calibration'
-            """),
-            {'last': last_date, 'next': next_date, 'id': eq_id}
-        )
+        if maintenance_id:
+            # Preferred: target a specific maintenance row
+            conn.execute(
+                text("""
+                    UPDATE t_EquipmentMaintenance
+                    SET LastMaintenanceDate = :last, NextMaintenanceDate = :next, Status = 'Completed'
+                    WHERE MaintenanceID = :mid AND (TenantID = :tenant_id OR :tenant_id = 0)
+                """),
+                {'last': last_date, 'next': next_date, 'mid': maintenance_id, 'tenant_id': _tenant_id()}
+            )
+        else:
+            # Backward-compatible fallback: target by EquipmentID
+            if not eq_id:
+                return jsonify({'error': 'maintenanceId or equipmentId is required'}), 400
+            conn.execute(
+                text("""
+                    UPDATE t_EquipmentMaintenance
+                    SET LastMaintenanceDate = :last, NextMaintenanceDate = :next, Status = 'Completed'
+                    WHERE EquipmentID = :id AND MaintenanceType = 'Calibration' AND (TenantID = :tenant_id OR :tenant_id = 0)
+                """),
+                {'last': last_date, 'next': next_date, 'id': eq_id, 'tenant_id': _tenant_id()}
+            )
     return jsonify({'message': 'Calibration recorded'})
 
 
 @quality_api.route('/calibration/<eq_id>/out-of-tolerance', methods=['POST'])
 @login_required
 def out_of_tolerance(eq_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     action = data.get('action')
+    # Prefer explicit MaintenanceID from the body; else treat the URL param as one.
+    maintenance_id = data.get('maintenanceId') or eq_id
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(
             text("""
                 UPDATE t_EquipmentMaintenance
                 SET Status = 'Out of Tolerance', Notes = :notes
-                WHERE EquipmentID = :id AND MaintenanceType = 'Calibration'
+                WHERE MaintenanceID = :mid AND (TenantID = :tenant_id OR :tenant_id = 0) AND MaintenanceType = 'Calibration'
             """),
-            {'notes': action, 'id': eq_id}
+            {'notes': action, 'mid': maintenance_id, 'tenant_id': _tenant_id()}
         )
     return jsonify({'message': 'Out of tolerance action recorded'})
 
@@ -2604,7 +2875,7 @@ def calibration_types():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT DISTINCT EquipmentName FROM t_EquipmentMaintenance WHERE MaintenanceType='Calibration' AND EquipmentName IS NOT NULL")
+            text("SELECT DISTINCT EquipmentName FROM t_EquipmentMaintenance WHERE MaintenanceType='Calibration' AND EquipmentName IS NOT NULL AND (TenantID = :tenant_id OR :tenant_id = 0)"), {'tenant_id': _tenant_id()}
         ).fetchall()
     return jsonify([{'type': r[0]} for r in rows])
 
@@ -2624,9 +2895,9 @@ def export_calibration():
             text("""
                 SELECT EquipmentName, LastMaintenanceDate, NextMaintenanceDate, Status, Notes
                 FROM t_EquipmentMaintenance
-                WHERE MaintenanceType='Calibration'
+                WHERE MaintenanceType='Calibration' AND (TenantID = :tenant_id OR :tenant_id = 0)
                 ORDER BY NextMaintenanceDate
-            """)
+            """), {'tenant_id': _tenant_id()}
         ).fetchall()
     
     output = io.StringIO()

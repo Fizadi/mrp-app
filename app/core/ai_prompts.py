@@ -3,9 +3,6 @@ Prompt templates and JSON schemas for the AI text parser.
 One schema per context (opportunity, customer, activity, task, quote).
 """
 
-# ---------------------------------------------------------------------------
-# Shared preamble — every prompt gets this
-# ---------------------------------------------------------------------------
 SYSTEM_PREAMBLE = """You are a data extraction assistant for a CRM system.
 
 The user will paste free-form text (email, meeting notes, website content,
@@ -29,16 +26,15 @@ RULES:
 10. When the text says the deal is closed/lost/won, set stage
     accordingly and put the reason in "win_loss_reason" — not
     in "opportunity.name".
-11. ALWAYS add a "search_hint" field inside the "opportunity" object:
-    a short string of distinguishing keywords (company name + any
-    topic/product/person mentioned). This is used to locate existing
-    records. Example: "Nargan DCC valve".
+11. ALWAYS add a "search_hint" field:
+    - Inside "opportunity" for opportunity context.
+    - Inside "company" for customer context.
+    A short string of distinguishing keywords (company name + any
+    topic/product/person mentioned). Used to locate existing records.
+    Example: "Nargan DCC valve" or "Peyma Bargh transformer".
 """
 
 
-# ---------------------------------------------------------------------------
-# Per-context schemas
-# ---------------------------------------------------------------------------
 CONTEXT_SCHEMAS = {
 
     # -----------------------------------------------------------------------
@@ -74,7 +70,7 @@ CONTEXT_SCHEMAS = {
       "expected_close_date": "YYYY-MM-DD",
       "notes": "string",
       "contact_person": "string (primary contact name)",
-      "search_hint": "string (distinguishing keywords, e.g. 'Nargan DCC valve')"
+      "search_hint": "string (distinguishing keywords)"
     },
     "activities": [
       {
@@ -93,18 +89,29 @@ CONTEXT_SCHEMAS = {
 
     # -----------------------------------------------------------------------
     'customer': {
-        'description': 'Parse text into a new Company (Customer) with phones and contacts.',
+        'description': 'Parse text into a new Company (Customer). '
+                       'Customer records live in t_companies and have Name, '
+                       'NameFa, Address, AddressFa, Telephone, Role, Website, '
+                       'Email, IsCustomer, IsSupplier. Phones are stored in a '
+                       'child table (t_CompanyPhone) keyed by companyID.',
         'schema': """
 {
   "intent": "create" | "update",
   "entities": {
     "company": {
-      "name": "string",
-      "phones": [{"value": "string", "type": "Main|Sales|Fax|CompanyMobile"}],
+      "name": "string (English or Latin name)",
+      "name_fa": "string (Persian name if present, otherwise omit)",
+      "phones": [
+        {"value": "string", "type": "Main|Sales|Fax|CompanyMobile",
+         "extension": "string (optional)", "label": "string (optional)"}
+      ],
       "website": "string (URL)",
       "address": "string",
+      "address_fa": "string (Persian address if present, otherwise omit)",
       "email": "string",
-      "business_type": "string (e.g. Oil & Gas, Automotive, Steel)"
+      "role": "string (business type / role, e.g. 'Oil & Gas Contractor')",
+      "is_supplier": true | false,
+      "search_hint": "string (distinguishing keywords, e.g. 'Peyma Bargh transformer')"
     },
     "contacts": [
       {
@@ -191,9 +198,6 @@ CONTEXT_SCHEMAS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Few-shot examples — teach the model with real-world patterns
-# ---------------------------------------------------------------------------
 FEW_SHOT = {
     'opportunity': """
 EXAMPLE INPUT:
@@ -244,11 +248,46 @@ EXAMPLE OUTPUT:
   "warnings": []
 }
 """,
+
+    'customer': """
+EXAMPLE INPUT:
+"Peyma Bargh — transformer manufacturing, Tehran. Main: 021-88776600.
+Website peymabargh.ir, email info@peymabargh.ir.
+Contact: Mr. Rezaei, procurement manager, mobile 0912-5551234.
+We supply them control valves. Also register as supplier, they can
+supply us with copper windings."
+
+EXAMPLE OUTPUT:
+{
+  "intent": "create",
+  "entities": {
+    "company": {
+      "name": "Peyma Bargh",
+      "phones": [
+        {"value": "021-88776600", "type": "Main"}
+      ],
+      "website": "peymabargh.ir",
+      "address": "Tehran",
+      "email": "info@peymabargh.ir",
+      "role": "Transformer manufacturing",
+      "is_supplier": true,
+      "search_hint": "Peyma Bargh transformer copper windings"
+    },
+    "contacts": [
+      {
+        "first_name": "Rezaei",
+        "job_title": "Procurement Manager",
+        "phones": [{"value": "0912-5551234", "type": "Mobile"}]
+      }
+    ]
+  },
+  "warnings": []
+}
+""",
 }
 
 
 def build_prompt(context, user_text):
-    """Return (system_prompt, user_prompt) for the given context."""
     ctx = CONTEXT_SCHEMAS[context]
     few_shot = FEW_SHOT.get(context, '')
 

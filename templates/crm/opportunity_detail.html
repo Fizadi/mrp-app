@@ -2,6 +2,14 @@
 
 {% block title %}{{ get_translation('crm.opportunity.detail.title', 'Opportunity Detail') }}{% endblock %}
 
+{% block styles %}
+<style>
+.bilingual-pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.bilingual-pair .lang-label { font-size:.7rem; color:#6c757d; text-transform:uppercase; letter-spacing:.5px; }
+[dir="rtl"] .bilingual-pair { direction: rtl; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid px-2 px-md-3">
 
@@ -14,9 +22,15 @@
             </h2>
             <div id="oppSubline" class="text-muted"></div>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-outline-success" id="logActivityBtn">
                 <i class="fas fa-clock me-1"></i>{{ get_translation('crm.opportunities.btn.log_activity', 'Log Activity') }}
+            </button>
+            <button class="btn btn-outline-warning sync-btn" data-scope="products" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.products.sync', 'Sync Products') }}
+            </button>
+            <button class="btn btn-warning sync-btn" data-scope="all" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.sync.all', 'Sync All') }}
             </button>
             <button class="btn btn-secondary" onclick="window.history.back()">
                 <i class="fas fa-arrow-left me-1"></i>{{ get_translation('global.back', 'Back') }}
@@ -42,6 +56,11 @@
         <li class="nav-item">
             <a class="nav-link" data-bs-toggle="tab" href="#tabContacts">
                 <i class="fas fa-users me-1"></i>{{ get_translation('crm.opportunity.tab.contacts', 'Contacts') }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabProducts">
+                <i class="fas fa-boxes me-1"></i>{{ get_translation('crm.opportunity.tab.products', 'Products') }}
             </a>
         </li>
         <li class="nav-item">
@@ -126,6 +145,45 @@
                     <tbody id="contactsBody">
                         <tr><td colspan="7" class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
                     </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Products Tab (CPQ) -->
+        <div class="tab-pane fade" id="tabProducts">
+            <div class="alert alert-info small py-2 mb-2">
+                <i class="fas fa-info-circle me-1"></i>
+                {{ get_translation('crm.opportunity.products.ai_note',
+                   'AI Assist extracts opportunity fields, not products — add products manually.') }}
+            </div>
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-success" id="addProductBtn">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('crm.opportunity.add_product', 'Add Product') }}
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="productsTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>{{ get_translation('crm.product.name', 'Product') }}</th>
+                            <th style="width:90px;">{{ get_translation('crm.product.qty', 'Qty') }}</th>
+                            <th style="width:130px;">{{ get_translation('crm.product.unit_price', 'Unit Price') }}</th>
+                            <th style="width:130px;">{{ get_translation('crm.product.override_price', 'Override') }}</th>
+                            <th style="width:130px;">{{ get_translation('crm.product.total', 'Total') }}</th>
+                            <th style="width:80px;">{{ get_translation('crm.product.currency', 'Cur') }}</th>
+                            <th style="width:90px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsBody">
+                        <tr><td colspan="7" class="text-center text-muted py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-bold bg-light">
+                            <td colspan="4" class="text-end">{{ get_translation('crm.product.grand_total', 'Grand Total') }}:</td>
+                            <td id="productsGrandTotal">—</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
@@ -494,9 +552,79 @@
         </div>
     </div>
 </div>
+
+<!-- Add / Edit Product Modal -->
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="productModalTitle">{{ get_translation('crm.product.add_title', 'Add Product') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="productLinkId"/>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.product.name', 'Product') }} *</label>
+                    <select class="form-select" id="productSelect">
+                        <option value="">{{ get_translation('global.select', 'Select') }}</option>
+                    </select>
+                    <div class="form-text" id="productPriceSourceHint"></div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ get_translation('crm.product.qty', 'Quantity') }} *</label>
+                        <input class="form-control" id="productQty" type="number" step="any" min="0" value="1"/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ get_translation('crm.product.currency', 'Currency') }}</label>
+                        <select class="form-select" id="productCurrency">
+                            <option value="USD">USD</option>
+                            <option value="IRR">IRR</option>
+                            <option value="AED">AED</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ get_translation('crm.product.unit_price', 'Unit Price') }}</label>
+                        <input class="form-control" id="productUnitPrice" type="number" step="any"/>
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.product.override_price', 'Override Price (optional)') }}</label>
+                        <input class="form-control" id="productOverridePrice" type="number" step="any"/>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ get_translation('crm.product.override_reason', 'Override Reason') }}</label>
+                        <div class="bilingual-pair">
+                            <div><div class="lang-label">EN</div>
+                                <input class="form-control" id="productOverrideReason" type="text" dir="ltr"/></div>
+                            <div><div class="lang-label">FA</div>
+                                <input class="form-control" id="productOverrideReasonFa" type="text" dir="rtl"/></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <label class="form-label">{{ get_translation('crm.product.notes', 'Notes') }}</label>
+                    <div class="bilingual-pair">
+                        <div><div class="lang-label">EN</div>
+                            <textarea class="form-control" id="productNotes" rows="2" dir="ltr"></textarea></div>
+                        <div><div class="lang-label">FA</div>
+                            <textarea class="form-control" id="productNotesFa" rows="2" dir="rtl"></textarea></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveProductBtn">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/sync-button.js') }}"></script>
 <script>
 // ============================================================================
 // 1. SERVER-INJECTED TRANSLATIONS — TOP LEVEL
@@ -519,6 +647,7 @@ var trans = {
     'crm.opportunity.tab.summary':   {{ get_translation('crm.opportunity.tab.summary', 'Summary')|tojson }},
     'crm.opportunity.tab.activities': {{ get_translation('crm.opportunity.tab.activities', 'Activities')|tojson }},
     'crm.opportunity.tab.contacts':  {{ get_translation('crm.opportunity.tab.contacts', 'Contacts')|tojson }},
+    'crm.opportunity.tab.products':  {{ get_translation('crm.opportunity.tab.products', 'Products')|tojson }},
     'crm.opportunity.tab.documents': {{ get_translation('crm.opportunity.tab.documents', 'Documents')|tojson }},
     'crm.opportunity.tab.tasks':     {{ get_translation('crm.opportunity.tab.tasks', 'Tasks')|tojson }},
 
@@ -526,6 +655,7 @@ var trans = {
     'crm.opportunities.btn.log_activity': {{ get_translation('crm.opportunities.btn.log_activity', 'Log Activity')|tojson }},
     'crm.opportunity.add_activity':  {{ get_translation('crm.opportunity.add_activity', 'Add Activity')|tojson }},
     'crm.opportunity.link_contact':  {{ get_translation('crm.opportunity.link_contact', 'Link Contact')|tojson }},
+    'crm.opportunity.add_product':   {{ get_translation('crm.opportunity.add_product', 'Add Product')|tojson }},
     'crm.opportunity.add_document':  {{ get_translation('crm.opportunity.add_document', 'Add Document')|tojson }},
     'crm.opportunity.add_task':      {{ get_translation('crm.opportunity.add_task', 'Add Task')|tojson }},
     'crm.phone.add':                 {{ get_translation('crm.phone.add', 'Add Phone')|tojson }},
@@ -575,6 +705,17 @@ var trans = {
     'crm.document.location':   {{ get_translation('crm.document.location', 'Link / Path')|tojson }},
     'crm.document.notes':      {{ get_translation('crm.document.notes', 'Notes')|tojson }},
 
+    // Product modal
+    'crm.product.name':            {{ get_translation('crm.product.name', 'Product')|tojson }},
+    'crm.product.qty':             {{ get_translation('crm.product.qty', 'Quantity')|tojson }},
+    'crm.product.currency':        {{ get_translation('crm.product.currency', 'Currency')|tojson }},
+    'crm.product.unit_price':      {{ get_translation('crm.product.unit_price', 'Unit Price')|tojson }},
+    'crm.product.override_price':  {{ get_translation('crm.product.override_price', 'Override Price (optional)')|tojson }},
+    'crm.product.override_reason': {{ get_translation('crm.product.override_reason', 'Override Reason')|tojson }},
+    'crm.product.notes':           {{ get_translation('crm.product.notes', 'Notes')|tojson }},
+    'crm.product.add_title':       {{ get_translation('crm.product.add_title', 'Add Product')|tojson }},
+    'crm.product.edit_title':      {{ get_translation('crm.product.edit_title', 'Edit Product')|tojson }},
+
     // Phone modal
     'crm.phone.number':       {{ get_translation('crm.phone.number', 'Phone Number')|tojson }},
     'crm.phone.range_end':    {{ get_translation('crm.phone.range_end', 'Range End (optional)')|tojson }},
@@ -594,6 +735,7 @@ var trans = {
     // Empty states / messages
     'crm.opportunity.no_activities': {{ get_translation('crm.opportunity.no_activities', 'No activities yet')|tojson }},
     'crm.opportunity.no_contacts':   {{ get_translation('crm.opportunity.no_contacts', 'No contacts linked yet')|tojson }},
+    'crm.opportunity.no_products':   {{ get_translation('crm.opportunity.no_products', 'No products yet')|tojson }},
     'crm.opportunity.no_documents':  {{ get_translation('crm.opportunity.no_documents', 'No documents yet')|tojson }},
     'crm.opportunity.no_tasks':      {{ get_translation('crm.opportunity.no_tasks', 'No tasks yet')|tojson }},
     'crm.opportunity.no_phones':     {{ get_translation('crm.opportunity.no_phones', 'No phones yet')|tojson }},
@@ -607,6 +749,7 @@ var trans = {
     'crm.opportunity.confirm_delete_doc':  {{ get_translation('crm.opportunity.confirm_delete_doc', 'Delete this document?')|tojson }},
     'crm.opportunity.confirm_delete_phone':{{ get_translation('crm.opportunity.confirm_delete_phone', 'Delete this phone?')|tojson }},
     'crm.opportunity.confirm_delete_channel': {{ get_translation('crm.opportunity.confirm_delete_channel', 'Remove this channel?')|tojson }},
+    'crm.product.confirm_delete':          {{ get_translation('crm.product.confirm_delete', 'Remove this product?')|tojson }},
 
     // Alerts
     'crm.opportunity.alert.value_required':    {{ get_translation('crm.opportunity.alert.value_required', 'Value is required')|tojson }},
@@ -614,11 +757,14 @@ var trans = {
     'crm.opportunity.alert.phone_required':    {{ get_translation('crm.opportunity.alert.phone_required', 'Phone number is required')|tojson }},
     'crm.opportunity.alert.subject_required':  {{ get_translation('crm.opportunity.alert.subject_required', 'Subject required')|tojson }},
     'crm.opportunity.alert.select_contact':    {{ get_translation('crm.opportunity.alert.select_contact', 'Select a contact')|tojson }},
+    'crm.product.alert.select':                {{ get_translation('crm.product.alert.select', 'Select a product')|tojson }},
+    'crm.product.alert.qty':                   {{ get_translation('crm.product.alert.qty', 'Quantity must be > 0')|tojson }},
 
     // Status/Stage/Priority/Activity labels
     'global.status.open':          {{ get_translation('global.status.open', 'Open')|tojson }},
     'global.status.closed_won':    {{ get_translation('global.status.closed_won', 'Closed Won')|tojson }},
     'global.status.closed_lost':   {{ get_translation('global.status.closed_lost', 'Closed Lost')|tojson }},
+    'global.status.completed':     {{ get_translation('global.status.completed', 'Completed')|tojson }},
     'crm.stage.prospecting':       {{ get_translation('crm.stage.prospecting', 'Prospecting')|tojson }},
     'crm.stage.qualification':     {{ get_translation('crm.stage.qualification', 'Qualification')|tojson }},
     'crm.stage.proposal':          {{ get_translation('crm.stage.proposal', 'Proposal')|tojson }},
@@ -675,6 +821,13 @@ var trans = {
     'crm.contact.role.blocker':        {{ get_translation('crm.contact.role.blocker', 'Blocker')|tojson }},
     'crm.contact.role.technical':      {{ get_translation('crm.contact.role.technical', 'Technical')|tojson }},
     'crm.contact.role.procurement':    {{ get_translation('crm.contact.role.procurement', 'Procurement')|tojson }},
+
+    // Product source labels
+    'crm.product.source.override': {{ get_translation('crm.product.source.override', 'Override')|tojson }},
+    'crm.product.source.standard': {{ get_translation('crm.product.source.standard', 'Standard')|tojson }},
+    'crm.product.source.list':     {{ get_translation('crm.product.source.list', 'List')|tojson }},
+    'crm.product.source.none':     {{ get_translation('crm.product.source.none', 'Not set')|tojson }},
+    'crm.product.price_source':    {{ get_translation('crm.product.price_source', 'Price source')|tojson }},
 };
 
 // ============================================================================
@@ -829,7 +982,6 @@ function roleLabel(raw) {
 (function () {
     'use strict';
 
-    // Defensive picker-reinit aliasing (Playbook §5.8)
     function noopReinit() {
         if (typeof window.__realReinitDateTimePickers === 'function') {
             window.__realReinitDateTimePickers();
@@ -839,7 +991,6 @@ function roleLabel(raw) {
     window.reinitDatePickers     = window.reinitDatePickers     || window.reinitDateTimePickers;
     window.reinitDateTimePickers = window.reinitDateTimePickers || window.reinitDatePickers;
 
-    // opportunityId is a GUID string, not int — do NOT parseInt (§26.8)
     var pathParts = window.location.pathname.split('/').filter(Boolean);
     var opportunityId = pathParts[pathParts.length - 1];
     var currentOpp = null;
@@ -915,6 +1066,7 @@ function roleLabel(raw) {
             }
 
             loadCompanyPhones();
+            loadProducts();
         }).catch(function (err) {
             console.error('opp load failed:', err);
             var tbl = document.getElementById('summaryTable');
@@ -1227,16 +1379,12 @@ function roleLabel(raw) {
             el.innerHTML = list.map(function (d) {
                 var dirClass = d.direction === 'Sent' ? 'bg-primary' : 'bg-secondary';
 
-                // Resolve the href based on storage_type.
-                //   LocalPath  → /static/<Location>          (served by Flask)
-                //   URL        → Location as-is              (e.g. Google Drive)
-                //   SharedDrive/EmailAttachment → shown but not clickable
                 var href = null;
                 var display = d.location || '';
                 if (d.location) {
                     if (d.storage_type === 'LocalPath') {
                         href = '/static/' + d.location;
-                        display = d.document_name || d.location;   // show filename, not full path
+                        display = d.document_name || d.location;
                     } else if (d.storage_type === 'URL') {
                         href = d.location;
                     }
@@ -1269,6 +1417,182 @@ function roleLabel(raw) {
             var el = document.getElementById('documentsBody');
             if (el) el.innerHTML = '<tr><td colspan="6" class="text-danger">Error: ' + esc(err.message) + '</td></tr>';
         });
+    }
+
+    // ---------- Products (CPQ) ----------
+    var productCatalogCache = null;
+
+    function loadProductCatalog() {
+        if (productCatalogCache) return Promise.resolve(productCatalogCache);
+        return api('/api/crm/products/catalog').then(function (list) {
+            productCatalogCache = list || [];
+            return productCatalogCache;
+        });
+    }
+
+    function loadProducts() {
+        api('/api/crm/opportunities/' + opportunityId + '/products').then(function (list) {
+            var body = document.getElementById('productsBody');
+            var totalEl = document.getElementById('productsGrandTotal');
+            if (!body) return;
+            if (!list || !list.length) {
+                body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">' +
+                    t('crm.opportunity.no_products', 'No products yet') + '</td></tr>';
+                if (totalEl) totalEl.textContent = '—';
+                return;
+            }
+            var grand = 0;
+            body.innerHTML = list.map(function (p) {
+                grand += p.line_total || 0;
+                var unit = p.override_price != null ? p.override_price : p.estimated_unit_price;
+                var unitTxt = unit != null ? Number(unit).toLocaleString() : '<span class="text-muted">—</span>';
+                var ovrTxt  = p.override_price != null
+                    ? '<span class="text-warning fw-bold">' + Number(p.override_price).toLocaleString() + '</span>'
+                    : '<span class="text-muted">—</span>';
+                var badge = '';
+                if (p.override_price != null) badge = '<span class="badge bg-warning text-dark ms-1">' + t('crm.product.source.override', 'Override') + '</span>';
+                else if (p.estimated_unit_price != null) badge = '<span class="badge bg-info ms-1">' + t('crm.product.source.standard', 'Standard') + '</span>';
+                else badge = '<span class="badge bg-secondary ms-1">' + t('crm.product.source.none', 'Not set') + '</span>';
+                if (p.rahkaran_part_id != null) {
+                    badge += ' <span class="badge bg-success ms-1" title="' + t('crm.product.synced_from_erp_tip', 'Rahkaran Part ID') + ' ' + esc(String(p.rahkaran_part_id)) + '"><i class="fas fa-sync-alt me-1"></i>' + t('crm.product.synced_from_erp', 'Synced from Hamkaran') + '</span>';
+                }
+                return '<tr>' +
+                    '<td><div class="fw-bold">' + esc(p.product_name || p.product_id) + '</div>' +
+                        '<small class="text-muted">' + esc(p.product_id) + '</small>' + badge + '</td>' +
+                    '<td>' + (p.quantity || 0) + '</td>' +
+                    '<td>' + unitTxt + '</td>' +
+                    '<td>' + ovrTxt + '</td>' +
+                    '<td>' + Number(p.line_total || 0).toLocaleString() + '</td>' +
+                    '<td>' + esc(p.currency || 'USD') + '</td>' +
+                    '<td>' +
+                        '<button class="btn btn-sm btn-outline-warning me-1 edit-product-btn" data-link="' + esc(p.link_id) + '"><i class="fas fa-edit"></i></button>' +
+                        '<button class="btn btn-sm btn-outline-danger del-product-btn" data-link="' + esc(p.link_id) + '"><i class="fas fa-trash"></i></button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+            if (totalEl) totalEl.textContent = Number(grand).toLocaleString();
+
+            body.querySelectorAll('.edit-product-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () { openProductModal(btn.getAttribute('data-link')); });
+            });
+            body.querySelectorAll('.del-product-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (!confirm(t('crm.product.confirm_delete', 'Remove this product?'))) return;
+                    fetch('/api/crm/opportunities/' + opportunityId + '/products/' + btn.getAttribute('data-link'), {
+                        method: 'DELETE', credentials: 'same-origin'
+                    }).then(function () { loadProducts(); });
+                });
+            });
+        }).catch(function (err) {
+            console.error('products load failed:', err);
+            var body = document.getElementById('productsBody');
+            if (body) body.innerHTML = '<tr><td colspan="7" class="text-danger">Error: ' + esc(err.message) + '</td></tr>';
+        });
+    }
+
+    function openProductModal(linkId) {
+        var modalEl = document.getElementById('productModal');
+        document.getElementById('productLinkId').value = linkId || '';
+        document.getElementById('productModalTitle').textContent =
+            linkId ? t('crm.product.edit_title', 'Edit Product') : t('crm.product.add_title', 'Add Product');
+        document.getElementById('productQty').value = 1;
+        document.getElementById('productCurrency').value = 'USD';
+        document.getElementById('productUnitPrice').value = '';
+        document.getElementById('productOverridePrice').value = '';
+        document.getElementById('productOverrideReason').value = '';
+        document.getElementById('productOverrideReasonFa').value = '';
+        document.getElementById('productNotes').value = '';
+        document.getElementById('productNotesFa').value = '';
+        document.getElementById('productPriceSourceHint').textContent = '';
+
+        loadProductCatalog().then(function (list) {
+            var sel = document.getElementById('productSelect');
+            var html = '<option value="">' + t('global.select', 'Select') + '</option>';
+            list.forEach(function (p) {
+                html += '<option value="' + esc(p.product_id) + '">' + esc(p.name) + '</option>';
+            });
+            sel.innerHTML = html;
+        });
+
+        if (linkId) {
+            fetch('/api/crm/opportunities/' + opportunityId + '/products', { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (list) {
+                    var p = (list || []).find(function (x) { return x.link_id === linkId; });
+                    if (!p) return;
+                    document.getElementById('productSelect').value = p.product_id;
+                    document.getElementById('productQty').value = p.quantity;
+                    document.getElementById('productCurrency').value = p.currency || 'USD';
+                    document.getElementById('productUnitPrice').value =
+                        p.override_price != null ? p.override_price : (p.estimated_unit_price || '');
+                    document.getElementById('productOverridePrice').value = p.override_price != null ? p.override_price : '';
+                    document.getElementById('productOverrideReason').value = p.override_reason || '';
+                    document.getElementById('productNotes').value = p.notes || '';
+                });
+        }
+        new bootstrap.Modal(modalEl).show();
+    }
+
+    function resolveProductPrice() {
+        var pid = document.getElementById('productSelect').value;
+        var cur = document.getElementById('productCurrency').value || 'USD';
+        var customerId = currentOpp ? currentOpp.customer_id : null;
+        var hint = document.getElementById('productPriceSourceHint');
+        if (!pid || !customerId) { if (hint) hint.textContent = ''; return; }
+        fetch('/api/crm/products/' + encodeURIComponent(pid) + '/price-for/' + encodeURIComponent(customerId) + '?currency=' + encodeURIComponent(cur),
+              { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.price != null) {
+                    document.getElementById('productUnitPrice').value = res.price;
+                }
+                var label = {
+                    override: t('crm.product.source.override', 'Override'),
+                    standard: t('crm.product.source.standard', 'Standard'),
+                    list:     t('crm.product.source.list', 'List'),
+                    none:     t('crm.product.source.none', 'Not set'),
+                }[res.source] || res.source;
+                if (hint) hint.textContent = t('crm.product.price_source', 'Price source') + ': ' + label;
+            });
+    }
+
+    function saveProduct() {
+        var linkId = document.getElementById('productLinkId').value;
+        var pid = document.getElementById('productSelect').value;
+        var qty = parseFloat(document.getElementById('productQty').value) || 0;
+        if (!pid) { alert(t('crm.product.alert.select', 'Select a product')); return; }
+        if (qty <= 0) { alert(t('crm.product.alert.qty', 'Quantity must be > 0')); return; }
+
+        var payload = {
+            product_id: pid,
+            quantity: qty,
+            currency: document.getElementById('productCurrency').value,
+            estimated_unit_price: parseFloat(document.getElementById('productUnitPrice').value) || null,
+            override_price:       parseFloat(document.getElementById('productOverridePrice').value) || null,
+            override_reason:      document.getElementById('productOverrideReason').value,
+            override_reasonFa:    document.getElementById('productOverrideReasonFa').value,
+            notes:                document.getElementById('productNotes').value,
+            notesFa:              document.getElementById('productNotesFa').value,
+        };
+
+        var url = linkId
+            ? '/api/crm/opportunities/' + opportunityId + '/products/' + linkId
+            : '/api/crm/opportunities/' + opportunityId + '/products';
+        var method = linkId ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('productModal'));
+            if (m) m.hide();
+            loadProducts();
+        })
+        .catch(function (err) { alert('Error: ' + err.message); });
     }
 
     function openDocumentModal() {
@@ -1504,6 +1828,15 @@ function roleLabel(raw) {
         el = document.getElementById('savePhoneBtn'); if (el) el.addEventListener('click', savePhone);
         el = document.getElementById('saveChannelBtn'); if (el) el.addEventListener('click', saveChannel);
 
+        var apb = document.getElementById('addProductBtn');
+        if (apb) apb.addEventListener('click', function () { openProductModal(null); });
+        var spb = document.getElementById('saveProductBtn');
+        if (spb) spb.addEventListener('click', saveProduct);
+        var ps = document.getElementById('productSelect');
+        if (ps) ps.addEventListener('change', resolveProductPrice);
+        var pc = document.getElementById('productCurrency');
+        if (pc) pc.addEventListener('change', resolveProductPrice);
+
         var searchInput = document.getElementById('contactSearch');
         if (searchInput) {
             var timer = null;
@@ -1537,5 +1870,20 @@ function roleLabel(raw) {
         loadDocuments();
     });
 })();
+</script>
+
+<script>
+// Sync buttons — defensive attach (idempotent; no-op if auto-init ran).
+document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.SyncButton && typeof window.SyncButton.attach === 'function')) return;
+    window.SyncButton.attach('.sync-btn[data-scope="products"]', {
+        scope: 'products',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
+    window.SyncButton.attach('.sync-btn[data-scope="all"]', {
+        scope: 'all',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
+});
 </script>
 {% endblock %}

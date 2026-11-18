@@ -1,0 +1,13 @@
+You can export this list, but you do not need to export the contents of every table.
+What to upload
+Please upload:
+1. ZIP: Current Quality Python files and HTML templates.
+2. Schema results: Query 1, preferably Excel or CSV.
+3. Key results: Query 2, preferably Excel or CSV.
+4. Translations: Query 3, preferably Excel or CSV.
+5. Master configuration document: Complete Corrected Quality Module Page Config.
+6. Project context: PROJECT CONTEXT-V48-3.docx.
+Exporting results in SSMS
+Run each query separately. In the results grid, right-click and choose Save Results As… to save the output as CSV. Excel format is also fine if available.
+
+Important: These queries only read database metadata and translation records; they do not modify your database. If any query fails because a table or column has a different name, send me the error and I’ll adapt

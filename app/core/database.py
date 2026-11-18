@@ -3,27 +3,17 @@ import pyodbc
 import logging
 from flask import g, session
 from config import Config
+from app.core.db_config import get_db_connection_string
 
 
 def _build_connection_string():
     """
     Build a proper pyodbc connection string.
 
-    Config.SQLALCHEMY_DATABASE_URI is a SQLAlchemy URI
-    (mssql+pyodbc://...), which pyodbc.connect() does NOT understand.
-    We convert it to a real ODBC connection string.
-
-    Authentication: SQL Server login (UID/PWD), not Windows Trusted Connection.
+    Delegates to the central helper in app.core.db_config, which reads
+    credentials from the environment so no password is hardcoded here.
     """
-    return (
-        'DRIVER={ODBC Driver 17 for SQL Server};'
-        'SERVER=.\\SQLEXPRESS;'
-        'DATABASE=MRP_database;'
-        'UID=mrp_user;'
-        'PWD=TarazTamin2026!;'
-        'TrustServerCertificate=yes;'
-        'Encrypt=no;'
-    )
+    return get_db_connection_string()
 
 
 def get_db_connection(use_teardown=True):

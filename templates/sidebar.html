@@ -5,7 +5,6 @@
     {% if current_user.is_authenticated %}
     <div class="project-selector-container">
 
-      <!-- FIX #1: Removed multiple="multiple" — single-select is what we want -->
       <select class="form-control" id="projectSelector" style="font-size: 14px; width: 100%;">
         <option value="All">{{ get_translation('sidebar.project_selector.all_projects', 'All Projects') }}</option>
         {% for project in projects %}
@@ -15,8 +14,6 @@
         {% endfor %}
       </select>
 
-      <!-- Selected projects panel removed (only relevant with multi-select) -->
-
       <small style="color: rgba(255,255,255,0.7); margin-top: 5px; display: block;">
         {{ get_translation('sidebar.project_selector.active_projects', 'Active Projects') }}
       </small>
@@ -24,46 +21,46 @@
     {% endif %}
 
 
-    {# DEBUG — remove the surrounding Jinja comment to re-enable
-    <pre style="color:white; font-size:10px;">
-      current_project_id (session): {{ session.get('current_project_id', 'MISSING') }}
-      current_project: {{ current_project.ProjectID if current_project else 'None' }}
-      projects count: {{ projects|length }}
-    </pre>
-    #}
+    <!-- ============================================================================
+         TENANT INDICATOR + SWITCHER (visible to everyone)
 
-
-    <!-- Industry Switcher - Show on all pages -->
+         Three branches:
+         1. tenant_id == 0                       → full dropdown (all tenants)
+         2. tenant_id != 0  AND user_id == '1'   → company name + "Back to Super Admin"
+         3. tenant_id != 0  AND user_id != '1'   → company name only (normal tenant user)
+         ============================================================================ -->
     <div class="industry-switcher mt-3">
+        {% if tenant_id == 0 %}
+        {# Super Admin: full dropdown #}
         <div class="dropdown w-100">
-            <button class="btn btn-sm btn-outline-light dropdown-toggle w-100" 
-                    data-bs-toggle="dropdown" 
-                    style="text-align: left;" 
-                    id="industryDropdownBtn">
-                <i class="fas {{ industry_icon or 'fa-industry' }}"></i>
-                <span>Industry:</span>
-                <span class="badge bg-info" id="currentIndustryDisplay">
-                    {{ industry_display or 'Valve Manufacturing (ETO)' }}
-                </span>
+            <button class="btn btn-sm btn-outline-light dropdown-toggle w-100"
+                    data-bs-toggle="dropdown"
+                    style="text-align: left;">
+                <i class="fas fa-building"></i>
+                <span>Tenant:</span>
+                <span class="badge bg-info">All Tenants</span>
             </button>
-            <ul class="dropdown-menu w-100" id="industryDropdownMenu">
-                {% for ind in industries %}
-                <li>
-                    <a class="dropdown-item {% if demo_industry == ind.code %}active{% endif %}" 
-                       href="#" 
-                       onclick="window.switchIndustry('{{ ind.code }}'); return false;">
-                        <i class="fas {{ ind.icon }}"></i> 
-                        {{ ind.name }}
-                        {% if demo_industry == ind.code %}
-                        <i class="fas fa-check float-end text-success"></i>
-                        {% endif %}
-                    </a>
-                </li>
-                {% endfor %}
+            <ul class="dropdown-menu w-100" id="tenant-switcher-list">
+                <li><span class="dropdown-item-text text-muted"><i class="fas fa-spinner fa-spin"></i> Loading...</span></li>
             </ul>
         </div>
+        {% else %}
+        {# Regular tenant view: show company name, plus a small "back" link for admin #}
+        <div class="text-white mb-2">
+            <i class="fas fa-building"></i>
+            <small>{{ tenant_company_name | default('Unknown') }}</small>
+        </div>
+        {% if session.user_id == '1' %}
+        {# Only show the back-link for the Super Admin impersonating a tenant #}
+        <button class="btn btn-sm btn-outline-warning w-100"
+                onclick="window.switchTenant(0); return false;"
+                style="font-size: 0.75rem;">
+            <i class="fas fa-undo"></i> Back to Super Admin
+        </button>
+        {% endif %}
+        {% endif %}
     </div>
-    
+
     <!-- Language Switcher - JavaScript-based approach -->
     <div class="language-switcher mt-2">
         <div class="btn-group w-100" role="group">
@@ -88,45 +85,46 @@
   <div class="sidebar-menu">
     <ul class="nav nav-pills nav-stacked">
 
-      <!-- ==================== CRM & SALES (4 pages) ==================== -->
-      <!-- ==================== CRM & SALES (7 pages) ==================== -->
-{% set is_crm_expanded = active_menu == 'crm' %}
-<li class="nav-item">
-  <a class="nav-link {% if is_crm_expanded %}active{% endif %}" href="#crmSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_crm_expanded else 'false' }}">
-    <i class="fas fa-users" style="margin-right: 8px;"></i>
-    <span>{{ get_translation('sidebar.crm.title', 'CRM & Sales') }}</span>
-    <i class="fas fa-chevron-right float-end"></i>
-  </a>
-  <ul class="collapse nav nav-pills nav-stacked {% if is_crm_expanded %}show{% endif %}" id="crmSubmenu" style="padding-left: 20px;">
-    <li><a class="nav-link {% if request.path == '/crm/opportunities' %}active{% endif %}" href="/crm/opportunities">{{ get_translation('sidebar.crm.opportunities', 'Opportunities Pipeline') }}</a></li>
-    <li><a class="nav-link {% if request.path == '/crm/quotes' %}active{% endif %}" href="/crm/quotes">{{ get_translation('sidebar.crm.quotes', 'Quotes & Estimates') }}</a></li>
-    <li><a class="nav-link {% if request.path == '/crm/customers' %}active{% endif %}" href="/crm/customers">{{ get_translation('sidebar.crm.customers', 'Customer Management') }}</a></li>
-    <li><a class="nav-link {% if request.path == '/crm/activities' %}active{% endif %}" href="/crm/activities">{{ get_translation('sidebar.crm.activities', 'Activity Log') }}</a></li>
-    <li><a class="nav-link {% if request.path == '/crm/forecast' %}active{% endif %}" href="/crm/forecast">{{ get_translation('sidebar.crm.forecast', 'Sales Forecast') }}</a></li>
-    <li><a class="nav-link {% if request.path == '/crm/customer-pricing' %}active{% endif %}" href="/crm/customer-pricing">{{ get_translation('sidebar.crm.customer_pricing', 'Customer Pricing') }}</a></li>
-    <li><a class="nav-link {% if request.path == '/crm/sales-dashboard' %}active{% endif %}" href="/crm/sales-dashboard">{{ get_translation('sidebar.crm.sales_dashboard', 'Sales Dashboard') }}</a></li>
-  </ul>
-</li>
+      <!-- ==================== CRM & SALES ==================== -->
+      {% if 'crm' in tenant_modules %}
+      {% set is_crm_expanded = active_menu == 'crm' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_crm_expanded %}active{% endif %}" href="#crmSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_crm_expanded else 'false' }}">
+          <i class="fas fa-users" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.crm.title', 'CRM & Sales') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_crm_expanded %}show{% endif %}" id="crmSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/crm/opportunities' %}active{% endif %}" href="/crm/opportunities">{{ get_translation('sidebar.crm.opportunities', 'Opportunities Pipeline') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/quotes' %}active{% endif %}" href="/crm/quotes">{{ get_translation('sidebar.crm.quotes', 'Quotes & Estimates') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/customers' %}active{% endif %}" href="/crm/customers">{{ get_translation('sidebar.crm.customers', 'Customer Management') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/activities' %}active{% endif %}" href="/crm/activities">{{ get_translation('sidebar.crm.activities', 'Activity Log') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/forecast' %}active{% endif %}" href="/crm/forecast">{{ get_translation('sidebar.crm.forecast', 'Sales Forecast') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/customer-pricing' %}active{% endif %}" href="/crm/customer-pricing">{{ get_translation('sidebar.crm.customer_pricing', 'Customer Pricing') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/crm/sales-dashboard' %}active{% endif %}" href="/crm/sales-dashboard">{{ get_translation('sidebar.crm.sales_dashboard', 'Sales Dashboard') }}</a></li>
+        </ul>
+      </li>
+      {% endif %}
 
-     
-	 
-	 <!-- ==================== PROJECTS (6 pages) ==================== -->
-{% set is_projects_expanded = active_menu == 'projects' %}
-<li class="nav-item">
-    <a class="nav-link {% if is_projects_expanded %}active{% endif %}" href="#projectsSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_projects_expanded else 'false' }}">
-        <i class="fas fa-tasks" style="margin-right: 8px;"></i>
-        <span>{{ get_translation('sidebar.projects.title', 'Projects') }}</span>
-        <i class="fas fa-chevron-right float-end"></i>
-    </a>
-    <ul class="collapse nav nav-pills nav-stacked {% if is_projects_expanded %}show{% endif %}" id="projectsSubmenu" style="padding-left: 20px;">
-        <li><a class="nav-link {% if request.path == '/project/project_portfolio' %}active{% endif %}" href="/project/project_portfolio">{{ get_translation('sidebar.projects.portfolio', 'Project Portfolio') }}</a></li>
-        <li><a class="nav-link {% if request.path == '/project/customer_projects' %}active{% endif %}" href="/project/customer_projects">{{ get_translation('sidebar.projects.customer_projects', 'Customer Projects') }}</a></li>
-        <li><a class="nav-link {% if request.path == '/project/product-tree' %}active{% endif %}" href="/project/product-tree">{{ get_translation('sidebar.projects.product_tree', 'Project Product Tree') }}</a></li>
-        <li><a class="nav-link {% if request.path == '/project/ms-project-integration' %}active{% endif %}" href="/project/ms-project-integration">{{ get_translation('sidebar.projects.ms_project', 'MS Project Integration') }}</a></li>
-    </ul>
-</li>
+      <!-- ==================== PROJECTS ==================== -->
+      {% if 'projects' in tenant_modules %}
+      {% set is_projects_expanded = active_menu == 'projects' %}
+      <li class="nav-item">
+        <a class="nav-link {% if is_projects_expanded %}active{% endif %}" href="#projectsSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_projects_expanded else 'false' }}">
+          <i class="fas fa-tasks" style="margin-right: 8px;"></i>
+          <span>{{ get_translation('sidebar.projects.title', 'Projects') }}</span>
+          <i class="fas fa-chevron-right float-end"></i>
+        </a>
+        <ul class="collapse nav nav-pills nav-stacked {% if is_projects_expanded %}show{% endif %}" id="projectsSubmenu" style="padding-left: 20px;">
+          <li><a class="nav-link {% if request.path == '/project/project_portfolio' %}active{% endif %}" href="/project/project_portfolio">{{ get_translation('sidebar.projects.portfolio', 'Project Portfolio') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/project/customer_projects' %}active{% endif %}" href="/project/customer_projects">{{ get_translation('sidebar.projects.customer_projects', 'Customer Projects') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/project/product-tree' %}active{% endif %}" href="/project/product-tree">{{ get_translation('sidebar.projects.product_tree', 'Project Product Tree') }}</a></li>
+          <li><a class="nav-link {% if request.path == '/project/ms-project-integration' %}active{% endif %}" href="/project/ms-project-integration">{{ get_translation('sidebar.projects.ms_project', 'MS Project Integration') }}</a></li>
+        </ul>
+      </li>
+      {% endif %}
 
-      <!-- ==================== ENGINEERING (8 pages) ==================== -->
+      <!-- ==================== ENGINEERING — always visible ==================== -->
       {% set is_engineering_expanded = active_menu == 'engineering' %}
       <li class="nav-item">
         <a class="nav-link {% if is_engineering_expanded %}active{% endif %}" href="#engineeringSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_engineering_expanded else 'false' }}">
@@ -146,10 +144,8 @@
         </ul>
       </li>
 
-     
-	 
-	 
-	 <!-- ==================== SUPPLY CHAIN (6 pages) ==================== -->
+      <!-- ==================== SUPPLY CHAIN ==================== -->
+      {% if 'supply_chain' in tenant_modules %}
       {% set is_supply_chain_expanded = active_menu == 'supply_chain' %}
       <li class="nav-item">
         <a class="nav-link {% if is_supply_chain_expanded %}active{% endif %}" href="#supplyChainSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_supply_chain_expanded else 'false' }}">
@@ -169,8 +165,10 @@
           <li><a class="nav-link {% if request.path == '/supply-chain/warehouses' %}active{% endif %}" href="/supply-chain/warehouses">{{ get_translation('sidebar.supply_chain.warehouses', 'Warehouse Management') }}</a></li>
         </ul>
       </li>
+      {% endif %}
 
-      <!-- ==================== MANUFACTURING (8 pages) ==================== -->
+      <!-- ==================== MANUFACTURING ==================== -->
+      {% if 'manufacturing' in tenant_modules %}
       {% set is_manufacturing_expanded = active_menu == 'manufacturing' %}
       <li class="nav-item">
         <a class="nav-link {% if is_manufacturing_expanded %}active{% endif %}" href="#manufacturingSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_manufacturing_expanded else 'false' }}">
@@ -189,8 +187,10 @@
           <li><a class="nav-link {% if request.path == '/manufacturing/maintenance' %}active{% endif %}" href="/manufacturing/maintenance">{{ get_translation('sidebar.manufacturing.maintenance', 'Maintenance Management') }}</a></li>
         </ul>
       </li>
+      {% endif %}
 
-      <!-- ==================== QUALITY (10 pages) ==================== -->
+      <!-- ==================== QUALITY ==================== -->
+      {% if 'quality' in tenant_modules %}
       {% set is_quality_expanded = active_menu == 'quality' %}
       <li class="nav-item">
         <a class="nav-link {% if is_quality_expanded %}active{% endif %}" href="#qualitySubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_quality_expanded else 'false' }}">
@@ -211,8 +211,9 @@
           <li><a class="nav-link {% if request.path == '/quality/calibration-management/' %}active{% endif %}" href="/quality/calibration-management/">{{ get_translation('sidebar.quality.calibration', 'Calibration Management') }}</a></li>
         </ul>
       </li>
+      {% endif %}
 
-      <!-- ==================== WORKFLOW (5 pages) ==================== -->
+      <!-- ==================== WORKFLOW — always visible ==================== -->
       {% set is_workflow_expanded = active_menu == 'workflow' %}
       <li class="nav-item">
         <a class="nav-link {% if is_workflow_expanded %}active{% endif %}" href="#workflowSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_workflow_expanded else 'false' }}">
@@ -228,7 +229,8 @@
         </ul>
       </li>
 
-      <!-- ==================== FINANCE (10 pages) ==================== -->
+      <!-- ==================== FINANCE ==================== -->
+      {% if 'finance' in tenant_modules %}
       {% set is_finance_expanded = active_menu == 'finance' %}
       <li class="nav-item">
         <a class="nav-link {% if is_finance_expanded %}active{% endif %}" 
@@ -303,8 +305,9 @@
           {% endif %}
         </ul>
       </li>
+      {% endif %}
 
-      <!-- ==================== HUMAN RESOURCES (4 pages) ==================== -->
+      <!-- ==================== HUMAN RESOURCES — always visible ==================== -->
       {% set is_hr_expanded = active_menu == 'hr' %}
       <li class="nav-item">
         <a class="nav-link {% if is_hr_expanded %}active{% endif %}" href="#hrSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_hr_expanded else 'false' }}">
@@ -320,7 +323,7 @@
         </ul>
       </li>
 
-      <!-- ==================== ADMINISTRATION (4 pages) ==================== -->
+      <!-- ==================== ADMINISTRATION — always visible ==================== -->
       {% set is_admin_expanded = active_menu == 'admin' %}
       <li class="nav-item">
         <a class="nav-link {% if is_admin_expanded %}active{% endif %}" href="#adminSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_admin_expanded else 'false' }}">
@@ -336,7 +339,7 @@
         </ul>
       </li>
 
-      <!-- ==================== REPORTS (3 pages) ==================== -->
+      <!-- ==================== REPORTS — always visible ==================== -->
       {% set is_reports_expanded = active_menu == 'reports' %}
       <li class="nav-item">
         <a class="nav-link {% if is_reports_expanded %}active{% endif %}" href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_reports_expanded else 'false' }}">
@@ -351,7 +354,7 @@
         </ul>
       </li>
 
-      <!-- ==================== DASHBOARD (3 pages) ==================== -->
+      <!-- ==================== DASHBOARDS — always visible ==================== -->
       {% set is_dashboard_expanded = active_menu == 'dashboard' %}
       <li class="nav-item">
         <a class="nav-link {% if is_dashboard_expanded %}active{% endif %}" href="#dashboardSubmenu" data-bs-toggle="collapse" aria-expanded="{{ 'true' if is_dashboard_expanded else 'false' }}">
@@ -425,54 +428,7 @@
 
 <script>
 // ============================================================================
-// SIDEBAR JAVASCRIPT - INDUSTRY SWITCHER & LANGUAGE SWITCHER
-// ============================================================================
-
-// Define switchIndustry globally
-window.switchIndustry = function(industry) {
-    console.log('🔄 Switching to industry:', industry);
-    
-    var btn = document.getElementById('industryDropdownBtn');
-    if (btn) {
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
-        btn.disabled = true;
-    }
-    
-    fetch('/api/set-demo-industry', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({ industry: industry })
-    })
-    .then(function(response) {
-        console.log('📊 Response status:', response.status);
-        if (!response.ok) {
-            throw new Error('HTTP error ' + response.status);
-        }
-        return response.json();
-    })
-    .then(function(data) {
-        console.log('✅ Industry switch response:', data);
-        if (data.status === 'ok') {
-            window.location.href = window.location.pathname + '?t=' + Date.now();
-        } else {
-            throw new Error(data.message || 'Unknown error');
-        }
-    })
-    .catch(function(error) {
-        console.error('❌ Error switching industry:', error);
-        alert('Failed to switch industry: ' + error.message);
-        if (btn) {
-            btn.innerHTML = 'Industry: ' + document.getElementById('currentIndustryDisplay').textContent;
-            btn.disabled = false;
-        }
-    });
-};
-
-// ============================================================================
-// LANGUAGE SWITCHER - Calls the existing server route directly
+// SIDEBAR JAVASCRIPT — LANGUAGE SWITCHER + MENU HIGHLIGHTING
 // ============================================================================
 
 window.switchLanguage = function(lang) {
@@ -484,23 +440,13 @@ window.switchLanguage = function(lang) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     });
     
-    // Call the existing server route directly
     window.location.href = '/switch_language/' + lang;
 };
 
-// ============================================================================
-// MENU HIGHLIGHTING + OTHER JQUERY-DEPENDENT UI (kept as-is)
-// ============================================================================
-
 $(document).ready(function() {
     console.log('Sidebar JS loaded');
-    console.log('Current industry:', '{{ demo_industry }}');
     console.log('Current language:', '{{ lang }}');
 
-    // NOTE: The project selector handler has been moved to the pure-JS block
-    // at the bottom of this file. Do not re-add a jQuery handler here.
-
-    // ===== MENU HIGHLIGHTING =====
     function highlightCurrentMenu() {
         var currentPath = window.location.pathname;
         $('.sidebar-menu .nav-link.active').removeClass('active');
@@ -521,17 +467,13 @@ $(document).ready(function() {
     setTimeout(highlightCurrentMenu, 500);
     setTimeout(highlightCurrentMenu, 1000);
     
-    console.log('Sidebar initialized with industry:', '{{ demo_industry }}');
-    console.log('switchIndustry function available:', typeof window.switchIndustry);
     console.log('switchLanguage function available:', typeof window.switchLanguage);
 });
 </script>
 
 <script>
 // ============================================================================
-// PURE-JS PROJECT SELECTOR HANDLER — no jQuery, no dependencies
-// Placed at the very bottom of sidebar.html so #projectSelector is guaranteed
-// to exist in the DOM by the time this runs.
+// PURE-JS PROJECT SELECTOR HANDLER
 // ============================================================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('===== SIDEBAR INIT =====');
@@ -548,7 +490,6 @@ document.addEventListener('DOMContentLoaded', function() {
     projectSelector.addEventListener('change', function() {
         var projectId = this.value;
 
-        // Handle array (legacy multi-select)
         if (Array.isArray(projectId)) {
             projectId = projectId.length > 0 ? projectId[0] : 'All';
         }

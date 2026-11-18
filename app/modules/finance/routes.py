@@ -13,7 +13,6 @@ import logging
 @permission_required('FINANCE_FORECAST_VIEW')
 def sales_forecast_list():
     """Sales Forecast List page."""
-    print(">>> SALES FORECAST LIST ROUTE REACHED! <<<")
     logging.info("=== sales_forecast_list route called ===")
     lang = session.get('lang', 'en')
     return render_template('finance/sales_forecast_list.html', lang=lang)
@@ -26,7 +25,7 @@ def sales_forecast_create():
     lang = session.get('lang', 'en')
     return render_template('finance/sales_forecast_edit.html', lang=lang, forecast_id=None)
 
-@finance_bp.route('/sales-forecast/<int:forecast_id>/edit')
+@finance_bp.route('/sales-forecast/<string:forecast_id>/edit')
 @login_required
 @permission_required('FINANCE_FORECAST_EDIT')
 def sales_forecast_edit(forecast_id):
@@ -34,7 +33,7 @@ def sales_forecast_edit(forecast_id):
     lang = session.get('lang', 'en')
     return render_template('finance/sales_forecast_edit.html', lang=lang, forecast_id=forecast_id)
 
-@finance_bp.route('/sales-forecast/<int:forecast_id>/view')
+@finance_bp.route('/sales-forecast/<string:forecast_id>/view')
 @login_required
 @permission_required('FINANCE_FORECAST_VIEW')
 def sales_forecast_view(forecast_id):
@@ -63,7 +62,7 @@ def purchase_forecast_create():
     lang = session.get('lang', 'en')
     return render_template('finance/purchase_forecast_edit.html', lang=lang, forecast_id=None)
 
-@finance_bp.route('/purchase-forecast/<int:forecast_id>/edit')
+@finance_bp.route('/purchase-forecast/<string:forecast_id>/edit')
 @login_required
 @permission_required('FINANCE_FORECAST_EDIT')
 def purchase_forecast_edit(forecast_id):
@@ -71,7 +70,7 @@ def purchase_forecast_edit(forecast_id):
     lang = session.get('lang', 'en')
     return render_template('finance/purchase_forecast_edit.html', lang=lang, forecast_id=forecast_id)
 
-@finance_bp.route('/purchase-forecast/<int:forecast_id>/view')
+@finance_bp.route('/purchase-forecast/<string:forecast_id>/view')
 @login_required
 @permission_required('FINANCE_FORECAST_VIEW')
 def purchase_forecast_view(forecast_id):
@@ -100,7 +99,7 @@ def cash_flow_generate():
     lang = session.get('lang', 'en')
     return render_template('finance/cash_flow_generate.html', lang=lang)
 
-@finance_bp.route('/cash-flow/<int:projection_id>/view')
+@finance_bp.route('/cash-flow/<string:projection_id>/view')
 @login_required
 @permission_required('FINANCE_CASH_FLOW_VIEW')
 def cash_flow_view(projection_id):

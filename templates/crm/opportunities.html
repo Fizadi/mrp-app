@@ -109,6 +109,9 @@
             <button class="btn btn-primary" id="createOpportunityBtn">
                 <i class="fas fa-plus me-1"></i>{{ get_translation('crm.opportunities.create', 'Create Opportunity') }}
             </button>
+            <button class="btn btn-outline-warning sync-btn" data-scope="products" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.products.sync', 'Sync Products') }}
+            </button>
             <button class="btn btn-outline-primary" id="refreshBtn">
                 <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
             </button>
@@ -517,6 +520,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/sync-button.js') }}"></script>
 <script>
 // ============================================================================
 // 1. STATE — TOP LEVEL
@@ -1173,41 +1177,47 @@ function _applyAIAndOpenEditModal(oppId) {
                     t('crm.ai.filled_from_ai', 'Fields filled by AI. Please review before saving.');
             }, { once: true });
         })
-        .catch(function (e) {
-            console.error('[AI] failed to load existing opportunity:', e);
-            showToast(t('global.error_loading', 'Error loading data'), 'error');
+        .catch(function (err) {
+            showToast(t('global.error_loading', 'Error loading data') + ': ' + err.message, 'error');
         });
 }
 
 function _showAIBanners() {
-    var ents = lastAIParsed.entities || {};
+    var ents = (lastAIParsed && lastAIParsed.entities) || {};
     var contacts = ents.contacts || [];
     var activities = ents.activities || [];
-    var parts = [];
-    if (contacts.length)   parts.push(contacts.length + ' ' + t('crm.ai.contacts', 'contact(s)'));
-    if (activities.length) parts.push(activities.length + ' ' + t('crm.ai.activities', 'activity(ies)'));
-    if (parts.length) {
-        el('aiNotSavedInfoText').textContent =
-            t('crm.ai.not_saved_prefix', 'AI also extracted:') + ' ' +
-            parts.join(', ') + '. ' +
-            t('crm.ai.not_saved_suffix', 'Save them separately after creating the opportunity.');
-        el('aiNotSavedInfo').style.display = 'block';
-    } else {
-        el('aiNotSavedInfo').style.display = 'none';
+    if (!activities.length && ents.activity) activities = [ents.activity];
+
+    var infoBox = el('aiNotSavedInfo');
+    if (contacts.length || activities.length) {
+        var msg = [];
+        if (contacts.length) {
+            msg.push(contacts.length + ' ' + t('crm.ai.contact_s', 'contact(s)'));
+        }
+        if (activities.length) {
+            msg.push(activities.length + ' ' + t('crm.ai.activity_ies', 'activity(ies)'));
+        }
+        if (infoBox) {
+            infoBox.style.display = 'block';
+            var txt = el('aiNotSavedInfoText');
+            if (txt) {
+                txt.textContent = t('crm.ai.not_saved_hint',
+                    'Also extracted: ') + msg.join(', ') +
+                    '. ' + t('crm.ai.not_saved_note',
+                    'These are not saved automatically — add them manually after saving.');
+            }
+        }
+    } else if (infoBox) {
+        infoBox.style.display = 'none';
     }
 }
 
-function pickAICandidate(oppId) {
+// ---- 4e/4f: pick candidate + create-new handler ----
+function pickAIOpportunityCandidate(oppId) {
     lastAISelectedOppId = oppId;
-    var candidates = lastAIParsed.opportunity_candidates || [];
-    var picked = candidates.find(function (c) { return c.opportunity_id === oppId; });
+    var picked = (lastAICandidates || []).find(function (c) { return c.opportunity_id === oppId; });
     var name = picked ? (picked.name || picked.name_fa) : oppId;
-    console.log('[AI] selected candidate:', oppId, name);
-    showToast(
-        t('crm.ai.candidate_selected', 'Will update: ') + ' ' + name,
-        'success'
-    );
-    // Visually highlight the picked item
+    showToast(t('crm.ai.candidate_selected', 'Will update:') + ' ' + name, 'success');
     document.querySelectorAll('.ai-candidate-item').forEach(function (node) {
         if (node.getAttribute('data-opp-id') === oppId) {
             node.style.borderColor = '#198754';
@@ -1217,86 +1227,97 @@ function pickAICandidate(oppId) {
             node.style.background = '';
         }
     });
-    // ---- 4e: dynamically relabel the "Use These Values" button ----
     var btn = el('aiUseValuesBtn');
     if (btn) {
         btn.innerHTML = '<i class="fas fa-check me-1"></i>' +
-            t('crm.ai.update_selected', 'Update Selected Opportunity');
+            t('crm.ai.update_selected', 'Update Selected');
     }
 }
 
+function handleAICreateNew() {
+    lastAISelectedOppId = null;
+    _applyAIAndOpenCreateModal();
+}
 
 // ============================================================================
-// 5. OPPORTUNITY CRUD (unchanged)
+// 5. CRUD — TOP LEVEL
 // ============================================================================
-function openCreateModal() {
+function openCreateOpportunity() {
     var form = el('opportunityForm');
     if (form) form.reset();
     el('opportunityId').value = '';
     el('opportunityModalTitle').textContent = t('crm.opportunities.create', 'Create Opportunity');
     el('aiFromBanner').style.display = 'none';
     el('aiNotSavedInfo').style.display = 'none';
-    var ec = el('oppExpectedClose');
-    if (ec) ec.value = new Date().toISOString().split('T')[0];
     bootstrap.Modal.getOrCreateInstance(el('opportunityModal')).show();
 }
 
-function openEditModal(id) {
-    fetch('/api/crm/opportunities/' + id, { credentials: 'same-origin' })
+function openEditOpportunity(oppId) {
+    fetch('/api/crm/opportunities/' + oppId, { credentials: 'same-origin' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (opp) {
+        .then(function (existing) {
             el('opportunityModalTitle').textContent = t('crm.opportunities.edit_title', 'Edit Opportunity');
-            el('opportunityId').value = opp.opportunity_id;
-            el('oppName').value = opp.name || '';
-            el('oppNameFa').value = opp.name_fa || '';
-            el('oppCustomerId').value = opp.customer_id || '';
-            el('oppAssignedTo').value = opp.assigned_user_id || '';
-            el('oppValue').value = opp.value || '';
-            el('oppProbability').value = opp.probability || '';
-            el('oppStage').value = opp.stage || 'Prospecting';
-            el('oppExpectedClose').value = opp.expected_close_date_formatted || '';
-            el('oppProjectId').value = opp.project_id || '';
-            el('oppContactPerson').value = opp.contact_person || '';
-            el('oppContactPersonFa').value = opp.contact_person_fa || '';
-            el('oppContactEmail').value = opp.contact_email || '';
-            el('oppContactPhone').value = opp.contact_phone || '';
-            el('oppWinLossReason').value = opp.win_loss_reason || '';
-            el('oppWinLossReasonFa').value = opp.win_loss_reason_fa || '';
-            el('oppNotes').value = opp.notes || '';
-            el('oppNotesFa').value = opp.notes_fa || '';
+            el('opportunityId').value = existing.opportunity_id;
+            el('oppName').value = existing.name || '';
+            el('oppNameFa').value = existing.name_fa || '';
+            el('oppCustomerId').value = existing.customer_id || '';
+            el('oppAssignedTo').value = existing.assigned_user_id || '';
+            el('oppValue').value = existing.value || '';
+            el('oppProbability').value = existing.probability || '';
+            el('oppStage').value = existing.stage || 'Prospecting';
+            el('oppExpectedClose').value = existing.expected_close_date_formatted || '';
+            el('oppProjectId').value = existing.project_id || '';
+            el('oppContactPerson').value = existing.contact_person || '';
+            el('oppContactPersonFa').value = existing.contact_person_fa || '';
+            el('oppContactEmail').value = existing.contact_email || '';
+            el('oppContactPhone').value = existing.contact_phone || '';
+            el('oppWinLossReason').value = existing.win_loss_reason || '';
+            el('oppWinLossReasonFa').value = existing.win_loss_reason_fa || '';
+            el('oppNotes').value = existing.notes || '';
+            el('oppNotesFa').value = existing.notes_fa || '';
             el('aiFromBanner').style.display = 'none';
             el('aiNotSavedInfo').style.display = 'none';
             bootstrap.Modal.getOrCreateInstance(el('opportunityModal')).show();
         })
-        .catch(function (e) {
-            console.error('openEditModal failed', e);
-            showToast(t('global.error_loading', 'Error loading data'), 'error');
+        .catch(function (err) {
+            showToast(err.message, 'error');
         });
 }
 
 function saveOpportunity() {
     var id = el('opportunityId').value;
     var payload = {
-        name:                 el('oppName').value,
-        nameFa:               el('oppNameFa').value,
-        customer_id:          el('oppCustomerId').value,
-        assigned_to_user_id:  el('oppAssignedTo').value,
-        value:                parseFloat(el('oppValue').value) || 0,
-        probability:          parseInt(el('oppProbability').value, 10) || 0,
-        stage:                el('oppStage').value,
-        expected_close_date:  el('oppExpectedClose').value,
-        project_id:           el('oppProjectId').value,
-        contact_person:       el('oppContactPerson').value,
-        contact_personFa:     el('oppContactPersonFa').value,
-        contact_email:        el('oppContactEmail').value,
-        contact_phone:        el('oppContactPhone').value,
-        win_loss_reason:      el('oppWinLossReason').value,
-        win_loss_reasonFa:    el('oppWinLossReasonFa').value,
-        notes:                el('oppNotes').value,
-        notesFa:              el('oppNotesFa').value,
+        name:                  el('oppName').value,
+        nameFa:                el('oppNameFa').value,
+        customer_id:           el('oppCustomerId').value,
+        assigned_to_user_id:   el('oppAssignedTo').value,
+        value:                 el('oppValue').value,
+        probability:           el('oppProbability').value,
+        stage:                 el('oppStage').value,
+        expected_close_date:   el('oppExpectedClose').value,
+        project_id:            el('oppProjectId').value,
+        contact_person:        el('oppContactPerson').value,
+        contact_personFa:      el('oppContactPersonFa').value,
+        contact_email:         el('oppContactEmail').value,
+        contact_phone:         el('oppContactPhone').value,
+        win_loss_reason:       el('oppWinLossReason').value,
+        win_loss_reasonFa:     el('oppWinLossReasonFa').value,
+        notes:                 el('oppNotes').value,
+        notesFa:               el('oppNotesFa').value,
     };
-    var url    = id ? '/api/crm/opportunities/' + id : '/api/crm/opportunities';
+    if (!payload.name) {
+        showToast(t('crm.opportunities.name_required', 'Name is required'), 'warning');
+        return;
+    }
+    if (!payload.customer_id) {
+        showToast(t('crm.opportunities.customer_required', 'Customer is required'), 'warning');
+        return;
+    }
+
+    var url = id ? '/api/crm/opportunities/' + id : '/api/crm/opportunities';
     var method = id ? 'PUT' : 'POST';
+    var btn = el('saveOpportunityBtn');
+    btn.disabled = true;
 
     fetch(url, {
         method: method,
@@ -1305,155 +1326,168 @@ function saveOpportunity() {
         body: JSON.stringify(payload),
     })
     .then(function (r) {
-        if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || ('HTTP ' + r.status)); });
-        return r.json();
+        return r.json().then(function (body) { return { status: r.status, body: body }; });
     })
-    .then(function () {
-        bootstrap.Modal.getInstance(el('opportunityModal')).hide();
-        refreshAll();
-        showToast(t(id ? 'crm.opportunities.updated' : 'crm.opportunities.created',
-                    id ? 'Opportunity updated' : 'Opportunity created'), 'success');
+    .then(function (res) {
+        if (res.status === 200 || res.status === 201) {
+            bootstrap.Modal.getInstance(el('opportunityModal')).hide();
+            refreshAll();
+            showToast(t(id ? 'crm.opportunities.updated' : 'crm.opportunities.created',
+                        id ? 'Opportunity updated' : 'Opportunity created'), 'success');
+        } else {
+            showToast((res.body && res.body.error) || 'Save failed', 'error');
+        }
     })
-    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+    .catch(function (err) { showToast(err.message, 'error'); })
+    .finally(function () { btn.disabled = false; });
 }
 
-function openActivityModal(id) {
-    el('activityOpportunityId').value = id;
-    var form = el('activityForm');
-    if (form) form.reset();
-    var ad = el('activityDate');
-    if (ad) ad.value = new Date().toISOString().split('T')[0];
-    var rd = new Date(); rd.setDate(rd.getDate() + 3);
-    var ar = el('activityReminder');
-    if (ar) ar.value = rd.toISOString().split('T')[0];
+function deleteOpportunity(oppId) {
+    if (!confirm(t('crm.opportunities.confirm_delete', 'Delete this opportunity?'))) return;
+    fetch('/api/crm/opportunities/' + oppId, { method: 'DELETE', credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function () {
+            refreshAll();
+            showToast(t('crm.opportunities.deleted', 'Opportunity deleted'), 'success');
+        })
+        .catch(function (err) { showToast(err.message, 'error'); });
+}
+
+function duplicateOpportunity(oppId) {
+    fetch('/api/crm/opportunities/' + oppId + '/duplicate', {
+        method: 'POST',
+        credentials: 'same-origin',
+    })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function () {
+        refreshAll();
+        showToast(t('crm.opportunities.duplicated', 'Opportunity duplicated'), 'success');
+    })
+    .catch(function (err) { showToast(err.message, 'error'); });
+}
+
+function openLogActivity(oppId) {
+    el('activityForm').reset();
+    el('activityOpportunityId').value = oppId;
+    el('activityDate').value = new Date().toISOString().slice(0, 10);
     bootstrap.Modal.getOrCreateInstance(el('activityModal')).show();
 }
 
 function saveActivity() {
-    var opportunityId = el('activityOpportunityId').value;
-    var subj = el('activitySubject').value;
-    if (!subj) { showToast(t('crm.activity.subject_required', 'Subject required'), 'warning'); return; }
+    var oppId = el('activityOpportunityId').value;
     var payload = {
-        activity_type:  el('activityType').value,
-        subject:        subj,
-        subjectFa:      el('activitySubjectFa').value,
-        activity_date:  el('activityDate').value,
-        notes:          el('activityNotes').value,
-        notesFa:        el('activityNotesFa').value,
-        reminder_date:  el('activityReminder').value,
+        activity_type: el('activityType').value,
+        subject:       el('activitySubject').value,
+        subjectFa:     el('activitySubjectFa').value,
+        activity_date: el('activityDate').value,
+        reminder_date: el('activityReminder').value,
+        notes:         el('activityNotes').value,
+        notesFa:       el('activityNotesFa').value,
     };
-    fetch('/api/crm/opportunities/' + opportunityId + '/activity', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin', body: JSON.stringify(payload),
+    if (!payload.subject) {
+        showToast(t('crm.opportunities.subject_required', 'Subject is required'), 'warning');
+        return;
+    }
+    var btn = el('saveActivityBtn');
+    btn.disabled = true;
+    fetch('/api/crm/opportunities/' + oppId + '/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
     })
     .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function () {
         bootstrap.Modal.getInstance(el('activityModal')).hide();
         refreshAll();
-        showToast(t('crm.opportunities.activity_logged', 'Activity logged successfully'), 'success');
+        showToast(t('crm.opportunities.activity_logged', 'Activity logged'), 'success');
     })
-    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+    .catch(function (err) { showToast(err.message, 'error'); })
+    .finally(function () { btn.disabled = false; });
 }
 
-function moveOpportunity(id, newStage) {
-    fetch('/api/crm/opportunities/' + id + '/inline', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin', body: JSON.stringify({ stage: newStage }),
-    })
-    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function () { loadKanban(); loadKPIs(); })
-    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+function openConvert(oppId) {
+    el('convertModal').dataset.oppId = oppId;
+    bootstrap.Modal.getOrCreateInstance(el('convertModal')).show();
 }
 
 // ============================================================================
-// 6. BULK ACTIONS (unchanged)
+// 6. BULK SELECTION
 // ============================================================================
-function getSelectedIds() {
-    return Array.prototype.slice.call(document.querySelectorAll('.row-checkbox:checked'))
-        .map(function (cb) { return parseInt(cb.getAttribute('data-id'), 10); });
-}
 function updateBulkBar() {
-    var ids = getSelectedIds();
+    var checks = document.querySelectorAll('.row-checkbox:checked');
     var bar = el('bulkBar');
     if (!bar) return;
-    if (ids.length === 0) { bar.style.display = 'none'; return; }
+    if (checks.length === 0) {
+        bar.style.display = 'none';
+        return;
+    }
     bar.style.display = 'block';
-    var cnt = el('bulkCount'); if (cnt) cnt.textContent = ids.length;
+    var cnt = el('bulkCount'); if (cnt) cnt.textContent = checks.length;
 }
-function bulkPost(action, ids, value) {
-    fetch('/api/crm/opportunities/bulk', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ action: action, ids: ids, value: value }),
-    })
-    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function (res) {
-        refreshAll();
-        document.querySelectorAll('.row-checkbox').forEach(function (cb) { cb.checked = false; });
-        var sac = el('selectAllCheckbox'); if (sac) sac.checked = false;
-        updateBulkBar();
-        showToast(res.message || 'Done', 'success');
-    })
-    .catch(function (e) { showToast(t('crm.opportunities.unknown_error', 'Unknown error') + ': ' + e.message, 'error'); });
+
+function getSelectedIds() {
+    var ids = [];
+    document.querySelectorAll('.row-checkbox:checked').forEach(function (c) {
+        ids.push(c.getAttribute('data-id'));
+    });
+    return ids;
 }
 
 // ============================================================================
-// 7. INIT — ONLY init + event binding
+// 7. INIT
 // ============================================================================
 document.addEventListener('DOMContentLoaded', function () {
     console.log('CRM opportunities page loaded | lang:', window.currentLanguage);
 
-    loadDropdowns();
-    refreshAll();
-
-    // Filters
-    var debounceTimer = null;
-    function debouncedRefresh() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(refreshAll, 300);
-    }
-    ['filterStage', 'filterAssignedTo', 'filterStatus', 'filterDateFrom', 'filterDateTo']
-        .forEach(function (id) {
-            var e = el(id); if (e) e.addEventListener('change', refreshAll);
-        });
-    var searchEl = el('filterSearch');
-    if (searchEl) searchEl.addEventListener('input', debouncedRefresh);
-    var refreshBtn = el('refreshBtn');
-    if (refreshBtn) refreshBtn.addEventListener('click', refreshAll);
-
     // View toggle
-    var lv = el('listViewBtn'), kv = el('kanbanViewBtn');
-    var listView = el('listView'), kanbanView = el('kanbanView');
+    var lv = el('listViewBtn');
+    var kv = el('kanbanViewBtn');
     if (lv) lv.addEventListener('click', function () {
-        listView.style.display = ''; kanbanView.style.display = 'none';
-        lv.classList.add('btn-primary'); lv.classList.remove('btn-outline-primary');
-        kv.classList.add('btn-outline-primary'); kv.classList.remove('btn-primary');
+        lv.classList.add('active'); lv.classList.remove('btn-outline-primary');
+        lv.classList.add('btn-primary');
+        kv.classList.remove('active');
+        kv.classList.remove('btn-primary'); kv.classList.add('btn-outline-primary');
+        el('listView').style.display = 'block';
+        el('kanbanView').style.display = 'none';
         loadOpportunities();
     });
     if (kv) kv.addEventListener('click', function () {
-        listView.style.display = 'none'; kanbanView.style.display = '';
-        kv.classList.add('btn-primary'); kv.classList.remove('btn-outline-primary');
-        lv.classList.add('btn-outline-primary'); lv.classList.remove('btn-primary');
+        kv.classList.add('active');
+        kv.classList.remove('btn-outline-primary'); kv.classList.add('btn-primary');
+        lv.classList.remove('active');
+        lv.classList.remove('btn-primary'); lv.classList.add('btn-outline-primary');
+        el('listView').style.display = 'none';
+        el('kanbanView').style.display = 'block';
         loadKanban();
     });
 
-    // Create / Save buttons
-    var createBtn = el('createOpportunityBtn');
-    if (createBtn) createBtn.addEventListener('click', openCreateModal);
-    var saveBtn = el('saveOpportunityBtn');
-    if (saveBtn) saveBtn.addEventListener('click', saveOpportunity);
-    var saveActBtn = el('saveActivityBtn');
-    if (saveActBtn) saveActBtn.addEventListener('click', saveActivity);
+    // Header buttons
+    var rb = el('refreshBtn');       if (rb) rb.addEventListener('click', refreshAll);
+    var cb = el('createOpportunityBtn'); if (cb) cb.addEventListener('click', openCreateOpportunity);
+    var ab = el('aiAssistBtn');      if (ab) ab.addEventListener('click', openAIAssist);
+    var sv = el('saveOpportunityBtn'); if (sv) sv.addEventListener('click', saveOpportunity);
+    var sa = el('saveActivityBtn');  if (sa) sa.addEventListener('click', saveActivity);
 
-    // AI Assist buttons
-    var aiBtn = el('aiAssistBtn');
-    if (aiBtn) aiBtn.addEventListener('click', openAIAssist);
-    var aiParseBtn = el('aiParseBtn');
-    if (aiParseBtn) aiParseBtn.addEventListener('click', parseWithAI);
-    var aiUseBtn = el('aiUseValuesBtn');
-    if (aiUseBtn) aiUseBtn.addEventListener('click', useAIParsedValues);
-    var aiClearBtn = el('aiClearBtn');
-    if (aiClearBtn) aiClearBtn.addEventListener('click', function () {
+    // Filters
+    ['filterStage', 'filterAssignedTo', 'filterStatus', 'filterDateFrom', 'filterDateTo'].forEach(function (id) {
+        var n = el(id); if (n) n.addEventListener('change', refreshAll);
+    });
+    var fs = el('filterSearch');
+    if (fs) {
+        var timer = null;
+        fs.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(refreshAll, 300);
+        });
+    }
+
+    // AI modal
+    var ap = el('aiParseBtn');  if (ap) ap.addEventListener('click', parseWithAI);
+    var au = el('aiUseValuesBtn'); if (au) au.addEventListener('click', useAIParsedValues);
+    var acn = el('aiCreateNewBtn'); if (acn) acn.addEventListener('click', handleAICreateNew);
+    var ac = el('aiClearBtn');
+    if (ac) ac.addEventListener('click', function () {
         el('aiInputText').value = '';
         el('aiCharCount').textContent = '0';
         el('aiPreviewPanel').innerHTML =
@@ -1468,98 +1502,137 @@ document.addEventListener('DOMContentLoaded', function () {
         lastAISelectedOppId = null;
         var cn = el('aiCreateNewBtn'); if (cn) cn.style.display = 'none';
         var uv = el('aiUseValuesBtn');
-        if (uv) {
-            uv.innerHTML = '<i class="fas fa-check me-1"></i>' +
-                t('crm.ai.use_values', 'Use These Values');
-        }
+        if (uv) uv.innerHTML = '<i class="fas fa-check me-1"></i>' +
+            t('crm.ai.use_values', 'Use These Values');
     });
-    var aiText = el('aiInputText');
-    if (aiText) aiText.addEventListener('input', function () {
-        el('aiCharCount').textContent = String(aiText.value.length);
+    var at = el('aiInputText');
+    if (at) at.addEventListener('input', function () {
+        el('aiCharCount').textContent = String(at.value.length);
     });
 
-    // ---- 4e: Candidate click delegation (inside AI preview panel) ----
-    var aiPreview = el('aiPreviewPanel');
-    if (aiPreview) {
-        aiPreview.addEventListener('click', function (e) {
-            var item = e.target.closest('.ai-candidate-item');
-            if (!item) return;
-            var oppId = item.getAttribute('data-opp-id');
-            if (oppId) pickAICandidate(oppId);
+    // AI candidate click
+    var aiPrev = el('aiPreviewPanel');
+    if (aiPrev) aiPrev.addEventListener('click', function (e) {
+        var item = e.target.closest('.ai-candidate-item');
+        if (!item) return;
+        var oid = item.getAttribute('data-opp-id');
+        if (oid) pickAIOpportunityCandidate(oid);
+    });
+
+    // Convert modal buttons
+    var ctp = el('convertToProjectBtn');
+    if (ctp) ctp.addEventListener('click', function () {
+        var oid = el('convertModal').dataset.oppId;
+        if (oid) window.location.href = '/projects/new?from_opportunity=' + encodeURIComponent(oid);
+    });
+    var ctq = el('convertToQuoteBtn');
+    if (ctq) ctq.addEventListener('click', function () {
+        var oid = el('convertModal').dataset.oppId;
+        if (oid) window.location.href = '/crm/quotes/new?opportunity_id=' + encodeURIComponent(oid);
+    });
+
+    // Bulk actions
+    var sac = el('selectAllCheckbox');
+    if (sac) sac.addEventListener('change', function () {
+        document.querySelectorAll('.row-checkbox').forEach(function (c) {
+            c.checked = sac.checked;
         });
-    }
-
-    // ---- 4f: "Create New Instead" handler ----
-    var aiCreateNewBtn = el('aiCreateNewBtn');
-    if (aiCreateNewBtn) aiCreateNewBtn.addEventListener('click', function () {
-        lastAISelectedOppId = null;
-        _applyAIAndOpenCreateModal();
+        updateBulkBar();
     });
-
-    // Delegated row actions
-    document.addEventListener('click', function (e) {
-        var btn = e.target.closest('.row-view-btn, .row-edit-btn, .row-log-btn, .row-convert-btn, .row-duplicate-btn, .row-delete-btn, .kb-move, .kb-log');
-        if (!btn) return;
-        var id = btn.getAttribute('data-id');
-
-        if (btn.classList.contains('row-view-btn'))     { window.location.href = '/crm/opportunity/' + id; return; }
-        if (btn.classList.contains('row-edit-btn'))     { openEditModal(id); return; }
-        if (btn.classList.contains('row-log-btn'))      { openActivityModal(id); return; }
-        if (btn.classList.contains('row-convert-btn'))  { window.currentOppId = id; bootstrap.Modal.getOrCreateInstance(el('convertModal')).show(); return; }
-        if (btn.classList.contains('row-duplicate-btn')) {
-            if (!confirm(t('crm.opportunities.confirm_duplicate', 'Duplicate this opportunity?'))) return;
-            fetch('/api/crm/opportunities/' + id + '/duplicate', { method: 'POST', credentials: 'same-origin' })
-                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function () { refreshAll(); showToast(t('crm.opportunities.duplicated', 'Opportunity duplicated'), 'success'); })
-                .catch(function (err) { showToast(String(err.message || err), 'error'); });
-            return;
-        }
-        if (btn.classList.contains('row-delete-btn')) {
-            if (!confirm(t('crm.opportunities.confirm_delete', 'Delete this opportunity?'))) return;
-            fetch('/api/crm/opportunities/' + id, { method: 'DELETE', credentials: 'same-origin' })
-                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function () { refreshAll(); showToast(t('crm.opportunities.deleted', 'Opportunity deleted'), 'success'); })
-                .catch(function (err) { showToast(String(err.message || err), 'error'); });
-            return;
-        }
-        if (btn.classList.contains('kb-move'))          { moveOpportunity(id, btn.getAttribute('data-to')); return; }
-        if (btn.classList.contains('kb-log'))           { openActivityModal(id); return; }
-    });
-
-    // Bulk selection
     document.addEventListener('change', function (e) {
-        if (e.target && e.target.classList && e.target.classList.contains('row-checkbox')) {
+        if (e.target && e.target.classList.contains('row-checkbox')) {
             updateBulkBar();
         }
     });
-    var sac = el('selectAllCheckbox');
-    if (sac) sac.addEventListener('change', function () {
-        document.querySelectorAll('.row-checkbox').forEach(function (cb) { cb.checked = sac.checked; });
-        updateBulkBar();
-    });
     var bcb = el('bulkClearBtn');
     if (bcb) bcb.addEventListener('click', function () {
-        document.querySelectorAll('.row-checkbox').forEach(function (cb) { cb.checked = false; });
-        var s = el('selectAllCheckbox'); if (s) s.checked = false;
+        document.querySelectorAll('.row-checkbox').forEach(function (c) { c.checked = false; });
+        var sa2 = el('selectAllCheckbox'); if (sa2) sa2.checked = false;
         updateBulkBar();
-    });
-    var bab = el('bulkAssignBtn');
-    if (bab) bab.addEventListener('click', function () {
-        var ids = getSelectedIds(); var v = el('bulkAssignTo').value;
-        if (ids.length && v) bulkPost('assign', ids, v);
-    });
-    var bsb = el('bulkStageBtn');
-    if (bsb) bsb.addEventListener('click', function () {
-        var ids = getSelectedIds(); var v = el('bulkStage').value;
-        if (ids.length && v) bulkPost('stage', ids, v);
     });
     var bdb = el('bulkDeleteBtn');
     if (bdb) bdb.addEventListener('click', function () {
         var ids = getSelectedIds();
         if (!ids.length) return;
-        if (!confirm(t('crm.opportunities.confirm_bulk_delete', 'Delete the selected opportunities?'))) return;
-        bulkPost('delete', ids, null);
+        if (!confirm(t('crm.opportunities.bulk_confirm_delete', 'Delete selected opportunities?'))) return;
+        Promise.all(ids.map(function (id) {
+            return fetch('/api/crm/opportunities/' + id, { method: 'DELETE', credentials: 'same-origin' });
+        })).then(function () {
+            refreshAll();
+            showToast(t('crm.opportunities.bulk_deleted', 'Deleted'), 'success');
+        });
     });
+    var bsb = el('bulkStageBtn');
+    if (bsb) bsb.addEventListener('click', function () {
+        var ids = getSelectedIds();
+        var stage = el('bulkStage').value;
+        if (!ids.length || !stage) return;
+        Promise.all(ids.map(function (id) {
+            return fetch('/api/crm/opportunities/' + id + '/inline', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ stage: stage }),
+            });
+        })).then(function () {
+            refreshAll();
+            showToast(t('crm.opportunities.bulk_stage_updated', 'Stage updated'), 'success');
+        });
+    });
+
+    // Delegated row action buttons
+    document.addEventListener('click', function (e) {
+        var viewBtn = e.target.closest('.row-view-btn');
+        if (viewBtn) {
+            window.location.href = '/crm/opportunity/' + viewBtn.getAttribute('data-id');
+            return;
+        }
+        var editBtn = e.target.closest('.row-edit-btn');
+        if (editBtn) { openEditOpportunity(editBtn.getAttribute('data-id')); return; }
+        var logBtn = e.target.closest('.row-log-btn');
+        if (logBtn) { openLogActivity(logBtn.getAttribute('data-id')); return; }
+        var convBtn = e.target.closest('.row-convert-btn');
+        if (convBtn) { openConvert(convBtn.getAttribute('data-id')); return; }
+        var dupBtn = e.target.closest('.row-duplicate-btn');
+        if (dupBtn) { duplicateOpportunity(dupBtn.getAttribute('data-id')); return; }
+        var delBtn = e.target.closest('.row-delete-btn');
+        if (delBtn) { deleteOpportunity(delBtn.getAttribute('data-id')); return; }
+
+        // Kanban
+        var kbMove = e.target.closest('.kb-move');
+        if (kbMove) {
+            var oppId = kbMove.getAttribute('data-id');
+            var toStage = kbMove.getAttribute('data-to');
+            fetch('/api/crm/opportunities/' + oppId + '/inline', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ stage: toStage }),
+            }).then(function () {
+                loadKanban();
+                loadKPIs();
+            });
+            return;
+        }
+        var kbLog = e.target.closest('.kb-log');
+        if (kbLog) { openLogActivity(kbLog.getAttribute('data-id')); return; }
+    });
+
+    // Initial load
+    loadDropdowns();
+    loadOpportunities();
+    loadKPIs();
+
+    // Sync button — auto-init handled by sync-button.js. This is a
+    // fallback in case the script hasn't loaded yet (network slow, etc.):
+    if (window.SyncButton && typeof window.SyncButton.attach === 'function') {
+        window.SyncButton.attach('.sync-btn[data-scope="products"]', {
+            scope: 'products',
+            onDone: function () {
+                setTimeout(function () { window.location.reload(); }, 800);
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

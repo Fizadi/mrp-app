@@ -1,0 +1,33 @@
+We are continuing development and correction of the **Quality Module** of my application.
+
+### Project standards
+Use `PROJECT CONTEXT-V48-3.docx` as the technical reference. The application uses Flask, SQLAlchemy, and production SQL Server Express, with SQLite retained for legacy/testing. Follow the documented SQL Server, DateKey, localization, translation, filtering, authentication, and JavaScript standards.
+
+### Main reference document
+The **Complete Corrected Quality Module Page Config** document is the authoritative as-is reference. Preserve its global sections and consolidated Bug & Gap Register. Do not duplicate global findings under individual pages; cross-reference existing IDs and add new findings only when necessary.
+
+### Workflow
+1. Review each Quality HTML page and prepare its page configuration using the same 10 headings:
+   1. Page Overview
+   2. Key Features
+   3. Top KPI Cards
+   4. Main Table Columns
+   5. Action Buttons
+   6. Modals
+   7. Filters & URL Parameters
+   8. Database Tables & Critical Notes
+   9. API Endpoints
+   10. Translation Keys
+2. Compare HTML with `api.py`, `routes.py`, the database schema, and translation export.
+3. Identify necessary corrections across HTML, Python, and SQL/schema files.
+4. Give me **file-by-file, targeted edits**: location/function, exact change, and reason. Do not provide entire replacement files unless I ask.
+5. I will apply the edits elsewhere. Avoid assuming an issue remains fixed or unfixed without checking the latest uploaded version.
+6. Update the global standards and Bug & Gap Register where appropriate, preserving existing IDs and structure.
+7. Validate endpoint contracts, database columns/types, primary-key handling, authentication, industry/project filters, DateKey formatting, translations, and frontend behavior.
+
+### Progress
+- Inspection Workbench corrections were prepared and reportedly worked. The corrected working copies were `api_corrected.py`, `routes_corrected.py`, and `inspection_workbench_corrected.html`.
+- NCR Register page configuration was prepared. Its HTML/API review identified items to verify, including missing signing functionality (C-6), integer route converters (C-9), industry filtering (C-10), translation keys (C-1), and primary-key creation (C-20). Check the latest files before prescribing changes.
+- CAPA page configuration has just been prepared, using the same 10 headings. CAPA API/schema behavior still needs verification against the current Python and SQL files.
+
+**First task:** inspect the uploaded reference files, establish which corrections are already incorporated, then continue with CAPA and the remaining Quality pages. Keep replies concise and consistent.

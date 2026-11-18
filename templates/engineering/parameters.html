@@ -4,6 +4,14 @@
 
 {% block content %}
 <div class="container-fluid mt-3">
+
+    <!-- ✅ FIXED: Page Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-4 gap-2">
+        <h2 class="page-title mb-0">
+            <i class="fas fa-sliders-h me-2"></i>{{ get_translation('engineering.parameters.title', 'Engineering Parameters') }}
+        </h2>
+    </div>
+
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">{{ get_translation('home', 'Home') }}</a></li>
@@ -206,6 +214,64 @@
 
 {% block scripts %}
 <script>
+// ========================================================================
+// TRANSLATIONS — Server-injected
+// ========================================================================
+var trans = {
+    // Global
+    active:             {{ get_translation('global.status.active', 'Active')|tojson }},
+    inactive:           {{ get_translation('global.status.inactive', 'Inactive')|tojson }},
+    yes:                {{ get_translation('global.yes', 'Yes')|tojson }},
+    no:                 {{ get_translation('global.no', 'No')|tojson }},
+    required:           {{ get_translation('engineering.parameters.required.yes', 'Required')|tojson }},
+    optional:           {{ get_translation('engineering.parameters.required.no', 'Optional')|tojson }},
+    no_parameters:      {{ get_translation('engineering.parameters.no_parameters', 'No parameters found')|tojson }},
+    error_loading:      {{ get_translation('global.error_loading', 'Error loading parameters')|tojson }},
+    edit_title:         {{ get_translation('engineering.parameters.edit_modal', 'Edit Parameter')|tojson }},
+    add_title:          {{ get_translation('engineering.parameters.add_modal', 'Add Parameter')|tojson }},
+    confirm_delete:     {{ get_translation('engineering.parameters.confirm_delete', 'Delete this parameter?')|tojson }},
+    param_created:      {{ get_translation('engineering.parameters.toast.created', 'Parameter created')|tojson }},
+    param_updated:      {{ get_translation('engineering.parameters.toast.updated', 'Parameter updated')|tojson }},
+    param_deleted:      {{ get_translation('engineering.parameters.toast.deleted', 'Parameter deleted')|tojson }},
+    delete_failed:      {{ get_translation('engineering.parameters.toast.delete_failed', 'Delete failed')|tojson }},
+    alert_category:     {{ get_translation('engineering.parameters.alert.category_required', 'Category is required')|tojson }},
+    alert_code:         {{ get_translation('engineering.parameters.alert.code_required', 'Parameter Code is required')|tojson }},
+    alert_name:         {{ get_translation('engineering.parameters.alert.name_required', 'Parameter Name is required')|tojson }},
+    import_soon:        {{ get_translation('engineering.parameters.import_soon', 'CSV import coming soon')|tojson }},
+
+    // Parameter types
+    type_string:  {{ get_translation('engineering.parameters.type.string', 'String')|tojson }},
+    type_number:  {{ get_translation('engineering.parameters.type.number', 'Number')|tojson }},
+    type_boolean: {{ get_translation('engineering.parameters.type.boolean', 'Boolean')|tojson }},
+    type_date:    {{ get_translation('engineering.parameters.type.date', 'Date')|tojson }},
+    type_list:    {{ get_translation('engineering.parameters.type.list', 'List')|tojson }},
+};
+
+function t(key, fallback) {
+    if (trans[key] !== undefined && trans[key] !== '' && trans[key] !== key) {
+        return trans[key];
+    }
+    if (window.i18n && typeof window.i18n.t === 'function') {
+        var v = window.i18n.t(key, null);
+        if (v && v !== key) return v;
+    }
+    return fallback || key;
+}
+
+// Map raw ParameterType → translated label
+var typeKeys = {
+    'String':  'type_string',
+    'Number':  'type_number',
+    'Boolean': 'type_boolean',
+    'Date':    'type_date',
+    'List':    'type_list',
+};
+function typeLabel(raw) {
+    if (!raw) return '';
+    var k = typeKeys[raw];
+    return k ? t(k, raw) : raw;
+}
+
 $(document).ready(function() {
     var editingId = null;
 
@@ -224,7 +290,7 @@ $(document).ready(function() {
                     $('#kpiByCategory').text('0');
                 }
                 if (s.byType && s.byType.length > 0) {
-                    var typeNames = s.byType.map(function(t) { return t.type; }).join(', ');
+                    var typeNames = s.byType.map(function(t) { return typeLabel(t.type); }).join(', ');
                     $('#kpiByType').text(typeNames || '0');
                 } else {
                     $('#kpiByType').text('0');
@@ -248,17 +314,21 @@ $(document).ready(function() {
                 var $tbody = $('#parametersTableBody');
                 $tbody.empty();
                 if (!parameters || !parameters.length) {
-                    $tbody.html('<tr><td colspan="10" class="text-center">No parameters found</td></tr>');
+                    $tbody.html('<tr><td colspan="10" class="text-center">' + t('no_parameters', 'No parameters found') + '</td></tr>');
                     return;
                 }
                 parameters.forEach(function(p, i) {
-                    var statusBadge = p.isActive ? 
-                        '<span class="badge bg-success">Active</span>' : 
-                        '<span class="badge bg-secondary">Inactive</span>';
-                    var requiredBadge = p.isClientInput ? 
-                        '<span class="badge bg-danger">Required</span>' : 
-                        '<span class="badge bg-light">Optional</span>';
+                    // ✅ FIXED: Use window.i18n for badges
+                    var statusBadge = p.isActive ?
+                        '<span class="badge bg-success">' + window.i18n.t('active', 'Active') + '</span>' :
+                        '<span class="badge bg-secondary">' + window.i18n.t('inactive', 'Inactive') + '</span>';
+
+                    var requiredBadge = p.isClientInput ?
+                        '<span class="badge bg-danger">' + window.i18n.t('yes', 'Yes') + '</span>' :
+                        '<span class="badge bg-light text-dark">' + window.i18n.t('no', 'No') + '</span>';
+
                     var typeBadge = '<span class="badge bg-info">' + escapeHtml(p.parameterType) + '</span>';
+
                     var row = '<tr>' +
                         '<td>' + (i+1) + '</td>' +
                         '<td><strong>' + escapeHtml(p.parameterCode) + '</strong></td>' +
@@ -278,7 +348,7 @@ $(document).ready(function() {
                 });
             })
             .fail(function() {
-                $('#parametersTableBody').html('<tr><td colspan="10" class="text-danger">Error loading parameters</td></tr>');
+                $('#parametersTableBody').html('<tr><td colspan="10" class="text-danger">' + t('error_loading', 'Error loading parameters') + '</td></tr>');
             });
     }
 
@@ -289,7 +359,7 @@ $(document).ready(function() {
     // ================================================================
     function openModal(id) {
         editingId = id;
-        $('#parameterModalTitle').text(id ? 'Edit Parameter' : 'Add Parameter');
+        $('#parameterModalTitle').text(id ? t('edit_title', 'Edit Parameter') : t('add_title', 'Add Parameter'));
         if (id) {
             $.get('/api/bom/parameters', {})
                 .done(function(parameters) {
@@ -347,9 +417,9 @@ $(document).ready(function() {
             isCalculated: $('#isCalculated').is(':checked'),
             isActive: $('#isActive').is(':checked')
         };
-        if (!data.categoryCode) { alert('Category is required'); return; }
-        if (!data.parameterCode) { alert('Parameter Code is required'); return; }
-        if (!data.parameterName) { alert('Parameter Name is required'); return; }
+        if (!data.categoryCode) { alert(t('alert_category', 'Category is required')); return; }
+        if (!data.parameterCode) { alert(t('alert_code', 'Parameter Code is required')); return; }
+        if (!data.parameterName) { alert(t('alert_name', 'Parameter Name is required')); return; }
 
         var id = $('#editDefinitionId').val();
         var url = id ? '/api/bom/parameters/' + id : '/api/bom/parameters';
@@ -363,7 +433,7 @@ $(document).ready(function() {
                 $('#parameterModal').modal('hide');
                 loadParameters();
                 loadStats();
-                alert(id ? 'Parameter updated' : 'Parameter created');
+                alert(id ? t('param_updated', 'Parameter updated') : t('param_created', 'Parameter created'));
             },
             error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown error')); }
         });
@@ -373,16 +443,16 @@ $(document).ready(function() {
     // DELETE PARAMETER
     // ================================================================
     function deleteParameter(id) {
-        if (confirm('Delete this parameter?')) {
+        if (confirm(t('confirm_delete', 'Delete this parameter?'))) {
             $.ajax({
                 url: '/api/bom/parameters/' + id,
                 method: 'DELETE',
                 success: function() {
                     loadParameters();
                     loadStats();
-                    alert('Parameter deleted');
+                    alert(t('param_deleted', 'Parameter deleted'));
                 },
-                error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Delete failed')); }
+                error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || t('delete_failed', 'Delete failed'))); }
             });
         }
     }
@@ -404,7 +474,7 @@ $(document).ready(function() {
         loadParameters();
     });
 
-    $('#importBtn').click(function() { alert('CSV import coming soon'); });
+    $('#importBtn').click(function() { alert(t('import_soon', 'CSV import coming soon')); });
     $('#exportBtn').click(function() { window.location.href = '/api/bom/parameters/export'; });
 
     // ================================================================

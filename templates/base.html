@@ -30,7 +30,11 @@
     <script>
         window.currentLanguage = "{{ session.get('lang', 'en') }}";
         window.currentCalendar = "{{ session.get('calendar', 'gregorian') }}";
-        console.log('🌐 [HEAD] Language:', window.currentLanguage, '| Calendar:', window.currentCalendar);
+        window.currentTenantId = {{ tenant_id | default(1) }};
+        window.currentCompanyName = "{{ tenant_company_name | default('Unknown Company') }}";
+        console.log('🌐 [HEAD] Language:', window.currentLanguage,
+                    '| Calendar:', window.currentCalendar,
+                    '| Tenant:', window.currentTenantId);
     </script>
 
     <style>
@@ -41,6 +45,7 @@
             --warning-color: #f39c12;
             --danger-color: #e74c3c;
             --project-purple: #6f42c1;
+            --tenant-primary-color: {{ tenant_primary_color | default('#2c3e50') }};
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -145,6 +150,8 @@
 
 <!-- Navbar -->
 {% include 'navbar.html' with context %}
+
+<!-- Sidebar (contains the Industry OR Tenant switcher) -->
 {% include 'sidebar.html' with context %}
 
 <div class="main-content" id="mainContent">
@@ -357,6 +364,82 @@
 <!-- Your other scripts -->
 <script src="{{ url_for('static', filename='js/routing.js') }}"></script>
 
+<!-- ============================================================================
+     TENANT SWITCHER LOGIC (Super Admin only)
+     ============================================================================
+     - Only runs when #tenant-switcher-list exists in the DOM (i.e. sidebar
+       rendered the "Switch Tenant" dropdown for tenant_id == 0).
+     - Populates the dropdown by calling GET /api/auth/tenants
+     - Defines window.switchTenant(tenantId) which POSTs to
+       /api/auth/switch-tenant and reloads on success.
+     ============================================================================ -->
+<script>
+(function () {
+    var listEl = document.getElementById('tenant-switcher-list');
+    if (!listEl) {
+        console.log('ℹ️ No tenant-switcher-list in DOM (not a Super Admin). Skipping tenant-switcher load.');
+        return;
+    }
+
+    console.log('🏢 Super Admin — loading tenant list...');
+
+    fetch('/api/auth/tenants', { credentials: 'same-origin' })
+        .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function (tenants) {
+            if (!Array.isArray(tenants) || tenants.length === 0) {
+                listEl.innerHTML = '<li><span class="dropdown-item-text text-muted">No tenants found</span></li>';
+                return;
+            }
+            listEl.innerHTML = '';  // clear any placeholder
+            tenants.forEach(function (t) {
+                var li = document.createElement('li');
+                var a = document.createElement('a');
+                a.className = 'dropdown-item';
+                a.href = '#';
+                a.textContent = (t.company_name || 'Tenant ' + t.tenant_id) + ' (ID: ' + t.tenant_id + ')';
+                a.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    window.switchTenant(t.tenant_id);
+                });
+                li.appendChild(a);
+                listEl.appendChild(li);
+            });
+            console.log('✅ Loaded', tenants.length, 'tenants');
+        })
+        .catch(function (err) {
+            console.error('❌ Failed to load tenants:', err);
+            listEl.innerHTML = '<li><span class="dropdown-item-text text-danger">Error loading tenants</span></li>';
+        });
+})();
+
+window.switchTenant = function (tenantId) {
+    if (tenantId === null || tenantId === undefined) return;
+    console.log('🔄 Switching to tenant', tenantId);
+    fetch('/api/auth/switch-tenant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ tenant_id: tenantId })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+        if (data && data.status === 'ok') {
+            console.log('✅ Tenant switched — reloading page');
+            window.location.reload();
+        } else {
+            alert((data && data.error) || 'Failed to switch tenant');
+        }
+    })
+    .catch(function (err) {
+        console.error('❌ Tenant switch failed:', err);
+        alert('Failed to switch tenant: ' + err.message);
+    });
+};
+</script>
+
 <script>
     window.showToast = function(message, type) {
         var toastId = 'toast-' + Date.now();
@@ -488,9 +571,6 @@
      contains a .table-sticky-dark table. The CSS rule (in app.css)
      then sets max-height + overflow-y so the sticky header pins to
      the wrapper top instead of the page.
-
-     This is the browser-agnostic alternative to :has() — works on
-     every browser, no polyfill needed.
      ============================================================================ -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {

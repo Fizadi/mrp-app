@@ -128,6 +128,50 @@
             </div>
         </div>
     </div>
+
+    <!-- §DealSize — Pipeline Funnel (group by stage + unit) -->
+    <div class="card mb-3">
+        <div class="card-header"><h5>{{ get_translation('crm.dashboard.funnel', 'Pipeline Funnel') }}</h5></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>{{ get_translation('crm.dashboard.stage', 'Stage') }}</th>
+                            <th class="text-end">{{ get_translation('crm.dashboard.deal_count', 'Deals') }}</th>
+                            <th class="text-end">{{ get_translation('crm.dashboard.deal_size', 'Deal Size') }}</th>
+                            <th class="text-end">{{ get_translation('crm.dashboard.value', 'Value') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="funnelBody">
+                        <tr><td colspan="4" class="text-center py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- §DealSize — Top Projects by Deal Size -->
+    <div class="card mb-3">
+        <div class="card-header"><h5>{{ get_translation('crm.dashboard.top_projects', 'Top Projects by Deal Size') }}</h5></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>{{ get_translation('crm.dashboard.project', 'Project') }}</th>
+                            <th>{{ get_translation('crm.dashboard.customer', 'Customer') }}</th>
+                            <th class="text-end">{{ get_translation('crm.dashboard.deal_size', 'Deal Size') }}</th>
+                            <th class="text-end">{{ get_translation('crm.dashboard.value', 'Value') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topProjectsBody">
+                        <tr><td colspan="4" class="text-center py-3">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -377,12 +421,71 @@ function loadForecast() {
         });
 }
 
+// §DealSize — funnel loader (reads s.size_display)
+function loadFunnel() {
+    var tbody = el('funnelBody');
+    if (!tbody) return;
+    fetch('/api/crm/dashboard/funnel', { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            var rows = '';
+            (data.stages || []).forEach(function (s) {
+                var sizeText = s.size_display || '—';
+                rows += '<tr>' +
+                    '<td><strong>' + escapeHtml(s.stage || '') + '</strong></td>' +
+                    '<td class="text-end">' + (s.count || 0) + '</td>' +
+                    '<td class="text-end">' + escapeHtml(sizeText) + '</td>' +
+                    '<td class="text-end">' + fmtMoney(s.value) + '</td>' +
+                '</tr>';
+            });
+            if (!rows) {
+                rows = '<tr><td colspan="4" class="text-center text-muted py-3">—</td></tr>';
+            }
+            tbody.innerHTML = rows;
+        })
+        .catch(function (err) {
+            console.warn('Funnel API not available:', err);
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">—</td></tr>';
+        });
+}
+
+// §DealSize — top projects loader
+function loadTopProjects() {
+    var tbody = el('topProjectsBody');
+    if (!tbody) return;
+    fetch('/api/crm/dashboard/top-projects-by-size', { credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+            var rows = '';
+            (data.projects || []).forEach(function (p) {
+                rows += '<tr>' +
+                    '<td><a href="/crm/opportunity/' + encodeURIComponent(p.opportunity_id) + '">' +
+                        escapeHtml(p.name || '') + '</a></td>' +
+                    '<td>' + escapeHtml(p.customer_name || '—') + '</td>' +
+                    '<td class="text-end">' + escapeHtml(p.deal_size_display || '—') + '</td>' +
+                    '<td class="text-end">' + fmtMoney(p.value) + '</td>' +
+                '</tr>';
+            });
+            if (!rows) {
+                rows = '<tr><td colspan="4" class="text-center text-muted py-3">—</td></tr>';
+            }
+            tbody.innerHTML = rows;
+        })
+        .catch(function (err) {
+            console.warn('Top Projects API not available:', err);
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">—</td></tr>';
+        });
+}
+
 function refreshAll() {
     loadKPIs();
     loadCharts();
     loadTopCustomers();
     loadTopProducts();
     loadForecast();
+    // §DealSize
+    loadFunnel();
+    loadTopProjects();
 }
 
 // ============================================================================

@@ -1,0 +1,72 @@
+{
+  "page_id": "crm/opportunities",
+  "url": "http://localhost:8000/crm/opportunities",
+  "viewport": { "width": 1280, "height": 720 },
+  "recording": {
+    "slow_mo_ms": 120,
+    "post_load_pause_ms": 2500,
+    "final_pause_ms": 4500
+  },
+  "pre_nav": [
+    {
+      "action": "goto",
+      "url": "http://localhost:8000/switch_language/fa",
+      "ms": 800
+    }
+  ],
+  "steps": [
+    { "action": "pause", "ms": 800 },
+
+    { "action": "hover", "selector": "#createOpportunityBtn" },
+    { "action": "pause", "ms": 300 },
+    { "action": "click", "selector": "#createOpportunityBtn" },
+    { "action": "wait_for", "selector": "#opportunityModal.show" },
+    { "action": "pause", "ms": 1500 },
+
+    { "action": "hover", "selector": "#oppNameFa" },
+    { "action": "pause", "ms": 400 },
+    { "action": "type",
+      "selector": "#oppNameFa",
+      "value": "سفارش شیر توپی — نمایشی",
+      "pause_before_ms": 800,
+      "pause_ms": 2000 },
+
+    { "action": "hover", "selector": "#oppName" },
+    { "action": "pause", "ms": 400 },
+    { "action": "type",
+      "selector": "#oppName",
+      "value": "Demo — Ball Valve Order",
+      "pause_ms": 2000 },
+
+    { "action": "wait_for_option", "selector": "#oppCustomerId", "min_options": 2 },
+    { "action": "select_first_nonempty", "selector": "#oppCustomerId" },
+
+    { "action": "type", "selector": "#oppValue",       "value": "250000", "pause_ms": 1200 },
+    { "action": "type", "selector": "#oppProbability", "value": "40",     "pause_ms": 1200 },
+    { "action": "select_by_label", "selector": "#oppStage", "label": "Proposal" },
+
+    { "action": "hover", "selector": "#oppContactPersonFa" },
+    { "action": "pause", "ms": 300 },
+    { "action": "type",
+      "selector": "#oppContactPersonFa",
+      "value": "تماس نمایشی",
+      "pause_before_ms": 500,
+      "pause_ms": 1800 },
+
+    { "action": "hover", "selector": "#oppContactPerson" },
+    { "action": "pause", "ms": 300 },
+    { "action": "type",
+      "selector": "#oppContactPerson",
+      "value": "Demo Contact",
+      "pause_ms": 1800 },
+
+    { "action": "type", "selector": "#oppNotes",
+      "value": "Generated during demo video", "pause_ms": 2500 },
+
+    { "action": "hover", "selector": "#saveOpportunityBtn" },
+    { "action": "pause", "ms": 500 },
+    { "action": "click", "selector": "#saveOpportunityBtn" },
+    { "action": "wait_for_hidden", "selector": "#opportunityModal.show" },
+    { "action": "pause", "ms": 4500 }
+  ]
+}

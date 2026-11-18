@@ -28,12 +28,13 @@ def dashboard(project_id):
         ).fetchone()
         if not result:
             return "Project not found", 404
+        m = result._mapping
         project = {
             'id': project_id,
-            'name': result[0],
-            'status': result[1],
-            'percent_complete': result[2] or 0,
-            'manager': result[3] or 'Not assigned'
+            'name': m['ProjectName'],
+            'status': m['Status'],
+            'percent_complete': m['PercentComplete'] or 0,
+            'manager': m['ProjectManager'] or 'Not assigned'
         }
     return render_template('project_dashboard.html', project_id=project_id, project=project)
 
@@ -95,7 +96,7 @@ def project_certificates(project_id):
     return render_template('project_certificates_list.html', project_id=project_id)
 
 
-@project_bp.route('/certificate/<int:cert_id>')
+@project_bp.route('/certificate/<string:cert_id>')
 @login_required
 def certificate_detail(cert_id):
     """Certificate detail page."""
@@ -107,13 +108,6 @@ def certificate_detail(cert_id):
 def project_boq(project_id):
     """Project Bill of Quantities page."""
     return render_template('project_boq.html', project_id=project_id)
-
-
-
-# NOTE: /dashboard_standalone route removed in v41.
-# The template dashboard_standalone.html does not exist. Re-add this route
-# along with the template if a sidebar-less dashboard is needed in the future.
-
 
 
 @project_bp.route('/ms-project-integration')
@@ -139,19 +133,3 @@ def ms_project_integration_index():
 def ms_project_integration(project_id):
     """MS Project integration page."""
     return render_template('project_ms_integration.html', project_id=project_id)
- 
- 
-
-@project_bp.route('/_debug_routes')
-@login_required
-def _debug_routes():
-    from flask import current_app
-    out = []
-    for rule in current_app.url_map.iter_rules():
-        if 'ms-project' in str(rule.rule):
-            out.append({
-                'rule': str(rule.rule),
-                'endpoint': rule.endpoint,
-                'methods': sorted(m for m in rule.methods if m not in ('HEAD', 'OPTIONS'))
-            })
-    return jsonify({'routes': out})

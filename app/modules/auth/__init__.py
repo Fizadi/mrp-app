@@ -2,16 +2,51 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_user, logout_user, login_required, current_user
 import hashlib
 import secrets
+from werkzeug.security import check_password_hash, generate_password_hash
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 def verify_password(stored_hash: str, password: str) -> bool:
-    """Verify a password against stored hash (salt:sha256)"""
-    if ':' not in stored_hash:
+    """Verify Werkzeug hashes first, then legacy salt:sha256 hashes.
+
+    Werkzeug hashes (scrypt:…, pbkdf2:sha256:…) also contain ':' so the
+    legacy branch must NOT run first — it would silently reject every
+    modern hash. Also supports the PBKDF2 hex format written by
+    app/core/auth.py:hash_password() (salt:64-hex-chars, no scheme prefix).
+    """
+    if not stored_hash or not password:
         return False
-    salt, pwd_hash = stored_hash.split(':', 1)
-    computed = hashlib.sha256((salt + password).encode()).hexdigest()
-    return computed == pwd_hash
+
+    # 1) Werkzeug (scrypt:, pbkdf2:sha256:…)
+    if stored_hash.startswith(('scrypt:', 'pbkdf2:')):
+        try:
+            return check_password_hash(stored_hash, password)
+        except Exception:
+            return False
+
+    # 2) Legacy salt:sha256 (64 hex chars after the colon) — used by existing Valve users
+    if ':' in stored_hash:
+        salt, pwd_hash = stored_hash.split(':', 1)
+        if len(pwd_hash) == 64:  # sha256 hex
+            return hashlib.sha256((salt + password).encode()).hexdigest() == pwd_hash
+        # 3) PBKDF2 salt:64-hex (written by app/core/auth.py:hash_password)
+        try:
+            key = hashlib.pbkdf2_hmac(
+                'sha256', password.encode('utf-8'),
+                salt.encode('utf-8'), 100000
+            )
+            return key.hex() == pwd_hash
+        except Exception:
+            return False
+
+    return False
+
+
+def hash_password(pw: str) -> str:
+    """Create a new password hash using Werkzeug's secure password hashing."""
+    if not pw:
+        raise ValueError("Password must not be empty")
+    return generate_password_hash(pw)
 
 # ============================================================================
 # USER PREFERENCE HELPERS
@@ -53,16 +88,45 @@ def set_user_session_preferences(user_id):
     return lang, calendar
 
 # ============================================================================
+# SAFE NEXT-PAGE HELPER
+# ============================================================================
+
+def _safe_next_page():
+    """
+    Read the `next` target from query string OR form body (form body wins).
+    Return it only if it is a safe, same-site relative path.
+
+    Blocks:
+      - absolute URLs (https://evil.com)
+      - protocol-relative URLs (//evil.com)
+      - paths that don't start with '/'
+    """
+    from urllib.parse import urlparse
+
+    next_page = request.args.get('next') or request.form.get('next')
+    if not next_page:
+        return None
+
+    parsed = urlparse(next_page)
+    if (
+        parsed.netloc
+        or parsed.scheme
+        or not next_page.startswith('/')
+        or next_page.startswith('//')
+    ):
+        return None
+
+    return next_page
+
+# ============================================================================
 # AUTH ROUTES
 # ============================================================================
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        next_page = request.args.get('next')
-        if next_page and next_page.startswith('/') and not next_page.startswith('//'):
-            return redirect(next_page)
-        return redirect(url_for('dashboard.dashboard'))
+        next_page = _safe_next_page()
+        return redirect(next_page or url_for('dashboard.dashboard'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -73,10 +137,10 @@ def login():
         from sqlalchemy.sql import text
         
         with db.engine.connect() as conn:
-            # Find user by Username or Email
+            # Find user by Username or Email — includes TenantID (v50)
             user_row = conn.execute(
                 text("""
-                    SELECT UserID, Username, PasswordHash, IsActive, MustChangePassword, FullName, UserRoles
+                    SELECT UserID, Username, PasswordHash, IsActive, MustChangePassword, FullName, UserRoles, TenantID
                     FROM t_Users
                     WHERE (Username = :un OR Email = :un) AND UserType = 'Internal'
                 """),
@@ -84,7 +148,9 @@ def login():
             ).fetchone()
         
         if user_row and verify_password(user_row[2], password):
-            if not user_row[3]:  # IsActive = 0
+            # §B2: IsActive may be '1' / 1 / 'True' / True — string-aware check
+            is_active_val = user_row[3]
+            if str(is_active_val).strip() not in ('1', 'True', 'true'):
                 flash('Your account is deactivated. Contact administrator.', 'danger')
                 return render_template('auth/login.html')
             
@@ -100,8 +166,18 @@ def login():
             session['user_name'] = user_row[4]  # FullName
             session['user_id'] = user_id
             session['user_roles'] = user_row[6] if user_row[6] else '[]'
+            session['tenant_id'] = user_row[7] if user_row[7] is not None else 1  # Fallback to Tenant 1 if NULL
+
+            # §E3: set legacy demo_industry so context_processors/template header
+            # shows the right industry name for tenants 1-9 (not just after switch).
+            _tid = session['tenant_id']
+            session['demo_industry'] = {
+                1: 'valve', 2: 'furniture', 3: 'jobshop', 4: 'gauge',
+                5: 'paint', 6: 'personal', 7: 'elec', 8: 'valve',
+                9: 'solar',
+            }.get(_tid, 'valve')
             
-            print(f"✅ User {username} logged in with lang={lang}, calendar={calendar}")
+            print(f"✅ User {username} logged in with lang={lang}, calendar={calendar}, tenant_id={session['tenant_id']}, industry={session['demo_industry']}")
             
             # Create user object for Flask-Login
             from flask_login import UserMixin
@@ -118,9 +194,7 @@ def login():
                 conn.execute(text("UPDATE t_Users SET LastLogin = CURRENT_TIMESTAMP WHERE UserID = :uid"), {'uid': user_row[0]})
                 conn.commit()
             
-            next_page = request.args.get('next')
-            if next_page and not next_page.startswith('/'):
-                next_page = None
+            next_page = _safe_next_page()
             return redirect(next_page or url_for('dashboard.dashboard'))
         else:
             flash('Invalid username/email or password', 'danger')
@@ -131,10 +205,8 @@ def login():
 @auth_bp.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
     if current_user.is_authenticated:
-        next_page = request.args.get('next')
-        if next_page and next_page.startswith('/') and not next_page.startswith('//'):
-            return redirect(next_page)
-        return redirect(url_for('dashboard.dashboard'))
+        next_page = _safe_next_page()
+        return redirect(next_page or url_for('dashboard.dashboard'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -156,7 +228,8 @@ def portal_login():
                 {'un': username}
             ).fetchone()
         
-        if user_row and verify_password(user_row[2], password) and user_row[3]:
+        # §B3: IsActive string-aware
+        if user_row and verify_password(user_row[2], password) and str(user_row[3]).strip() in ('1', 'True', 'true'):
             # ============================================================
             # LOAD USER PREFERENCES FROM DATABASE
             # ============================================================
@@ -186,9 +259,7 @@ def portal_login():
                 conn.execute(text("UPDATE t_Users SET LastLogin = CURRENT_TIMESTAMP WHERE UserID = :uid"), {'uid': user_row[0]})
                 conn.commit()
             
-            next_page = request.args.get('next')
-            if next_page and not next_page.startswith('/'):
-                next_page = None
+            next_page = _safe_next_page()
             return redirect(next_page or url_for('dashboard.dashboard'))
         else:
             flash('Invalid username/email or password, or account inactive', 'danger')

@@ -16,22 +16,27 @@ def hash_password(password, salt=None):
     return f"{salt}:{key.hex()}"
 
 def verify_password(stored_password, provided_password):
-    """Verify a password against its stored hash."""
-    salt, key = stored_password.split(":")
-    new_key = hashlib.pbkdf2_hmac('sha256', provided_password.encode('utf-8'),
-                                  salt.encode('utf-8'), 100000)
-    return key == new_key.hex()
+    """Verify a password against its stored hash.
+
+    Delegates to the canonical verifier so Werkzeug hashes (scrypt/pbkdf2)
+    are accepted too. Kept for backward compatibility — no live callers.
+    """
+    from app.modules.auth import verify_password as _canon
+    try:
+        return _canon(stored_password, provided_password)
+    except Exception:
+        return False
 
 
 def has_permission(user_id, permission_code):
-    """Check if a user has a specific permission."""
+    """Check if a user has a specific permission (tenant-scoped)."""
     print(f">>> has_permission called: user_id={user_id}, permission={permission_code}")
-    
-    try:
-        user_id = int(user_id)
-    except (ValueError, TypeError):
-        print(f">>> Invalid user_id: {user_id}")
+
+    # UserID is nvarchar. Existing users are numeric ("1","18"); new tenants
+    # provision GUIDs. Tolerate both.
+    if user_id is None:
         return False
+    # no int() coercion — the SQL below binds the value as-is
 
     conn = get_db_connection()
     if not conn:
@@ -43,7 +48,7 @@ def has_permission(user_id, permission_code):
     try:
         user_row = conn.execute(
             "SELECT UserRoles FROM t_Users WHERE UserID = ?", 
-            (user_id,)
+            (str(user_id),)
         ).fetchone()
         
         print(f">>> user_row: {user_row}")
@@ -64,16 +69,19 @@ def has_permission(user_id, permission_code):
             return True
         
         if role_codes:
+            # Tenant-scoped permission check
+            tenant_id = session.get('tenant_id', 1)
             placeholders = ','.join(['?'] * len(role_codes))
             query = f"""
                 SELECT 1
                 FROM t_RolePermissions rp
                 JOIN t_Permissions p ON rp.PermissionID = p.PermissionID
                 JOIN t_Roles r ON rp.RoleID = r.RoleID
-                WHERE r.RoleCode IN ({placeholders}) AND p.PermissionCode = ?
-                LIMIT 1
+                WHERE r.RoleCode IN ({placeholders}) 
+                  AND p.PermissionCode = ?
+                  AND rp.TenantID = ?
             """
-            params = role_codes + [permission_code]
+            params = role_codes + [permission_code, tenant_id]
             result = conn.execute(query, params).fetchone()
             print(f">>> permission check result: {result}")
             if result:
@@ -88,6 +96,7 @@ def has_permission(user_id, permission_code):
         return False
     finally:
         conn.close()
+
 
 def log_audit(user_id, action_type, module, table_name=None,
               record_id=None, old_values=None, new_values=None,

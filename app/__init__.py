@@ -26,7 +26,8 @@ def create_app(config_class=Config):
     def log_every_request():
         print(f">>>>>> REQUEST: {request.method} {request.path}")
         print(f">>>>>> SESSION: user_id={session.get('user_id')}, "
-              f"demo_industry={session.get('demo_industry')}")
+              f"demo_industry={session.get('demo_industry')}, "
+              f"tenant_id={session.get('tenant_id')}")
 
     @app.after_request
     def log_every_response(response):
@@ -45,7 +46,7 @@ def create_app(config_class=Config):
     from app.core.context_processors import inject_industry_context, inject_current_time
     app.context_processor(inject_industry_context)
     app.context_processor(inject_current_time)
-    print("✅ Industry context processors registered")
+    print("✅ Industry/tenant context processors registered")
 
     # Register Jinja2 filter for date formatting
     from app.core.utils import format_date_filter
@@ -86,7 +87,8 @@ def create_app(config_class=Config):
     class User(UserMixin):
         def __init__(self, user_id, username, fullname, email,
                      portal_access=False, company_id=None,
-                     default_calendar='gregorian', language_code='en'):
+                     default_calendar='gregorian', language_code='en',
+                     tenant_id=0, user_roles='[]'):
             self.id = str(user_id)
             self.username = username
             self.fullname = fullname
@@ -95,6 +97,10 @@ def create_app(config_class=Config):
             self.company_id = company_id
             self.default_calendar = default_calendar or 'gregorian'
             self.language_code = language_code or 'en'
+            self.tenant_id = tenant_id if tenant_id is not None else 0
+            # Capital U, capital R — matches `hasattr(current_user, 'UserRoles')`
+            # in app/core/permissions.py has_permission().
+            self.UserRoles = user_roles if user_roles is not None else '[]'
 
         def get_id(self):
             return self.id
@@ -118,13 +124,14 @@ def create_app(config_class=Config):
             with db.engine.connect() as conn:
                 row = conn.execute(
                     text("""SELECT UserID, Username, FullName, Email, PortalAccess,
-                                  CompanyID, DefaultCalendar, LanguageCode
+                                  CompanyID, DefaultCalendar, LanguageCode,
+                                  TenantID, UserRoles
                            FROM t_Users WHERE UserID = :uid"""),
                     {'uid': user_id}
                 ).fetchone()
                 if row:
                     return User(row[0], row[1], row[2], row[3],
-                                bool(row[4]), row[5], row[6], row[7])
+                                bool(row[4]), row[5], row[6], row[7], row[8], row[9])
         except Exception as e:
             print(f"User loader error: {e}")
         return None
@@ -132,6 +139,23 @@ def create_app(config_class=Config):
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
+
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """
+        JSON 401 for API routes (so fetch() doesn't receive the login-page HTML),
+        redirect to login for all HTML page routes.
+
+        IMPORTANT: pass request.full_path (path + ?query), NOT request.url
+        (which is absolute and gets rejected by the open-redirect guard).
+        """
+        from flask import request, redirect, url_for, jsonify
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Not authenticated', 'status': 401}), 401
+        # request.full_path includes '?' even when there is no query string,
+        # so strip the trailing '?' to keep the URL clean.
+        next_target = request.full_path.rstrip('?') or request.path
+        return redirect(url_for('auth.login', next=next_target))
 
     # ================================================================
     # REGISTER INDUSTRY BLUEPRINT (MUST BE BEFORE OTHER BLUEPRINTS)
@@ -145,6 +169,7 @@ def create_app(config_class=Config):
 
     # --- AUTH ---
     from app.modules.auth import auth_bp
+    from app.modules.auth.api import auth_api_bp  # <--- ADDED: auth API blueprint
 
     # --- DASHBOARD (3 pages) ---
     from app.modules.dashboard import dashboard_bp, dashboard_api_bp
@@ -176,6 +201,9 @@ def create_app(config_class=Config):
 
     # --- CRM AI (paste-text → extract entities) ---
     from app.modules.crm.ai_routes import ai_bp
+
+    # --- SYNC (Hamkaran → MRP generic sync registry) ---
+    from app.core.sync_api import sync_bp
 
     # --- FINANCE (4 pages) ---
     try:
@@ -221,6 +249,7 @@ def create_app(config_class=Config):
 
     # AUTH
     app.register_blueprint(auth_bp)
+    app.register_blueprint(auth_api_bp)  # <--- ADDED: auth API blueprint
 
     # DASHBOARD
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -279,6 +308,10 @@ def create_app(config_class=Config):
     app.register_blueprint(crm_api_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(dashboard_api_bp)
+
+    # SYNC — generic Hamkaran sync registry (POST /api/sync/<scope>)
+    app.register_blueprint(sync_bp)
+    print("✅ sync_bp registered")
 
     if quality_api:
         app.register_blueprint(quality_api, url_prefix='/api/quality')
@@ -551,6 +584,7 @@ def create_app(config_class=Config):
             'session_id': session.get('_id', 'no-session'),
             'session_user': session.get('user_id', 'anonymous'),
             'demo_industry': session.get('demo_industry', 'valve'),
+            'tenant_id': session.get('tenant_id', 1),
             'debug': bool(current_app.debug),
             'url_map_size': len(list(current_app.url_map.iter_rules())),
         })

@@ -33,6 +33,15 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
 
+    # Connection-pool settings — pool_pre_ping is the key fix for stale connections
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,
+        'max_overflow': 5,
+        'pool_timeout': 5,
+        'pool_recycle': 1800,
+        'pool_pre_ping': True,
+    }
+
     AI_PROVIDER = os.environ.get('AI_PROVIDER', 'avalai')
     AI_API_KEY  = os.environ.get('AI_API_KEY', '')
     AI_BASE_URL = os.environ.get('AI_BASE_URL', 'https://api.avalai.ir/v1')

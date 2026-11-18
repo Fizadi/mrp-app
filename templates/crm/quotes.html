@@ -12,6 +12,9 @@
     .status-superseded { background-color:#fd7e14; color:white; }
     .quote-card { transition: all .2s; cursor: pointer; }
     .quote-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); }
+    .bilingual-pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .bilingual-pair .lang-label { font-size:.7rem; color:#6c757d; text-transform:uppercase; letter-spacing:.5px; }
+    [dir="rtl"] .bilingual-pair { direction: rtl; }
 </style>
 {% endblock %}
 
@@ -22,7 +25,16 @@
             <i class="fas fa-file-invoice-dollar me-2"></i>{{ get_translation('crm.quotes.title', 'Quotes & Estimates') }}
             <span class="badge bg-secondary ms-2" id="quotesCount">0</span>
         </h2>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-success" id="createQuoteBtn">
+                <i class="fas fa-plus me-1"></i>{{ get_translation('crm.quotes.create', 'Create Quote') }}
+            </button>
+            <button class="btn btn-outline-warning sync-btn" data-scope="customers" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.customers.sync', 'Sync Customers') }}
+            </button>
+            <button class="btn btn-warning sync-btn" data-scope="all" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.sync.all', 'Sync All') }}
+            </button>
             <button class="btn btn-outline-primary" id="refreshBtn">
                 <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
             </button>
@@ -96,6 +108,7 @@
                             <th>{{ get_translation('crm.quotes.customer', 'Customer') }}</th>
                             <th>{{ get_translation('crm.quotes.subject', 'Subject') }}</th>
                             <th>{{ get_translation('crm.quotes.total_amount', 'Total Amount') }}</th>
+                            <th>{{ get_translation('crm.quotes.currency', 'Currency') }}</th>
                             <th>{{ get_translation('global.status', 'Status') }}</th>
                             <th>{{ get_translation('crm.quotes.source_opportunity', 'Source Opportunity') }}</th>
                             <th>{{ get_translation('crm.quotes.revision', 'Rev') }}</th>
@@ -105,9 +118,69 @@
                         </tr>
                     </thead>
                     <tbody id="quotesTableBody">
-                        <tr><td class="text-center py-4" colspan="10">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        <tr><td class="text-center py-4" colspan="11">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Quote Modal -->
+<div class="modal fade" id="createQuoteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>{{ get_translation('crm.quotes.create', 'Create Quote') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small py-2 mb-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {{ get_translation('crm.quotes.create_hint', 'Select an opportunity — customer, currency and product lines will be copied automatically.') }}
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">{{ get_translation('crm.quote.opportunity', 'Opportunity') }} *</label>
+                    <select class="form-select" id="newQuoteOppId"></select>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ get_translation('crm.quote.currency', 'Currency') }}</label>
+                        <select class="form-select" id="newQuoteCurrency">
+                            <option value="USD">USD</option>
+                            <option value="IRR">IRR</option>
+                            <option value="AED">AED</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ get_translation('crm.quote.tax_rate', 'Tax Rate (%)') }}</label>
+                        <input class="form-control" id="newQuoteTaxRate" type="number" step="any" min="0" value="0"/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ get_translation('crm.quote.valid_until', 'Valid Until') }}</label>
+                        <input class="form-control" id="newQuoteValidUntil" type="date"/>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <label class="form-label">{{ get_translation('crm.quote.subject', 'Subject') }}</label>
+                    <div class="bilingual-pair">
+                        <div><div class="lang-label">EN</div>
+                            <input class="form-control" id="newQuoteSubject" type="text" dir="ltr"/></div>
+                        <div><div class="lang-label">FA</div>
+                            <input class="form-control" id="newQuoteSubjectFa" type="text" dir="rtl"/></div>
+                    </div>
+                </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="newQuoteCopyProducts" checked>
+                    <label class="form-check-label" for="newQuoteCopyProducts">
+                        {{ get_translation('crm.quotes.copy_products', 'Copy product lines from the opportunity') }}
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveNewQuoteBtn">{{ get_translation('global.save', 'Create') }}</button>
             </div>
         </div>
     </div>
@@ -115,6 +188,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/sync-button.js') }}"></script>
 <script>
 // ============================================================================
 // 1. STATE — TOP LEVEL
@@ -146,15 +220,35 @@ function statusKey(raw) {
     if (!raw) return '';
     return 'crm.quote.status.' + String(raw).toLowerCase().replace(/ /g, '_');
 }
-function statusLabel(raw) { return t(statusKey(raw), raw); }
-function statusBadgeClass(status) {
-    return {
-        'Draft':      'bg-secondary',
-        'Sent':       'bg-primary',
-        'Accepted':   'bg-success',
-        'Rejected':   'bg-danger',
-        'Superseded': 'bg-warning',
-    }[status] || 'bg-secondary';
+function statusLabel(raw) { return t(statusKey(raw), raw || ''); }
+
+function statusBadgeClass(raw) {
+    var s = String(raw || '').toLowerCase();
+    if (s === 'draft')      return 'status-draft';
+    if (s === 'sent')       return 'status-sent';
+    if (s === 'accepted')   return 'status-accepted';
+    if (s === 'rejected')   return 'status-rejected';
+    if (s === 'superseded') return 'status-superseded';
+    return 'status-draft';
+}
+
+function fetchJSON(url, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    return fetch(url, opts).then(function (r) {
+        return r.text().then(function (txt) {
+            var body = null;
+            try { body = txt ? JSON.parse(txt) : null; } catch (_) {}
+            if (!r.ok) {
+                var msg = (body && (body.error || body.message)) || ('HTTP ' + r.status);
+                var err = new Error(msg);
+                err.status = r.status;
+                err.body = body;
+                throw err;
+            }
+            return body;
+        });
+    });
 }
 
 function showToast(message, type) {
@@ -171,134 +265,263 @@ function showToast(message, type) {
 }
 
 // ============================================================================
-// 3. LOADERS — TOP LEVEL, fetch() only
+// 3. FILTER OPTIONS — TOP LEVEL
 // ============================================================================
+function loadFilterCustomers() {
+    fetchJSON('/api/crm/customers').then(function (list) {
+        allCustomersCache = list || [];
+        var sel = el('filterCustomer');
+        if (!sel) return;
+        var html = '<option value="">' + t('global.all', 'All') + '</option>';
+        allCustomersCache.forEach(function (c) {
+            html += '<option value="' + escapeHtml(c.customer_id) + '">' + escapeHtml(c.name) + '</option>';
+        });
+        sel.innerHTML = html;
+    }).catch(function (err) { console.error('load customers failed', err); });
+}
+
+function loadFilterOpportunities() {
+    fetchJSON('/api/crm/opportunities?status=All').then(function (list) {
+        var sel = el('filterOpportunity');
+        if (!sel) return;
+        var html = '<option value="">' + t('global.all', 'All') + '</option>';
+        (list || []).forEach(function (o) {
+            html += '<option value="' + escapeHtml(o.opportunity_id) + '">' + escapeHtml(o.name) + '</option>';
+        });
+        sel.innerHTML = html;
+    }).catch(function (err) { console.error('load opps failed', err); });
+}
+
+// ============================================================================
+// 4. LIST LOADERS — TOP LEVEL
+// ============================================================================
+function buildFilters() {
+    var params = [];
+    var status   = el('filterStatus')      ? el('filterStatus').value      : '';
+    var customer = el('filterCustomer')    ? el('filterCustomer').value    : '';
+    var opp      = el('filterOpportunity') ? el('filterOpportunity').value : '';
+    if (status)   params.push('status=' + encodeURIComponent(status));
+    if (customer) params.push('customer_id=' + encodeURIComponent(customer));
+    if (opp)      params.push('opportunity_id=' + encodeURIComponent(opp));
+    return params.length ? '?' + params.join('&') : '';
+}
+
 function loadQuotes() {
     var tbody = el('quotesTableBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4">' + t('global.loading', 'Loading...') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4">' + t('global.loading', 'Loading...') + '</td></tr>';
 
-    var params = new URLSearchParams();
-    var s = (el('filterStatus') || {}).value || '';
-    var c = (el('filterCustomer') || {}).value || '';
-    if (s) params.append('status', s);
-    if (c) params.append('customer_id', c);
+    var search = (el('filterSearch') ? el('filterSearch').value : '').toLowerCase();
 
-    fetch('/api/crm/quotes?' + params.toString(), { credentials: 'same-origin' })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (data) {
-            allQuotes = data || [];
-            renderQuotes();
-        })
-        .catch(function (err) {
-            console.error('load quotes failed:', err);
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4">' +
-                t('global.error_loading', 'Error loading data') + '</td></tr>';
+    fetchJSON('/api/crm/quotes' + buildFilters()).then(function (list) {
+        allQuotes = list || [];
+
+        var filtered = allQuotes.filter(function (q) {
+            if (!search) return true;
+            var hay = [
+                q.quote_number, q.subject,
+                q.customer_name, q.opportunity_name
+            ].join(' ').toLowerCase();
+            return hay.indexOf(search) !== -1;
         });
+
+        renderQuotes(filtered);
+        renderKPIs(filtered);
+    }).catch(function (err) {
+        console.error('load quotes failed', err);
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">' +
+            t('global.error_loading', 'Error loading data') + ': ' + escapeHtml(err.message) + '</td></tr>';
+    });
 }
 
-function renderQuotes() {
+function renderQuotes(list) {
     var tbody = el('quotesTableBody');
     if (!tbody) return;
 
-    var search = ((el('filterSearch') || {}).value || '').toLowerCase();
-    var filtered = allQuotes.filter(function (q) {
-        if (!search) return true;
-        return (q.quote_number || '').toLowerCase().indexOf(search) !== -1
-            || (q.subject || '').toLowerCase().indexOf(search) !== -1
-            || (q.customer_name || '').toLowerCase().indexOf(search) !== -1;
-    });
-
-    if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">' +
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">' +
             t('global.no_data', 'No quotes found') + '</td></tr>';
-        updateKPIs([]);
         return;
     }
 
     var html = '';
-    filtered.forEach(function (q) {
-        // Dates: ALWAYS use formatted twin from server
-        var validUntil = q.valid_until_date_formatted || '—';
-        var statusCls = statusBadgeClass(q.status);
-
-        var oppCell = q.opportunity_name
-            ? '<a href="/crm/opportunity/' + q.opportunity_id + '">' + escapeHtml(q.opportunity_name) + '</a>'
-            : '<span class="text-muted">—</span>';
+    list.forEach(function (q) {
+        var badgeClass = statusBadgeClass(q.status);
+        var totalTxt = (q.total_amount || 0).toLocaleString();
 
         var actions =
-            '<a class="btn btn-sm btn-outline-info me-1" href="/crm/quote/' + q.quote_id + '" title="' +
-                t('global.view', 'View') + '"><i class="fas fa-eye"></i></a>';
+            '<a class="btn btn-sm btn-outline-info me-1" href="/crm/quote/' + encodeURIComponent(q.quote_id) + '" title="' + t('global.view', 'View') + '"><i class="fas fa-eye"></i></a>';
+
+        if (q.status === 'Draft' || q.status === 'Sent' || q.status === 'Rejected') {
+            actions +=
+                '<button class="btn btn-sm btn-outline-warning me-1 revise-btn" data-id="' + escapeHtml(q.quote_id) + '" title="' + t('crm.quote.revise', 'Revise') + '"><i class="fas fa-code-branch"></i></button>';
+        }
+        if (q.status === 'Draft' || q.status === 'Sent') {
+            actions +=
+                '<button class="btn btn-sm btn-outline-primary me-1 status-btn" data-id="' + escapeHtml(q.quote_id) + '" data-status="Accepted" title="' + t('crm.quote.mark_accepted', 'Mark Accepted') + '"><i class="fas fa-check"></i></button>' +
+                '<button class="btn btn-sm btn-outline-danger status-btn" data-id="' + escapeHtml(q.quote_id) + '" data-status="Rejected" title="' + t('crm.quote.mark_rejected', 'Mark Rejected') + '"><i class="fas fa-times"></i></button>';
+        }
 
         html += '<tr>' +
-            '<td><a href="/crm/quote/' + q.quote_id + '">' + escapeHtml(q.quote_number || q.quote_id) + '</a></td>' +
-            '<td>' + escapeHtml(q.customer_name || '') + '</td>' +
-            '<td>' + escapeHtml(q.subject || '') + '</td>' +
-            '<td>$' + Number(q.total_amount || 0).toLocaleString() + '</td>' +
-            '<td><span class="badge ' + statusCls + '">' + escapeHtml(statusLabel(q.status)) + '</span></td>' +
-            '<td>' + oppCell + '</td>' +
-            '<td>' + escapeHtml(t('crm.quotes.revision', 'Rev')) + ' ' + escapeHtml(String(q.revision || 1)) + '</td>' +
-            '<td>' + escapeHtml(validUntil) + '</td>' +
-            '<td>' + escapeHtml(q.created_by_name || '') + '</td>' +
+            '<td><a href="/crm/quote/' + encodeURIComponent(q.quote_id) + '">' + escapeHtml(q.quote_number || '') + '</a></td>' +
+            '<td>' + escapeHtml(q.customer_name || '—') + '</td>' +
+            '<td>' + escapeHtml(q.subject || '—') + '</td>' +
+            '<td>' + totalTxt + ' ' + escapeHtml(q.currency || 'USD') + '</td>' +
+            '<td>' + escapeHtml(q.currency || 'USD') + '</td>' +
+            '<td><span class="badge status-badge ' + badgeClass + '">' + escapeHtml(statusLabel(q.status)) + '</span></td>' +
+            '<td>' + escapeHtml(q.opportunity_name || '—') + '</td>' +
+            '<td>R' + (q.revision || 1) + '</td>' +
+            '<td>' + escapeHtml(q.valid_until_date_formatted || '—') + '</td>' +
+            '<td>' + escapeHtml(q.created_by_name || '—') + '</td>' +
             '<td>' + actions + '</td>' +
         '</tr>';
     });
     tbody.innerHTML = html;
-    updateKPIs(filtered);
-}
 
-function updateKPIs(list) {
-    var total = list.length;
-    var totalValue = 0, drafts = 0, accepted = 0;
-    list.forEach(function (q) {
-        totalValue += Number(q.total_amount || 0);
-        if (q.status === 'Draft')    drafts++;
-        if (q.status === 'Accepted') accepted++;
+    document.querySelectorAll('.revise-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (!confirm(t('crm.quote.confirm_revise', 'Create a new revision of this quote?'))) return;
+            fetchJSON('/api/crm/quotes/' + encodeURIComponent(btn.getAttribute('data-id')) + '/revise', { method: 'POST' })
+                .then(function (res) {
+                    showToast(t('crm.quote.revised_ok', 'Revision created') + ' — R' + res.revision, 'success');
+                    loadQuotes();
+                })
+                .catch(function (err) { showToast(err.message, 'error'); });
+        });
     });
-    var a = el('kpiTotalQuotes');    if (a) a.textContent = total;
-    var b = el('kpiTotalValue');     if (b) b.textContent = '$' + totalValue.toLocaleString();
-    var c = el('kpiDraftCount');     if (c) c.textContent = drafts;
-    var d = el('kpiAcceptanceRate'); if (d) d.textContent = (total ? Math.round(accepted / total * 100) : 0) + '%';
-    var e = el('quotesCount');       if (e) e.textContent = total;
+    document.querySelectorAll('.status-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            fetchJSON('/api/crm/quotes/' + encodeURIComponent(btn.getAttribute('data-id')), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: btn.getAttribute('data-status') }),
+            }).then(function () {
+                showToast(t('crm.quote.status_updated', 'Quote status updated'), 'success');
+                loadQuotes();
+            }).catch(function (err) { showToast(err.message, 'error'); });
+        });
+    });
 }
 
-function loadCustomersForFilter() {
-    fetch('/api/crm/customers', { credentials: 'same-origin' })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            allCustomersCache = data || [];
-            var sel = el('filterCustomer');
-            if (!sel) return;
-            var html = '<option value="">' + t('global.all', 'All') + '</option>';
-            allCustomersCache.forEach(function (c) {
-                html += '<option value="' + escapeHtml(c.customer_id) + '">' + escapeHtml(c.name) + '</option>';
-            });
-            sel.innerHTML = html;
-        })
-        .catch(function (err) { console.error('load customers failed:', err); });
+function renderKPIs(list) {
+    var totalValue = 0, draftCount = 0, accepted = 0, decided = 0;
+    list.forEach(function (q) {
+        var amt = q.total_with_tax != null ? q.total_with_tax : (q.total_amount || 0);
+        totalValue += amt;
+        if (q.status === 'Draft') draftCount++;
+        if (q.status === 'Accepted' || q.status === 'Rejected') {
+            decided++;
+            if (q.status === 'Accepted') accepted++;
+        }
+    });
+    var rate = decided > 0 ? Math.round((accepted / decided) * 100) : 0;
+
+    if (el('kpiTotalQuotes'))    el('kpiTotalQuotes').textContent = list.length;
+    if (el('kpiTotalValue'))     el('kpiTotalValue').textContent = '$' + totalValue.toLocaleString();
+    if (el('kpiDraftCount'))     el('kpiDraftCount').textContent = draftCount;
+    if (el('kpiAcceptanceRate')) el('kpiAcceptanceRate').textContent = rate + '%';
+    if (el('quotesCount'))       el('quotesCount').textContent = list.length;
 }
 
 // ============================================================================
-// 4. INIT — ONLY init + event binding
+// 5. CREATE QUOTE — TOP LEVEL
+// ============================================================================
+function openCreateModal() {
+    el('newQuoteOppId').innerHTML = '<option value="">' + t('global.loading', 'Loading...') + '</option>';
+    el('newQuoteCurrency').value = 'USD';
+    el('newQuoteTaxRate').value = 0;
+    el('newQuoteValidUntil').value = '';
+    el('newQuoteSubject').value = '';
+    el('newQuoteSubjectFa').value = '';
+    el('newQuoteCopyProducts').checked = true;
+
+    fetchJSON('/api/crm/opportunities?status=Open').then(function (list) {
+        var sel = el('newQuoteOppId');
+        var html = '<option value="">' + t('global.select', 'Select') + '</option>';
+        (list || []).forEach(function (o) {
+            var amount = o.value != null ? ' ($' + Number(o.value).toLocaleString() + ')' : '';
+            html += '<option value="' + escapeHtml(o.opportunity_id) + '">' +
+                escapeHtml(o.name) + ' — ' + escapeHtml(o.customer_name || '') + amount + '</option>';
+        });
+        sel.innerHTML = html;
+    });
+
+    bootstrap.Modal.getOrCreateInstance(el('createQuoteModal')).show();
+}
+
+function saveNewQuote() {
+    var oppId = el('newQuoteOppId').value;
+    if (!oppId) { showToast(t('crm.quotes.opp_required', 'Select an opportunity'), 'warning'); return; }
+
+    var payload = {
+        opportunity_id: oppId,
+        currency:       el('newQuoteCurrency').value,
+        tax_rate:       parseFloat(el('newQuoteTaxRate').value) || 0,
+        valid_until:    el('newQuoteValidUntil').value,
+        subject:        el('newQuoteSubject').value,
+        subjectFa:      el('newQuoteSubjectFa').value,
+        copy_opportunity_products: el('newQuoteCopyProducts').checked,
+    };
+
+    var btn = el('saveNewQuoteBtn');
+    btn.disabled = true;
+    fetchJSON('/api/crm/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    })
+    .then(function (res) {
+        bootstrap.Modal.getInstance(el('createQuoteModal')).hide();
+        showToast(t('crm.quotes.created_ok', 'Quote created') + ' — ' + res.quote_number, 'success');
+        loadQuotes();
+        if (res.quote_id) {
+            setTimeout(function () {
+                window.location.href = '/crm/quote/' + encodeURIComponent(res.quote_id);
+            }, 600);
+        }
+    })
+    .catch(function (err) { showToast(err.message, 'error'); })
+    .finally(function () { btn.disabled = false; });
+}
+
+// ============================================================================
+// 6. INIT
 // ============================================================================
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('CRM quotes page loaded | lang:', window.currentLanguage);
-
-    loadCustomersForFilter();
-    loadQuotes();
-
-    var rb = el('refreshBtn'); if (rb) rb.addEventListener('click', loadQuotes);
-    var fs = el('filterStatus');   if (fs) fs.addEventListener('change', loadQuotes);
-    var fc = el('filterCustomer'); if (fc) fc.addEventListener('change', loadQuotes);
-
-    var searchEl = el('filterSearch');
-    if (searchEl) {
+    ['filterStatus', 'filterCustomer', 'filterOpportunity'].forEach(function (id) {
+        var n = el(id); if (n) n.addEventListener('change', loadQuotes);
+    });
+    var searchInput = el('filterSearch');
+    if (searchInput) {
         var timer = null;
-        searchEl.addEventListener('input', function () {
+        searchInput.addEventListener('input', function () {
             clearTimeout(timer);
-            timer = setTimeout(renderQuotes, 250);
+            timer = setTimeout(loadQuotes, 250);
         });
     }
+
+    var rb = el('refreshBtn');       if (rb) rb.addEventListener('click', loadQuotes);
+    var cb = el('createQuoteBtn');   if (cb) cb.addEventListener('click', openCreateModal);
+    var sv = el('saveNewQuoteBtn');  if (sv) sv.addEventListener('click', saveNewQuote);
+
+    loadFilterCustomers();
+    loadFilterOpportunities();
+    loadQuotes();
+});
+</script>
+
+<script>
+// Sync buttons — defensive attach (idempotent; no-op if auto-init ran).
+document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.SyncButton && typeof window.SyncButton.attach === 'function')) return;
+    window.SyncButton.attach('.sync-btn[data-scope="customers"]', {
+        scope: 'customers',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
+    window.SyncButton.attach('.sync-btn[data-scope="all"]', {
+        scope: 'all',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
 });
 </script>
 {% endblock %}

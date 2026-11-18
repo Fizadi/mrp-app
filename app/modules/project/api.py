@@ -1,29 +1,41 @@
-from flask import Blueprint, request, jsonify, current_app, Response
+# app/modules/project/api.py
+from flask import request, jsonify, current_app, Response
 from sqlalchemy.sql import text
 from flask_login import login_required, current_user
 import csv
 import io
 import json
 import traceback
-import datetime
+import uuid
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, date
 
-api_bp = Blueprint('project_api', __name__, url_prefix='/api/project')
+
+from . import api_bp
+from app.modules.auth import verify_password  # noqa: F401 — Playbook G5
+
 
 def get_engine():
     return current_app.extensions['sqlalchemy'].engine
 
-# ==================== HELPER: CAST NUMERIC ====================
+
+def _new_id():
+    return str(uuid.uuid4())
+
+
+def _today_key():
+    return int(datetime.now().strftime('%Y%m%d'))
+
+
+def _current_industry():
+    return session.get('demo_industry', 'valve') if 'session' in globals() else 'valve'
+
+
 def cast_numeric(column):
-    """Return SQL Server compatible CAST for numeric operations."""
     return f"CAST({column} AS DECIMAL(18,4))"
 
+
 def is_active_true(value):
-    """
-    Interpret an NVARCHAR 'boolean' column value.
-    Accepts '1', 'true', 'True', 1, True as True; anything else False.
-    """
     if value is None:
         return False
     if isinstance(value, bool):
@@ -32,8 +44,17 @@ def is_active_true(value):
         return value == 1
     return str(value).strip().lower() in ('1', 'true', 'yes')
 
+
+def _industry_filter(col='DemoIndustryCode'):
+    return f"({col} = :industry OR {col} IS NULL)"
+
+
+from flask import session  # needs to be imported at module level for _current_industry
+
+
 # ==================== PORTFOLIO DATA ====================
 @api_bp.route('/data')
+@login_required
 def portfolio_data():
     engine = get_engine()
     status = request.args.get('status', '')
@@ -43,13 +64,12 @@ def portfolio_data():
     start_date = request.args.get('start_date_key', '')
     end_date = request.args.get('end_date_key', '')
     project_id = request.args.get('project_id', 'All')
-    
-    print(f"DEBUG: Received project_id = {project_id}")
-    
+    industry = _current_industry()
+
     try:
         with engine.connect() as conn:
-            conditions = []
-            params = {}
+            conditions = [_industry_filter('p.DemoIndustryCode')]
+            params = {'industry': industry}
 
             if status:
                 conditions.append("p.Status = :status")
@@ -60,15 +80,16 @@ def portfolio_data():
             if project_type:
                 conditions.append("p.ProjectType = :ptype")
                 params['ptype'] = project_type
+            # D2=a — Win/Lost is defined by Status, not WinLossReason
             if won_lost == 'won':
-                conditions.append("(p.WinLossReason IS NOT NULL AND p.WinLossReason != '')")
+                conditions.append("p.Status = 'Won'")
             elif won_lost == 'lost':
-                conditions.append("(p.WinLossReason IS NOT NULL AND p.WinLossReason != '') OR p.Status = 'Lost'")
+                conditions.append("p.Status = 'Lost'")
             if start_date and start_date.strip():
-                conditions.append("p.StartDateKey >= :start_key")
+                conditions.append("TRY_CAST(p.StartDateKey AS INT) >= :start_key")
                 params['start_key'] = int(start_date)
             if end_date and end_date.strip():
-                conditions.append("p.EndDateKey <= :end_key")
+                conditions.append("TRY_CAST(p.EndDateKey AS INT) <= :end_key")
                 params['end_key'] = int(end_date)
             if project_id and project_id != 'All':
                 conditions.append("p.ProjectID = :proj_id")
@@ -76,7 +97,7 @@ def portfolio_data():
 
             where_sql = " AND ".join(conditions) if conditions else "1=1"
 
-            query = text(f"""
+            rows = conn.execute(text(f"""
                 SELECT
                     p.ProjectID,
                     p.ProjectName,
@@ -96,36 +117,40 @@ def portfolio_data():
                 LEFT JOIN t_Users u ON p.CreatedByUserID = u.UserID
                 WHERE {where_sql}
                 ORDER BY p.ProjectID
-            """)
-            rows = conn.execute(query, params).fetchall()
+            """), params).fetchall()
 
-            # KPIs with CAST for numeric columns
             if project_id and project_id != 'All':
-                active = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'Active' AND ProjectID = :pid"), {'pid': project_id}).scalar()
-                on_hold = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'On Hold' AND ProjectID = :pid"), {'pid': project_id}).scalar()
-                completed = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'Completed' AND ProjectID = :pid"), {'pid': project_id}).scalar()
-                total_value = conn.execute(text("SELECT ISNULL(SUM(CAST(CommittedCost AS DECIMAL(18,4))),0) FROM t_ProjectFinancials WHERE ProjectID = :pid"), {'pid': project_id}).scalar()
-                lost_count = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE (WinLossReason IS NOT NULL OR Status = 'Lost') AND ProjectID = :pid"), {'pid': project_id}).scalar()
+                active = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'Active' AND ProjectID = :pid"), {'pid': project_id}).scalar() or 0
+                on_hold = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'On Hold' AND ProjectID = :pid"), {'pid': project_id}).scalar() or 0
+                completed = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'Completed' AND ProjectID = :pid"), {'pid': project_id}).scalar() or 0
+                total_value = conn.execute(text("SELECT ISNULL(SUM(CAST(CommittedCost AS DECIMAL(18,4))),0) FROM t_ProjectFinancials WHERE ProjectID = :pid"), {'pid': project_id}).scalar() or 0
+                lost_count = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'Lost' AND ProjectID = :pid"), {'pid': project_id}).scalar() or 0
             else:
-                active = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'Active'")).scalar()
-                on_hold = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'On Hold'")).scalar()
-                completed = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE Status = 'Completed'")).scalar()
-                total_value = conn.execute(text("SELECT ISNULL(SUM(CAST(CommittedCost AS DECIMAL(18,4))),0) FROM t_ProjectFinancials")).scalar()
-                lost_count = conn.execute(text("SELECT COUNT(*) FROM t_Project WHERE WinLossReason IS NOT NULL OR Status = 'Lost'")).scalar()
+                active = conn.execute(text(f"SELECT COUNT(*) FROM t_Project WHERE Status = 'Active' AND {_industry_filter()}"), {'industry': industry}).scalar() or 0
+                on_hold = conn.execute(text(f"SELECT COUNT(*) FROM t_Project WHERE Status = 'On Hold' AND {_industry_filter()}"), {'industry': industry}).scalar() or 0
+                completed = conn.execute(text(f"SELECT COUNT(*) FROM t_Project WHERE Status = 'Completed' AND {_industry_filter()}"), {'industry': industry}).scalar() or 0
+                total_value = conn.execute(text(f"""
+                    SELECT ISNULL(SUM(CAST(pf.CommittedCost AS DECIMAL(18,4))),0)
+                    FROM t_ProjectFinancials pf
+                    JOIN t_Project p ON pf.ProjectID = p.ProjectID
+                    WHERE {_industry_filter('p.DemoIndustryCode')}
+                """), {'industry': industry}).scalar() or 0
+                lost_count = conn.execute(text(f"SELECT COUNT(*) FROM t_Project WHERE Status = 'Lost' AND {_industry_filter()}"), {'industry': industry}).scalar() or 0
 
             projects = []
             for row in rows:
+                m = row._mapping
                 projects.append({
-                    'project_id': row[0],
-                    'project_name': row[1],
-                    'customer': row[2],
-                    'status': row[3],
-                    'winloss_reason': row[4] or '',
-                    'percent_complete': float(row[5] if row[5] else 0),
-                    'project_manager': row[6] or '',
-                    'project_type': row[7] or '',
-                    'value': float(row[8] if row[8] else 0),
-                    'created_by': row[9] or ''
+                    'project_id': m['ProjectID'],
+                    'project_name': m['ProjectName'],
+                    'customer': m['CustomerName'],
+                    'status': m['Status'],
+                    'winloss_reason': m['WinLossReason'] or '',
+                    'percent_complete': float(m['PercentComplete'] or 0),
+                    'project_manager': m['ProjectManager'] or '',
+                    'project_type': m['ProjectType'] or '',
+                    'value': float(m['Value'] or 0),
+                    'created_by': m['CreatedByName'] or ''
                 })
 
             return jsonify({
@@ -133,7 +158,7 @@ def portfolio_data():
                     'active': active,
                     'on_hold': on_hold,
                     'completed': completed,
-                    'total_value': total_value,
+                    'total_value': float(total_value),
                     'lost_count': lost_count
                 },
                 'projects': projects
@@ -142,101 +167,111 @@ def portfolio_data():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+
 # ==================== FILTER OPTIONS ====================
 @api_bp.route('/filter-options')
+@login_required
 def filter_options():
     engine = get_engine()
     with engine.connect() as conn:
-        managers = [row[0] for row in conn.execute(text("SELECT DISTINCT ProjectManager FROM t_Project WHERE ProjectManager IS NOT NULL AND ProjectManager != ''")).fetchall()]
-        types = [row[0] for row in conn.execute(text("SELECT DISTINCT ProjectType FROM t_Project WHERE ProjectType IS NOT NULL AND ProjectType != ''")).fetchall()]
-        statuses = ['Active', 'On Hold', 'Completed', 'Cancelled', 'Lost']
+        managers = [r._mapping['ProjectManager'] for r in conn.execute(
+            text("SELECT DISTINCT ProjectManager FROM t_Project WHERE ProjectManager IS NOT NULL AND ProjectManager != ''")
+        ).fetchall()]
+        types = [r._mapping['ProjectType'] for r in conn.execute(
+            text("SELECT DISTINCT ProjectType FROM t_Project WHERE ProjectType IS NOT NULL AND ProjectType != ''")
+        ).fetchall()]
     return jsonify({
         'project_managers': managers,
         'project_types': types,
-        'statuses': statuses
+        'statuses': ['Active', 'On Hold', 'Completed', 'Cancelled', 'Won', 'Lost']
     })
+
 
 # ==================== CREATE PROJECT ====================
 @api_bp.route('/create', methods=['POST'])
+@login_required
 def create_project():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    today = int(datetime.date.today().strftime("%Y%m%d"))
+    today = _today_key()
     created_by = current_user.get_id() if current_user.is_authenticated else None
+    project_id = data.get('project_id') or _new_id()
+
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO t_Project (
                     ProjectID, ProjectName, CompanyID, CustomerCompanyID, Status, WinLossReason,
                     AdditionalAttributes, PercentComplete, ProjectManager,
-                    ProjectType, StartDateKey, EndDateKey, CreatedByUserID
+                    ProjectType, StartDateKey, EndDateKey, CreatedByUserID, CreatedDateKey
                 ) VALUES (
                     :pid, :pname, :company, :cust, :status, :winloss,
                     :attrs, :pct, :pmgr,
-                    :ptype, :start_key, :end_key, :created_by
+                    :ptype, :start_key, :end_key, :created_by, :today
                 )
             """), {
-                'pid': data['project_id'],
+                'pid': project_id,
                 'pname': data['project_name'],
                 'company': data.get('company_id', ''),
                 'cust': data.get('customer_id'),
                 'status': data.get('status', 'Active'),
                 'winloss': data.get('winloss_reason'),
                 'attrs': json.dumps(data.get('additional_attrs', {})),
-                'pct': float(data.get('percent_complete', 0)),
+                'pct': str(data.get('percent_complete', 0)),
                 'pmgr': data.get('project_manager'),
                 'ptype': data.get('project_type'),
-                'start_key': data.get('start_date_key'),
-                'end_key': data.get('end_date_key'),
-                'created_by': created_by
+                'start_key': str(data.get('start_date_key')) if data.get('start_date_key') else None,
+                'end_key': str(data.get('end_date_key')) if data.get('end_date_key') else None,
+                'created_by': created_by,
+                'today': str(today)
             })
-            # Financials
             budget = data.get('budget', 0)
             actual = data.get('actual_cost', 0)
             committed = data.get('committed_cost', 0)
             currency = data.get('currency', 'USD')
             if budget or actual or committed:
                 conn.execute(text("""
-                    INSERT INTO t_ProjectFinancials (ProjectID, Budget, ActualCost, CommittedCost, Currency, LastUpdatedDateKey)
-                    VALUES (:pid, :budget, :actual, :committed, :curr, :today)
+                    INSERT INTO t_ProjectFinancials (FinancialID, ProjectID, Budget, ActualCost, CommittedCost, Currency, LastUpdatedDateKey)
+                    VALUES (:fid, :pid, :budget, :actual, :committed, :curr, :today)
                 """), {
-                    'pid': data['project_id'],
-                    'budget': float(budget),
-                    'actual': float(actual),
-                    'committed': float(committed),
+                    'fid': _new_id(),
+                    'pid': project_id,
+                    'budget': str(float(budget)),
+                    'actual': str(float(actual)),
+                    'committed': str(float(committed)),
                     'curr': currency,
-                    'today': today
+                    'today': str(today)
                 })
-            # Required documents
             required_docs = data.get('required_documents', [])
-            if required_docs:
-                conn.execute(text("DELETE FROM t_ProjectDocumentType WHERE ProjectID = :pid"), {'pid': data['project_id']})
-                for doc in required_docs:
-                    conn.execute(text("""
-                        INSERT INTO t_ProjectDocumentType (ProjectID, DocumentTypeID, IsRequired, MaxRevisions, WorkflowStep, CreatedDateKey, ModifiedDateKey)
-                        VALUES (:pid, :dtid, :req, :maxrev, :step, :today, :today)
-                    """), {
-                        'pid': data['project_id'],
-                        'dtid': doc['document_type_id'],
-                        'req': 1 if doc.get('is_required') else 0,
-                        'maxrev': doc.get('max_revisions', 1),
-                        'step': doc.get('workflow_step', ''),
-                        'today': today
-                    })
-            conn.commit()
-        return jsonify({'success': True})
+            for doc in required_docs:
+                conn.execute(text("""
+                    INSERT INTO t_ProjectDocumentType
+                    (ProjectDocumentTypeID, ProjectID, DocumentTypeID, IsRequired, MaxRevisions, WorkflowStep, CreatedDateKey, ModifiedDateKey)
+                    VALUES (:pdid, :pid, :dtid, :req, :maxrev, :step, :today, :today)
+                """), {
+                    'pdid': _new_id(),
+                    'pid': project_id,
+                    'dtid': doc['document_type_id'],
+                    'req': '1' if doc.get('is_required') else '0',
+                    'maxrev': str(doc.get('max_revisions', 1)),
+                    'step': doc.get('workflow_step', ''),
+                    'today': str(today)
+                })
+        return jsonify({'success': True, 'project_id': project_id})
     except Exception as e:
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
+
 # ==================== UPDATE PROJECT ====================
 @api_bp.route('/update/<string:project_id>', methods=['POST'])
+@login_required
 def update_project(project_id):
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    today = int(datetime.date.today().strftime("%Y%m%d"))
+    today = _today_key()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 UPDATE t_Project SET
                     ProjectName = :pname, CompanyID = :company, CustomerCompanyID = :cust, Status = :status,
@@ -252,68 +287,55 @@ def update_project(project_id):
                 'status': data.get('status', 'Active'),
                 'winloss': data.get('winloss_reason'),
                 'attrs': json.dumps(data.get('additional_attrs', {})),
-                'pct': float(data.get('percent_complete', 0)),
+                'pct': str(data.get('percent_complete', 0)),
                 'pmgr': data.get('project_manager'),
                 'ptype': data.get('project_type'),
-                'start_key': data.get('start_date_key'),
-                'end_key': data.get('end_date_key')
+                'start_key': str(data.get('start_date_key')) if data.get('start_date_key') else None,
+                'end_key': str(data.get('end_date_key')) if data.get('end_date_key') else None
             })
             # Replace financials
-            budget = data.get('budget', 0)
-            actual = data.get('actual_cost', 0)
-            committed = data.get('committed_cost', 0)
-            currency = data.get('currency', 'USD')
             conn.execute(text("DELETE FROM t_ProjectFinancials WHERE ProjectID = :pid"), {'pid': project_id})
             conn.execute(text("""
-                INSERT INTO t_ProjectFinancials (ProjectID, Budget, ActualCost, CommittedCost, Currency, LastUpdatedDateKey)
-                VALUES (:pid, :budget, :actual, :committed, :curr, :today)
+                INSERT INTO t_ProjectFinancials (FinancialID, ProjectID, Budget, ActualCost, CommittedCost, Currency, LastUpdatedDateKey)
+                VALUES (:fid, :pid, :budget, :actual, :committed, :curr, :today)
             """), {
+                'fid': _new_id(),
                 'pid': project_id,
-                'budget': float(budget),
-                'actual': float(actual),
-                'committed': float(committed),
-                'curr': currency,
-                'today': today
+                'budget': str(float(data.get('budget', 0))),
+                'actual': str(float(data.get('actual_cost', 0))),
+                'committed': str(float(data.get('committed_cost', 0))),
+                'curr': data.get('currency', 'USD'),
+                'today': str(today)
             })
             # Replace required documents
-            required_docs = data.get('required_documents', [])
             conn.execute(text("DELETE FROM t_ProjectDocumentType WHERE ProjectID = :pid"), {'pid': project_id})
-            for doc in required_docs:
+            for doc in data.get('required_documents', []):
                 conn.execute(text("""
-                    INSERT INTO t_ProjectDocumentType (ProjectID, DocumentTypeID, IsRequired, MaxRevisions, WorkflowStep, CreatedDateKey, ModifiedDateKey)
-                    VALUES (:pid, :dtid, :req, :maxrev, :step, :today, :today)
+                    INSERT INTO t_ProjectDocumentType
+                    (ProjectDocumentTypeID, ProjectID, DocumentTypeID, IsRequired, MaxRevisions, WorkflowStep, CreatedDateKey, ModifiedDateKey)
+                    VALUES (:pdid, :pid, :dtid, :req, :maxrev, :step, :today, :today)
                 """), {
+                    'pdid': _new_id(),
                     'pid': project_id,
                     'dtid': doc['document_type_id'],
-                    'req': 1 if doc.get('is_required') else 0,
-                    'maxrev': doc.get('max_revisions', 1),
+                    'req': '1' if doc.get('is_required') else '0',
+                    'maxrev': str(doc.get('max_revisions', 1)),
                     'step': doc.get('workflow_step', ''),
-                    'today': today
+                    'today': str(today)
                 })
-            conn.commit()
         return jsonify({'success': True})
     except Exception as e:
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
-# ==================== DASHBOARD DATA ====================
-
 
 # ==================== DASHBOARD DATA ====================
 @api_bp.route('/dashboard_data/<string:project_id>')
+@login_required
 def dashboard_data(project_id):
-    """
-    Aggregated dashboard data for a single project.
-
-    Every sub-query is wrapped in try/except so a single failing query
-    doesn't 500 the whole endpoint. Failures are logged with the actual
-    error message and fall back to safe defaults.
-    """
     engine = get_engine()
     try:
         with engine.connect() as conn:
-
-            # ---------- Project header ----------
             proj = conn.execute(text("""
                 SELECT ProjectName, Status, PercentComplete, ProjectManager,
                        WinLossReason, AdditionalAttributes,
@@ -322,82 +344,81 @@ def dashboard_data(project_id):
             """), {'pid': project_id}).fetchone()
             if not proj:
                 return jsonify({'error': 'Project not found'}), 404
+            pm = proj._mapping
 
-            # ---------- Financials ----------
             try:
                 fin = conn.execute(text("""
-                    SELECT ISNULL(CAST(Budget        AS DECIMAL(18,4)), 0),
-                           ISNULL(CAST(ActualCost    AS DECIMAL(18,4)), 0),
-                           ISNULL(CAST(CommittedCost AS DECIMAL(18,4)), 0),
-                           ISNULL(Currency, 'USD')
+                    SELECT ISNULL(CAST(Budget        AS DECIMAL(18,4)), 0) AS Budget,
+                           ISNULL(CAST(ActualCost    AS DECIMAL(18,4)), 0) AS ActualCost,
+                           ISNULL(CAST(CommittedCost AS DECIMAL(18,4)), 0) AS CommittedCost,
+                           ISNULL(Currency, 'USD') AS Currency
                     FROM t_ProjectFinancials WHERE ProjectID = :pid
                 """), {'pid': project_id}).fetchone()
-                budget, actual, committed, currency = fin if fin else (0, 0, 0, 'USD')
-                budget_util = (actual / budget * 100) if budget and budget > 0 else 0
+                if fin:
+                    fm = fin._mapping
+                    budget = float(fm['Budget'])
+                    actual = float(fm['ActualCost'])
+                    committed = float(fm['CommittedCost'])
+                    currency = fm['Currency']
+                else:
+                    budget, actual, committed, currency = 0, 0, 0, 'USD'
+                budget_util = (actual / budget * 100) if budget > 0 else 0
             except Exception as e:
                 print(f"⚠️ Financials query failed for {project_id}: {e}")
                 budget, actual, committed, currency = 0, 0, 0, 'USD'
                 budget_util = 0
 
-            # ---------- Milestones ----------
             try:
                 milestone = conn.execute(text("""
                     SELECT COUNT(*) AS total,
                            SUM(CASE WHEN Status = 'Completed' THEN 1 ELSE 0 END) AS completed
                     FROM t_ProjectMilestones WHERE ProjectID = :pid
                 """), {'pid': project_id}).fetchone()
-                total_ms = milestone[0] or 0
-                completed_ms = milestone[1] or 0
+                mm = milestone._mapping
+                total_ms = mm['total'] or 0
+                completed_ms = mm['completed'] or 0
                 milestone_progress = (completed_ms / total_ms * 100) if total_ms > 0 else 0
             except Exception as e:
                 print(f"⚠️ Milestones query failed for {project_id}: {e}")
                 milestone_progress = 0
 
-            # ---------- Pending Reminders ----------
             try:
-                today = int(datetime.date.today().strftime("%Y%m%d"))
+                today = _today_key()
                 reminders = conn.execute(text("""
                     SELECT COUNT(*) FROM t_Reminder
                     WHERE ProjectID = :pid
-                      AND DueDateKey < :today
+                      AND TRY_CAST(DueDateKey AS INT) < :today
                       AND ISNULL(Status, '') != 'Completed'
                 """), {'pid': project_id, 'today': today}).scalar() or 0
             except Exception as e:
                 print(f"⚠️ Reminders query failed for {project_id}: {e}")
                 reminders = 0
 
-            # ---------- Service Requests & Warranty ----------
-            # t_ServiceRequest.CompanyProjectID is NULL for all current rows,
-            # so service requests cannot be attributed to a project yet.
-            # Truthful per-project count is 0 until linkage is populated.
-            service_orders = 0
-            warranty_warning = 0
-
             return jsonify({
                 'project': {
-                    'name': proj[0],
-                    'status': proj[1],
-                    'percent_complete': float(proj[2] or 0),
-                    'manager': proj[3],                 # may be None; frontend handles
-                    'winloss_reason': proj[4] or '',
-                    'additional_attrs': proj[5] or '{}',
-                    'start_date': proj[6],
-                    'end_date': proj[7],
-                    'company_id': proj[8] or '',
-                    'customer_id': proj[9] or ''
+                    'name': pm['ProjectName'],
+                    'status': pm['Status'],
+                    'percent_complete': float(pm['PercentComplete'] or 0),
+                    'manager': pm['ProjectManager'],
+                    'winloss_reason': pm['WinLossReason'] or '',
+                    'additional_attrs': pm['AdditionalAttributes'] or '{}',
+                    'start_date': pm['StartDateKey'],
+                    'end_date': pm['EndDateKey'],
+                    'company_id': pm['CompanyID'] or '',
+                    'customer_id': pm['CustomerCompanyID'] or ''
                 },
                 'kpis': {
-                    'percent_complete': float(proj[2] or 0),
+                    'percent_complete': float(pm['PercentComplete'] or 0),
                     'budget_utilisation': round(budget_util, 1),
                     'milestone_progress': round(milestone_progress, 1),
-                    'active_service_orders': service_orders,
+                    'active_service_orders': 0,
                     'pending_reminders': reminders,
-                    'warranty_expiry_warning': warranty_warning > 0
+                    'warranty_expiry_warning': False
                 },
                 'financial': {
-                    'budget': float(budget),
-                    'actual_cost': float(actual),
-                    'committed_cost': float(committed),
+                    'budget': budget,
+                    'actual_cost': actual,
+                    'committed_cost': committed,
                     'currency': currency
                 }
             })
@@ -406,47 +427,55 @@ def dashboard_data(project_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+
 # ==================== MILESTONES ====================
 @api_bp.route('/milestones/<string:project_id>')
+@login_required
 def get_milestones(project_id):
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT MilestoneID, MilestoneName, DueDateKey, CompletionDateKey, Status
-            FROM t_ProjectMilestones WHERE ProjectID = :pid ORDER BY DueDateKey
+            FROM t_ProjectMilestones WHERE ProjectID = :pid ORDER BY TRY_CAST(DueDateKey AS INT)
         """), {'pid': project_id}).fetchall()
-    milestones = [{
-        'id': r[0], 'name': r[1], 'planned_date': r[2], 'actual_date': r[3], 'status': r[4]
-    } for r in rows]
-    return jsonify(milestones)
+    return jsonify([{
+        'id': r._mapping['MilestoneID'],
+        'name': r._mapping['MilestoneName'],
+        'planned_date': r._mapping['DueDateKey'],
+        'actual_date': r._mapping['CompletionDateKey'],
+        'status': r._mapping['Status']
+    } for r in rows])
+
 
 @api_bp.route('/add_milestone', methods=['POST'])
+@login_required
 def add_milestone():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
-                INSERT INTO t_ProjectMilestones (ProjectID, MilestoneName, DueDateKey, Status)
-                VALUES (:pid, :name, :due, :status)
+                INSERT INTO t_ProjectMilestones (MilestoneID, ProjectID, MilestoneName, DueDateKey, Status)
+                VALUES (:mid, :pid, :name, :due, :status)
             """), {
+                'mid': _new_id(),
                 'pid': data['project_id'],
                 'name': data['milestone_name'],
-                'due': data['planned_date_key'],
+                'due': str(data['planned_date_key']),
                 'status': data.get('status', 'Pending')
             })
-            conn.commit()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
-# ==================== MILESTONES LIST ====================
+
 @api_bp.route('/milestones_list/<string:project_id>')
+@login_required
 def get_milestones_list(project_id):
     status_filter = request.args.get('status', '')
     due_date_from = request.args.get('due_date_from', '')
     due_date_to = request.args.get('due_date_to', '')
-    
+
     engine = get_engine()
     with engine.connect() as conn:
         base_sql = """
@@ -461,39 +490,42 @@ def get_milestones_list(project_id):
             conditions.append("Status = :status")
             params['status'] = status_filter
         if due_date_from and due_date_from.strip():
-            conditions.append("DueDateKey >= :from_date")
+            conditions.append("TRY_CAST(DueDateKey AS INT) >= :from_date")
             params['from_date'] = int(due_date_from)
         if due_date_to and due_date_to.strip():
-            conditions.append("DueDateKey <= :to_date")
+            conditions.append("TRY_CAST(DueDateKey AS INT) <= :to_date")
             params['to_date'] = int(due_date_to)
         if conditions:
             base_sql += " AND " + " AND ".join(conditions)
-        base_sql += " ORDER BY DueDateKey"
-        
+        base_sql += " ORDER BY TRY_CAST(DueDateKey AS INT)"
+
         rows = conn.execute(text(base_sql), params).fetchall()
-        
-        total = conn.execute(text("SELECT COUNT(*) FROM t_ProjectMilestones WHERE ProjectID = :pid"), {'pid': project_id}).scalar()
-        completed = conn.execute(text("SELECT COUNT(*) FROM t_ProjectMilestones WHERE ProjectID = :pid AND Status = 'Completed'"), {'pid': project_id}).scalar()
-        today = int(datetime.date.today().strftime("%Y%m%d"))
+
+        total = conn.execute(text("SELECT COUNT(*) FROM t_ProjectMilestones WHERE ProjectID = :pid"), {'pid': project_id}).scalar() or 0
+        completed = conn.execute(text("SELECT COUNT(*) FROM t_ProjectMilestones WHERE ProjectID = :pid AND Status = 'Completed'"), {'pid': project_id}).scalar() or 0
+        today = _today_key()
         overdue = conn.execute(text("""
             SELECT COUNT(*) FROM t_ProjectMilestones 
-            WHERE ProjectID = :pid AND DueDateKey < :today AND Status != 'Completed'
-        """), {'pid': project_id, 'today': today}).scalar()
+            WHERE ProjectID = :pid AND TRY_CAST(DueDateKey AS INT) < :today AND Status != 'Completed'
+        """), {'pid': project_id, 'today': today}).scalar() or 0
         on_time = conn.execute(text("""
             SELECT COUNT(*) FROM t_ProjectMilestones 
-            WHERE ProjectID = :pid AND Status = 'Completed' AND CompletionDateKey <= DueDateKey
-        """), {'pid': project_id}).scalar()
-        
+            WHERE ProjectID = :pid AND Status = 'Completed'
+              AND TRY_CAST(CompletionDateKey AS INT) <= TRY_CAST(DueDateKey AS INT)
+        """), {'pid': project_id}).scalar() or 0
+
         milestones = []
         for row in rows:
-            is_overdue = (row[2] and row[2] < today) and (row[4] != 'Completed')
+            m = row._mapping
+            due_int = int(m['DueDateKey']) if m['DueDateKey'] else None
+            is_overdue = bool(due_int and due_int < today and m['Status'] != 'Completed')
             milestones.append({
-                'id': row[0],
-                'name': row[1],
-                'due_date': row[2],
-                'completion_date': row[3],
-                'status': row[4],
-                'weight': float(row[5]) if row[5] else 0,
+                'id': m['MilestoneID'],
+                'name': m['MilestoneName'],
+                'due_date': m['DueDateKey'],
+                'completion_date': m['CompletionDateKey'],
+                'status': m['Status'],
+                'weight': float(m['Weight']) if m['Weight'] else 0,
                 'is_overdue': is_overdue
             })
         return jsonify({
@@ -501,37 +533,47 @@ def get_milestones_list(project_id):
             'milestones': milestones
         })
 
+
 @api_bp.route('/complete_milestone', methods=['POST'])
+@login_required
 def complete_milestone():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    today = int(datetime.date.today().strftime("%Y%m%d"))
+    today = _today_key()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 UPDATE t_ProjectMilestones
                 SET Status = 'Completed', CompletionDateKey = :today
                 WHERE MilestoneID = :mid
-            """), {'today': today, 'mid': data['milestone_id']})
-            conn.commit()
+            """), {'today': str(today), 'mid': data['milestone_id']})
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+
 # ==================== PRODUCTS ====================
 @api_bp.route('/products/<string:project_id>')
+@login_required
 def get_products(project_id):
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
-            SELECT ProductID, RequiredQuantity, UnitPrice, (CAST(RequiredQuantity AS DECIMAL(18,4)) * CAST(UnitPrice AS DECIMAL(18,4))) as TotalPrice
+            SELECT ProductID, RequiredQuantity, UnitPrice,
+                   (TRY_CAST(RequiredQuantity AS DECIMAL(18,4)) * TRY_CAST(UnitPrice AS DECIMAL(18,4))) as TotalPrice
             FROM t_ProjectProducts WHERE ProjectID = :pid
         """), {'pid': project_id}).fetchall()
-    products = [{'id': r[0], 'qty': r[1], 'unit_price': float(r[2] or 0), 'total': float(r[3] or 0)} for r in rows]
-    return jsonify(products)
+    return jsonify([{
+        'id': r._mapping['ProductID'],
+        'qty': r._mapping['RequiredQuantity'],
+        'unit_price': float(r._mapping['UnitPrice'] or 0),
+        'total': float(r._mapping['TotalPrice'] or 0)
+    } for r in rows])
+
 
 # ==================== QUALITY ====================
 @api_bp.route('/quality/<string:project_id>')
+@login_required
 def get_quality(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -539,11 +581,17 @@ def get_quality(project_id):
             SELECT ProjectQualityPlanID, PlanName, PlanStatus, EffectiveDateKey
             FROM t_ProjectQualityPlan WHERE ProjectID = :pid
         """), {'pid': project_id}).fetchall()
-    quality = [{'id': r[0], 'name': r[1], 'status': r[2], 'due_date': r[3]} for r in rows]
-    return jsonify(quality)
+    return jsonify([{
+        'id': r._mapping['ProjectQualityPlanID'],
+        'name': r._mapping['PlanName'],
+        'status': r._mapping['PlanStatus'],
+        'due_date': r._mapping['EffectiveDateKey']
+    } for r in rows])
+
 
 # ==================== DOCUMENTS ====================
 @api_bp.route('/documents/<string:project_id>')
+@login_required
 def get_documents(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -551,11 +599,18 @@ def get_documents(project_id):
             SELECT DocumentID, DocumentNumber, Title, Revision, Status
             FROM t_EngineeringDocument WHERE ProjectID = :pid
         """), {'pid': project_id}).fetchall()
-    docs = [{'id': r[0], 'number': r[1], 'title': r[2], 'rev': r[3], 'status': r[4]} for r in rows]
-    return jsonify(docs)
+    return jsonify([{
+        'id': r._mapping['DocumentID'],
+        'number': r._mapping['DocumentNumber'],
+        'title': r._mapping['Title'],
+        'rev': r._mapping['Revision'],
+        'status': r._mapping['Status']
+    } for r in rows])
+
 
 # ==================== SERVICE ORDERS ====================
 @api_bp.route('/service_orders/<string:project_id>')
+@login_required
 def get_service_orders(project_id):
     engine = get_engine()
     try:
@@ -564,76 +619,95 @@ def get_service_orders(project_id):
                 SELECT OrderID, OrderNumber, OrderDateKey, Status, TotalAmount
                 FROM t_ServiceOrder WHERE ProjectID = :pid
             """), {'pid': project_id}).fetchall()
-        orders = [{'id': r[0], 'number': r[1], 'date': r[2], 'status': r[3], 'amount': float(r[4])} for r in rows]
-        return jsonify(orders)
-    except:
+        return jsonify([{
+            'id': r._mapping['OrderID'],
+            'number': r._mapping['OrderNumber'],
+            'date': r._mapping['OrderDateKey'],
+            'status': r._mapping['Status'],
+            'amount': float(r._mapping['TotalAmount'] or 0)
+        } for r in rows])
+    except Exception as e:
+        print(f"⚠️ t_ServiceOrder query failed for {project_id}: {e}")
         return jsonify([])
+
 
 # ==================== REMINDERS ====================
 @api_bp.route('/reminders/<string:project_id>')
+@login_required
 def get_reminders(project_id):
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT ReminderID, Title, DueDateKey, Status, AssignedTo
-            FROM t_Reminder WHERE ProjectID = :pid ORDER BY DueDateKey
+            FROM t_Reminder WHERE ProjectID = :pid ORDER BY TRY_CAST(DueDateKey AS INT)
         """), {'pid': project_id}).fetchall()
-    reminders = [{'id': r[0], 'title': r[1], 'due_date': r[2], 'status': r[3], 'assigned_to': r[4]} for r in rows]
-    return jsonify(reminders)
+    return jsonify([{
+        'id': r._mapping['ReminderID'],
+        'title': r._mapping['Title'],
+        'due_date': r._mapping['DueDateKey'],
+        'status': r._mapping['Status'],
+        'assigned_to': r._mapping['AssignedTo']
+    } for r in rows])
+
 
 @api_bp.route('/add_reminder', methods=['POST'])
+@login_required
 def add_reminder():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
-                INSERT INTO t_Reminder (ProjectID, Title, DueDateKey, AssignedTo)
-                VALUES (:pid, :title, :due, :assigned)
+                INSERT INTO t_Reminder (ReminderID, ProjectID, Title, DueDateKey, AssignedTo)
+                VALUES (:rid, :pid, :title, :due, :assigned)
             """), {
+                'rid': _new_id(),
                 'pid': data['project_id'],
                 'title': data['title'],
-                'due': data['due_date_key'],
+                'due': str(data['due_date_key']),
                 'assigned': data.get('assigned_to')
             })
-            conn.commit()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+
 # ==================== UPDATE FINANCIALS ====================
 @api_bp.route('/update_financials', methods=['POST'])
+@login_required
 def update_financials():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("""
             UPDATE t_ProjectFinancials 
             SET Budget = :budget, ActualCost = :actual, CommittedCost = :committed, Currency = :currency
             WHERE ProjectID = :pid
         """), {
             'pid': data['project_id'],
-            'budget': data['budget'],
-            'actual': data['actual_cost'],
-            'committed': data['committed_cost'],
+            'budget': str(data['budget']),
+            'actual': str(data['actual_cost']),
+            'committed': str(data['committed_cost']),
             'currency': data['currency']
         })
-        conn.commit()
     return jsonify({'success': True})
+
 
 # ==================== UPDATE ATTRIBUTES ====================
 @api_bp.route('/update_attributes', methods=['POST'])
+@login_required
 def update_attributes():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("UPDATE t_Project SET AdditionalAttributes = :attrs WHERE ProjectID = :pid"),
                      {'attrs': json.dumps(data['attributes']), 'pid': data['project_id']})
-        conn.commit()
     return jsonify({'success': True})
+
 
 # ==================== PROJECT BOM ====================
 @api_bp.route('/bom/<string:project_id>')
+@login_required
 def get_project_bom(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -645,95 +719,100 @@ def get_project_bom(project_id):
             WHERE pp.ProjectID = :pid
             ORDER BY pp.ProductID
         """), {'pid': project_id}).fetchall()
-        
+
         total = len(rows)
-        custom = sum(1 for r in rows if r[4] == 1)
-        
-        components = []
-        for row in rows:
-            components.append({
-                'id': row[0],
-                'component_id': row[1],
-                'name': row[2] or row[1],
-                'quantity': float(row[3]) if row[3] else 0,
-                'is_custom': bool(row[4]),
-                'alternative': row[5] or '',
-                'custom_spec': row[6] or '',
-                'status': row[7] or ''
-            })
-        
+        custom = sum(1 for r in rows if is_active_true(r._mapping['IsCustom']))
+
+        components = [{
+            'id': r._mapping['ProjectProductID'],
+            'component_id': r._mapping['ProductID'],
+            'name': r._mapping['descEnglish'] or r._mapping['ProductID'],
+            'quantity': float(r._mapping['RequiredQuantity']) if r._mapping['RequiredQuantity'] else 0,
+            'is_custom': is_active_true(r._mapping['IsCustom']),
+            'alternative': r._mapping['AlternativeComponent'] or '',
+            'custom_spec': r._mapping['CustomSpec'] or '',
+            'status': r._mapping['Status'] or ''
+        } for r in rows]
+
         return jsonify({
             'kpis': {'total_components': total, 'custom_components': custom},
             'components': components
         })
 
+
 @api_bp.route('/bom/add', methods=['POST'])
+@login_required
 def add_project_bom_component():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO t_ProjectProducts
-                (ProjectID, ProductID, RequiredQuantity, IsCustom, AlternativeComponent, CustomSpec, Status)
-                VALUES (:pid, :prod, :qty, :iscustom, :alt, :spec, 'Active')
+                (ProjectProductID, ProjectID, ProductID, RequiredQuantity, IsCustom, AlternativeComponent, CustomSpec, Status)
+                VALUES (:ppid, :pid, :prod, :qty, :iscustom, :alt, :spec, 'Active')
             """), {
+                'ppid': _new_id(),
                 'pid': data['project_id'],
                 'prod': data['component_id'],
-                'qty': float(data['quantity']),
-                'iscustom': 1 if data.get('is_custom') else 0,
+                'qty': str(float(data['quantity'])),
+                'iscustom': '1' if data.get('is_custom') else '0',
                 'alt': data.get('alternative', ''),
                 'spec': data.get('custom_spec', '')
             })
-            conn.commit()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
-@api_bp.route('/bom/delete/<int:line_id>', methods=['POST'])
+
+@api_bp.route('/bom/delete/<string:line_id>', methods=['POST'])
+@login_required
 def delete_project_bom_component(line_id):
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("DELETE FROM t_ProjectProducts WHERE ProjectProductID = :lid"), {'lid': line_id})
-        conn.commit()
     return jsonify({'success': True})
 
+
 @api_bp.route('/bom/import', methods=['POST'])
+@login_required
 def import_project_bom():
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': 'No file'}), 400
     file = request.files['file']
     if file.filename == '':
         return jsonify({'success': False, 'message': 'Empty file'}), 400
-    
+
     stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
     csv_input = csv.DictReader(stream)
     engine = get_engine()
     created = 0
     errors = []
-    
-    with engine.connect() as conn:
+
+    with engine.begin() as conn:
         for row in csv_input:
             try:
                 conn.execute(text("""
                     INSERT INTO t_ProjectProducts
-                    (ProjectID, ProductID, RequiredQuantity, IsCustom, AlternativeComponent, CustomSpec, Status)
-                    VALUES (:pid, :prod, :qty, :iscustom, :alt, :spec, 'Active')
+                    (ProjectProductID, ProjectID, ProductID, RequiredQuantity, IsCustom, AlternativeComponent, CustomSpec, Status)
+                    VALUES (:ppid, :pid, :prod, :qty, :iscustom, :alt, :spec, 'Active')
                 """), {
+                    'ppid': _new_id(),
                     'pid': row['ProjectID'],
                     'prod': row['ProductID'],
-                    'qty': float(row['RequiredQuantity']),
-                    'iscustom': int(row.get('IsCustom', 0)),
+                    'qty': str(float(row['RequiredQuantity'])),
+                    'iscustom': str(int(row.get('IsCustom', 0) or 0)),
                     'alt': row.get('AlternativeComponent', ''),
                     'spec': row.get('CustomSpec', '')
                 })
                 created += 1
             except Exception as e:
                 errors.append(f"Row {csv_input.line_num}: {str(e)}")
-        conn.commit()
     return jsonify({'success': True, 'created': created, 'errors': errors})
 
+
 @api_bp.route('/bom/export/<string:project_id>')
+@login_required
 def export_project_bom(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -747,16 +826,18 @@ def export_project_bom(project_id):
     writer = csv.writer(output)
     writer.writerow(['ProductID', 'ComponentName', 'RequiredQuantity', 'IsCustom', 'AlternativeComponent', 'CustomSpec'])
     for row in rows:
-        writer.writerow([row[0], row[1] or row[0], row[2], row[3], row[4], row[5]])
-    output.seek(0)
+        m = row._mapping
+        writer.writerow([m['ProductID'], m['descEnglish'] or m['ProductID'], m['RequiredQuantity'], m['IsCustom'], m['AlternativeComponent'], m['CustomSpec']])
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition": f"attachment;filename=project_bom_{project_id}.csv"})
+
 
 # ==================== DELIVERABLES ====================
 @api_bp.route('/deliverables/<string:project_id>')
+@login_required
 def get_deliverables(project_id):
     status_filter = request.args.get('status', '')
     responsible_filter = request.args.get('responsible', '')
-    
+
     engine = get_engine()
     with engine.connect() as conn:
         sql = """
@@ -774,38 +855,36 @@ def get_deliverables(project_id):
         if responsible_filter:
             sql += " AND pp.Responsible = :resp"
             params['resp'] = responsible_filter
-        sql += " ORDER BY pp.DeliveryDateKey"
-        
+        sql += " ORDER BY TRY_CAST(pp.DeliveryDateKey AS INT)"
+
         rows = conn.execute(text(sql), params).fetchall()
-        
-        total = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid"), {'pid': project_id}).scalar()
-        pending = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Pending'"), {'pid': project_id}).scalar()
-        submitted = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Submitted'"), {'pid': project_id}).scalar()
-        approved = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Approved'"), {'pid': project_id}).scalar()
-        rejected = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Rejected'"), {'pid': project_id}).scalar()
-        
+
+        total = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid"), {'pid': project_id}).scalar() or 0
+        pending = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Pending'"), {'pid': project_id}).scalar() or 0
+        submitted = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Submitted'"), {'pid': project_id}).scalar() or 0
+        approved = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Approved'"), {'pid': project_id}).scalar() or 0
+        rejected = conn.execute(text("SELECT COUNT(*) FROM t_ProjectProducts WHERE ProjectID = :pid AND Status = 'Rejected'"), {'pid': project_id}).scalar() or 0
+
         deliverables = []
         responsibles = set()
         for row in rows:
-            name = row[1] if row[1] else f"Product {row[0]}"
-            responsible = row[3] or ''
-            status = row[4] or 'Pending'
-            customer_approval = bool(row[5])
-            notes = row[6] or ''
-            approval_date = row[7]
+            m = row._mapping
+            name = m['DeliverableName'] or f"Product {m['ProjectProductID']}"
+            responsible = m['Responsible'] or ''
+            status = m['Status'] or 'Pending'
             if responsible:
                 responsibles.add(responsible)
             deliverables.append({
-                'id': row[0],
+                'id': m['ProjectProductID'],
                 'name': name,
-                'due_date': row[2],
+                'due_date': m['DeliveryDateKey'],
                 'responsible': responsible,
                 'status': status,
-                'customer_approval': customer_approval,
-                'notes': notes,
-                'approval_date': approval_date
+                'customer_approval': is_active_true(m['CustomerApproval']),
+                'notes': m['Notes'] or '',
+                'approval_date': m['ApprovalDateKey']
             })
-        
+
         return jsonify({
             'kpis': {'total': total, 'pending': pending, 'submitted': submitted, 'approved': approved, 'rejected': rejected},
             'deliverables': deliverables,
@@ -815,70 +894,77 @@ def get_deliverables(project_id):
             }
         })
 
+
 @api_bp.route('/deliverable/submit_approval', methods=['POST'])
+@login_required
 def submit_deliverable_approval():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("""
             UPDATE t_ProjectProducts
             SET Status = 'Submitted'
             WHERE ProjectProductID = :did AND Status = 'Pending'
         """), {'did': data['deliverable_id']})
-        conn.commit()
     return jsonify({'success': True})
+
 
 @api_bp.route('/deliverable/approve', methods=['POST'])
+@login_required
 def approve_deliverable():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    today = int(datetime.date.today().strftime("%Y%m%d"))
-    with engine.connect() as conn:
+    today = _today_key()
+    with engine.begin() as conn:
         conn.execute(text("""
             UPDATE t_ProjectProducts
-            SET Status = 'Approved', CustomerApproval = 1, ApprovalDateKey = :today
+            SET Status = 'Approved', CustomerApproval = '1', ApprovalDateKey = :today
             WHERE ProjectProductID = :did AND Status = 'Submitted'
-        """), {'did': data['deliverable_id'], 'today': today})
-        conn.commit()
+        """), {'did': data['deliverable_id'], 'today': str(today)})
     return jsonify({'success': True})
+
 
 @api_bp.route('/deliverable/reject', methods=['POST'])
+@login_required
 def reject_deliverable():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("""
             UPDATE t_ProjectProducts
-            SET Status = 'Rejected', CustomerApproval = 0
+            SET Status = 'Rejected', CustomerApproval = '0'
             WHERE ProjectProductID = :did AND Status = 'Submitted'
         """), {'did': data['deliverable_id']})
-        conn.commit()
     return jsonify({'success': True})
 
+
 @api_bp.route('/deliverables/import', methods=['POST'])
+@login_required
 def import_deliverables():
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': 'No file'}), 400
     file = request.files['file']
     if file.filename == '':
         return jsonify({'success': False, 'message': 'Empty file'}), 400
-    
+
     stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
     csv_input = csv.DictReader(stream)
     engine = get_engine()
     created = 0
     errors = []
-    
-    with engine.connect() as conn:
+
+    with engine.begin() as conn:
         for row in csv_input:
             try:
                 conn.execute(text("""
-                    INSERT INTO t_ProjectProducts (ProjectID, ProductID, DeliveryDateKey, Responsible, Status, Notes)
-                    VALUES (:pid, :prod, :due, :resp, :status, :notes)
+                    INSERT INTO t_ProjectProducts
+                    (ProjectProductID, ProjectID, ProductID, DeliveryDateKey, Responsible, Status, Notes)
+                    VALUES (:ppid, :pid, :prod, :due, :resp, :status, :notes)
                 """), {
+                    'ppid': _new_id(),
                     'pid': row['ProjectID'],
                     'prod': row['ProductID'],
-                    'due': int(row['DeliveryDateKey']) if row.get('DeliveryDateKey') else None,
+                    'due': str(int(row['DeliveryDateKey'])) if row.get('DeliveryDateKey') else None,
                     'resp': row.get('Responsible', ''),
                     'status': row.get('Status', 'Pending'),
                     'notes': row.get('Notes', '')
@@ -886,10 +972,11 @@ def import_deliverables():
                 created += 1
             except Exception as e:
                 errors.append(f"Row {csv_input.line_num}: {str(e)}")
-        conn.commit()
     return jsonify({'success': True, 'created': created, 'errors': errors})
 
+
 @api_bp.route('/deliverables/export/<string:project_id>')
+@login_required
 def export_deliverables(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -903,16 +990,19 @@ def export_deliverables(project_id):
     writer = csv.writer(output)
     writer.writerow(['ProductID', 'DeliverableName', 'DeliveryDateKey', 'Responsible', 'Status', 'Notes'])
     for row in rows:
-        writer.writerow([row[0], row[1] or row[0], row[2], row[3], row[4], row[5]])
-    output.seek(0)
+        m = row._mapping
+        writer.writerow([m['ProductID'], m['descEnglish'] or m['ProductID'], m['DeliveryDateKey'], m['Responsible'], m['Status'], m['Notes']])
     return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition": f"attachment;filename=deliverables_{project_id}.csv"})
+
 
 # ==================== CUSTOMER PROJECTS ====================
 @api_bp.route('/customer_projects')
+@login_required
 def get_customer_projects():
     status_filter = request.args.get('status', '')
     company_filter = request.args.get('company', '')
-    
+    industry = _current_industry()
+
     engine = get_engine()
     with engine.connect() as conn:
         sql = """
@@ -921,9 +1011,9 @@ def get_customer_projects():
                    (SELECT COUNT(*) FROM t_Project WHERE CustomerProjectID = cp.CustomerProjectID) as LinkedCount
             FROM t_CustomerProject cp
             LEFT JOIN t_companies c ON cp.CompanyID = c.companyID
-            WHERE 1=1
+            WHERE (cp.DemoIndustryCode = :industry OR cp.DemoIndustryCode IS NULL)
         """
-        params = {}
+        params = {'industry': industry}
         if status_filter:
             sql += " AND cp.Status = :status"
             params['status'] = status_filter
@@ -931,42 +1021,38 @@ def get_customer_projects():
             sql += " AND cp.CompanyID = :company"
             params['company'] = company_filter
         sql += " ORDER BY cp.CustomerProjectID"
-        
+
         rows = conn.execute(text(sql), params).fetchall()
-        
-        total = conn.execute(text("SELECT COUNT(*) FROM t_CustomerProject")).scalar()
-        active = conn.execute(text("SELECT COUNT(*) FROM t_CustomerProject WHERE Status = 'Active'")).scalar()
-        completed = conn.execute(text("SELECT COUNT(*) FROM t_CustomerProject WHERE Status = 'Completed'")).scalar()
-        on_hold = conn.execute(text("SELECT COUNT(*) FROM t_CustomerProject WHERE Status = 'On Hold'")).scalar()
-        
-        projects = []
-        for row in rows:
-            projects.append({
-                'id': row[0],
-                'company': row[1] or '',
-                'name': row[2],
-                'location': row[3] or '',
-                'value': float(row[4]) if row[4] else 0,
-                'status': row[5],
-                'start_date': row[6],
-                'end_date': row[7],
-                'linked_count': row[8] or 0
-            })
-        
-        companies = conn.execute(text("SELECT companyID, Name FROM t_companies WHERE IsCustomer = 1")).fetchall()
-        company_list = [{'id': c[0], 'name': c[1]} for c in companies]
-        
+
+        total = conn.execute(text(f"SELECT COUNT(*) FROM t_CustomerProject WHERE {_industry_filter()}"), {'industry': industry}).scalar() or 0
+        active = conn.execute(text(f"SELECT COUNT(*) FROM t_CustomerProject WHERE Status = 'Active' AND {_industry_filter()}"), {'industry': industry}).scalar() or 0
+        completed = conn.execute(text(f"SELECT COUNT(*) FROM t_CustomerProject WHERE Status = 'Completed' AND {_industry_filter()}"), {'industry': industry}).scalar() or 0
+        on_hold = conn.execute(text(f"SELECT COUNT(*) FROM t_CustomerProject WHERE Status = 'On Hold' AND {_industry_filter()}"), {'industry': industry}).scalar() or 0
+
+        companies = conn.execute(text("SELECT companyID, Name FROM t_companies WHERE IsCustomer = '1'")).fetchall()
+
         return jsonify({
             'kpis': {'total': total, 'active': active, 'completed': completed, 'on_hold': on_hold},
-            'projects': projects,
+            'projects': [{
+                'id': r._mapping['CustomerProjectID'],
+                'company': r._mapping['CompanyName'] or '',
+                'name': r._mapping['ProjectName'],
+                'location': r._mapping['Location'] or '',
+                'value': float(r._mapping['Value']) if r._mapping['Value'] else 0,
+                'status': r._mapping['Status'],
+                'start_date': r._mapping['StartDateKey'],
+                'end_date': r._mapping['EndDateKey'],
+                'linked_count': r._mapping['LinkedCount'] or 0
+            } for r in rows],
             'filter_options': {
                 'statuses': ['Active', 'On Hold', 'Completed', 'Cancelled'],
-                'companies': company_list
+                'companies': [{'id': c._mapping['companyID'], 'name': c._mapping['Name']} for c in companies]
             }
         })
 
-# ==================== CUSTOMER PROJECT DETAIL ====================
+
 @api_bp.route('/customer_project/<string:cp_id>')
+@login_required
 def get_customer_project_detail(cp_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -979,72 +1065,78 @@ def get_customer_project_detail(cp_id):
         """), {'pid': cp_id}).fetchone()
         if not proj:
             return jsonify({'error': 'Not found'}), 404
-        
+        pm = proj._mapping
+
         internal = conn.execute(text("""
             SELECT ProjectID, ProjectName, Status, PercentComplete
             FROM t_Project WHERE CustomerProjectID = :pid
         """), {'pid': cp_id}).fetchall()
-        internal_list = [{'id': r[0], 'name': r[1], 'status': r[2], 'progress': r[3]} for r in internal]
-        
+
         contacts = conn.execute(text("""
             SELECT ContactID, ContactName, ContactRole, IsActive
             FROM t_ProjectContact WHERE CustomerProjectID = :pid
         """), {'pid': cp_id}).fetchall()
-        contact_list = [{'id': r[0], 'name': r[1] or '', 'role': r[2] or '', 'active': is_active_true(r[3])} for r in contacts]
-        
+
         return jsonify({
             'project': {
-                'id': proj[0], 'company': proj[1] or '', 'name': proj[2],
-                'description': proj[3] or '', 'location': proj[4] or '',
-                'value': float(proj[5]) if proj[5] else 0,
-                'status': proj[6],
-                'start_date': proj[7], 'end_date': proj[8]
+                'id': pm['CustomerProjectID'],
+                'company': pm['CompanyName'] or '',
+                'name': pm['ProjectName'],
+                'description': pm['Description'] or '',
+                'location': pm['Location'] or '',
+                'value': float(pm['Value']) if pm['Value'] else 0,
+                'status': pm['Status'],
+                'start_date': pm['StartDateKey'],
+                'end_date': pm['EndDateKey']
             },
-            'internal_projects': internal_list,
-            'contacts': contact_list
+            'internal_projects': [{
+                'id': r._mapping['ProjectID'],
+                'name': r._mapping['ProjectName'],
+                'status': r._mapping['Status'],
+                'progress': r._mapping['PercentComplete']
+            } for r in internal],
+            'contacts': [{
+                'id': r._mapping['ContactID'],
+                'name': r._mapping['ContactName'] or '',
+                'role': r._mapping['ContactRole'] or '',
+                'active': is_active_true(r._mapping['IsActive'])
+            } for r in contacts]
         })
 
-# ==================== CUSTOMER PROJECT CREATE ====================
+
 @api_bp.route('/customer_project/create', methods=['POST'])
+@login_required
 def create_customer_project():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
     created_by = current_user.get_id() if current_user.is_authenticated else None
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO t_CustomerProject
                 (CustomerProjectID, CompanyID, ProjectName, Description, Location, Value, Status, StartDateKey, EndDateKey, CreatedByUserID)
                 VALUES (:id, :company, :name, :desc, :loc, :value, :status, :start, :end, :created_by)
             """), {
-                'id': data['customer_project_id'],
+                'id': data.get('customer_project_id') or _new_id(),
                 'company': data['company_id'],
                 'name': data['project_name'],
                 'desc': data.get('description', ''),
                 'loc': data.get('location', ''),
-                'value': float(data.get('value', 0)),
+                'value': str(float(data.get('value', 0))),
                 'status': data.get('status', 'Active'),
-                'start': data.get('start_date_key'),
-                'end': data.get('end_date_key'),
+                'start': str(data.get('start_date_key')) if data.get('start_date_key') else None,
+                'end': str(data.get('end_date_key')) if data.get('end_date_key') else None,
                 'created_by': created_by
             })
-            conn.commit()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+
 # ==================== RESOURCE ALLOCATION ====================
 @api_bp.route('/resources/<string:project_id>')
+@login_required
 def get_resource_allocations(project_id):
-    """
-    Get resource allocations for a project.
-
-    NVARCHAR fixes applied:
-      - AllocationPercent is nvarchar → CAST to DECIMAL before SUM
-      - IsActive is nvarchar → compare to '1' (string), not 1 (int)
-      - Python-side truthiness guards replaced with explicit parsing,
-        because "0" is a truthy string in Python.
-    """
     role_filter = request.args.get('role', '')
 
     engine = get_engine()
@@ -1070,23 +1162,22 @@ def get_resource_allocations(project_id):
             SELECT ISNULL(SUM(CAST(AllocationPercent AS DECIMAL(18,4))), 0)
             FROM t_ProjectContact
             WHERE CustomerProjectID = :pid AND IsActive = '1'
-        """), {'pid': project_id}).scalar()
+        """), {'pid': project_id}).scalar() or 0
 
         user_count = conn.execute(text("""
             SELECT COUNT(DISTINCT PersonID) FROM t_ProjectContact
             WHERE CustomerProjectID = :pid AND IsActive = '1'
-        """), {'pid': project_id}).scalar()
+        """), {'pid': project_id}).scalar() or 0
 
         roles = conn.execute(text("""
             SELECT DISTINCT ContactType FROM t_ProjectContact
             WHERE CustomerProjectID = :pid AND ContactType IS NOT NULL AND ContactType != ''
         """), {'pid': project_id}).fetchall()
-        role_list = [r[0] for r in roles]
 
         allocations = []
         for row in rows:
-            # Safe numeric conversion for AllocationPercent
-            alloc_pct = row[3]
+            m = row._mapping
+            alloc_pct = m['AllocationPercent']
             if alloc_pct is None or alloc_pct == '':
                 alloc_pct = 100
             else:
@@ -1095,69 +1186,73 @@ def get_resource_allocations(project_id):
                 except (ValueError, TypeError):
                     alloc_pct = 100
 
-            # IsActive is nvarchar: '1' or '0'
-            is_active = is_active_true(row[6])
-
             allocations.append({
-                'id': row[0],
-                'employee': row[1] if row[1] else f"User {row[0]}",
-                'role': row[2] or '',
+                'id': m['ContactID'],
+                'employee': m['FullName'] if m['FullName'] else f"User {m['ContactID']}",
+                'role': m['Role'] or '',
                 'allocation_percent': alloc_pct,
-                'start_date': row[4],
-                'end_date': row[5],
-                'status': 'Active' if is_active else 'Released'
+                'start_date': m['StartDateKey'],
+                'end_date': m['EndDateKey'],
+                'status': 'Active' if is_active_true(m['Status']) else 'Released'
             })
 
         return jsonify({
             'kpis': {
-                'total_allocated_percent': float(total_alloc) if total_alloc else 0,
+                'total_allocated_percent': float(total_alloc),
                 'active_users': user_count
             },
             'allocations': allocations,
-            'filter_options': {'roles': role_list}
+            'filter_options': {'roles': [r._mapping['ContactType'] for r in roles]}
         })
 
+
 @api_bp.route('/resources/assign', methods=['POST'])
+@login_required
 def assign_resource():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO t_ProjectContact
-                (CustomerProjectID, PersonID, ContactType, AllocationPercent, AssignedDateKey, EndDateKey, IsActive)
-                VALUES (:pid, :uid, :role, :percent, :start, :end, '1')
+                (ContactID, CustomerProjectID, PersonID, ContactType, AllocationPercent, AssignedDateKey, EndDateKey, IsActive)
+                VALUES (:cid, :pid, :uid, :role, :percent, :start, :end, '1')
             """), {
+                'cid': _new_id(),
                 'pid': data['project_id'],
                 'uid': data['user_id'],
                 'role': data.get('role', ''),
-                'percent': data.get('allocation_percent', 100),
-                'start': data.get('start_date_key'),
-                'end': data.get('end_date_key')
+                'percent': str(data.get('allocation_percent', 100)),
+                'start': str(data['start_date_key']) if data.get('start_date_key') else None,
+                'end': str(data['end_date_key']) if data.get('end_date_key') else None
             })
-            conn.commit()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+
 # ==================== PROJECTS LIST ====================
 @api_bp.route('/projects_list')
+@login_required
 def get_all_internal_projects():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("SELECT ProjectID, ProjectName FROM t_Project ORDER BY ProjectID")).fetchall()
-    return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
+    return jsonify([{'id': r._mapping['ProjectID'], 'name': r._mapping['ProjectName']} for r in rows])
 
-# ==================== INTERNAL PROJECTS ====================
+
 @api_bp.route('/internal_projects')
+@login_required
 def get_internal_projects():
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("SELECT ProjectID, ProjectName FROM t_Project ORDER BY ProjectID")).fetchall()
-    return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
+    return jsonify([{'id': r._mapping['ProjectID'], 'name': r._mapping['ProjectName']} for r in rows])
+
 
 # ==================== DOCUMENT TYPES ====================
 @api_bp.route('/document_types')
+@login_required
 def get_document_types():
     engine = get_engine()
     with engine.connect() as conn:
@@ -1165,10 +1260,11 @@ def get_document_types():
             SELECT DocumentTypeID, Name FROM t_DocumentType
             WHERE IsActive = '1' ORDER BY Name
         """)).fetchall()
-    return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
+    return jsonify([{'id': r._mapping['DocumentTypeID'], 'name': r._mapping['Name']} for r in rows])
 
-# ==================== DOCUMENT TYPES LIST ====================
+
 @api_bp.route('/document_types_list')
+@login_required
 def list_document_types():
     engine = get_engine()
     with engine.connect() as conn:
@@ -1176,10 +1272,12 @@ def list_document_types():
             SELECT DocumentTypeID, Name FROM t_DocumentType
             WHERE IsActive = '1' ORDER BY Name
         """)).fetchall()
-    return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
+    return jsonify([{'id': r._mapping['DocumentTypeID'], 'name': r._mapping['Name']} for r in rows])
+
 
 # ==================== REQUIRED DOCUMENTS ====================
 @api_bp.route('/required_documents/<string:project_id>')
+@login_required
 def get_project_required_documents(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -1190,12 +1288,17 @@ def get_project_required_documents(project_id):
             WHERE pdt.ProjectID = :pid
         """), {'pid': project_id}).fetchall()
     return jsonify([{
-        'id': r[0], 'name': r[1], 'is_required': is_active_true(r[2]),
-        'max_revisions': r[3], 'workflow_step': r[4] or ''
+        'id': r._mapping['DocumentTypeID'],
+        'name': r._mapping['Name'],
+        'is_required': is_active_true(r._mapping['IsRequired']),
+        'max_revisions': r._mapping['MaxRevisions'],
+        'workflow_step': r._mapping['WorkflowStep'] or ''
     } for r in rows])
+
 
 # ==================== PRODUCT TREE ====================
 @api_bp.route('/<string:project_id>/products')
+@login_required
 def get_project_products_tree(project_id):
     engine = get_engine()
     try:
@@ -1225,23 +1328,24 @@ def get_project_products_tree(project_id):
                         FROM t_BOM b
                         JOIN t_Product p ON b.ComponentProductID = p.ProductId
                         WHERE b.ParentProductID = :pid
-                          AND (b.ObsoleteDateKey IS NULL OR b.ObsoleteDateKey > CAST(GETDATE() AS INT))
+                          AND (b.ObsoleteDateKey IS NULL OR TRY_CAST(b.ObsoleteDateKey AS INT) > CAST(GETDATE() AS INT))
                     """), {'pid': parent}).fetchall()
                     for child in children:
                         all_relations.append((parent, child))
-                        stack.append(child[0])
+                        stack.append(child._mapping['ComponentProductID'])
 
                 node_map = {}
                 for parent, child in all_relations:
                     if parent not in node_map:
                         node_map[parent] = []
+                    cm = child._mapping
                     node_map[parent].append({
-                        'component_id': child[0],
-                        'component_name': child[1],
-                        'quantity': float(child[2]),
-                        'scrap_factor': float(child[3]) if child[3] else 0,
-                        'effectivity_date': child[4],
-                        'obsolete_date': child[5],
+                        'component_id': cm['ComponentProductID'],
+                        'component_name': cm['descEnglish'],
+                        'quantity': float(cm['Quantity']) if cm['Quantity'] else 0,
+                        'scrap_factor': float(cm['ScrapFactor']) if cm['ScrapFactor'] else 0,
+                        'effectivity_date': cm['EffectivityDateKey'],
+                        'obsolete_date': cm['ObsoleteDateKey'],
                         'children': []
                     })
                 def build_subtree(pid):
@@ -1253,23 +1357,23 @@ def get_project_products_tree(project_id):
 
             products = []
             for row in rows:
-                product_tree = build_bom_tree(row[1])
+                m = row._mapping
                 products.append({
-                    'project_product_id': row[0],
-                    'product_id': row[1],
-                    'product_name': row[2],
-                    'required_quantity': float(row[3]) if row[3] else 0,
-                    'delivery_date': row[4],
-                    'status': row[5],
-                    'unit_price': float(row[6]) if row[6] else 0,
-                    'notes': row[7],
-                    'installation_sequence': row[8],
-                    'site_location': row[9],
-                    'responsible': row[10],
-                    'is_custom': is_active_true(row[11]),
-                    'alternative': row[12],
-                    'custom_spec': row[13],
-                    'children': product_tree
+                    'project_product_id': m['ProjectProductID'],
+                    'product_id': m['ProductID'],
+                    'product_name': m['descEnglish'],
+                    'required_quantity': float(m['RequiredQuantity']) if m['RequiredQuantity'] else 0,
+                    'delivery_date': m['DeliveryDateKey'],
+                    'status': m['Status'],
+                    'unit_price': float(m['UnitPrice']) if m['UnitPrice'] else 0,
+                    'notes': m['Notes'],
+                    'installation_sequence': m['InstallationSequence'],
+                    'site_location': m['SiteLocation'],
+                    'responsible': m['Responsible'],
+                    'is_custom': is_active_true(m['IsCustom']),
+                    'alternative': m['AlternativeComponent'],
+                    'custom_spec': m['CustomSpec'],
+                    'children': build_bom_tree(m['ProductID'])
                 })
             return jsonify({'project_id': project_id, 'products': products})
     except Exception as e:
@@ -1277,15 +1381,17 @@ def get_project_products_tree(project_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+
 # ==================== BOQ ====================
 @api_bp.route('/<string:project_id>/boq')
+@login_required
 def get_project_boq(project_id):
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT pp.ProjectProductID, pp.ProductID, p.descEnglish,
                    pp.RequiredQuantity, pp.Unit, pp.UnitPrice,
-                   (CAST(pp.RequiredQuantity AS DECIMAL(18,4)) * CAST(pp.UnitPrice AS DECIMAL(18,4))) as TotalPrice,
+                   (TRY_CAST(pp.RequiredQuantity AS DECIMAL(18,4)) * TRY_CAST(pp.UnitPrice AS DECIMAL(18,4))) as TotalPrice,
                    pp.Notes
             FROM t_ProjectProducts pp
             LEFT JOIN t_Product p ON pp.ProductID = p.ProductId
@@ -1294,51 +1400,56 @@ def get_project_boq(project_id):
         items = []
         total_value = 0
         for r in rows:
-            total = float(r[6] if r[6] else 0)
+            m = r._mapping
+            total = float(m['TotalPrice']) if m['TotalPrice'] else 0
             total_value += total
             items.append({
-                'id': r[0],
-                'product_id': r[1],
-                'description': r[2] or r[1] or 'Custom Item',
-                'quantity': float(r[3] or 0),
-                'unit': r[4] or 'pcs',
-                'unit_price': float(r[5] or 0),
+                'id': m['ProjectProductID'],
+                'product_id': m['ProductID'],
+                'description': m['descEnglish'] or m['ProductID'] or 'Custom Item',
+                'quantity': float(m['RequiredQuantity']) if m['RequiredQuantity'] else 0,
+                'unit': m['Unit'] or 'pcs',
+                'unit_price': float(m['UnitPrice']) if m['UnitPrice'] else 0,
                 'total_price': total,
-                'notes': r[7]
+                'notes': m['Notes']
             })
         return jsonify({
             'items': items,
             'kpis': {'total_value': total_value, 'item_count': len(items)}
         })
 
-@api_bp.route('/project/boq', methods=['POST'])
+
+@api_bp.route('/boq', methods=['POST'])
+@login_required
 def add_boq_item():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO t_ProjectProducts
-                (ProjectID, ProductID, RequiredQuantity, Unit, UnitPrice, Notes)
-                VALUES (:pid, :prod, :qty, :unit, :price, :notes)
+                (ProjectProductID, ProjectID, ProductID, RequiredQuantity, Unit, UnitPrice, Notes)
+                VALUES (:ppid, :pid, :prod, :qty, :unit, :price, :notes)
             """), {
+                'ppid': _new_id(),
                 'pid': data['project_id'],
                 'prod': data.get('product_id'),
-                'qty': float(data['quantity']),
+                'qty': str(float(data['quantity'])),
                 'unit': data.get('unit', 'pcs'),
-                'price': float(data.get('unit_price', 0)),
+                'price': str(float(data.get('unit_price', 0))),
                 'notes': data.get('notes', '')
             })
-            conn.commit()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
-@api_bp.route('/project/boq/<int:item_id>', methods=['PUT'])
+
+@api_bp.route('/boq/<string:item_id>', methods=['PUT'])
+@login_required
 def update_boq_item(item_id):
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("""
             UPDATE t_ProjectProducts SET
                 ProductID = :prod, RequiredQuantity = :qty, Unit = :unit,
@@ -1347,24 +1458,26 @@ def update_boq_item(item_id):
         """), {
             'id': item_id,
             'prod': data.get('product_id'),
-            'qty': float(data['quantity']),
+            'qty': str(float(data['quantity'])),
             'unit': data.get('unit', 'pcs'),
-            'price': float(data.get('unit_price', 0)),
+            'price': str(float(data.get('unit_price', 0))),
             'notes': data.get('notes', '')
         })
-        conn.commit()
     return jsonify({'success': True})
 
-@api_bp.route('/project/boq/<int:item_id>', methods=['DELETE'])
+
+@api_bp.route('/boq/<string:item_id>', methods=['DELETE'])
+@login_required
 def delete_boq_item(item_id):
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("DELETE FROM t_ProjectProducts WHERE ProjectProductID = :id"), {'id': item_id})
-        conn.commit()
     return jsonify({'success': True})
 
+
 # ==================== CERTIFICATES ====================
-@api_bp.route('/certificate/<int:cert_id>')
+@api_bp.route('/certificate/<string:cert_id>')
+@login_required
 def get_certificate(cert_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -1376,47 +1489,51 @@ def get_certificate(cert_id):
         """), {'cid': cert_id}).fetchone()
         if not cert:
             return jsonify({'error': 'Not found'}), 404
-        
+        cm = cert._mapping
+
         lines = conn.execute(text("""
             SELECT cl.LineID, pp.ProductID, p.descEnglish, pp.Unit,
                    cl.PreviousQuantity, cl.CompletedQuantity,
-                   (cl.PreviousQuantity + cl.CompletedQuantity) as TotalCompleted,
-                   pp.UnitPrice, (CAST(cl.CompletedQuantity AS DECIMAL(18,4)) * CAST(pp.UnitPrice AS DECIMAL(18,4))) as Amount
+                   (TRY_CAST(cl.PreviousQuantity AS DECIMAL(18,4)) + TRY_CAST(cl.CompletedQuantity AS DECIMAL(18,4))) as TotalCompleted,
+                   pp.UnitPrice,
+                   (TRY_CAST(cl.CompletedQuantity AS DECIMAL(18,4)) * TRY_CAST(pp.UnitPrice AS DECIMAL(18,4))) as Amount
             FROM t_CertificateLine cl
             JOIN t_ProjectProducts pp ON cl.ProjectProductID = pp.ProjectProductID
             LEFT JOIN t_Product p ON pp.ProductID = p.ProductId
             WHERE cl.CertificateID = :cid
         """), {'cid': cert_id}).fetchall()
-        
+
         return jsonify({
             'certificate': {
-                'id': cert[0],
-                'number': cert[1],
-                'start': cert[2],
-                'end': cert[3],
-                'status': cert[4],
-                'total_completed': float(cert[5] or 0),
-                'retention_percent': float(cert[6] or 0),
-                'retention_amount': float(cert[7] or 0),
-                'advance_recovery': float(cert[8] or 0),
-                'previous_total': float(cert[9] or 0),
-                'net_payable': float(cert[10] or 0),
-                'notes': cert[11] or ''
+                'id': cm['CertificateID'],
+                'number': cm['CertificateNumber'],
+                'start': cm['PeriodStartDateKey'],
+                'end': cm['PeriodEndDateKey'],
+                'status': cm['Status'],
+                'total_completed': float(cm['TotalCompletedAmount'] or 0),
+                'retention_percent': float(cm['RetentionPercent'] or 0),
+                'retention_amount': float(cm['RetentionAmount'] or 0),
+                'advance_recovery': float(cm['AdvanceRecovery'] or 0),
+                'previous_total': float(cm['PreviousTotal'] or 0),
+                'net_payable': float(cm['NetPayable'] or 0),
+                'notes': cm['Notes'] or ''
             },
             'lines': [{
-                'id': l[0],
-                'product_id': l[1],
-                'description': l[2] or l[1],
-                'unit': l[3] or 'pcs',
-                'previous_qty': float(l[4] or 0),
-                'completed_qty': float(l[5] or 0),
-                'total_completed': float(l[6] or 0),
-                'unit_price': float(l[7] or 0),
-                'amount': float(l[8] or 0)
+                'id': l._mapping['LineID'],
+                'product_id': l._mapping['ProductID'],
+                'description': l._mapping['descEnglish'] or l._mapping['ProductID'],
+                'unit': l._mapping['Unit'] or 'pcs',
+                'previous_qty': float(l._mapping['PreviousQuantity'] or 0),
+                'completed_qty': float(l._mapping['CompletedQuantity'] or 0),
+                'total_completed': float(l._mapping['TotalCompleted'] or 0),
+                'unit_price': float(l._mapping['UnitPrice'] or 0),
+                'amount': float(l._mapping['Amount'] or 0)
             } for l in lines]
         })
 
+
 @api_bp.route('/<string:project_id>/certificates')
+@login_required
 def get_certificates(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -1425,90 +1542,103 @@ def get_certificates(project_id):
                    Status, TotalCompletedAmount, NetPayable
             FROM t_ProgressCertificate WHERE ProjectID = :pid ORDER BY CertificateID DESC
         """), {'pid': project_id}).fetchall()
-        certs = []
-        for r in rows:
-            certs.append({
-                'id': r[0], 'number': r[1], 'start': r[2], 'end': r[3],
-                'status': r[4], 'total': float(r[5] or 0), 'net': float(r[6] or 0)
-            })
-        return jsonify(certs)
+    return jsonify([{
+        'id': r._mapping['CertificateID'],
+        'number': r._mapping['CertificateNumber'],
+        'start': r._mapping['PeriodStartDateKey'],
+        'end': r._mapping['PeriodEndDateKey'],
+        'status': r._mapping['Status'],
+        'total': float(r._mapping['TotalCompletedAmount'] or 0),
+        'net': float(r._mapping['NetPayable'] or 0)
+    } for r in rows])
+
 
 @api_bp.route('/certificates', methods=['POST'])
+@login_required
 def create_certificate():
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
-    today = int(datetime.date.today().strftime("%Y%m%d"))
+    today = _today_key()
+    cert_id = _new_id()
     try:
-        with engine.connect() as conn:
-            count = conn.execute(text("SELECT COUNT(*) FROM t_ProgressCertificate WHERE ProjectID = :pid"), 
+        with engine.begin() as conn:
+            count = conn.execute(text("SELECT COUNT(*) FROM t_ProgressCertificate WHERE ProjectID = :pid"),
                                  {'pid': data['project_id']}).scalar() or 0
-            number = f"CERT-{data['project_id']}-{count+1}"
-            
+            number = f"CERT-{data['project_id']}-{count + 1}"
+
             conn.execute(text("""
                 INSERT INTO t_ProgressCertificate
-                (ProjectID, CertificateNumber, PeriodStartDateKey, PeriodEndDateKey, Status, CreatedDateKey)
-                VALUES (:pid, :num, :start, :end, 'Draft', :today)
+                (CertificateID, ProjectID, CertificateNumber, PeriodStartDateKey, PeriodEndDateKey, Status, CreatedDateKey)
+                VALUES (:cid, :pid, :num, :start, :end, 'Draft', :today)
             """), {
+                'cid': cert_id,
                 'pid': data['project_id'],
                 'num': number,
-                'start': data['start_date_key'],
-                'end': data['end_date_key'],
-                'today': today
+                'start': str(data['start_date_key']),
+                'end': str(data['end_date_key']),
+                'today': str(today)
             })
-            cert_id = conn.execute(text("SELECT last_insert_rowid()")).scalar()
-            
+
             boq_items = conn.execute(text("""
                 SELECT ProjectProductID, UnitPrice
                 FROM t_ProjectProducts WHERE ProjectID = :pid
             """), {'pid': data['project_id']}).fetchall()
-            
+
             for item in boq_items:
                 conn.execute(text("""
                     INSERT INTO t_CertificateLine 
-                    (CertificateID, ProjectProductID, CompletedQuantity, UnitPrice)
-                    VALUES (:cid, :ppid, 0, :price)
-                """), {'cid': cert_id, 'ppid': item[0], 'price': float(item[1] or 0)})
-            
-            conn.commit()
+                    (LineID, CertificateID, ProjectProductID, CompletedQuantity, UnitPrice)
+                    VALUES (:lid, :cid, :ppid, '0', :price)
+                """), {
+                    'lid': _new_id(),
+                    'cid': cert_id,
+                    'ppid': item._mapping['ProjectProductID'],
+                    'price': str(item._mapping['UnitPrice'] or 0)
+                })
         return jsonify({'success': True, 'certificate_id': cert_id, 'number': number})
     except Exception as e:
         print("Error creating certificate:", e)
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
-@api_bp.route('/certificate/<int:cert_id>/lines', methods=['PUT'])
+
+@api_bp.route('/certificate/<string:cert_id>/lines', methods=['PUT'])
+@login_required
 def update_certificate_lines(cert_id):
-    data = request.json
+    data = request.json or {}
     engine = get_engine()
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             for line in data.get('lines', []):
                 if line.get('id'):
                     conn.execute(text("""
                         UPDATE t_CertificateLine 
                         SET CompletedQuantity = :qty
                         WHERE LineID = :lid AND CertificateID = :cid
-                    """), {'qty': line['completed_qty'], 'lid': line['id'], 'cid': cert_id})
+                    """), {'qty': str(line['completed_qty']), 'lid': line['id'], 'cid': cert_id})
                 else:
                     conn.execute(text("""
                         INSERT INTO t_CertificateLine 
-                        (CertificateID, ProjectProductID, CompletedQuantity, ServiceDescription, ServiceUnit, ServiceUnitPrice, LineType)
-                        VALUES (:cid, NULL, :qty, :desc, :unit, :price, 'service')
-                    """), {'cid': cert_id, 'qty': line['completed_qty'], 'desc': line.get('description'), 
-                           'unit': line.get('unit'), 'price': line.get('unit_price')})
-            conn.commit()
+                        (LineID, CertificateID, ProjectProductID, CompletedQuantity, ServiceDescription, ServiceUnit, ServiceUnitPrice, LineType)
+                        VALUES (:lid, :cid, NULL, :qty, :desc, :unit, :price, 'service')
+                    """), {
+                        'lid': _new_id(),
+                        'cid': cert_id,
+                        'qty': str(line['completed_qty']),
+                        'desc': line.get('description'),
+                        'unit': line.get('unit'),
+                        'price': str(line.get('unit_price') or 0)
+                    })
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+
 # ==================== MS PROJECT INTEGRATION ====================
-
-
 @api_bp.route('/ms-project/tasks/<string:project_id>')
+@login_required
 def get_schedule_tasks(project_id):
     supplier = request.args.get('supplier', '')
-    status = request.args.get('status', '')
-    linked = request.args.get('linked', '')
 
     engine = get_engine()
     with engine.connect() as conn:
@@ -1532,18 +1662,19 @@ def get_schedule_tasks(project_id):
         if supplier:
             sql += " AND SupplierID = :supplier"
             params['supplier'] = supplier
-        sql += " ORDER BY StartDateKey"
+        sql += " ORDER BY TRY_CAST(StartDateKey AS INT)"
 
         rows = conn.execute(text(sql), params).fetchall()
 
         total = len(rows)
-        behind = sum(1 for r in rows if (r[9] or 0) > 0)
-        supplier_tasks = sum(1 for r in rows if r[7])
-        pending_export = sum(1 for r in rows if (r[6] or 0) > 0)
+        behind = sum(1 for r in rows if float(r._mapping['Gap'] or 0) > 0)
+        supplier_tasks = sum(1 for r in rows if r._mapping['SupplierID'])
+        pending_export = sum(1 for r in rows if float(r._mapping['ActualPercent'] or 0) > 0)
 
         tasks = []
         for r in rows:
-            gap = float(r[9]) if r[9] not in (None, '') else 0.0
+            m = r._mapping
+            gap = float(m['Gap']) if m['Gap'] not in (None, '') else 0.0
             status_text = 'On Track'
             status_class = 'success'
             if gap > 5:
@@ -1554,15 +1685,15 @@ def get_schedule_tasks(project_id):
                 status_class = 'danger'
 
             tasks.append({
-                'id': r[0],
-                'mpp_id': r[1],
-                'name': r[2],
-                'start_date': r[3],
-                'finish_date': r[4],
-                'planned_percent': float(r[5] or 0),
-                'actual_percent': float(r[6] or 0),
-                'supplier_id': r[7] or '',
-                'component_id': r[8] or '',
+                'id': m['TaskID'],
+                'mpp_id': m['MPPUniqueID'],
+                'name': m['TaskName'],
+                'start_date': m['StartDateKey'],
+                'finish_date': m['FinishDateKey'],
+                'planned_percent': float(m['PlannedPercent']),
+                'actual_percent': float(m['ActualPercent']),
+                'supplier_id': m['SupplierID'] or '',
+                'component_id': m['ComponentID'] or '',
                 'gap': gap,
                 'status': status_text,
                 'status_class': status_class
@@ -1572,7 +1703,6 @@ def get_schedule_tasks(project_id):
             SELECT DISTINCT SupplierID FROM t_ScheduleTask 
             WHERE ProjectID = :pid AND SupplierID IS NOT NULL AND SupplierID != ''
         """), {'pid': project_id}).fetchall()
-        supplier_list = [s[0] for s in suppliers]
 
         return jsonify({
             'kpis': {
@@ -1582,44 +1712,45 @@ def get_schedule_tasks(project_id):
                 'pending_export': pending_export
             },
             'tasks': tasks,
-            'suppliers': supplier_list
+            'suppliers': [s._mapping['SupplierID'] for s in suppliers]
         })
 
 
 @api_bp.route('/ms-project/upload', methods=['POST'])
+@login_required
 def upload_mpp():
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file'}), 400
     file = request.files['file']
     if file.filename == '':
         return jsonify({'success': False, 'error': 'Empty file'}), 400
-    
+
     project_id = request.form.get('project_id')
     overwrite = request.form.get('overwrite') == 'true'
-    
+
     engine = get_engine()
-    today = int(datetime.datetime.now().strftime("%Y%m%d"))
+    today = _today_key()
     imported = 0
-    
+
     try:
         content = file.read().decode('utf-8', errors='ignore')
         try:
             root = ET.fromstring(content)
         except ET.ParseError as e:
             return jsonify({'success': False, 'error': f'Invalid XML: {str(e)}'}), 400
-        
+
         ns = {'mpp': 'http://schemas.microsoft.com/project/2010'}
         tasks = root.findall('.//Task')
         if not tasks:
             tasks = root.findall('.//mpp:Task', ns)
-        
+
         if not tasks:
             return jsonify({'success': False, 'error': 'No tasks found in the file.'}), 400
-        
-        with engine.connect() as conn:
+
+        with engine.begin() as conn:
             if overwrite:
                 conn.execute(text("DELETE FROM t_ScheduleTask WHERE ProjectID = :pid"), {'pid': project_id})
-            
+
             for task in tasks:
                 name_elem = task.find('Name')
                 if name_elem is None:
@@ -1627,17 +1758,21 @@ def upload_mpp():
                 if name_elem is None or not name_elem.text:
                     continue
                 name = name_elem.text
-                
+
                 uid_elem = task.find('UID')
                 if uid_elem is None:
                     uid_elem = task.find('mpp:UID', ns)
                 uid = uid_elem.text if uid_elem is not None else None
-                
+
+                existing = None
                 if uid:
-                    existing = conn.execute(text("SELECT TaskID FROM t_ScheduleTask WHERE ProjectID = :pid AND MPPUniqueID = :uid"), {'pid': project_id, 'uid': uid}).fetchone()
+                    existing = conn.execute(
+                        text("SELECT TaskID FROM t_ScheduleTask WHERE ProjectID = :pid AND MPPUniqueID = :uid"),
+                        {'pid': project_id, 'uid': uid}
+                    ).fetchone()
                     if existing and not overwrite:
                         continue
-                
+
                 start_elem = task.find('Start')
                 if start_elem is None:
                     start_elem = task.find('mpp:Start', ns)
@@ -1645,8 +1780,8 @@ def upload_mpp():
                 if start_elem is not None and start_elem.text:
                     date_str = start_elem.text[:10].replace('-', '')
                     if date_str.isdigit():
-                        start = int(date_str)
-                
+                        start = date_str
+
                 finish_elem = task.find('Finish')
                 if finish_elem is None:
                     finish_elem = task.find('mpp:Finish', ns)
@@ -1654,18 +1789,18 @@ def upload_mpp():
                 if finish_elem is not None and finish_elem.text:
                     date_str = finish_elem.text[:10].replace('-', '')
                     if date_str.isdigit():
-                        finish = int(date_str)
-                
+                        finish = date_str
+
                 pct_elem = task.find('PercentComplete')
                 if pct_elem is None:
                     pct_elem = task.find('mpp:PercentComplete', ns)
-                pct = 0
+                pct = 0.0
                 if pct_elem is not None and pct_elem.text:
                     try:
                         pct = float(pct_elem.text)
-                    except:
-                        pct = 0
-                
+                    except Exception:
+                        pct = 0.0
+
                 if existing and overwrite:
                     conn.execute(text("""
                         UPDATE t_ScheduleTask SET
@@ -1679,106 +1814,114 @@ def upload_mpp():
                         'name': name[:255],
                         'start': start,
                         'finish': finish,
-                        'pct': pct,
-                        'today': today,
-                        'tid': existing[0]
+                        'pct': str(pct),
+                        'today': str(today),
+                        'tid': existing._mapping['TaskID']
                     })
                 else:
                     conn.execute(text("""
                         INSERT INTO t_ScheduleTask 
-                        (ProjectID, MPPUniqueID, TaskName, StartDateKey, FinishDateKey, PlannedPercent, LastUpdatedDateKey)
-                        VALUES (:pid, :uid, :name, :start, :finish, :pct, :today)
+                        (TaskID, ProjectID, MPPUniqueID, TaskName, StartDateKey, FinishDateKey, PlannedPercent, LastUpdatedDateKey)
+                        VALUES (:tid, :pid, :uid, :name, :start, :finish, :pct, :today)
                     """), {
+                        'tid': _new_id(),
                         'pid': project_id,
                         'uid': uid or str(imported + 1),
                         'name': name[:255],
                         'start': start,
                         'finish': finish,
-                        'pct': pct,
-                        'today': today
+                        'pct': str(pct),
+                        'today': str(today)
                     })
                 imported += 1
-            conn.commit()
-        
-        # Clean up duplicates
-        conn.execute(text("""
-            DELETE FROM t_ScheduleTask 
-            WHERE TaskID NOT IN (
-                SELECT MIN(TaskID) 
-                FROM t_ScheduleTask 
-                WHERE ProjectID = :pid 
-                GROUP BY MPPUniqueID
-            ) AND ProjectID = :pid AND MPPUniqueID IS NOT NULL
-        """), {'pid': project_id})
-        conn.commit()
-        
-        with engine.connect() as conn:
+
+            # Deduplicate safely — subquery scoped to project, inside transaction
             conn.execute(text("""
-                INSERT INTO t_ScheduleImportLog (ProjectID, ImportDateKey, FileName, RecordsImported, Status)
-                VALUES (:pid, :today, :fname, :count, 'Success')
-            """), {'pid': project_id, 'today': today, 'fname': file.filename, 'count': imported})
-            conn.commit()
-        
+                DELETE FROM t_ScheduleTask
+                WHERE ProjectID = :pid
+                  AND TaskID NOT IN (
+                      SELECT MIN(TaskID) FROM t_ScheduleTask
+                      WHERE ProjectID = :pid AND MPPUniqueID IS NOT NULL
+                      GROUP BY MPPUniqueID
+                  )
+                  AND MPPUniqueID IS NOT NULL
+            """), {'pid': project_id})
+
+            conn.execute(text("""
+                INSERT INTO t_ScheduleImportLog (LogID, ProjectID, ImportDateKey, FileName, RecordsImported, Status)
+                VALUES (:lid, :pid, :today, :fname, :count, 'Success')
+            """), {
+                'lid': _new_id(),
+                'pid': project_id,
+                'today': str(today),
+                'fname': file.filename,
+                'count': str(imported)
+            })
+
         return jsonify({'success': True, 'imported': imported})
     except Exception as e:
         print(f"Upload error: {e}")
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
+
 @api_bp.route('/ms-project/export-supplier', methods=['POST'])
+@login_required
 def export_supplier_schedule():
-    data = request.json
+    data = request.json or {}
     project_id = data.get('project_id')
     supplier_id = data.get('supplier_id')
-    
+
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT TaskID, TaskName, StartDateKey, FinishDateKey, PlannedPercent, ActualPercent
             FROM t_ScheduleTask
             WHERE ProjectID = :pid AND SupplierID = :supplier
-            ORDER BY StartDateKey
+            ORDER BY TRY_CAST(StartDateKey AS INT)
         """), {'pid': project_id, 'supplier': supplier_id}).fetchall()
-    
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['TaskID', 'TaskName', 'StartDate', 'FinishDate', 'Planned%', 'Actual%', 'Notes'])
     for r in rows:
-        writer.writerow([r[0], r[1], r[2], r[3], r[4], r[5], ''])
-    output.seek(0)
-    
-    filename = f"supplier_schedule_{supplier_id}_{datetime.date.today().strftime('%Y%m%d')}.csv"
+        m = r._mapping
+        writer.writerow([m['TaskID'], m['TaskName'], m['StartDateKey'], m['FinishDateKey'], m['PlannedPercent'], m['ActualPercent'], ''])
+
+    filename = f"supplier_schedule_{supplier_id}_{date.today().strftime('%Y%m%d')}.csv"
     return Response(output.getvalue(), mimetype='text/csv', headers={'Content-Disposition': f'attachment; filename={filename}'})
 
+
 @api_bp.route('/ms-project/import-supplier', methods=['POST'])
+@login_required
 def import_supplier_update():
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file'}), 400
     file = request.files['file']
     if file.filename == '':
         return jsonify({'success': False, 'error': 'Empty file'}), 400
-    
+
     project_id = request.form.get('project_id')
     preview = request.form.get('preview') == 'true'
-    
+
     stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
     reader = csv.DictReader(stream)
-    
+
     updates = []
     for row in reader:
         try:
-            task_id = int(row.get('TaskID', 0))
+            task_id = row.get('TaskID', '').strip()
             if task_id:
                 updates.append({
                     'task_id': task_id,
-                    'actual_percent': float(row.get('Actual%', 0)),
+                    'actual_percent': float(row.get('Actual%', 0) or 0),
                     'notes': row.get('Notes', '')
                 })
-        except:
+        except Exception:
             pass
-    
+
+    engine = get_engine()
     if preview:
-        engine = get_engine()
         with engine.connect() as conn:
             preview_data = []
             for u in updates:
@@ -1787,31 +1930,32 @@ def import_supplier_update():
                     FROM t_ScheduleTask WHERE TaskID = :tid AND ProjectID = :pid
                 """), {'tid': u['task_id'], 'pid': project_id}).fetchone()
                 if task:
+                    tm = task._mapping
                     preview_data.append({
                         'task_id': u['task_id'],
-                        'task_name': task[0],
-                        'planned_percent': float(task[1] or 0),
-                        'current_actual': float(task[2] or 0),
+                        'task_name': tm['TaskName'],
+                        'planned_percent': float(tm['PlannedPercent'] or 0),
+                        'current_actual': float(tm['ActualPercent'] or 0),
                         'new_actual': u['actual_percent']
                     })
             return jsonify({'preview': preview_data})
     else:
-        engine = get_engine()
-        today = int(datetime.date.today().strftime("%Y%m%d"))
+        today = _today_key()
         updated = 0
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             for u in updates:
                 result = conn.execute(text("""
                     UPDATE t_ScheduleTask SET
                         ActualPercent = :pct,
                         LastUpdatedDateKey = :today
                     WHERE TaskID = :tid AND ProjectID = :pid
-                """), {'pct': u['actual_percent'], 'today': today, 'tid': u['task_id'], 'pid': project_id})
-                updated += result.rowcount
-            conn.commit()
+                """), {'pct': str(u['actual_percent']), 'today': str(today), 'tid': u['task_id'], 'pid': project_id})
+                updated += result.rowcount or 0
         return jsonify({'success': True, 'updated': updated})
 
+
 @api_bp.route('/ms-project/export-mpp/<string:project_id>')
+@login_required
 def export_mpp(project_id):
     engine = get_engine()
     with engine.connect() as conn:
@@ -1820,129 +1964,36 @@ def export_mpp(project_id):
             FROM t_ScheduleTask
             WHERE ProjectID = :pid
         """), {'pid': project_id}).fetchall()
-    
+
     root = ET.Element('Project', {'xmlns': 'http://schemas.microsoft.com/project/2010'})
     tasks_elem = ET.SubElement(root, 'Tasks')
     for r in rows:
+        m = r._mapping
         task_elem = ET.SubElement(tasks_elem, 'Task')
-        ET.SubElement(task_elem, 'UID').text = str(r[0] or '')
-        ET.SubElement(task_elem, 'Name').text = r[1] or ''
-        
-        if r[2] and isinstance(r[2], int):
-            date_str = str(r[2])
-            if len(date_str) == 8:
-                ET.SubElement(task_elem, 'Start').text = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}T00:00:00"
-        elif r[2]:
-            date_str = str(r[2])
-            ET.SubElement(task_elem, 'Start').text = date_str
-        
-        if r[3] and isinstance(r[3], int):
-            date_str = str(r[3])
-            if len(date_str) == 8:
-                ET.SubElement(task_elem, 'Finish').text = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}T00:00:00"
-        elif r[3]:
-            date_str = str(r[3])
-            ET.SubElement(task_elem, 'Finish').text = date_str
-        
-        ET.SubElement(task_elem, 'PercentComplete').text = str(r[4] or 0)
-    
+        ET.SubElement(task_elem, 'UID').text = str(m['MPPUniqueID'] or '')
+        ET.SubElement(task_elem, 'Name').text = m['TaskName'] or ''
+
+        for col, tag in (('StartDateKey', 'Start'), ('FinishDateKey', 'Finish')):
+            val = m[col]
+            if val:
+                s = str(val)
+                if len(s) == 8 and s.isdigit():
+                    ET.SubElement(task_elem, tag).text = f"{s[:4]}-{s[4:6]}-{s[6:8]}T00:00:00"
+                else:
+                    ET.SubElement(task_elem, tag).text = s
+
+        ET.SubElement(task_elem, 'PercentComplete').text = str(m['ActualPercent'] or 0)
+
     xml_str = ET.tostring(root, encoding='unicode')
-    return Response(xml_str, mimetype='text/xml', headers={'Content-Disposition': f'attachment; filename=updated_schedule_{datetime.datetime.now().strftime("%Y%m%d")}.xml'})
+    return Response(xml_str, mimetype='text/xml', headers={'Content-Disposition': f'attachment; filename=updated_schedule_{datetime.now().strftime("%Y%m%d")}.xml'})
 
-# ==================== DEBUG ====================
-@api_bp.route('/debug_routes')
-def debug_routes():
-    from flask import current_app
-    routes = []
-    for rule in current_app.url_map.iter_rules():
-        if '/api/project' in str(rule):
-            routes.append(str(rule))
-    return jsonify(routes)
-    
- 
 
-@api_bp.route('/debug-customer-projects-keys')
-def debug_customer_projects_keys():
-    """
-    TEMPORARY DEBUG — verify translation keys for customer_projects page.
-    Remove after debugging.
-    """
-    from flask import session
-    engine = get_engine()
-    
-    keys_to_check = [
-        'project.customer_projects.title',
-        'project.customer_projects.btn.import',
-        'project.customer_projects.btn.export',
-        'project.customer_projects.btn.create',
-        'project.customer_projects.kpi.total',
-        'project.customer_projects.kpi.active',
-        'project.customer_projects.kpi.on_hold',
-        'project.customer_projects.kpi.completed',
-        'project.customer_projects.col.id',
-        'project.customer_projects.col.company',
-        'project.customer_projects.col.name',
-        'project.customer_projects.filter.company',
-        'global.status',
-        'global.all',
-        'global.apply_filters',
-        'global.save',
-        'global.cancel'
-    ]
-    
-    result = {
-        'session_lang': session.get('lang', 'NOT SET'),
-        'session_all_keys': sorted(list(session.keys())),
-        'keys': {}
-    }
-    
-    with engine.connect() as conn:
-        for key in keys_to_check:
-            for lang in ['en', 'fa']:
-                row = conn.execute(text(
-                    "SELECT Value FROM t_Translations WHERE translation_key = :k AND Language = :l"
-                ), {'k': key, 'l': lang}).fetchone()
-                result['keys'][f"{key} [{lang}]"] = row[0] if row else '❌ NOT IN DB'
-    
-    return jsonify(result)
-    
-  
-  
- 
-# ==================== TEMPORARY DEBUG (REMOVE AFTER USE) ====================
-@api_bp.route('/debug-set-project', methods=['GET', 'POST'])
-def debug_set_project():
-    """
-    TEMPORARY debug endpoint for project selector.
-    Remove after debugging.
-    """
-    from flask import request, session
-    if request.method == 'POST':
-        data = request.get_json(silent=True) or request.form
-        print(f"🔵 POST /debug-set-project received: {data}")
-        print(f"🔵 Request content-type: {request.content_type}")
-        project_id = data.get('project_id') if data else None
-        if project_id:
-            session['current_project_id'] = project_id
-            session.modified = True
-            print(f"🔵 Session set: current_project_id={project_id}")
-            return jsonify({
-                'status': 'ok',
-                'project_id': project_id,
-                'session_after': dict(session)
-            })
-        return jsonify({'status': 'error', 'message': 'No project_id in request'}), 400
-    # GET — show current state
-    return jsonify({
-        'current_project_id': session.get('current_project_id', 'NOT SET'),
-        'all_session_keys': sorted(list(session.keys()))
-    })
-    
- 
+# ==================== CURRENT PROJECT ====================
 @api_bp.route('/current-project', methods=['GET'])
+@login_required
 def get_current_project():
-    """Return the current project_id from session. Always fresh."""
-    from flask import session
+    """Return the current project_id from session."""
+    from flask import session as flask_session
     return jsonify({
-        'project_id': session.get('current_project_id', 'All')
+        'project_id': flask_session.get('current_project_id', 'All')
     })

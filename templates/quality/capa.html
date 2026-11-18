@@ -51,14 +51,14 @@
 <label>{{ get_translation('auto.ddca1f87', 'Type') }}</label>
 <select class="form-select" id="filterType">
 <option value="">{{ get_translation('auto.904e8cbc', 'All') }}</option>
-<option>{{ get_translation('auto.2290ad23', 'Corrective') }}</option><option>{{ get_translation('auto.8beed1ed', 'Preventive') }}</option>
+<option value="Corrective">{{ get_translation('auto.2290ad23', 'Corrective') }}</option><option value="Preventive">{{ get_translation('auto.8beed1ed', 'Preventive') }}</option>
 </select>
 </div>
 <div class="col-md-3">
 <label>{{ get_translation('auto.d1089e7c', 'Status') }}</label>
 <select class="form-select" id="filterStatus">
 <option value="">{{ get_translation('auto.5234105e', 'All') }}</option>
-<option>{{ get_translation('auto.017fe17a', 'Open') }}</option><option>{{ get_translation('auto.73837e16', 'InProgress') }}</option><option>{{ get_translation('auto.5f8f7097', 'Completed') }}</option>
+<option value="Open">{{ get_translation('auto.017fe17a', 'Open') }}</option><option value="InProgress">{{ get_translation('auto.73837e16', 'InProgress') }}</option><option value="Completed">{{ get_translation('auto.5f8f7097', 'Completed') }}</option><option value="Closed">Closed</option>
 </select>
 </div>
 <div class="col-md-4">
@@ -105,18 +105,18 @@
 <div class="modal-content">
 <div class="modal-header"><h5>{{ get_translation('auto.873bb62a', 'Create CAPA Action') }}</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div>
 <div class="modal-body">
-<form>
+<form id="createActionForm" novalidate>
 <div class="row">
 <div class="col-md-6 mb-3">
 <label>{{ get_translation('auto.7ce65f46', 'Action Type *') }}</label>
 <select class="form-select" id="newType" required="">
-<option>{{ get_translation('auto.6ae47fb2', 'Corrective') }}</option><option>{{ get_translation('auto.922897eb', 'Preventive') }}</option>
+<option value="Corrective">{{ get_translation('auto.6ae47fb2', 'Corrective') }}</option><option value="Preventive">{{ get_translation('auto.922897eb', 'Preventive') }}</option>
 </select>
 </div>
 <div class="col-md-6 mb-3">
 <label>{{ get_translation('auto.cbdf9ff0', 'Source Type *') }}</label>
 <select class="form-select" id="newSourceType" required="">
-<option>{{ get_translation('auto.bcb2815e', 'NCR') }}</option><option>{{ get_translation('auto.e62d74e6', 'Audit') }}</option><option>{{ get_translation('auto.f72e6627', 'Internal') }}</option><option>{{ get_translation('auto.63efda13', 'Supplier') }}</option>
+<option value="NCR">{{ get_translation('auto.bcb2815e', 'NCR') }}</option><option value="Audit">{{ get_translation('auto.e62d74e6', 'Audit') }}</option><option value="Internal">{{ get_translation('auto.f72e6627', 'Internal') }}</option><option value="Supplier">{{ get_translation('auto.63efda13', 'Supplier') }}</option>
 </select>
 </div>
 </div>
@@ -140,7 +140,7 @@
 </div>
 <div class="col-md-6 mb-3">
 <label>{{ get_translation('auto.8da73404', 'Due Date (YYYYMMDD)') }}</label>
-<input class="form-control" id="newDueDate" placeholder="20241231" type="number"/>
+<input class="form-control" id="newDueDate" type="date"/>
 </div>
 </div>
 </form>
@@ -161,7 +161,8 @@
 <input id="verifyActionId" type="hidden"/>
 <div class="mb-3">
 <label>{{ get_translation('auto.7a02aebe', 'Effectiveness Check (notes)') }}</label>
-<textarea class="form-control" id="effectivenessText" required="" rows="3"></textarea>
+<textarea class="form-control" id="effectivenessText" required rows="3" maxlength="4000"></textarea>
+<div class="invalid-feedback">Effectiveness notes are required.</div>
 </div>
 <p class="text-muted">{{ get_translation('auto.736e2208', 'This will mark the action as Completed.') }}</p>
 </div>
@@ -176,104 +177,223 @@
 
 {% block scripts %}
 <script>
-$(document).ready(function() {
-    let createModal = new bootstrap.Modal(document.getElementById('createModal'));
-    let verifyModal = new bootstrap.Modal(document.getElementById('verifyModal'));
+document.addEventListener('DOMContentLoaded', () => {
+    const createModal = new bootstrap.Modal(document.getElementById('createModal'));
+    const verifyModal = new bootstrap.Modal(document.getElementById('verifyModal'));
+    const byId = (id) => document.getElementById(id);
     let currentActionId = null;
+    let busy = false;
 
-    function loadKPI() {
-        $.get('/api/quality/capa/kpi', function(data) {
-            $('#kpiOpen').text(data.open);
-            $('#kpiOverdue').text(data.overdue);
-            $('#kpiCompleted').text(data.completed);
-        }).fail(console.error);
+    const errorMessage = (error, fallback) => {
+        if (error && typeof error === 'object' && error.message) return error.message;
+        return fallback;
+    };
+
+    async function requestJson(url, options = {}) {
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', ...(options.headers || {}) },
+            ...options
+        });
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+        if (!response.ok) {
+            const message = payload && typeof payload === 'object' ? payload.error : `Request failed (${response.status})`;
+            throw new Error(message || `Request failed (${response.status})`);
+        }
+        return payload;
     }
 
-    function loadActions() {
-        let params = {
-            type: $('#filterType').val(),
-            status: $('#filterStatus').val(),
-            assignee: $('#filterAssignee').val()
-        };
-        $.get('/api/quality/capa/list', params, function(actions) {
-            let tbody = $('#actionsTableBody').empty();
-            for (let a of actions) {
-                let dueDate = a.DueDateKey ? a.DueDateKey.toString() : '';
-                let statusBadge = '';
-                if (a.Status === 'Open') statusBadge = '<span class="badge bg-secondary">Open</span>';
-                else if (a.Status === 'InProgress') statusBadge = '<span class="badge bg-warning">In Progress</span>';
-                else statusBadge = '<span class="badge bg-success">Completed</span>';
-                let row = `<tr>
-                    <td><a href="#" class="action-detail" data-id="${a.ActionID}">${a.ActionNumber}</a></td>
-                    <td>${a.ActionType}</td><td>${a.SourceType}: ${a.SourceID || ''}</td>
-                    <td>${a.Description.substring(0,50)}...</td><td>${a.AssigneeName || ''}</td>
-                    <td>${dueDate}</td><td>${statusBadge}</td>
-                    <td>
-                        <button class="btn btn-sm btn-success verify-btn" data-id="${a.ActionID}" ${a.Status === 'Completed' ? 'disabled' : ''}>Verify</button>
-                    </td>
-                </tr>`;
-                tbody.append(row);
-            }
-        }).fail(console.error);
+    function showError(message) {
+        window.alert(message || 'An unexpected error occurred.');
     }
 
-    $('#createActionBtn').click(function() {
-        $('#newType').val('Corrective');
-        $('#newSourceType').val('NCR');
-        $('#newSourceId').val('');
-        $('#newDescription').val('');
-        $('#newAssignee').val('');
-        $('#newDueDate').val('');
+    async function loadKPI() {
+        try {
+            const data = await requestJson('/api/quality/capa/kpi');
+            byId('kpiOpen').textContent = String(data.open ?? 0);
+            byId('kpiOverdue').textContent = String(data.overdue ?? 0);
+            byId('kpiCompleted').textContent = String(data.completed ?? 0);
+        } catch (error) {
+            console.error('CAPA KPI load failed:', error);
+            showError(errorMessage(error, 'Unable to load CAPA summary.'));
+        }
+    }
+
+    function addCell(row, value) {
+        const cell = document.createElement('td');
+        cell.textContent = value == null ? '' : String(value);
+        row.appendChild(cell);
+        return cell;
+    }
+
+    function renderActions(actions) {
+        const tbody = byId('actionsTableBody');
+        tbody.replaceChildren();
+        if (!Array.isArray(actions) || actions.length === 0) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 8;
+            cell.className = 'text-center py-4';
+            cell.textContent = 'No CAPA actions found.';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+            return;
+        }
+
+        for (const action of actions) {
+            const row = document.createElement('tr');
+            addCell(row, action.ActionNumber);
+            addCell(row, action.ActionType);
+            addCell(row, [action.SourceType, action.SourceID].filter(Boolean).join(': '));
+            const description = String(action.Description ?? '');
+            addCell(row, description.length > 50 ? `${description.slice(0, 50)}…` : description);
+            addCell(row, action.AssigneeName);
+            addCell(row, action.DueDateFormatted || '');
+
+            const statusCell = document.createElement('td');
+            const badge = document.createElement('span');
+            const status = String(action.Status || 'Unknown');
+            badge.className = 'badge ' + (status === 'Open' ? 'bg-secondary' : status === 'InProgress' ? 'bg-warning text-dark' : ['Completed', 'Closed'].includes(status) ? 'bg-success' : 'bg-dark');
+            badge.textContent = status === 'InProgress' ? 'In Progress' : status;
+            statusCell.appendChild(badge);
+            row.appendChild(statusCell);
+
+            const actionCell = document.createElement('td');
+            const verifyButton = document.createElement('button');
+            verifyButton.type = 'button';
+            verifyButton.className = 'btn btn-sm btn-success verify-btn';
+            verifyButton.textContent = 'Verify';
+            verifyButton.dataset.id = String(action.ActionID ?? '');
+            verifyButton.disabled = !action.ActionID || ['Completed', 'Closed'].includes(status);
+            actionCell.appendChild(verifyButton);
+            row.appendChild(actionCell);
+            tbody.appendChild(row);
+        }
+    }
+
+    async function loadActions() {
+        const params = new URLSearchParams();
+        const type = byId('filterType').value;
+        const status = byId('filterStatus').value;
+        const assignee = byId('filterAssignee').value;
+        if (type) params.set('type', type);
+        if (status) params.set('status', status);
+        if (assignee) params.set('assignee', assignee);
+        byId('actionsTableBody').textContent = '';
+        const loadingRow = document.createElement('tr');
+        const loadingCell = document.createElement('td');
+        loadingCell.colSpan = 8;
+        loadingCell.className = 'text-center py-4';
+        loadingCell.textContent = 'Loading…';
+        loadingRow.appendChild(loadingCell);
+        byId('actionsTableBody').appendChild(loadingRow);
+        try {
+            const actions = await requestJson(`/api/quality/capa/list${params.size ? `?${params}` : ''}`);
+            renderActions(actions);
+        } catch (error) {
+            console.error('CAPA list load failed:', error);
+            byId('actionsTableBody').replaceChildren();
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 8;
+            cell.className = 'text-danger text-center py-4';
+            cell.textContent = errorMessage(error, 'Unable to load CAPA actions.');
+            row.appendChild(cell);
+            byId('actionsTableBody').appendChild(row);
+        }
+    }
+
+    byId('createActionBtn').addEventListener('click', () => {
+        byId('createActionForm').reset();
+        byId('newType').value = 'Corrective';
+        byId('newSourceType').value = 'NCR';
         createModal.show();
     });
 
-    $('#saveActionBtn').click(function() {
-        let data = {
-            actionType: $('#newType').val(),
-            sourceType: $('#newSourceType').val(),
-            sourceID: $('#newSourceId').val() || null,
-            description: $('#newDescription').val(),
-            assignedTo: $('#newAssignee').val() || null,
-            dueDateKey: $('#newDueDate').val() || null
+    byId('saveActionBtn').addEventListener('click', async () => {
+        const form = byId('createActionForm');
+        const description = byId('newDescription').value.trim();
+        if (!form.checkValidity() || !description) {
+            form.reportValidity();
+            if (!description) byId('newDescription').focus();
+            return;
+        }
+        if (busy) return;
+        const dueIso = byId('newDueDate').value;
+        const data = {
+            actionType: byId('newType').value,
+            sourceType: byId('newSourceType').value,
+            sourceID: byId('newSourceId').value.trim() || null,
+            description,
+            assignedTo: byId('newAssignee').value || null,
+            dueDateKey: dueIso ? dueIso.replaceAll('-', '') : null
         };
-        $.ajax({
-            url: '/api/quality/capa/action',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(data),
-            success: function() {
-                createModal.hide();
-                loadActions();
-                loadKPI();
-            },
-            error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown')); }
-        });
+        busy = true;
+        byId('saveActionBtn').disabled = true;
+        try {
+            await requestJson('/api/quality/capa/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            createModal.hide();
+            await Promise.all([loadActions(), loadKPI()]);
+        } catch (error) {
+            showError(errorMessage(error, 'Unable to create CAPA action.'));
+        } finally {
+            busy = false;
+            byId('saveActionBtn').disabled = false;
+        }
     });
 
-    $(document).on('click', '.verify-btn', function() {
-        currentActionId = $(this).data('id');
-        $('#verifyActionId').val(currentActionId);
-        $('#effectivenessText').val('');
+    byId('actionsTableBody').addEventListener('click', (event) => {
+        const button = event.target.closest('.verify-btn');
+        if (!button || button.disabled) return;
+        currentActionId = button.dataset.id;
+        byId('verifyActionId').value = currentActionId;
+        byId('effectivenessText').value = '';
+        byId('effectivenessText').classList.remove('is-invalid');
         verifyModal.show();
     });
-    $('#confirmVerifyBtn').click(function() {
-        let data = { effectivenessCheck: $('#effectivenessText').val() };
-        $.ajax({
-            url: `/api/quality/capa/action/${currentActionId}/verify`,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(data),
-            success: function() {
-                verifyModal.hide();
-                loadActions();
-                loadKPI();
-            }
-        });
+
+    byId('confirmVerifyBtn').addEventListener('click', async () => {
+        const notes = byId('effectivenessText').value.trim();
+        if (!currentActionId || !notes) {
+            byId('effectivenessText').classList.add('is-invalid');
+            byId('effectivenessText').focus();
+            return;
+        }
+        if (busy) return;
+        busy = true;
+        byId('confirmVerifyBtn').disabled = true;
+        try {
+            await requestJson(`/api/quality/capa/action/${encodeURIComponent(currentActionId)}/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ effectivenessCheck: notes })
+            });
+            verifyModal.hide();
+            await Promise.all([loadActions(), loadKPI()]);
+        } catch (error) {
+            showError(errorMessage(error, 'Unable to verify CAPA action.'));
+        } finally {
+            busy = false;
+            byId('confirmVerifyBtn').disabled = false;
+        }
     });
 
-    $('#applyFiltersBtn').click(function() { loadActions(); });
-    $('#refreshBtn').click(function() { loadActions(); loadKPI(); });
-    $('#exportCsvBtn').click(function() { window.location.href = '/api/quality/capa/export'; });
+    byId('effectivenessText').addEventListener('input', () => byId('effectivenessText').classList.remove('is-invalid'));
+    byId('applyFiltersBtn').addEventListener('click', loadActions);
+    byId('refreshBtn').addEventListener('click', () => { loadActions(); loadKPI(); });
+    byId('exportCsvBtn').addEventListener('click', () => {
+        const params = new URLSearchParams();
+        for (const id of ['filterType', 'filterStatus', 'filterAssignee']) {
+            const value = byId(id).value;
+            if (value) params.set(({ filterType: 'type', filterStatus: 'status', filterAssignee: 'assignee' })[id], value);
+        }
+        window.location.assign(`/api/quality/capa/export${params.size ? `?${params}` : ''}`);
+    });
 
     loadKPI();
     loadActions();

@@ -9,7 +9,19 @@
             {{ get_translation('crm.quote.detail.title', 'Quote Detail') }}:
             <span id="quoteNumberSpan">{{ get_translation('global.loading', 'Loading...') }}</span>
         </h2>
-        <div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success" id="addLineBtn" style="display:none;">
+                <i class="fas fa-plus me-1"></i>{{ get_translation('crm.quote.add_line', 'Add Line') }}
+            </button>
+            <button class="btn btn-outline-warning" id="reviseQuoteBtn" style="display:none;">
+                <i class="fas fa-code-branch me-1"></i>{{ get_translation('crm.quote.revise', 'Revise') }}
+            </button>
+            <button class="btn btn-outline-warning sync-btn" data-scope="customers" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.customers.sync', 'Sync Customers') }}
+            </button>
+            <button class="btn btn-warning sync-btn" data-scope="all" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.sync.all', 'Sync All') }}
+            </button>
             <button class="btn btn-secondary" id="backBtn">
                 <i class="fas fa-arrow-left me-1"></i>{{ get_translation('global.back', 'Back') }}
             </button>
@@ -39,17 +51,20 @@
                                     <th>{{ get_translation('crm.quote.product', 'Product') }}</th>
                                     <th>{{ get_translation('crm.quote.quantity', 'Quantity') }}</th>
                                     <th>{{ get_translation('crm.quote.unit_price', 'Unit Price') }}</th>
+                                    <th>{{ get_translation('crm.quotes.currency', 'Currency') }}</th>
                                     <th>{{ get_translation('crm.quote.total_price', 'Total Price') }}</th>
                                     <th>{{ get_translation('crm.quotes.notes', 'Notes') }}</th>
+                                    <th style="width:110px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="quoteLinesBody">
-                                <tr><td colspan="5" class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                                <tr><td colspan="7" class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
                             </tbody>
                             <tfoot>
                                 <tr class="fw-bold">
-                                    <td colspan="3" class="text-end">{{ get_translation('crm.quotes.total_amount', 'Total') }}:</td>
+                                    <td colspan="4" class="text-end">{{ get_translation('crm.quotes.total_amount', 'Total') }}:</td>
                                     <td id="quoteTotalDisplay">$0.00</td>
+                                    <td></td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -63,6 +78,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/sync-button.js') }}"></script>
 <script>
 // ============================================================================
 // 1. PARSE URL — TOP LEVEL
@@ -127,7 +143,7 @@ function loadQuote() {
             console.error('load quote failed:', err);
             el('quoteDetails').innerHTML = '<div class="alert alert-danger">' +
                 t('global.error_loading', 'Error loading data') + ': ' + escapeHtml(err.message) + '</div>';
-            el('quoteLinesBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">' +
+            el('quoteLinesBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger">' +
                 t('global.error_loading', 'Error loading data') + '</td></tr>';
         });
 }
@@ -136,7 +152,6 @@ function renderQuote(quote) {
     var qn = quote.quote_number || quote.quote_id || '';
     el('quoteNumberSpan').textContent = qn;
 
-    // Dates: ALWAYS use server-formatted twin, never slice key
     var validUntil = quote.valid_until_date_formatted || '—';
     var createdDate = quote.created_date_formatted || '—';
 
@@ -168,8 +183,18 @@ function renderQuote(quote) {
             '<tr><th>' + t('crm.quote.valid_until', 'Valid Until') + '</th><td>' + escapeHtml(validUntil) + '</td></tr>' +
             '<tr><th>' + t('crm.quote.created_date', 'Created') + '</th><td>' + escapeHtml(createdDate) + '</td></tr>' +
             '<tr><th>' + t('crm.quote.notes', 'Notes') + '</th><td>' + escapeHtml(quote.notes || '—') + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.currency', 'Currency') + '</th><td>' + escapeHtml(quote.currency || 'USD') + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.tax_rate', 'Tax Rate (%)') + '</th><td>' + (quote.tax_rate != null ? quote.tax_rate + '%' : '—') + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.tax_amount', 'Tax Amount') + '</th><td>' + (quote.tax_amount != null ? Number(quote.tax_amount).toLocaleString() : '—') + '</td></tr>' +
+            '<tr><th>' + t('crm.quote.total_with_tax', 'Total With Tax') + '</th><td class="fw-bold">' + (quote.total_with_tax != null ? Number(quote.total_with_tax).toLocaleString() : '—') + '</td></tr>' +
         '</table>';
     el('quoteDetails').innerHTML = html;
+
+    var editable = (quote.status === 'Draft' || quote.status === 'Sent');
+    var addBtn = el('addLineBtn');
+    var revBtn = el('reviseQuoteBtn');
+    if (addBtn) addBtn.style.display = editable ? 'inline-block' : 'none';
+    if (revBtn) revBtn.style.display = (quote.status !== 'Accepted' && quote.status !== 'Superseded') ? 'inline-block' : 'none';
 
     if (quote.lines && quote.lines.length) {
         var linesHtml = '';
@@ -179,23 +204,64 @@ function renderQuote(quote) {
             var price = parseFloat(line.unit_price) || 0;
             var lineTotal = parseFloat(line.total_price) || (qty * price);
             total += lineTotal;
-
+            var actions = '';
+            if (editable) {
+                actions = '<td class="text-nowrap">' +
+                    '<button class="btn btn-sm btn-outline-warning me-1 edit-line-btn" data-line="' + escapeHtml(line.line_id) + '"><i class="fas fa-edit"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-danger del-line-btn" data-line="' + escapeHtml(line.line_id) + '"><i class="fas fa-trash"></i></button>' +
+                    '</td>';
+            } else {
+                actions = '<td></td>';
+            }
             linesHtml += '<tr>' +
                 '<td>' + escapeHtml(line.product_id || '') +
                     (line.product_name ? ' — ' + escapeHtml(line.product_name) : '') + '</td>' +
                 '<td>' + qty + '</td>' +
-                '<td>$' + price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
-                '<td>$' + lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+                '<td>' + price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+                '<td>' + escapeHtml(line.currency || quote.currency || 'USD') + '</td>' +
+                '<td>' + lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
                 '<td>' + escapeHtml(line.notes || '') + '</td>' +
+                actions +
             '</tr>';
         });
         el('quoteLinesBody').innerHTML = linesHtml;
-        el('quoteTotalDisplay').textContent = '$' + total.toLocaleString(undefined,
+        el('quoteTotalDisplay').textContent = total.toLocaleString(undefined,
             { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        if (editable) {
+            document.querySelectorAll('.del-line-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (!confirm(t('crm.quote.confirm_delete_line', 'Delete this line?'))) return;
+                    fetch('/api/crm/quote-lines/' + btn.getAttribute('data-line'), {
+                        method: 'DELETE', credentials: 'same-origin'
+                    }).then(loadQuote);
+                });
+            });
+            document.querySelectorAll('.edit-line-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var lid = btn.getAttribute('data-line');
+                    var row = (quote.lines || []).find(function (l) { return l.line_id === lid; });
+                    if (!row) return;
+                    var newQty = prompt(t('crm.quote.prompt_qty', 'Quantity'), row.quantity);
+                    if (newQty === null) return;
+                    var newUnit = prompt(t('crm.quote.prompt_unit', 'Unit Price'), row.unit_price);
+                    if (newUnit === null) return;
+                    fetch('/api/crm/quote-lines/' + lid, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            quantity: parseFloat(newQty) || 0,
+                            unit_price: parseFloat(newUnit) || 0,
+                        }),
+                    }).then(loadQuote);
+                });
+            });
+        }
     } else {
-        el('quoteLinesBody').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">' +
+        el('quoteLinesBody').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">' +
             t('crm.quote.no_lines', 'No line items') + '</td></tr>';
-        el('quoteTotalDisplay').textContent = '$0.00';
+        el('quoteTotalDisplay').textContent = '0.00';
     }
 }
 
@@ -205,7 +271,55 @@ function renderQuote(quote) {
 document.addEventListener('DOMContentLoaded', function () {
     var back = el('backBtn');
     if (back) back.addEventListener('click', function () { window.history.back(); });
+
+    var addLineBtn = el('addLineBtn');
+    if (addLineBtn) addLineBtn.addEventListener('click', function () {
+        var pid = prompt(t('crm.quote.prompt_product', 'Product ID'));
+        if (!pid) return;
+        var qty = prompt(t('crm.quote.prompt_qty', 'Quantity'), '1');
+        if (qty === null) return;
+        var unit = prompt(t('crm.quote.prompt_unit', 'Unit Price'), '0');
+        if (unit === null) return;
+        fetch('/api/crm/quotes/' + encodeURIComponent(quoteId) + '/lines', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                product_id: pid,
+                quantity:   parseFloat(qty) || 1,
+                unit_price: parseFloat(unit) || 0,
+            }),
+        }).then(loadQuote);
+    });
+
+    var revBtn = el('reviseQuoteBtn');
+    if (revBtn) revBtn.addEventListener('click', function () {
+        if (!confirm(t('crm.quote.confirm_revise', 'Create a new revision of this quote?'))) return;
+        fetch('/api/crm/quotes/' + encodeURIComponent(quoteId) + '/revise', {
+            method: 'POST', credentials: 'same-origin'
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.quote_id) window.location.href = '/crm/quote/' + res.quote_id;
+        });
+    });
+
     loadQuote();
+});
+</script>
+
+<script>
+// Sync buttons — defensive attach (idempotent; no-op if auto-init ran).
+document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.SyncButton && typeof window.SyncButton.attach === 'function')) return;
+    window.SyncButton.attach('.sync-btn[data-scope="customers"]', {
+        scope: 'customers',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
+    window.SyncButton.attach('.sync-btn[data-scope="all"]', {
+        scope: 'all',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
 });
 </script>
 {% endblock %}

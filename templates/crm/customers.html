@@ -7,6 +7,34 @@
     .revenue-positive { color: #28a745; font-weight: bold; }
     .clickable { cursor: pointer; }
     .clickable:hover { text-decoration: underline; }
+    .bilingual-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .bilingual-pair .lang-label {
+        font-size: 0.7rem; color: #6c757d;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    [dir="rtl"] .bilingual-pair { direction: rtl; }
+    .ai-preview-section {
+        border: 1px solid #dee2e6; border-radius: 6px;
+        padding: 10px; margin-bottom: 10px; background: #f8f9fa;
+    }
+    .ai-preview-section h6 {
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #495057; margin-bottom: 6px; font-weight: 700;
+    }
+    .ai-preview-section .field-row { font-size: 0.85rem; margin-bottom: 2px; }
+    .ai-preview-section .field-row .label { color: #6c757d; }
+    .ai-preview-section .field-row .value { font-weight: 500; }
+    .ai-preview-section.ai-warn { background: #fff3cd; border-color: #ffc107; }
+    .ai-preview-section.ai-no-save { background: #e7f3ff; border-color: #b6d4fe; }
+    .ai-candidate-item {
+        border: 1px solid #dee2e6; border-radius: 6px;
+        padding: 8px 10px; margin-bottom: 6px; cursor: pointer;
+        transition: all 0.15s; background: #fff;
+    }
+    .ai-candidate-item:hover {
+        border-color: #0d6efd; background: #e7f3ff; transform: translateX(2px);
+    }
+    .ai-preview-section.ai-candidates { background: #f0f8ff; border-color: #0d6efd; }
 </style>
 {% endblock %}
 
@@ -17,7 +45,19 @@
             <i class="fas fa-users me-2"></i>{{ get_translation('crm.customers.title', 'Customers') }}
             <span class="badge bg-secondary ms-2" id="customersCount">0</span>
         </h2>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-success" id="aiAssistBtn">
+                <i class="fas fa-magic me-1"></i>{{ get_translation('global.ai.assist', 'AI Assist') }}
+            </button>
+            <button class="btn btn-primary" id="createCustomerBtn">
+                <i class="fas fa-plus me-1"></i>{{ get_translation('crm.customers.create', 'Create Customer') }}
+            </button>
+            <button class="btn btn-outline-warning sync-btn" data-scope="customers" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.customers.sync', 'Sync Customers') }}
+            </button>
+            <button class="btn btn-warning sync-btn" data-scope="all" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.sync.all', 'Sync All') }}
+            </button>
             <button class="btn btn-outline-primary" id="refreshBtn">
                 <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
             </button>
@@ -78,10 +118,11 @@
                             <th>{{ get_translation('crm.customers.open_pipeline', 'Open Pipeline') }}</th>
                             <th>{{ get_translation('crm.customers.total_revenue', 'Total Revenue') }}</th>
                             <th>{{ get_translation('crm.customers.opportunities', 'Opportunities') }}</th>
+                            <th style="width:120px;">{{ get_translation('global.actions', 'Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody id="customersTableBody">
-                        <tr><td colspan="5" class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
+                        <tr><td colspan="6" class="text-center py-4">{{ get_translation('global.loading', 'Loading...') }}</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -89,7 +130,136 @@
     </div>
 </div>
 
-<!-- Customer Detail Modal -->
+<!-- ================= CREATE / EDIT CUSTOMER MODAL ================= -->
+<div class="modal fade" id="customerFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="customerFormTitle">{{ get_translation('crm.customers.create', 'Create Customer') }}</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div id="aiFromBanner" class="alert alert-success small py-2 mb-3" style="display:none;">
+                    <i class="fas fa-magic me-1"></i>
+                    <span id="aiFromBannerText">{{ get_translation('global.ai.filled_from_ai', 'Fields filled by AI. Please review before saving.') }}</span>
+                </div>
+
+                <form id="customerForm">
+                    <input type="hidden" id="customerId"/>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ get_translation('crm.customers.customer_name', 'Customer Name') }} *</label>
+                        <div class="bilingual-pair">
+                            <div><div class="lang-label">EN</div>
+                                <input class="form-control" id="custName" type="text" dir="ltr"/></div>
+                            <div><div class="lang-label">FA</div>
+                                <input class="form-control" id="custNameFa" type="text" dir="rtl"/></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.customers.telephone', 'Telephone') }}</label>
+                            <input class="form-control" id="custTelephone" type="text"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.customers.role', 'Business Type / Role') }}</label>
+                            <input class="form-control" id="custRole" type="text"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.customers.website', 'Website') }}</label>
+                            <input class="form-control" id="custWebsite" type="text"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ get_translation('crm.customers.email', 'Email') }}</label>
+                            <input class="form-control" id="custEmail" type="email"/>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label">{{ get_translation('crm.customers.address', 'Address') }}</label>
+                        <div class="bilingual-pair">
+                            <div><div class="lang-label">EN</div>
+                                <textarea class="form-control" id="custAddress" rows="2" dir="ltr"></textarea></div>
+                            <div><div class="lang-label">FA</div>
+                                <textarea class="form-control" id="custAddressFa" rows="2" dir="rtl"></textarea></div>
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="custIsSupplier">
+                        <label class="form-check-label" for="custIsSupplier">
+                            {{ get_translation('crm.customers.is_supplier', 'Also a supplier') }}
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-primary" id="saveCustomerBtn" type="button">{{ get_translation('global.save', 'Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= AI ASSIST MODAL ================= -->
+<div class="modal fade" id="aiAssistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-magic me-2"></i>{{ get_translation('crm.ai.title', 'AI Assist — Paste & Parse') }}
+                </h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {{ get_translation('crm.ai.helper', 'Paste any text — email, meeting notes, website content — and the AI will extract the fields for you. You will review before saving.') }}
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">{{ get_translation('crm.ai.input_label', 'Paste text') }}</label>
+                        <textarea class="form-control" id="aiInputText" rows="16"></textarea>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted"><span id="aiCharCount">0</span> / 8000</small>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary" id="aiClearBtn" type="button">
+                                    <i class="fas fa-times me-1"></i>{{ get_translation('global.clear', 'Clear') }}
+                                </button>
+                                <button class="btn btn-sm btn-success" id="aiParseBtn" type="button">
+                                    <i class="fas fa-magic me-1"></i>{{ get_translation('global.ai.parse_btn', 'Parse with AI') }}
+                                </button>
+                            </div>
+                        </div>
+                        <div id="aiErrorBox" class="alert alert-danger mt-2 small" style="display:none;"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">{{ get_translation('global.ai.preview_title', 'Parsed Preview') }}</label>
+                        <div id="aiPreviewPanel" style="max-height:520px; overflow-y:auto;">
+                            <div class="text-muted text-center py-5">
+                                <i class="fas fa-arrow-left fa-2x mb-2"></i>
+                                <p>{{ get_translation('global.ai.waiting', 'Paste text and click "Parse with AI" to see the preview.') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">{{ get_translation('global.cancel', 'Cancel') }}</button>
+                <button class="btn btn-outline-success" id="aiCreateNewBtn" type="button" style="display:none;">
+                    <i class="fas fa-plus me-1"></i>{{ get_translation('global.ai.create_new', 'Create New Instead') }}
+                </button>
+                <button class="btn btn-success" id="aiUseValuesBtn" type="button" disabled>
+                    <i class="fas fa-check me-1"></i>{{ get_translation('global.ai.use_values', 'Use These Values') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= CUSTOMER DETAIL MODAL (kept) ================= -->
 <div class="modal fade" id="customerDetailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -109,11 +279,15 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/sync-button.js') }}"></script>
 <script>
 // ============================================================================
-// 1. STATE / CONSTANTS — TOP LEVEL
+// 1. STATE — TOP LEVEL
 // ============================================================================
 var allCustomers = [];
+var lastAIParsed = null;
+var lastAICandidates = [];
+var lastAISelectedCustomerId = null;
 
 // ============================================================================
 // 2. HELPERS — TOP LEVEL
@@ -125,14 +299,12 @@ function t(key, fallback) {
     }
     return fallback || key;
 }
-
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/[&<>"']/g, function (m) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
     });
 }
-
 function el(id) { return document.getElementById(id); }
 
 function showToast(message, type) {
@@ -148,23 +320,41 @@ function showToast(message, type) {
     setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 4000);
 }
 
+function fetchJSON(url, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    return fetch(url, opts).then(function (r) {
+        return r.text().then(function (txt) {
+            var body = null;
+            try { body = txt ? JSON.parse(txt) : null; } catch (_) { /* not JSON */ }
+            if (!r.ok) {
+                var msg = (body && (body.error || body.message)) || ('HTTP ' + r.status);
+                var err = new Error(msg);
+                err.status = r.status;
+                err.body = body;
+                throw err;
+            }
+            return body;
+        });
+    });
+}
+
 // ============================================================================
-// 3. DATA LOADERS — TOP LEVEL, use fetch()
+// 3. LIST LOADERS — TOP LEVEL
 // ============================================================================
 function loadCustomers() {
     var tbody = el('customersTableBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">' + t('global.loading', 'Loading...') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">' + t('global.loading', 'Loading...') + '</td></tr>';
 
-    fetch('/api/crm/all-customers', { credentials: 'same-origin' })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    fetchJSON('/api/crm/all-customers')
         .then(function (data) {
             allCustomers = data || [];
             renderCustomers();
         })
         .catch(function (err) {
             console.error('load customers failed:', err);
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">' +
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">' +
                 t('global.error_loading', 'Error loading data') + '</td></tr>';
         });
 }
@@ -185,7 +375,7 @@ function renderCustomers() {
     });
 
     if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">' +
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">' +
             t('global.no_data', 'No customers found') + '</td></tr>';
         updateKPIs(0, 0, 0, 0);
         return;
@@ -198,17 +388,28 @@ function renderCustomers() {
         totalRevenue += c.total_revenue || 0;
         var revenueClass = (c.total_revenue || 0) > 0 ? 'revenue-positive' : '';
 
+        var erpBadge = '';
+        if (c.rahkaran_party_id != null) {
+            erpBadge = ' <span class="badge bg-success ms-1" title="Rahkaran Party ID ' +
+                escapeHtml(String(c.rahkaran_party_id)) + '"><i class="fas fa-sync-alt me-1"></i>' +
+                t('crm.customer.synced_from_erp', 'Synced from Hamkaran') + '</span>';
+        }
+
+        var actions =
+            '<button class="btn btn-sm btn-outline-warning me-1 edit-btn" data-id="' + escapeHtml(c.customer_id) + '" title="' + t('global.edit', 'Edit') + '"><i class="fas fa-edit"></i></button>' +
+            '<button class="btn btn-sm btn-outline-danger delete-btn" data-id="' + escapeHtml(c.customer_id) + '" title="' + t('global.delete', 'Delete') + '"><i class="fas fa-trash-alt"></i></button>';
+
         html += '<tr>' +
             '<td><a href="#" class="clickable view-customer-link" data-id="' + escapeHtml(c.customer_id) + '">' +
-                escapeHtml(c.name) + '</a></td>' +
+                escapeHtml(c.name) + '</a>' + erpBadge + '</td>' +
             '<td>' + escapeHtml(c.telephone || '—') + '</td>' +
             '<td>$' + Number(c.open_pipeline_value || 0).toLocaleString() + '</td>' +
             '<td class="' + revenueClass + '">$' + Number(c.total_revenue || 0).toLocaleString() + '</td>' +
             '<td><span class="badge bg-info">' + (c.opportunity_count || 0) + '</span></td>' +
+            '<td>' + actions + '</td>' +
         '</tr>';
     });
     tbody.innerHTML = html;
-
     updateKPIs(filtered.length, totalOpps, totalRevenue, allCustomers.length);
 }
 
@@ -225,8 +426,7 @@ function loadCustomerDetail(customerId) {
     body.innerHTML = '<div class="text-center text-muted py-3">' + t('global.loading', 'Loading...') + '</div>';
     bootstrap.Modal.getOrCreateInstance(el('customerDetailModal')).show();
 
-    fetch('/api/crm/customers/' + encodeURIComponent(customerId), { credentials: 'same-origin' })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    fetchJSON('/api/crm/customers/' + encodeURIComponent(customerId))
         .then(function (data) {
             var html = '<table class="table table-bordered">' +
                 '<tr><th style="width:35%">' + t('crm.customers.customer_name', 'Customer Name') + '</th><td>' + escapeHtml(data.name || '') + '</td></tr>' +
@@ -259,76 +459,465 @@ function loadCustomerDetail(customerId) {
         })
         .catch(function (err) {
             console.error('customer detail failed:', err);
-            body.innerHTML = '<div class="text-danger">' + t('global.error_loading', 'Error loading data') + '</div>';
+            body.innerHTML = '<div class="text-danger">' + t('global.error_loading', 'Error loading data') + ': ' + escapeHtml(err.message) + '</div>';
         });
 }
 
 // ============================================================================
-// 4. INIT — ONLY init + event binding
+// 4. CREATE / EDIT CUSTOMER — TOP LEVEL
+// ============================================================================
+function openCreateModal() {
+    var form = el('customerForm');
+    if (form) form.reset();
+    el('customerId').value = '';
+    el('customerFormTitle').textContent = t('crm.customers.create', 'Create Customer');
+    el('aiFromBanner').style.display = 'none';
+    bootstrap.Modal.getOrCreateInstance(el('customerFormModal')).show();
+}
+
+function openEditModal(customerId) {
+    fetchJSON('/api/crm/customers/' + encodeURIComponent(customerId) + '/full')
+        .then(function (c) {
+            el('customerFormTitle').textContent = t('crm.customers.edit', 'Edit Customer');
+            el('customerId').value = c.customer_id;
+            el('custName').value = c.name || '';
+            el('custNameFa').value = c.name_fa || '';
+            el('custTelephone').value = c.telephone || '';
+            el('custRole').value = c.role || '';
+            el('custWebsite').value = c.website || '';
+            el('custEmail').value = c.email || '';
+            el('custAddress').value = c.address || '';
+            el('custAddressFa').value = c.address_fa || '';
+            el('custIsSupplier').checked = (c.is_supplier === '1' || c.is_supplier === 1);
+            el('aiFromBanner').style.display = 'none';
+            bootstrap.Modal.getOrCreateInstance(el('customerFormModal')).show();
+        })
+        .catch(function (err) {
+            showToast(t('global.error_loading', 'Error loading data') + ': ' + err.message, 'error');
+        });
+}
+
+function saveCustomer() {
+    var id = el('customerId').value;
+    var payload = {
+        name:         el('custName').value,
+        nameFa:       el('custNameFa').value,
+        telephone:    el('custTelephone').value,
+        role:         el('custRole').value,
+        website:      el('custWebsite').value,
+        email:        el('custEmail').value,
+        address:      el('custAddress').value,
+        addressFa:    el('custAddressFa').value,
+        is_supplier:  el('custIsSupplier').checked ? '1' : '0',
+    };
+    if (!payload.name && !payload.nameFa) {
+        showToast(t('crm.customers.name_required', 'Customer name is required'), 'warning');
+        return;
+    }
+    var url    = id ? '/api/crm/customers/' + encodeURIComponent(id) : '/api/crm/customers';
+    var method = id ? 'PUT' : 'POST';
+
+    var btn = el('saveCustomerBtn');
+    btn.disabled = true;
+
+    fetchJSON(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    })
+    .then(function (res) {
+        bootstrap.Modal.getInstance(el('customerFormModal')).hide();
+        loadCustomers();
+        if (res && res.warnings && res.warnings.length) {
+            showToast(res.warnings.join('; '), 'warning');
+        } else {
+            showToast(t(id ? 'crm.customers.updated' : 'crm.customers.created',
+                        id ? 'Customer updated' : 'Customer created'), 'success');
+        }
+    })
+    .catch(function (err) { showToast(err.message, 'error'); })
+    .finally(function () { btn.disabled = false; });
+}
+
+function deleteCustomer(customerId) {
+    if (!confirm(t('crm.customers.confirm_delete', 'Delete this customer? This cannot be undone.'))) return;
+    fetchJSON('/api/crm/customers/' + encodeURIComponent(customerId), { method: 'DELETE' })
+        .then(function () {
+            loadCustomers();
+            showToast(t('crm.customers.deleted', 'Customer deleted'), 'success');
+        })
+        .catch(function (err) {
+            if (err.status === 409) {
+                showToast(err.message, 'error');
+            } else {
+                showToast(err.message, 'error');
+            }
+        });
+}
+
+// ============================================================================
+// 5. AI ASSIST — TOP LEVEL
+// ============================================================================
+function openAIAssist() {
+    el('aiInputText').value = '';
+    el('aiCharCount').textContent = '0';
+    el('aiErrorBox').style.display = 'none';
+    el('aiErrorBox').textContent = '';
+    el('aiPreviewPanel').innerHTML =
+        '<div class="text-muted text-center py-5">' +
+        '<i class="fas fa-arrow-left fa-2x mb-2"></i>' +
+        '<p>' + escapeHtml(t('global.ai.waiting', 'Paste text and click "Parse with AI" to see the preview.')) + '</p>' +
+        '</div>';
+    el('aiUseValuesBtn').disabled = true;
+    lastAIParsed = null;
+    lastAICandidates = [];
+    lastAISelectedCustomerId = null;
+    var cnBtn = el('aiCreateNewBtn'); if (cnBtn) cnBtn.style.display = 'none';
+    var btn = el('aiUseValuesBtn');
+    if (btn) btn.innerHTML = '<i class="fas fa-check me-1"></i>' +
+        t('global.ai.use_values', 'Use These Values');
+    bootstrap.Modal.getOrCreateInstance(el('aiAssistModal')).show();
+}
+
+function parseWithAI() {
+    var text = el('aiInputText').value.trim();
+    if (!text) {
+        showToast(t('global.ai.text_required', 'Please paste some text first.'), 'warning');
+        return;
+    }
+    var btn = el('aiParseBtn');
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' +
+                    escapeHtml(t('global.ai.parsing', 'Analyzing...'));
+    el('aiErrorBox').style.display = 'none';
+    el('aiPreviewPanel').innerHTML =
+        '<div class="text-center py-5"><div class="spinner-border text-success mb-2"></div>' +
+        '<p class="text-muted">' + escapeHtml(t('global.ai.parsing', 'Analyzing...')) + '</p></div>';
+
+    var t0 = Date.now();
+    fetchJSON('/api/crm/ai/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, context: 'customer' }),
+    })
+    .then(function (res) {
+        var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        if (!res || !res.ok) {
+            var errMsg = (res && res.error) || 'AI parsing failed';
+            el('aiErrorBox').textContent = errMsg;
+            el('aiErrorBox').style.display = 'block';
+            el('aiPreviewPanel').innerHTML = '';
+            el('aiUseValuesBtn').disabled = true;
+            return;
+        }
+        lastAIParsed = res.parsed || {};
+        lastAICandidates = lastAIParsed.customer_candidates || [];
+        lastAISelectedCustomerId = null;
+        renderAIPreview(lastAIParsed, elapsed);
+        el('aiUseValuesBtn').disabled = false;
+        var cn = el('aiCreateNewBtn');
+        if (cn) cn.style.display = (lastAICandidates.length) ? 'inline-block' : 'none';
+        var uv = el('aiUseValuesBtn');
+        if (uv) uv.innerHTML = '<i class="fas fa-check me-1"></i>' +
+            t('global.ai.use_values', 'Use These Values');
+    })
+    .catch(function (err) {
+        el('aiErrorBox').textContent = err.message;
+        el('aiErrorBox').style.display = 'block';
+        el('aiPreviewPanel').innerHTML = '';
+        el('aiUseValuesBtn').disabled = true;
+    })
+    .finally(function () {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+
+function renderAIPreview(parsed, elapsed) {
+    var ents = (parsed && parsed.entities) || {};
+    var warnings = (parsed && parsed.warnings) || [];
+    var html = '';
+
+    var company = ents.company;
+    if (company && (company.name || company.name_fa)) {
+        html += '<div class="ai-preview-section">';
+        html += '<h6><i class="fas fa-building me-1"></i>' + escapeHtml(t('crm.ai.company', 'Company')) + '</h6>';
+        if (company.name)    html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.customer_name', 'Name')) + ':</span> <span class="value">' + escapeHtml(company.name) + '</span></div>';
+        if (company.name_fa) html += '<div class="field-row"><span class="label">FA:</span> <span class="value" dir="rtl">' + escapeHtml(company.name_fa) + '</span></div>';
+        if (company.website) html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.website', 'Website')) + ':</span> <span class="value">' + escapeHtml(company.website) + '</span></div>';
+        if (company.email)   html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.email', 'Email')) + ':</span> <span class="value">' + escapeHtml(company.email) + '</span></div>';
+        if (company.address) html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.address', 'Address')) + ':</span> <span class="value">' + escapeHtml(company.address) + '</span></div>';
+        if (company.role)    html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.role', 'Role')) + ':</span> <span class="value">' + escapeHtml(company.role) + '</span></div>';
+        if (company.is_supplier) html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.is_supplier', 'Also a supplier')) + ':</span> <span class="value">✓</span></div>';
+        if (company.phones && company.phones.length) {
+            html += '<div class="field-row"><span class="label">' + escapeHtml(t('crm.customers.telephone', 'Phones')) + ':</span> <span class="value">' +
+                company.phones.map(function (p) { return escapeHtml(p.value) + ' (' + escapeHtml(p.type || '') + ')'; }).join(', ') +
+                '</span></div>';
+        }
+        html += '</div>';
+    }
+
+    var contacts = ents.contacts || [];
+    if (contacts.length) {
+        html += '<div class="ai-preview-section ai-no-save">';
+        html += '<h6><i class="fas fa-user me-1"></i>' + escapeHtml(t('crm.ai.contacts_extracted', 'Contacts extracted (not saved automatically)')) + '</h6>';
+        contacts.forEach(function (c) {
+            var name = [c.first_name, c.last_name].filter(Boolean).join(' ');
+            html += '<div class="field-row"><span class="value">' + escapeHtml(name) + '</span>';
+            if (c.job_title) html += ' <span class="label">— ' + escapeHtml(c.job_title) + '</span>';
+            if (c.email)     html += ' <span class="label">· ' + escapeHtml(c.email) + '</span>';
+            if (c.phones && c.phones.length) {
+                html += ' <span class="label">· ' + c.phones.map(function (p) { return escapeHtml(p.value); }).join(', ') + '</span>';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    if (lastAICandidates && lastAICandidates.length) {
+        html += '<div class="ai-preview-section ai-candidates">';
+        html += '<h6><i class="fas fa-search me-1"></i>' +
+                escapeHtml(t('crm.ai.candidates_title', 'Existing records that may match')) + '</h6>';
+        html += '<div class="small text-muted mb-2">' +
+                escapeHtml(t('crm.ai.candidates_hint', 'Click one to update it, or ignore to create a new record.')) +
+                '</div>';
+        lastAICandidates.forEach(function (c) {
+            var name = c.name || c.name_fa || '(unnamed)';
+            html += '<div class="ai-candidate-item" data-customer-id="' + escapeHtml(c.customer_id) + '">' +
+                '<div class="d-flex justify-content-between align-items-start">' +
+                    '<div>' +
+                        '<div class="fw-bold">' + escapeHtml(name) + '</div>' +
+                        '<div class="small text-muted">' +
+                            escapeHtml(c.telephone || '—') +
+                            ' · ' + escapeHtml(c.address || '') +
+                        '</div>' +
+                        '<div class="small"><span class="badge bg-info">' +
+                            escapeHtml(c.match_reason) + '</span></div>' +
+                    '</div>' +
+                    '<i class="fas fa-arrow-right text-primary"></i>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+    }
+
+    if (warnings.length) {
+        html += '<div class="ai-preview-section ai-warn">';
+        html += '<h6><i class="fas fa-exclamation-triangle me-1"></i>' + escapeHtml(t('global.ai.warnings', 'Warnings')) + '</h6>';
+        warnings.forEach(function (w) {
+            html += '<div class="field-row small">• ' + escapeHtml(w) + '</div>';
+        });
+        html += '</div>';
+    }
+
+    if (!html) {
+        html = '<div class="text-center text-muted py-5">' + escapeHtml(t('global.ai.no_data', 'No data extracted.')) + '</div>';
+    }
+    var footer = '<div class="text-muted text-center mt-2 small">' +
+                 escapeHtml(t('global.ai.parsed_in', 'Parsed in')) + ' ' + elapsed + 's</div>';
+    el('aiPreviewPanel').innerHTML = html + footer;
+}
+
+function useAIParsedValues() {
+    if (!lastAIParsed) return;
+    if (lastAICandidates.length && !lastAISelectedCustomerId) {
+        showToast(
+            t('crm.ai.pick_candidate_first',
+              'Pick an existing record, or click "Create New" to start fresh.'),
+            'warning');
+        return;
+    }
+    if (lastAISelectedCustomerId) {
+        applyAIAndOpenEditModal(lastAISelectedCustomerId);
+    } else {
+        applyAIAndOpenCreateModal();
+    }
+}
+
+function applyAIAndOpenCreateModal() {
+    var ents = lastAIParsed.entities || {};
+    var co = ents.company || {};
+
+    var aiModal = bootstrap.Modal.getInstance(el('aiAssistModal'));
+    if (aiModal) aiModal.hide();
+
+    var form = el('customerForm');
+    if (form) form.reset();
+    el('customerId').value = '';
+    el('customerFormTitle').textContent = t('crm.customers.create', 'Create Customer');
+
+    el('custName').value      = co.name || '';
+    el('custNameFa').value    = co.name_fa || '';
+    el('custAddress').value   = co.address || '';
+    el('custAddressFa').value = co.address_fa || '';
+    el('custWebsite').value   = co.website || '';
+    el('custEmail').value     = co.email || '';
+    el('custRole').value      = co.role || '';
+    el('custIsSupplier').checked = !!co.is_supplier;
+
+    if (co.phones && co.phones.length && co.phones[0].value) {
+        el('custTelephone').value = co.phones[0].value;
+    }
+
+    el('aiFromBanner').style.display = 'block';
+    bootstrap.Modal.getOrCreateInstance(el('customerFormModal')).show();
+}
+
+function applyAIAndOpenEditModal(customerId) {
+    fetchJSON('/api/crm/customers/' + encodeURIComponent(customerId) + '/full')
+        .then(function (c) {
+            var ents = lastAIParsed.entities || {};
+            var co = ents.company || {};
+
+            var aiModal = bootstrap.Modal.getInstance(el('aiAssistModal'));
+            if (aiModal) aiModal.hide();
+
+            el('customerFormTitle').textContent = t('crm.customers.edit', 'Edit Customer');
+            el('customerId').value = c.customer_id;
+            el('custName').value      = c.name || '';
+            el('custNameFa').value    = c.name_fa || '';
+            el('custTelephone').value = c.telephone || '';
+            el('custRole').value      = c.role || '';
+            el('custWebsite').value   = c.website || '';
+            el('custEmail').value     = c.email || '';
+            el('custAddress').value   = c.address || '';
+            el('custAddressFa').value = c.address_fa || '';
+            el('custIsSupplier').checked = (c.is_supplier === '1' || c.is_supplier === 1);
+
+            if (co.name)      el('custName').value      = co.name;
+            if (co.name_fa)   el('custNameFa').value    = co.name_fa;
+            if (co.address)   el('custAddress').value   = co.address;
+            if (co.address_fa) el('custAddressFa').value = co.address_fa;
+            if (co.website)   el('custWebsite').value   = co.website;
+            if (co.email)     el('custEmail').value     = co.email;
+            if (co.role)      el('custRole').value      = co.role;
+            if (co.is_supplier) el('custIsSupplier').checked = true;
+            if (co.phones && co.phones.length && co.phones[0].value) {
+                el('custTelephone').value = co.phones[0].value;
+            }
+
+            el('aiFromBanner').style.display = 'block';
+            el('aiFromBannerText').textContent =
+                t('crm.ai.updating_existing',
+                  'You are UPDATING an existing record. Review changes before saving.');
+            bootstrap.Modal.getOrCreateInstance(el('customerFormModal')).show();
+        })
+        .catch(function (err) {
+            showToast(t('global.error_loading', 'Error loading data') + ': ' + err.message, 'error');
+        });
+}
+
+function pickAICandidate(customerId) {
+    lastAISelectedCustomerId = customerId;
+    var picked = (lastAICandidates || []).find(function (c) { return c.customer_id === customerId; });
+    var name = picked ? (picked.name || picked.name_fa) : customerId;
+    showToast(t('crm.ai.candidate_selected', 'Will update:') + ' ' + name, 'success');
+    document.querySelectorAll('.ai-candidate-item').forEach(function (node) {
+        if (node.getAttribute('data-customer-id') === customerId) {
+            node.style.borderColor = '#198754';
+            node.style.background = '#d1e7dd';
+        } else {
+            node.style.borderColor = '';
+            node.style.background = '';
+        }
+    });
+    var btn = el('aiUseValuesBtn');
+    if (btn) btn.innerHTML = '<i class="fas fa-check me-1"></i>' +
+        t('crm.ai.update_selected', 'Update Selected');
+}
+
+// ============================================================================
+// 6. INIT — ONLY init + event binding
 // ============================================================================
 document.addEventListener('DOMContentLoaded', function () {
     console.log('CRM customers page loaded | lang:', window.currentLanguage);
 
-    // ---- BOOTSTRAP FOCUS-TRAP FIX ----
-    // Prevents modal focus-enforcement from looping when modal is hidden.
-    // Without this, Bootstrap's focusTrap on a display:none modal steals
-    // focus on every keystroke, causing input to lose focus silently.
-    document.querySelectorAll('.modal').forEach(function (modalEl) {
-        // Dispose the modal instance the moment it's fully hidden
-        modalEl.addEventListener('hidden.bs.modal', function () {
-            var inst = bootstrap.Modal.getInstance(modalEl);
-            if (inst) inst.dispose();
-        });
-
-        // Also: if the modal is hidden on page load, remove any lingering state
-        if (getComputedStyle(modalEl).display === 'none') {
-            modalEl.removeAttribute('aria-hidden');
-            modalEl.style.display = '';
-            // then force-hide it properly
-            modalEl.style.display = 'none';
-        }
-    });
-
-    // ---- Search input: bind to input + change + keyup + paste ----
-    // input  → fires on every keystroke (standard)
-    // change → fires on Enter / blur
-    // keyup  → safety net for some browsers / IMEs
-    // paste  → fires before value is updated; use setTimeout(0) to read after
     var searchInput = el('filterSearch');
     if (searchInput) {
-        var searchTimer = null;
-        function onSearchChanged() {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(function () {
-                renderCustomers();
-            }, 250);
-        }
-        searchInput.addEventListener('input', onSearchChanged);
-        searchInput.addEventListener('change', onSearchChanged);
-        searchInput.addEventListener('keyup', onSearchChanged);
-        searchInput.addEventListener('paste', function () {
-            setTimeout(onSearchChanged, 0);
+        var timer = null;
+        searchInput.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(renderCustomers, 250);
         });
     }
-
-    // ---- Filter dropdown ----
     var fho = el('filterHasOpportunities');
     if (fho) fho.addEventListener('change', renderCustomers);
 
-    // ---- Refresh button ----
-    var rb = el('refreshBtn');
-    if (rb) rb.addEventListener('click', loadCustomers);
+    var rb = el('refreshBtn');       if (rb) rb.addEventListener('click', loadCustomers);
+    var cb = el('createCustomerBtn'); if (cb) cb.addEventListener('click', openCreateModal);
+    var ab = el('aiAssistBtn');      if (ab) ab.addEventListener('click', openAIAssist);
+    var sv = el('saveCustomerBtn');  if (sv) sv.addEventListener('click', saveCustomer);
 
-    // ---- Delegated row click → open customer detail ----
-    document.addEventListener('click', function (e) {
-        var link = e.target.closest('.view-customer-link');
-        if (!link) return;
-        e.preventDefault();
-        loadCustomerDetail(link.getAttribute('data-id'));
+    var ap = el('aiParseBtn');   if (ap) ap.addEventListener('click', parseWithAI);
+    var au = el('aiUseValuesBtn'); if (au) au.addEventListener('click', useAIParsedValues);
+    var ac = el('aiClearBtn');
+    if (ac) ac.addEventListener('click', function () {
+        el('aiInputText').value = '';
+        el('aiCharCount').textContent = '0';
+        el('aiPreviewPanel').innerHTML =
+            '<div class="text-muted text-center py-5">' +
+            '<i class="fas fa-arrow-left fa-2x mb-2"></i>' +
+            '<p>' + escapeHtml(t('global.ai.waiting', 'Paste text and click "Parse with AI" to see the preview.')) + '</p>' +
+            '</div>';
+        el('aiUseValuesBtn').disabled = true;
+        el('aiErrorBox').style.display = 'none';
+        lastAIParsed = null;
+        lastAICandidates = [];
+        lastAISelectedCustomerId = null;
+        var cn = el('aiCreateNewBtn'); if (cn) cn.style.display = 'none';
+        var uv = el('aiUseValuesBtn');
+        if (uv) uv.innerHTML = '<i class="fas fa-check me-1"></i>' +
+            t('global.ai.use_values', 'Use These Values');
+    });
+    var at = el('aiInputText');
+    if (at) at.addEventListener('input', function () {
+        el('aiCharCount').textContent = String(at.value.length);
     });
 
-    // ---- Initial load ----
+    var aiCreateNewBtn = el('aiCreateNewBtn');
+    if (aiCreateNewBtn) aiCreateNewBtn.addEventListener('click', function () {
+        lastAISelectedCustomerId = null;
+        applyAIAndOpenCreateModal();
+    });
+
+    var aiPreview = el('aiPreviewPanel');
+    if (aiPreview) aiPreview.addEventListener('click', function (e) {
+        var item = e.target.closest('.ai-candidate-item');
+        if (!item) return;
+        var cid = item.getAttribute('data-customer-id');
+        if (cid) pickAICandidate(cid);
+    });
+
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('.view-customer-link');
+        if (link) {
+            e.preventDefault();
+            loadCustomerDetail(link.getAttribute('data-id'));
+            return;
+        }
+        var editBtn = e.target.closest('.edit-btn');
+        if (editBtn) { openEditModal(editBtn.getAttribute('data-id')); return; }
+        var delBtn = e.target.closest('.delete-btn');
+        if (delBtn) { deleteCustomer(delBtn.getAttribute('data-id')); return; }
+    });
+
     loadCustomers();
+});
+</script>
+
+<script>
+// Sync buttons — defensive attach (idempotent; no-op if auto-init ran).
+document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.SyncButton && typeof window.SyncButton.attach === 'function')) return;
+    window.SyncButton.attach('.sync-btn[data-scope="customers"]', {
+        scope: 'customers',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
+    window.SyncButton.attach('.sync-btn[data-scope="all"]', {
+        scope: 'all',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
 });
 </script>
 {% endblock %}

@@ -139,6 +139,7 @@ def project_quality_plans():
 
 # Page 40: Inspection Workbench
 @quality_bp.route('/inspection-workbench/')
+@login_required
 def inspection_workbench():
     engine = get_engine()
     with engine.connect() as conn:

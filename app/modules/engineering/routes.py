@@ -24,7 +24,6 @@ def products():
 @login_required
 @permission_required('ENGINEERING_BOM_VIEW')
 def bom():
-    # get_products_for_selector expects a request object
     products = get_products_for_selector(request)
     stats = get_bom_stats()
     return render_template('engineering/bom.html', products=products, stats=stats)
@@ -96,9 +95,10 @@ def engineering_parameters():
     projects = []
     try:
         with db.engine.connect() as conn:
+            # D5 fix: use t_Project (t_CompanyProject does not exist)
             rows = conn.execute(text("""
-                SELECT CompanyProjectID, ProjectName 
-                FROM t_CompanyProject 
+                SELECT ProjectID, ProjectName 
+                FROM t_Project 
                 WHERE DemoIndustryCode = :industry
                 ORDER BY ProjectName
             """), {'industry': industry}).fetchall()
@@ -121,7 +121,6 @@ def routings():
 
     try:
         with db.engine.connect() as conn:
-            # Products for Gantt / Flow / Join Map dropdowns
             prod_rows = conn.execute(text("""
                 SELECT ProductId, descEnglish 
                 FROM t_Product 
@@ -130,11 +129,10 @@ def routings():
             """), {'industry': industry}).fetchall()
             products = [{'ProductId': r[0], 'descEnglish': r[1]} for r in prod_rows]
 
-            # Work centers for routing modal dropdown
             wc_rows = conn.execute(text("""
                 SELECT WorkCenterID, Name 
                 FROM t_WorkCenter 
-                WHERE IsActive = 1
+                WHERE IsActive = '1'
                 ORDER BY Name
             """)).fetchall()
             work_centers = [{'WorkCenterID': r[0], 'Name': r[1]} for r in wc_rows]
@@ -160,7 +158,6 @@ def eco():
 
     try:
         with db.engine.connect() as conn:
-            # Products for ECO filter
             prod_rows = conn.execute(text("""
                 SELECT ProductId, descEnglish 
                 FROM t_Product 
@@ -169,7 +166,6 @@ def eco():
             """), {'industry': industry}).fetchall()
             products = [{'ProductId': r[0], 'descEnglish': r[1]} for r in prod_rows]
 
-            # Projects for ECO project filter
             proj_rows = conn.execute(text("""
                 SELECT ProjectID, ProjectName 
                 FROM t_Project 

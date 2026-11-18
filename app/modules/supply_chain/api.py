@@ -9,7 +9,7 @@
 #   5. Receiving & Shipping       (Page 30)
 #   6. Stock Overview             (KPI, list, movements, adjust/transfer/export)
 #   7. Warehouse Management       (Page 32)
-#   8. Suppliers (full management + portal user + documents + audit)
+#   8. Suppliers (full management + portal user + documents)
 #   9. Current User               (module-scoped + global alias)
 # =============================================================================
 
@@ -22,6 +22,7 @@ import os
 import csv
 from io import StringIO
 import json
+import uuid
 
 
 # =============================================================================
@@ -32,29 +33,41 @@ def get_engine():
     return current_app.extensions['sqlalchemy'].engine
 
 
+def _new_id():
+    return str(uuid.uuid4())
+
+
 def today_key():
     return int(datetime.now().strftime('%Y%m%d'))
+
+
+def _today_str():
+    return str(today_key())
+
+
+def _current_industry():
+    return session.get('demo_industry', 'valve')
 
 
 def get_po_status_counts():
     """KPI counts for the Purchase Orders page."""
     engine = get_engine()
     today = today_key()
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT po.Status,
                    po.PurchaseOrderID,
                    SUM(TRY_CAST(pod.Quantity AS DECIMAL(18,4))) as total_qty,
                    SUM(TRY_CAST(pod.ReceivedQuantity AS DECIMAL(18,4))) as total_received,
-                   MIN(pod.ExpectedDeliveryDateKey) as min_delivery
+                   MIN(TRY_CAST(pod.ExpectedDeliveryDateKey AS INT)) as min_delivery
             FROM t_PurchaseOrder po
             LEFT JOIN t_PurchaseOrderDetail pod ON po.PurchaseOrderID = pod.PurchaseOrderID
             WHERE po.DemoIndustryCode = :industry
             GROUP BY po.PurchaseOrderID, po.Status
         """), {'industry': demo_industry}).fetchall()
 
-    counts = {'Draft':0, 'Sent':0, 'Partially Received':0, 'Closed':0, 'Overdue':0}
+    counts = {'Draft': 0, 'Sent': 0, 'Partially Received': 0, 'Closed': 0, 'Overdue': 0}
     for row in rows:
         status = row[0] or 'Draft'
         total_qty = row[2] or 0
@@ -64,7 +77,7 @@ def get_po_status_counts():
             counts['Closed'] += 1
         elif total_received > 0 and total_received < total_qty:
             counts['Partially Received'] += 1
-        elif min_delivery and min_delivery < today and status.lower() not in ['delivered','closed'] and total_received < total_qty:
+        elif min_delivery and min_delivery < today and status.lower() not in ['delivered', 'closed'] and total_received < total_qty:
             counts['Overdue'] += 1
         elif status.lower() == 'sent':
             counts['Sent'] += 1
@@ -86,7 +99,7 @@ def list_rfqs():
     date_to = request.args.get('date_to', '')
     project = request.args.get('project', '')
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     query = """
         SELECT r.RFQID, r.RFQNumber, r.Title, r.Status, r.DueDateKey, r.ProjectID,
@@ -105,32 +118,31 @@ def list_rfqs():
         query += " AND EXISTS (SELECT 1 FROM t_RFQResponse rr WHERE rr.RFQID = r.RFQID AND rr.SupplierID = :supplier)"
         params['supplier'] = supplier
     if date_from:
-        query += " AND r.CreatedDateKey >= :date_from"
+        query += " AND TRY_CAST(r.CreatedDateKey AS INT) >= :date_from"
         params['date_from'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND r.CreatedDateKey <= :date_to"
+        query += " AND TRY_CAST(r.CreatedDateKey AS INT) <= :date_to"
         params['date_to'] = int(date_to.replace('-', ''))
     if project and project != 'All':
         query += " AND r.ProjectID = :project"
         params['project'] = project
 
-    query += " ORDER BY r.CreatedDateKey DESC"
+    query += " ORDER BY TRY_CAST(r.CreatedDateKey AS INT) DESC"
 
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
 
     items = [{
-        'id': r[0],
-        'number': r[1],
-        'title': r[2],
-        'status': r[3] or 'Open',
-        'dueDateKey': r[4],
-        'projectId': r[5],
-        'createdDateKey': r[6],
-        # ✅ Renamed: frontend expects `supplierCount`, not `responseCount`
-        'supplierCount': r[7] or 0,
-        'minQuote': float(r[8]) if r[8] else 0
+        'id': r._mapping['RFQID'],
+        'number': r._mapping['RFQNumber'],
+        'title': r._mapping['Title'],
+        'status': r._mapping['Status'] or 'Open',
+        'dueDateKey': r._mapping['DueDateKey'],
+        'projectId': r._mapping['ProjectID'],
+        'createdDateKey': r._mapping['CreatedDateKey'],
+        'supplierCount': r._mapping['SupplierCount'] or 0,
+        'minQuote': float(r._mapping['MinQuote']) if r._mapping['MinQuote'] else 0
     } for r in rows]
 
     with engine.connect() as conn:
@@ -143,10 +155,12 @@ def list_rfqs():
 
     kpi = {'open': 0, 'sent': 0, 'received': 0, 'converted': 0, 'closed': 0, 'total': 0}
     for row in kpi_rows:
-        status_key = row[0].lower() if row[0] else 'open'
+        m = row._mapping
+        status_key = (m['Status'] or 'open').lower()
+        cnt = list(m.values())[1]
         if status_key in kpi:
-            kpi[status_key] = row[1]
-        kpi['total'] += row[1]
+            kpi[status_key] = cnt
+        kpi['total'] += cnt
 
     return jsonify({'kpi': kpi, 'items': items})
 
@@ -154,18 +168,19 @@ def list_rfqs():
 @api_bp.route('/supply-chain/rfq', methods=['POST'])
 @login_required
 def create_rfq():
-    data = request.get_json()
+    data = request.get_json() or {}
     required = ['title', 'suppliers', 'items']
     for f in required:
         if not data.get(f):
             return jsonify({'error': f'Missing {f}'}), 400
 
-    demo_industry = session.get('demo_industry', 'valve')
-    rfq_id = f"RFQ-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    demo_industry = _current_industry()
+    rfq_id = _new_id()
+    rfq_number = f"RFQ-{datetime.now().strftime('%Y%m%d%H%M%S')}"
     today = today_key()
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO t_RFQ
             (RFQID, RFQNumber, Title, Description, Status, DueDateKey, ProjectID,
@@ -174,17 +189,18 @@ def create_rfq():
                     :created, :user, :industry)
         """), {
             'id': rfq_id,
-            'number': f"RFQ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            'number': rfq_number,
             'title': data['title'],
             'desc': data.get('description', ''),
-            'due': data.get('dueDateKey', today + 30),
+            'due': int(data.get('dueDateKey', today + 30)),
             'project': data.get('projectId'),
             'created': today,
-            'user': current_user.get_id(),
+            'user': int(current_user.get_id()) if str(current_user.get_id()).isdigit() else None,
             'industry': demo_industry
         })
 
         for item in data['items']:
+            # t_RFQItem.ItemID is INT IDENTITY — do not supply
             conn.execute(text("""
                 INSERT INTO t_RFQItem
                 (RFQID, ProductID, Quantity, Unit)
@@ -197,6 +213,7 @@ def create_rfq():
             })
 
         for supplier_id in data['suppliers']:
+            # t_RFQResponse.ResponseID is INT IDENTITY — do not supply
             conn.execute(text("""
                 INSERT INTO t_RFQResponse
                 (RFQID, SupplierID, Status)
@@ -206,21 +223,19 @@ def create_rfq():
                 'supplier': supplier_id
             })
 
-        conn.commit()
-
     return jsonify({'id': rfq_id, 'message': 'RFQ created'}), 201
 
 
-@api_bp.route('/supply-chain/rfq/<rfq_id>/send', methods=['POST'])
+@api_bp.route('/supply-chain/rfq/<string:rfq_id>/send', methods=['POST'])
 @login_required
 def send_rfq(rfq_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     suppliers = data.get('suppliers', [])
     if not suppliers:
         return jsonify({'error': 'No suppliers selected'}), 400
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         for supplier_id in suppliers:
             conn.execute(text("""
                 UPDATE t_RFQResponse
@@ -235,22 +250,21 @@ def send_rfq(rfq_id):
         conn.execute(text("""
             UPDATE t_RFQ SET Status = 'Sent' WHERE RFQID = :id
         """), {'id': rfq_id})
-        conn.commit()
 
     return jsonify({'message': 'RFQ sent to suppliers'})
 
 
-@api_bp.route('/supply-chain/rfq/<rfq_id>/response', methods=['POST'])
+@api_bp.route('/supply-chain/rfq/<string:rfq_id>/response', methods=['POST'])
 @login_required
-def record_rfq_response():
-    data = request.get_json()
+def record_rfq_response(rfq_id):
+    data = request.get_json() or {}
     required = ['supplierId', 'quoteAmount']
     for f in required:
         if not data.get(f):
             return jsonify({'error': f'Missing {f}'}), 400
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("""
             UPDATE t_RFQResponse
             SET QuoteAmount = :amount, Currency = :currency,
@@ -260,39 +274,36 @@ def record_rfq_response():
         """), {
             'amount': data['quoteAmount'],
             'currency': data.get('currency', 'USD'),
-            'validity': data.get('validityDateKey'),
+            'validity': int(data['validityDateKey']) if data.get('validityDateKey') else None,
             'notes': data.get('notes', ''),
             'date': today_key(),
-            'rfq_id': data.get('rfqId'),
+            'rfq_id': rfq_id,
             'supplier': data['supplierId']
         })
 
         pending = conn.execute(text("""
             SELECT COUNT(*) FROM t_RFQResponse
             WHERE RFQID = :rfq_id AND Status = 'Pending'
-        """), {'rfq_id': data.get('rfqId')}).fetchone()[0]
+        """), {'rfq_id': rfq_id}).scalar() or 0
 
         if pending == 0:
             conn.execute(text("""
                 UPDATE t_RFQ SET Status = 'Received' WHERE RFQID = :id
-            """), {'id': data.get('rfqId')})
-
-        conn.commit()
+            """), {'id': rfq_id})
 
     return jsonify({'message': 'Response recorded'})
 
 
-@api_bp.route('/supply-chain/rfq/<rfq_id>/convert', methods=['POST'])
+@api_bp.route('/supply-chain/rfq/<string:rfq_id>/convert', methods=['POST'])
 @login_required
-def convert_rfq_to_po():
-    data = request.get_json()
-    rfq_id = data.get('rfqId')
+def convert_rfq_to_po(rfq_id):
+    data = request.get_json() or {}
     supplier_id = data.get('supplierId')
     if not rfq_id or not supplier_id:
         return jsonify({'error': 'RFQ ID and Supplier ID required'}), 400
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         rfq = conn.execute(text("""
             SELECT Title, ProjectID, DemoIndustryCode
             FROM t_RFQ WHERE RFQID = :id
@@ -311,51 +322,51 @@ def convert_rfq_to_po():
             WHERE RFQID = :rfq_id AND SupplierID = :supplier
         """), {'rfq_id': rfq_id, 'supplier': supplier_id}).fetchone()
 
-        po_id = f"PO-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        po_id = _new_id()
         today = today_key()
 
         conn.execute(text("""
             INSERT INTO t_PurchaseOrder
             (PurchaseOrderID, SupplierID, OrderDateKey, Status, CreatedBy,
-             UpdatedDate, ProjectID, DemoIndustryCode)
-            VALUES (:id, :supplier, :date, 'Draft', :user, :updated, :project, :industry)
+             UpdatedDate, ProjectID, DemoIndustryCode, RFQID)
+            VALUES (:id, :supplier, :date, 'Draft', :user, :updated, :project, :industry, :rfqid)
         """), {
             'id': po_id,
             'supplier': supplier_id,
-            'date': today,
+            'date': str(today),
             'user': current_user.get_id(),
             'updated': datetime.now().isoformat(),
-            'project': rfq[1],
-            'industry': rfq[2]
+            'project': rfq._mapping['ProjectID'],
+            'industry': rfq._mapping['DemoIndustryCode'],
+            'rfqid': rfq_id
         })
 
         for item in items:
+            line_id = _new_id()
             conn.execute(text("""
                 INSERT INTO t_PurchaseOrderDetail
-                (PurchaseOrderID, ProductID, Quantity, UnitPrice, ReceivedQuantity)
-                VALUES (:po_id, :product, :qty, :price, 0)
+                (LineID, PurchaseOrderID, ProductID, Quantity, UnitPrice, ReceivedQuantity)
+                VALUES (:lid, :po_id, :product, :qty, :price, 0)
             """), {
+                'lid': line_id,
                 'po_id': po_id,
-                'product': item[0],
-                'qty': item[1],
-                'price': quote[0] if quote else 0
+                'product': item._mapping['ProductID'],
+                'qty': item._mapping['Quantity'],
+                'price': quote._mapping['QuoteAmount'] if quote else 0
             })
 
         conn.execute(text("""
             UPDATE t_RFQ SET Status = 'Converted' WHERE RFQID = :id
         """), {'id': rfq_id})
 
-        conn.commit()
-
     return jsonify({'poId': po_id, 'message': 'PO created from RFQ'}), 201
 
 
-@api_bp.route('/supply-chain/rfq/<rfq_id>/compare')
+@api_bp.route('/supply-chain/rfq/<string:rfq_id>/compare')
 @login_required
 def compare_rfq_quotes(rfq_id):
     engine = get_engine()
     with engine.connect() as conn:
-        # ✅ Added rr.LeadTimeDays to the SELECT
         rows = conn.execute(text("""
             SELECT rr.SupplierID, s.SupplierName, rr.QuoteAmount, rr.Currency,
                    rr.ValidityDateKey, rr.Notes, rr.ResponseDateKey,
@@ -367,27 +378,22 @@ def compare_rfq_quotes(rfq_id):
         """), {'rfq_id': rfq_id}).fetchall()
 
     return jsonify([{
-        'supplierId': r[0],
-        'supplierName': r[1],
-        'quoteAmount': float(r[2]) if r[2] else 0,
-        'currency': r[3] or 'USD',
-        'validityDateKey': r[4],
-        'notes': r[5],
-        'responseDateKey': r[6],
-        'rfqNumber': r[7],
-        'rfqTitle': r[8],
-        # ✅ New: compare modal reads `leadTime`
-        'leadTime': r[9] if r[9] is not None else 0
+        'supplierId': r._mapping['SupplierID'],
+        'supplierName': r._mapping['SupplierName'],
+        'quoteAmount': float(r._mapping['QuoteAmount']) if r._mapping['QuoteAmount'] else 0,
+        'currency': r._mapping['Currency'] or 'USD',
+        'validityDateKey': r._mapping['ValidityDateKey'],
+        'notes': r._mapping['Notes'],
+        'responseDateKey': r._mapping['ResponseDateKey'],
+        'rfqNumber': r._mapping['RFQNumber'],
+        'rfqTitle': r._mapping['Title'],
+        'leadTime': r._mapping['LeadTimeDays'] if r._mapping['LeadTimeDays'] is not None else 0
     } for r in rows])
 
 
-@api_bp.route('/supply-chain/rfq/<rfq_id>')
+@api_bp.route('/supply-chain/rfq/<string:rfq_id>')
 @login_required
 def get_rfq(rfq_id):
-    """
-    ✅ New endpoint — used by sendRFQModal().
-    Returns the RFQ header, its suppliers (with status), and its items.
-    """
     engine = get_engine()
     with engine.connect() as conn:
         rfq = conn.execute(text("""
@@ -409,31 +415,28 @@ def get_rfq(rfq_id):
             FROM t_RFQItem WHERE RFQID = :id
         """), {'id': rfq_id}).fetchall()
 
+    rm = rfq._mapping
     return jsonify({
-        'id': rfq[0],
-        'number': rfq[1],
-        'title': rfq[2],
-        'description': rfq[3],
-        'status': rfq[4],
-        'dueDateKey': rfq[5],
-        'projectId': rfq[6],
-        'suppliers': [{'id': s[0], 'name': s[1] or s[0]} for s in suppliers],
+        'id': rm['RFQID'],
+        'number': rm['RFQNumber'],
+        'title': rm['Title'],
+        'description': rm['Description'],
+        'status': rm['Status'],
+        'dueDateKey': rm['DueDateKey'],
+        'projectId': rm['ProjectID'],
+        'suppliers': [{'id': s._mapping['SupplierID'], 'name': s._mapping['SupplierName'] or s._mapping['SupplierID']} for s in suppliers],
         'items': [{
-            'itemId': i[0],
-            'productId': i[1],
-            'quantity': float(i[2]),
-            'unit': i[3]
+            'itemId': i._mapping['ItemID'],
+            'productId': i._mapping['ProductID'],
+            'quantity': float(i._mapping['Quantity']),
+            'unit': i._mapping['Unit']
         } for i in items]
     })
 
 
-@api_bp.route('/supply-chain/rfq/<rfq_id>/suppliers')
+@api_bp.route('/supply-chain/rfq/<string:rfq_id>/suppliers')
 @login_required
 def get_rfq_suppliers(rfq_id):
-    """
-    ✅ New endpoint — used by responseModal().
-    Returns id / name / status per supplier for this RFQ.
-    """
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
@@ -443,7 +446,9 @@ def get_rfq_suppliers(rfq_id):
             WHERE rr.RFQID = :id
         """), {'id': rfq_id}).fetchall()
     return jsonify([
-        {'id': r[0], 'name': r[1] or r[0], 'status': r[2]}
+        {'id': r._mapping['SupplierID'],
+         'name': r._mapping['SupplierName'] or r._mapping['SupplierID'],
+         'status': r._mapping['Status']}
         for r in rows
     ])
 
@@ -452,13 +457,12 @@ def get_rfq_suppliers(rfq_id):
 # 3. PURCHASE ORDERS (PAGE 28)
 # =============================================================================
 
-
 @api_bp.route('/supply-chain/purchase-orders/list')
 @login_required
 def list_purchase_orders():
     from app.core.date_helpers import format_date
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     supplier = request.args.get('supplier', '')
     status = request.args.get('status', '')
     date_from = request.args.get('date_from', '')
@@ -486,10 +490,10 @@ def list_purchase_orders():
         query += " AND po.Status = :status"
         params['status'] = status
     if date_from:
-        query += " AND po.OrderDateKey >= :date_from"
+        query += " AND TRY_CAST(po.OrderDateKey AS INT) >= :date_from"
         params['date_from'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND po.OrderDateKey <= :date_to"
+        query += " AND TRY_CAST(po.OrderDateKey AS INT) <= :date_to"
         params['date_to'] = int(date_to.replace('-', ''))
     if project:
         query += " AND po.ProjectID = :project"
@@ -498,7 +502,7 @@ def list_purchase_orders():
     query += """
         GROUP BY po.PurchaseOrderID, po.SupplierID, s.SupplierName,
                  po.OrderDateKey, po.Status, po.ProjectID, po.WorkflowStatus
-        ORDER BY po.OrderDateKey DESC
+        ORDER BY TRY_CAST(po.OrderDateKey AS INT) DESC
     """
 
     engine = get_engine()
@@ -510,27 +514,28 @@ def list_purchase_orders():
 
     items = []
     for r in rows:
-        # Null-safe DateKey handling — the DB has NULLs here, don't crash format_date
-        order_date_key = int(r[3]) if r[3] is not None else None
-        expected_delivery_key = int(r[9]) if r[9] is not None else None
+        m = r._mapping
+        order_date_key = int(m['OrderDateKey']) if m['OrderDateKey'] is not None else None
+        expected_delivery_key = int(m['earliest_delivery']) if m['earliest_delivery'] is not None else None
 
         items.append({
-            'id': r[0],
-            'supplierId': r[1],
-            'supplierName': r[2] or r[1],
+            'id': m['PurchaseOrderID'],
+            'supplierId': m['SupplierID'],
+            'supplierName': m['SupplierName'] or m['SupplierID'],
             'orderDateKey': order_date_key,
             'orderDateFormatted': format_date(order_date_key) if order_date_key else '',
-            'status': r[4] or 'Draft',
-            'projectId': r[5],
-            'workflowStatus': r[6],
-            'products': r[7].split(',') if r[7] else [],
-            'totalAmount': float(r[8]) if r[8] else 0,
+            'status': m['Status'] or 'Draft',
+            'projectId': m['ProjectID'],
+            'workflowStatus': m['WorkflowStatus'],
+            'products': (m['products'] or '').split(',') if m['products'] else [],
+            'totalAmount': float(m['total_amount']) if m['total_amount'] else 0,
             'expectedDeliveryDateKey': expected_delivery_key,
             'expectedDeliveryFormatted': format_date(expected_delivery_key) if expected_delivery_key else ''
         })
 
     kpi = get_po_status_counts()
     return jsonify({'kpi': kpi, 'items': items})
+
 
 # =============================================================================
 # 4. INVENTORY STATUS (PAGE 29)
@@ -543,7 +548,7 @@ def list_inventory():
     warehouse = request.args.get('warehouse', '')
     status_filter = request.args.get('status', '')
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     query = """
         SELECT
@@ -554,8 +559,7 @@ def list_inventory():
             SUM(ioh.Qty) AS OnHand,
             AVG(ioh.UnitCost) AS UnitCost,
             MAX(ioh.Currency) AS Currency,
-            MAX(ISNULL(p.SafetyStock, 0)) AS SafetyStock,
-            MAX(ISNULL(p.MaxStock, 0)) AS MaxStock,
+            MAX(TRY_CAST(ISNULL(p.SafetyStock, 0) AS DECIMAL(18,4))) AS SafetyStock,
             MAX(p.ProductId) AS ProductCode
         FROM t_InventoryOnHand ioh
         JOIN t_Product p ON ioh.ProductID = p.ProductId
@@ -574,11 +578,11 @@ def list_inventory():
     query += " GROUP BY ioh.ProductID, ioh.WarehouseID"
 
     if status_filter == 'Low':
-        query += " HAVING SUM(ioh.Qty) < MAX(ISNULL(p.SafetyStock, 0)) AND SUM(ioh.Qty) > 0"
+        query += " HAVING SUM(ioh.Qty) < MAX(TRY_CAST(ISNULL(p.SafetyStock, 0) AS DECIMAL(18,4))) AND SUM(ioh.Qty) > 0"
     elif status_filter == 'Out':
         query += " HAVING SUM(ioh.Qty) = 0"
     elif status_filter == 'In Stock':
-        query += " HAVING SUM(ioh.Qty) >= MAX(ISNULL(p.SafetyStock, 0))"
+        query += " HAVING SUM(ioh.Qty) >= MAX(TRY_CAST(ISNULL(p.SafetyStock, 0) AS DECIMAL(18,4)))"
 
     query += " ORDER BY MAX(p.descEnglish), MAX(w.Name)"
 
@@ -588,9 +592,9 @@ def list_inventory():
 
     items = []
     for r in rows:
-        on_hand = r[4] or 0
-        safety = r[7] or 0
-        max_stock = r[8] or 0
+        m = r._mapping
+        on_hand = float(m['OnHand']) if m['OnHand'] is not None else 0
+        safety = float(m['SafetyStock']) if m['SafetyStock'] is not None else 0
 
         if on_hand == 0:
             status = 'Out of Stock'
@@ -598,40 +602,39 @@ def list_inventory():
         elif on_hand < safety:
             status = 'Low Stock'
             status_color = 'warning'
-        elif max_stock > 0 and on_hand > max_stock:
-            status = 'Over Stock'
-            status_color = 'info'
         else:
             status = 'In Stock'
             status_color = 'success'
 
         items.append({
-            'productId': r[0], 'productCode': r[9],
-            'productName': r[1], 'warehouseId': r[2],
-            'warehouseName': r[3] or r[2], 'onHand': on_hand,
-            'unitCost': float(r[5]) if r[5] else 0,
-            'currency': r[6] or 'USD', 'safetyStock': safety,
-            'maxStock': max_stock, 'status': status,
+            'productId': m['ProductID'],
+            'productCode': m['ProductCode'],
+            'productName': m['ProductName'],
+            'warehouseId': m['WarehouseID'],
+            'warehouseName': m['WarehouseName'] or m['WarehouseID'],
+            'onHand': on_hand,
+            'unitCost': float(m['UnitCost']) if m['UnitCost'] else 0,
+            'currency': m['Currency'] or 'USD',
+            'safetyStock': safety,
+            'status': status,
             'statusColor': status_color
         })
 
     total_products = len(set(item['productId'] for item in items))
     low_stock = sum(1 for item in items if item['status'] == 'Low Stock')
     out_of_stock = sum(1 for item in items if item['status'] == 'Out of Stock')
-    over_stock = sum(1 for item in items if item['status'] == 'Over Stock')
 
     return jsonify({
         'kpi': {
             'total_products': total_products,
             'low_stock': low_stock,
-            'out_of_stock': out_of_stock,
-            'over_stock': over_stock
+            'out_of_stock': out_of_stock
         },
         'items': items
     })
 
 
-@api_bp.route('/supply-chain/inventory/<product_id>/movements')
+@api_bp.route('/supply-chain/inventory/<string:product_id>/movements')
 @login_required
 def get_inventory_movements(product_id):
     warehouse = request.args.get('warehouse', '')
@@ -646,22 +649,28 @@ def get_inventory_movements(product_id):
     if warehouse:
         query += " AND WarehouseID = :wh"
         params['wh'] = warehouse
-    query += " ORDER BY TransactionDateKey DESC"
+    query += " ORDER BY TRY_CAST(TransactionDateKey AS INT) DESC"
 
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
 
     return jsonify([{
-        'id': r[0], 'dateKey': r[1], 'type': r[2], 'reference': r[3],
-        'qty': r[4], 'warehouseId': r[5], 'createdBy': r[6], 'notes': r[7]
+        'id': r._mapping['TransactionID'],
+        'dateKey': r._mapping['TransactionDateKey'],
+        'type': r._mapping['TransactionType'],
+        'reference': r._mapping['ReferenceID'],
+        'qty': r._mapping['Qty'],
+        'warehouseId': r._mapping['WarehouseID'],
+        'createdBy': r._mapping['CreatedBy'],
+        'notes': r._mapping['Notes']
     } for r in rows])
 
 
 @api_bp.route('/supply-chain/inventory/adjust', methods=['POST'])
 @login_required
 def adjust_inventory():
-    data = request.get_json()
+    data = request.get_json() or {}
     required = ['productId', 'warehouseId', 'quantity', 'reason']
     for f in required:
         if f not in data:
@@ -680,7 +689,7 @@ def list_receiving_transactions():
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     query = """
         SELECT TOP 200
@@ -704,31 +713,37 @@ def list_receiving_transactions():
             query += " AND t.ReferenceID NOT LIKE 'PO-%'"
 
     if date_from:
-        query += " AND t.TransactionDateKey >= :date_from"
+        query += " AND TRY_CAST(t.TransactionDateKey AS INT) >= :date_from"
         params['date_from'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND t.TransactionDateKey <= :date_to"
+        query += " AND TRY_CAST(t.TransactionDateKey AS INT) <= :date_to"
         params['date_to'] = int(date_to.replace('-', ''))
 
-    query += " ORDER BY t.TransactionDateKey DESC"
+    query += " ORDER BY TRY_CAST(t.TransactionDateKey AS INT) DESC"
 
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
 
     items = [{
-        'id': r[0], 'dateKey': r[1], 'type': r[2], 'reference': r[3],
-        'productId': r[4], 'productName': r[9] or r[4],
-        'qty': r[5], 'warehouseId': r[6],
-        'warehouseName': r[10] or r[6],
-        'createdBy': r[7], 'notes': r[8],
-        'status': 'Completed' if r[2] in ('Purchase Receipt', 'Return Receipt') else 'Pending'
+        'id': r._mapping['TransactionID'],
+        'dateKey': r._mapping['TransactionDateKey'],
+        'type': r._mapping['TransactionType'],
+        'reference': r._mapping['ReferenceID'],
+        'productId': r._mapping['ProductID'],
+        'productName': r._mapping['ProductName'] or r._mapping['ProductID'],
+        'qty': r._mapping['Qty'],
+        'warehouseId': r._mapping['WarehouseID'],
+        'warehouseName': r._mapping['WarehouseName'] or r._mapping['WarehouseID'],
+        'createdBy': r._mapping['CreatedBy'],
+        'notes': r._mapping['Notes'],
+        'status': 'Completed' if r._mapping['TransactionType'] in ('Purchase Receipt', 'Return Receipt') else 'Pending'
     } for r in rows]
 
     with engine.connect() as conn:
         pending = conn.execute(text("""
             SELECT COUNT(*) FROM t_QualityInspectionBatch WHERE Status = 'Pending'
-        """)).fetchone()[0]
+        """)).scalar() or 0
 
     return jsonify({
         'kpi': {
@@ -743,7 +758,7 @@ def list_receiving_transactions():
 @api_bp.route('/supply-chain/receiving/open-pos')
 @login_required
 def get_open_pos_for_receiving():
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     engine = get_engine()
     with engine.connect() as conn:
@@ -753,11 +768,13 @@ def get_open_pos_for_receiving():
             LEFT JOIN t_Suppliers s ON po.SupplierID = s.SupplierID
             WHERE po.Status IN ('Approved', 'Ordered', 'Partially Received')
               AND po.DemoIndustryCode = :industry
-            ORDER BY po.OrderDateKey DESC
+            ORDER BY TRY_CAST(po.OrderDateKey AS INT) DESC
         """), {'industry': demo_industry}).fetchall()
 
     return jsonify([{
-        'id': r[0], 'supplierName': r[1] or r[0], 'orderDateKey': r[2]
+        'id': r._mapping['PurchaseOrderID'],
+        'supplierName': r._mapping['SupplierName'] or r._mapping['PurchaseOrderID'],
+        'orderDateKey': r._mapping['OrderDateKey']
     } for r in rows])
 
 
@@ -765,33 +782,30 @@ def get_open_pos_for_receiving():
 @login_required
 def receiving_kpi():
     today = today_key()
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     engine = get_engine()
     with engine.connect() as conn:
         expected_today = conn.execute(text("""
             SELECT COUNT(DISTINCT po.PurchaseOrderID)
             FROM t_PurchaseOrder po
             JOIN t_PurchaseOrderDetail pod ON po.PurchaseOrderID = pod.PurchaseOrderID
-            WHERE pod.ExpectedDeliveryDateKey = :today
-              AND ISNULL(pod.ReceivedQuantity, 0) < pod.Quantity
+            WHERE TRY_CAST(pod.ExpectedDeliveryDateKey AS INT) = :today
+              AND ISNULL(TRY_CAST(pod.ReceivedQuantity AS DECIMAL(18,4)), 0) < TRY_CAST(pod.Quantity AS DECIMAL(18,4))
               AND po.DemoIndustryCode = :industry
-        """), {'today': today, 'industry': demo_industry}).fetchone()[0]
+        """), {'today': today, 'industry': demo_industry}).scalar() or 0
 
         overdue = conn.execute(text("""
             SELECT COUNT(DISTINCT po.PurchaseOrderID)
             FROM t_PurchaseOrder po
             JOIN t_PurchaseOrderDetail pod ON po.PurchaseOrderID = pod.PurchaseOrderID
-            WHERE pod.ExpectedDeliveryDateKey < :today
-              AND ISNULL(pod.ReceivedQuantity, 0) < pod.Quantity
+            WHERE TRY_CAST(pod.ExpectedDeliveryDateKey AS INT) < :today
+              AND ISNULL(TRY_CAST(pod.ReceivedQuantity AS DECIMAL(18,4)), 0) < TRY_CAST(pod.Quantity AS DECIMAL(18,4))
               AND po.DemoIndustryCode = :industry
-        """), {'today': today, 'industry': demo_industry}).fetchone()[0]
+        """), {'today': today, 'industry': demo_industry}).scalar() or 0
 
-        try:
-            pending_inspection = conn.execute(text("""
-                SELECT COUNT(*) FROM t_QualityInspectionBatch WHERE Status = 'Pending'
-            """)).fetchone()[0]
-        except Exception:
-            pending_inspection = 0
+        pending_inspection = conn.execute(text("""
+            SELECT COUNT(*) FROM t_QualityInspectionBatch WHERE Status = 'Pending'
+        """)).scalar() or 0
 
     return jsonify({
         'expected_today': expected_today,
@@ -807,18 +821,18 @@ def receiving_expected_list():
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
     po_number = request.args.get('po_number', '')
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     query = """
         SELECT po.PurchaseOrderID,
                s.SupplierName,
-               MIN(pod.ExpectedDeliveryDateKey) AS ExpectedDate,
-               SUM(pod.Quantity - ISNULL(pod.ReceivedQuantity, 0)) AS OutstandingQty,
+               MIN(TRY_CAST(pod.ExpectedDeliveryDateKey AS INT)) AS ExpectedDate,
+               SUM(TRY_CAST(pod.Quantity AS DECIMAL(18,4)) - ISNULL(TRY_CAST(pod.ReceivedQuantity AS DECIMAL(18,4)), 0)) AS OutstandingQty,
                po.Status
         FROM t_PurchaseOrder po
         JOIN t_PurchaseOrderDetail pod ON po.PurchaseOrderID = pod.PurchaseOrderID
         LEFT JOIN t_Suppliers s ON po.SupplierID = s.SupplierID
-        WHERE ISNULL(pod.ReceivedQuantity, 0) < pod.Quantity
+        WHERE ISNULL(TRY_CAST(pod.ReceivedQuantity AS DECIMAL(18,4)), 0) < TRY_CAST(pod.Quantity AS DECIMAL(18,4))
           AND po.DemoIndustryCode = :industry
     """
     params = {'industry': demo_industry}
@@ -827,10 +841,10 @@ def receiving_expected_list():
         query += " AND (s.SupplierName LIKE :supp OR po.SupplierID LIKE :supp)"
         params['supp'] = f'%{supplier}%'
     if date_from:
-        query += " AND pod.ExpectedDeliveryDateKey >= :date_from"
+        query += " AND TRY_CAST(pod.ExpectedDeliveryDateKey AS INT) >= :date_from"
         params['date_from'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND pod.ExpectedDeliveryDateKey <= :date_to"
+        query += " AND TRY_CAST(pod.ExpectedDeliveryDateKey AS INT) <= :date_to"
         params['date_to'] = int(date_to.replace('-', ''))
     if po_number:
         query += " AND po.PurchaseOrderID LIKE :po"
@@ -838,7 +852,7 @@ def receiving_expected_list():
 
     query += """
         GROUP BY po.PurchaseOrderID, s.SupplierName, po.Status
-        ORDER BY MIN(pod.ExpectedDeliveryDateKey) ASC
+        ORDER BY MIN(TRY_CAST(pod.ExpectedDeliveryDateKey AS INT)) ASC
     """
 
     engine = get_engine()
@@ -846,14 +860,15 @@ def receiving_expected_list():
         rows = conn.execute(text(query), params).fetchall()
 
     return jsonify([{
-        'poId': r[0], 'supplierName': r[1] or r[0],
-        'expectedDateKey': r[2],
-        'outstandingQty': float(r[3]) if r[3] else 0,
-        'status': r[4] or 'Open'
+        'poId': r._mapping['PurchaseOrderID'],
+        'supplierName': r._mapping['SupplierName'] or r._mapping['PurchaseOrderID'],
+        'expectedDateKey': r._mapping['ExpectedDate'],
+        'outstandingQty': float(r._mapping['OutstandingQty']) if r._mapping['OutstandingQty'] else 0,
+        'status': r._mapping['Status'] or 'Open'
     } for r in rows])
 
 
-@api_bp.route('/supply-chain/receiving/po-details/<po_id>')
+@api_bp.route('/supply-chain/receiving/po-details/<string:po_id>')
 @login_required
 def receiving_po_details(po_id):
     engine = get_engine()
@@ -867,19 +882,25 @@ def receiving_po_details(po_id):
         if not po:
             return jsonify({'error': 'PO not found'}), 404
         lines = conn.execute(text("""
-            SELECT LineID, ProductID, Quantity, ISNULL(ReceivedQuantity, 0),
+            SELECT LineID, ProductID, Quantity, ISNULL(ReceivedQuantity, 0) AS ReceivedQuantity,
                    UnitPrice, ExpectedDeliveryDateKey
             FROM t_PurchaseOrderDetail
-            WHERE PurchaseOrderID = :id AND ISNULL(ReceivedQuantity, 0) < Quantity
+            WHERE PurchaseOrderID = :id
+              AND ISNULL(ReceivedQuantity, 0) < Quantity
         """), {'id': po_id}).fetchall()
 
+    pm = po._mapping
     return jsonify({
-        'poId': po[0], 'supplierName': po[1], 'projectId': po[2],
+        'poId': pm['PurchaseOrderID'],
+        'supplierName': pm['SupplierName'],
+        'projectId': pm['ProjectID'],
         'lines': [{
-            'lineId': l[0], 'productId': l[1],
-            'orderedQty': float(l[2]), 'receivedQty': float(l[3]),
-            'unitPrice': float(l[4]) if l[4] else 0,
-            'expectedDateKey': l[5]
+            'lineId': l._mapping['LineID'],
+            'productId': l._mapping['ProductID'],
+            'orderedQty': float(l._mapping['Quantity']),
+            'receivedQty': float(l._mapping['ReceivedQuantity']),
+            'unitPrice': float(l._mapping['UnitPrice']) if l._mapping['UnitPrice'] else 0,
+            'expectedDateKey': l._mapping['ExpectedDeliveryDateKey']
         } for l in lines]
     })
 
@@ -887,7 +908,7 @@ def receiving_po_details(po_id):
 @api_bp.route('/supply-chain/receiving/receive', methods=['POST'])
 @login_required
 def receiving_receive():
-    data = request.get_json()
+    data = request.get_json() or {}
     po_id = data.get('poId')
     receipts = data.get('receipts', [])
     warehouse = data.get('warehouseId', 'RAW')
@@ -903,56 +924,61 @@ def receiving_receive():
     batch_numbers = []
     new_status = None
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             for rec in receipts:
                 line_id = rec['lineId']
                 qty = float(rec['quantity'])
                 line = conn.execute(text("""
-                    SELECT ProductID, Quantity, ISNULL(ReceivedQuantity, 0)
+                    SELECT ProductID, Quantity, ISNULL(ReceivedQuantity, 0) AS ReceivedQuantity
                     FROM t_PurchaseOrderDetail WHERE LineID = :lid
                 """), {'lid': line_id}).fetchone()
                 if not line:
                     return jsonify({'error': f'Line {line_id} not found'}), 404
-                product_id, ordered, received_so_far = line
+                lm = line._mapping
+                ordered = float(lm['Quantity'])
+                received_so_far = float(lm['ReceivedQuantity'])
                 new_received = received_so_far + qty
                 if new_received > ordered:
                     return jsonify({'error': f'Cannot receive more than ordered for line {line_id}'}), 400
                 conn.execute(text("""
                     UPDATE t_PurchaseOrderDetail SET ReceivedQuantity = :q WHERE LineID = :lid
                 """), {'q': new_received, 'lid': line_id})
+
                 conn.execute(text("""
                     INSERT INTO t_InventoryTransactions
-                    (ProductID, WarehouseID, TransactionDateKey, TransactionType,
+                    (TransactionID, ProductID, WarehouseID, TransactionDateKey, TransactionType,
                      ReferenceID, Qty, CreatedBy, ProjectID, Notes)
-                    VALUES (:p, :w, :d, 'Purchase Receipt', :r, :q, :u, :proj, :notes)
+                    VALUES (:tid, :p, :w, :d, 'Purchase Receipt', :r, :q, :u, :proj, :notes)
                 """), {
-                    'p': product_id, 'w': warehouse, 'd': today,
-                    'r': po_id, 'q': qty, 'u': current_user.get_id(),
+                    'tid': _new_id(),
+                    'p': lm['ProductID'], 'w': warehouse, 'd': str(today),
+                    'r': po_id, 'q': str(qty), 'u': current_user.get_id(),
                     'proj': project_id, 'notes': notes
                 })
+
                 if create_inspection:
                     batch_number = f"QC-{po_id}-{line_id}-{int(datetime.now().timestamp())}"
                     batch_numbers.append(batch_number)
                     conn.execute(text("""
                         INSERT INTO t_QualityInspectionBatch
-                        (BatchNumber, SourceType, SourceID, ProductID, Quantity,
+                        (BatchID, BatchNumber, SourceType, SourceID, ProductID, Quantity,
                          InspectionDateKey, Status, ProjectID, DueDateKey)
-                        VALUES (:b, 'PurchaseOrder', :src, :p, :q, :d, 'Pending', :proj, :due)
+                        VALUES (:bid, :b, 'PurchaseOrder', :src, :p, :q, :d, 'Pending', :proj, :due)
                     """), {
-                        'b': batch_number, 'src': po_id, 'p': product_id, 'q': qty,
-                        'd': today, 'proj': project_id, 'due': today + 7
+                        'bid': _new_id(),
+                        'b': batch_number, 'src': po_id, 'p': lm['ProductID'], 'q': str(qty),
+                        'd': str(today), 'proj': project_id, 'due': str(today + 7)
                     })
 
             all_lines = conn.execute(text("""
-                SELECT Quantity, ISNULL(ReceivedQuantity, 0)
+                SELECT Quantity, ISNULL(ReceivedQuantity, 0) AS ReceivedQuantity
                 FROM t_PurchaseOrderDetail WHERE PurchaseOrderID = :id
             """), {'id': po_id}).fetchall()
-            tot_ordered = sum(l[0] for l in all_lines)
-            tot_received = sum(l[1] for l in all_lines)
+            tot_ordered = sum(float(l._mapping['Quantity']) for l in all_lines)
+            tot_received = sum(float(l._mapping['ReceivedQuantity']) for l in all_lines)
             new_status = 'Closed' if tot_received >= tot_ordered else ('Partially Received' if tot_received > 0 else 'Sent')
             conn.execute(text("UPDATE t_PurchaseOrder SET Status = :s WHERE PurchaseOrderID = :id"),
                          {'s': new_status, 'id': po_id})
-            conn.commit()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -990,16 +1016,16 @@ def receiving_upload_attachment():
     file.save(file_path)
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
+        # t_ReceivingAttachments.AttachmentID is INT IDENTITY — do not supply
         conn.execute(text("""
             INSERT INTO t_ReceivingAttachments
             (PurchaseOrderID, Title, FileName, FilePath, UploadedBy, UploadedAt)
-            VALUES (:po, :title, :fname, :fpath, :user, CURRENT_TIMESTAMP)
+            VALUES (:po, :title, :fname, :fpath, :user, GETDATE())
         """), {
             'po': po_id, 'title': title, 'fname': safe_name,
             'fpath': file_path, 'user': current_user.get_id()
         })
-        conn.commit()
 
     return jsonify({'message': 'Attachment uploaded', 'fileName': safe_name}), 201
 
@@ -1011,7 +1037,7 @@ def list_shipping_transactions():
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     query = """
         SELECT s.ShipmentID, s.ShipmentNumber, s.SalesOrderID,
@@ -1028,23 +1054,28 @@ def list_shipping_transactions():
         query += " AND s.Status = :status"
         params['status'] = status
     if date_from:
-        query += " AND s.ShipmentDateKey >= :date_from"
+        query += " AND TRY_CAST(s.ShipmentDateKey AS INT) >= :date_from"
         params['date_from'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND s.ShipmentDateKey <= :date_to"
+        query += " AND TRY_CAST(s.ShipmentDateKey AS INT) <= :date_to"
         params['date_to'] = int(date_to.replace('-', ''))
 
-    query += " ORDER BY s.ShipmentDateKey DESC"
+    query += " ORDER BY TRY_CAST(s.ShipmentDateKey AS INT) DESC"
 
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
 
     items = [{
-        'id': r[0], 'number': r[1], 'salesOrderId': r[2],
-        'dateKey': r[3], 'status': r[4] or 'Pending',
-        'carrier': r[5], 'trackingNumber': r[6],
-        'customerName': r[7] or r[2], 'projectId': r[8]
+        'id': r._mapping['ShipmentID'],
+        'number': r._mapping['ShipmentNumber'],
+        'salesOrderId': r._mapping['SalesOrderID'],
+        'dateKey': r._mapping['ShipmentDateKey'],
+        'status': r._mapping['Status'] or 'Pending',
+        'carrier': r._mapping['Carrier'],
+        'trackingNumber': r._mapping['TrackingNumber'],
+        'customerName': r._mapping['CustomerName'] or r._mapping['SalesOrderID'],
+        'projectId': r._mapping['ProjectID']
     } for r in rows]
 
     pending_shipments = len([i for i in items if i['status'] in ['Draft', 'Packed']])
@@ -1058,21 +1089,21 @@ def list_shipping_transactions():
 @api_bp.route('/supply-chain/shipping/kpi')
 @login_required
 def shipping_kpi():
-    today = today_key()
+    today = str(today_key())
     engine = get_engine()
     with engine.connect() as conn:
         today_count = conn.execute(text(
             "SELECT COUNT(*) FROM t_Shipments WHERE ShipmentDateKey = :t"
-        ), {'t': today}).fetchone()[0]
+        ), {'t': today}).scalar() or 0
 
         pending = conn.execute(text(
             "SELECT COUNT(*) FROM t_Shipments WHERE Status IN ('Draft', 'Packed')"
-        )).fetchone()[0]
+        )).scalar() or 0
 
         carrier_rows = conn.execute(text(
-            "SELECT Carrier, COUNT(*) FROM t_Shipments GROUP BY Carrier"
+            "SELECT Carrier, COUNT(*) AS cnt FROM t_Shipments GROUP BY Carrier"
         )).fetchall()
-        by_carrier = {(row[0] or 'Unknown'): row[1] for row in carrier_rows}
+        by_carrier = {(row._mapping['Carrier'] or 'Unknown'): row._mapping['cnt'] for row in carrier_rows}
 
     return jsonify({'today': today_count, 'pending': pending, 'by_carrier': by_carrier})
 
@@ -1084,28 +1115,32 @@ def shipping_sales_orders_for_picking():
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT so.SalesOrderID, c.CustomerName, sol.LineID, sol.ProductID,
-                   sol.Quantity, ISNULL(sol.ShippedQuantity, 0) AS ShippedQty,
-                   (sol.Quantity - ISNULL(sol.ShippedQuantity, 0)) AS Remaining
+                   TRY_CAST(sol.Quantity AS DECIMAL(18,4)) AS Quantity,
+                   TRY_CAST(ISNULL(sol.ShippedQuantity, 0) AS DECIMAL(18,4)) AS ShippedQty,
+                   (TRY_CAST(sol.Quantity AS DECIMAL(18,4)) - TRY_CAST(ISNULL(sol.ShippedQuantity, 0) AS DECIMAL(18,4))) AS Remaining
             FROM t_SalesOrder so
             JOIN t_SalesOrderLine sol ON so.SalesOrderID = sol.SalesOrderID
             LEFT JOIN t_Customer c ON so.CustomerID = c.CustomerID
             WHERE so.Status IN ('Confirmed', 'Released', 'Partially Shipped')
-              AND sol.Quantity > ISNULL(sol.ShippedQuantity, 0)
-            ORDER BY so.OrderDateKey, sol.LineID
+              AND TRY_CAST(sol.Quantity AS DECIMAL(18,4)) > TRY_CAST(ISNULL(sol.ShippedQuantity, 0) AS DECIMAL(18,4))
+            ORDER BY TRY_CAST(so.OrderDateKey AS INT), sol.LineID
         """)).fetchall()
 
     return jsonify([{
-        'salesOrderId': r[0], 'customerName': r[1] or r[0],
-        'lineId': r[2], 'productId': r[3],
-        'orderedQty': float(r[4]), 'shippedSoFar': float(r[5]),
-        'remainingQty': float(r[6])
+        'salesOrderId': r._mapping['SalesOrderID'],
+        'customerName': r._mapping['CustomerName'] or r._mapping['SalesOrderID'],
+        'lineId': r._mapping['LineID'],
+        'productId': r._mapping['ProductID'],
+        'orderedQty': float(r._mapping['Quantity']),
+        'shippedSoFar': float(r._mapping['ShippedQty']),
+        'remainingQty': float(r._mapping['Remaining'])
     } for r in rows])
 
 
 @api_bp.route('/supply-chain/shipping/create', methods=['POST'])
 @login_required
 def shipping_create():
-    data = request.get_json()
+    data = request.get_json() or {}
     so_id = data.get('salesOrderId')
     carrier = data.get('carrier', '')
     ship_date = data.get('shipmentDateKey') or today_key()
@@ -1117,74 +1152,85 @@ def shipping_create():
     engine = get_engine()
     today = today_key()
     shipment_number = f"SHIP-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    shipment_id = _new_id()
 
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO t_Shipments
-                (ShipmentNumber, SalesOrderID, ShipmentDateKey, Status, Carrier,
+                (ShipmentID, ShipmentNumber, SalesOrderID, ShipmentDateKey, Status, Carrier,
                  CreatedDateKey, CreatedBy)
-                VALUES (:n, :so, :d, 'Draft', :c, :cd, :u)
-            """), {'n': shipment_number, 'so': so_id, 'd': ship_date,
-                   'c': carrier, 'cd': today, 'u': current_user.get_id()})
-
-            shipment_id = conn.execute(text("SELECT SCOPE_IDENTITY()")).fetchone()[0]
+                VALUES (:sid, :n, :so, :d, 'Draft', :c, :cd, :u)
+            """), {
+                'sid': shipment_id, 'n': shipment_number, 'so': so_id,
+                'd': str(ship_date), 'c': carrier, 'cd': str(today),
+                'u': current_user.get_id()
+            })
 
             for line in lines:
                 conn.execute(text("""
                     INSERT INTO t_ShipmentLines
-                    (ShipmentID, ProductID, QuantityShipped, SerialNumbers)
-                    VALUES (:sid, :p, :q, :s)
-                """), {'sid': shipment_id, 'p': line['productId'],
-                       'q': line['quantityShipped'],
-                       's': line.get('serialNumbers')})
+                    (LineID, ShipmentID, ProductID, QuantityShipped, SerialNumbers)
+                    VALUES (:lid, :sid, :p, :q, :s)
+                """), {
+                    'lid': _new_id(),
+                    'sid': shipment_id,
+                    'p': line['productId'],
+                    'q': str(line['quantityShipped']),
+                    's': line.get('serialNumbers')
+                })
 
                 conn.execute(text("""
                     UPDATE t_SalesOrderLine
-                    SET ShippedQuantity = ISNULL(ShippedQuantity, 0) + :q
+                    SET ShippedQuantity = TRY_CAST(ISNULL(ShippedQuantity, 0) AS DECIMAL(18,4)) + :q
                     WHERE LineID = :lid
-                """), {'q': line['quantityShipped'], 'lid': line['lineId']})
+                """), {'q': float(line['quantityShipped']), 'lid': line['lineId']})
 
                 conn.execute(text("""
                     INSERT INTO t_InventoryTransactions
-                    (ProductID, WarehouseID, TransactionDateKey, TransactionType,
+                    (TransactionID, ProductID, WarehouseID, TransactionDateKey, TransactionType,
                      ReferenceID, Qty, CreatedBy, Notes)
-                    VALUES (:p, 'FG', :d, 'Sales Issue', :r, :q, :u, 'Shipment created')
-                """), {'p': line['productId'], 'd': today, 'r': shipment_number,
-                       'q': -line['quantityShipped'], 'u': current_user.get_id()})
+                    VALUES (:tid, :p, 'FG', :d, 'Sales Issue', :r, :q, :u, 'Shipment created')
+                """), {
+                    'tid': _new_id(),
+                    'p': line['productId'],
+                    'd': str(today),
+                    'r': shipment_number,
+                    'q': str(-float(line['quantityShipped'])),
+                    'u': current_user.get_id()
+                })
 
             incomplete = conn.execute(text("""
                 SELECT 1 FROM t_SalesOrderLine
-                WHERE SalesOrderID = :id AND Quantity > ISNULL(ShippedQuantity, 0)
+                WHERE SalesOrderID = :id
+                  AND TRY_CAST(Quantity AS DECIMAL(18,4)) > TRY_CAST(ISNULL(ShippedQuantity, 0) AS DECIMAL(18,4))
             """), {'id': so_id}).fetchone()
             if not incomplete:
                 conn.execute(text("UPDATE t_SalesOrder SET Status = 'Shipped' WHERE SalesOrderID = :id"),
                              {'id': so_id})
-
-            conn.commit()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
     return jsonify({'shipmentId': shipment_id, 'shipmentNumber': shipment_number}), 201
 
 
-@api_bp.route('/supply-chain/shipping/update-status/<int:shipment_id>', methods=['POST'])
+@api_bp.route('/supply-chain/shipping/update-status/<string:shipment_id>', methods=['POST'])
 @login_required
 def shipping_update_status(shipment_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     status = data.get('status')
     tracking = data.get('trackingNumber', '')
     if not status:
         return jsonify({'error': 'Status required'}), 400
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("""
             UPDATE t_Shipments
             SET Status = :s, TrackingNumber = COALESCE(:t, TrackingNumber)
             WHERE ShipmentID = :id
         """), {'s': status, 't': tracking or None, 'id': shipment_id})
-        conn.commit()
+
     return jsonify({'message': f'Status updated to {status}'})
 
 
@@ -1209,15 +1255,15 @@ def shipping_export():
         query += " AND (c.CustomerName LIKE :c OR so.SalesOrderID LIKE :c)"
         params['c'] = f'%{customer}%'
     if date_from:
-        query += " AND s.ShipmentDateKey >= :df"
+        query += " AND TRY_CAST(s.ShipmentDateKey AS INT) >= :df"
         params['df'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND s.ShipmentDateKey <= :dt"
+        query += " AND TRY_CAST(s.ShipmentDateKey AS INT) <= :dt"
         params['dt'] = int(date_to.replace('-', ''))
     if status:
         query += " AND s.Status = :s"
         params['s'] = status
-    query += " ORDER BY s.ShipmentDateKey DESC"
+    query += " ORDER BY TRY_CAST(s.ShipmentDateKey AS INT) DESC"
 
     engine = get_engine()
     with engine.connect() as conn:
@@ -1227,7 +1273,9 @@ def shipping_export():
     cw = csv.writer(si)
     cw.writerow(['Shipment#', 'SalesOrder', 'Customer', 'Date', 'Status', 'Carrier', 'Tracking'])
     for r in rows:
-        cw.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6]])
+        m = r._mapping
+        cw.writerow([m['ShipmentNumber'], m['SalesOrderID'], m['CustomerName'],
+                     m['ShipmentDateKey'], m['Status'], m['Carrier'], m['TrackingNumber']])
     return current_app.response_class(
         si.getvalue(), mimetype='text/csv',
         headers={'Content-Disposition': 'attachment; filename=shipments.csv'}
@@ -1241,22 +1289,22 @@ def shipping_export():
 @api_bp.route('/supply-chain/warehouses/dropdown')
 @login_required
 def warehouses_dropdown():
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT WarehouseID, Name
             FROM t_Warehouses
-            WHERE DemoIndustryCode = :industry AND IsActive = 1
+            WHERE DemoIndustryCode = :industry AND IsActive = '1'
             ORDER BY Name
         """), {'industry': demo_industry}).fetchall()
-    return jsonify([{'id': r[0], 'name': r[1]} for r in rows])
+    return jsonify([{'id': r._mapping['WarehouseID'], 'name': r._mapping['Name']} for r in rows])
 
 
 @api_bp.route('/supply-chain/products/dropdown')
 @login_required
 def products_dropdown():
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text("""
@@ -1265,13 +1313,13 @@ def products_dropdown():
             WHERE DemoIndustryCode = :industry
             ORDER BY ProductId
         """), {'industry': demo_industry}).fetchall()
-    return jsonify([{'id': r[0], 'desc': r[1] or r[0]} for r in rows])
+    return jsonify([{'id': r._mapping['ProductId'], 'desc': r._mapping['descEnglish'] or r._mapping['ProductId']} for r in rows])
 
 
 @api_bp.route('/supply-chain/stock/kpi')
 @login_required
 def stock_kpi():
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     engine = get_engine()
     with engine.connect() as conn:
         row = conn.execute(text("""
@@ -1284,26 +1332,25 @@ def stock_kpi():
             WHERE p.DemoIndustryCode = :industry
         """), {'industry': demo_industry}).fetchone()
 
-        total_qty = float(row[0]) if row[0] is not None else 0
-        total_value = float(row[1]) if row[1] is not None else 0
+        total_qty = float(row._mapping['total_qty']) if row._mapping['total_qty'] is not None else 0
+        total_value = float(row._mapping['total_value']) if row._mapping['total_value'] is not None else 0
 
-        low_stock_row = conn.execute(text("""
+        low_stock = conn.execute(text("""
             SELECT COUNT(*) FROM (
                 SELECT ioh.ProductID
                 FROM t_InventoryOnHand ioh
                 JOIN t_Product p ON ioh.ProductID = p.ProductId
                 WHERE p.DemoIndustryCode = :industry
                 GROUP BY ioh.ProductID, p.SafetyStock
-                HAVING SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) < ISNULL(p.SafetyStock, 0)
+                HAVING SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) < TRY_CAST(ISNULL(p.SafetyStock, 0) AS DECIMAL(18,4))
                    AND SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) > 0
             ) AS low
-        """), {'industry': demo_industry}).fetchone()
-        low_stock = int(low_stock_row[0]) if low_stock_row else 0
+        """), {'industry': demo_industry}).scalar() or 0
 
     return jsonify({
         'total_items': total_qty,
         'total_value': total_value,
-        'low_stock': low_stock
+        'low_stock': int(low_stock)
     })
 
 
@@ -1314,7 +1361,7 @@ def stock_list():
     category = request.args.get('category', '')
     low_stock = request.args.get('low_stock', '').lower() == 'true'
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     query = """
         SELECT
@@ -1325,7 +1372,7 @@ def stock_list():
             SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) AS OnHand,
             MAX(ioh.Currency) AS Currency,
             AVG(TRY_CAST(ioh.UnitCost AS DECIMAL(18,4))) AS UnitCost,
-            MAX(ISNULL(p.SafetyStock, 0)) AS SafetyStock
+            MAX(TRY_CAST(ISNULL(p.SafetyStock, 0) AS DECIMAL(18,4))) AS SafetyStock
         FROM t_InventoryOnHand ioh
         JOIN t_Product p ON ioh.ProductID = p.ProductId
         LEFT JOIN t_Warehouses w ON ioh.WarehouseID = w.WarehouseID
@@ -1343,7 +1390,7 @@ def stock_list():
     query += " GROUP BY ioh.ProductID, ioh.WarehouseID"
 
     if low_stock:
-        query += " HAVING SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) < MAX(ISNULL(p.SafetyStock, 0)) AND SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) > 0"
+        query += " HAVING SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) < MAX(TRY_CAST(ISNULL(p.SafetyStock, 0) AS DECIMAL(18,4))) AND SUM(TRY_CAST(ioh.Qty AS DECIMAL(18,4))) > 0"
 
     query += " ORDER BY MAX(p.descEnglish), MAX(w.Name)"
 
@@ -1353,16 +1400,21 @@ def stock_list():
 
     items = []
     for r in rows:
-        on_hand = float(r[4]) if r[4] is not None else 0
-        safety = float(r[7]) if r[7] is not None else 0
-        unit_cost = float(r[6]) if r[6] is not None else 0
+        m = r._mapping
+        on_hand = float(m['OnHand']) if m['OnHand'] is not None else 0
+        safety = float(m['SafetyStock']) if m['SafetyStock'] is not None else 0
+        unit_cost = float(m['UnitCost']) if m['UnitCost'] is not None else 0
 
         items.append({
-            'productId': r[0], 'productName': r[1],
-            'warehouseId': r[2], 'warehouseName': r[3] or r[2],
-            'onHand': on_hand, 'reserved': 0, 'available': on_hand,
+            'productId': m['ProductID'],
+            'productName': m['ProductName'],
+            'warehouseId': m['WarehouseID'],
+            'warehouseName': m['WarehouseName'] or m['WarehouseID'],
+            'onHand': on_hand,
+            'reserved': 0,
+            'available': on_hand,
             'unitCost': round(unit_cost, 2),
-            'currency': r[5] or 'USD',
+            'currency': m['Currency'] or 'USD',
             'lowStock': on_hand > 0 and on_hand < safety
         })
 
@@ -1372,17 +1424,17 @@ def stock_list():
 @api_bp.route('/supply-chain/stock-movements/kpi')
 @login_required
 def stock_movements_kpi():
-    today_key_val = today_key()
+    today_key_val = str(today_key())
     engine = get_engine()
     with engine.connect() as conn:
         today_count = conn.execute(
             text("SELECT COUNT(*) FROM t_InventoryTransactions WHERE TransactionDateKey = :today"),
             {'today': today_key_val}
-        ).fetchone()[0]
+        ).scalar() or 0
         type_rows = conn.execute(
-            text("SELECT TransactionType, COUNT(*) FROM t_InventoryTransactions GROUP BY TransactionType")
+            text("SELECT TransactionType, COUNT(*) AS cnt FROM t_InventoryTransactions GROUP BY TransactionType")
         ).fetchall()
-        type_counts = {row[0]: row[1] for row in type_rows}
+        type_counts = {row._mapping['TransactionType']: row._mapping['cnt'] for row in type_rows}
     return jsonify({'today': today_count, 'by_type': type_counts})
 
 
@@ -1406,10 +1458,10 @@ def stock_movements_list():
     """
     params = {}
     if date_from:
-        query += " AND t.TransactionDateKey >= :date_from"
+        query += " AND TRY_CAST(t.TransactionDateKey AS INT) >= :date_from"
         params['date_from'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND t.TransactionDateKey <= :date_to"
+        query += " AND TRY_CAST(t.TransactionDateKey AS INT) <= :date_to"
         params['date_to'] = int(date_to.replace('-', ''))
     if product:
         query += " AND (t.ProductID LIKE :prod OR p.descEnglish LIKE :prod)"
@@ -1417,19 +1469,28 @@ def stock_movements_list():
     if trans_type:
         query += " AND t.TransactionType = :type"
         params['type'] = trans_type
-    query += " ORDER BY t.TransactionDateKey DESC"
+    query += " ORDER BY TRY_CAST(t.TransactionDateKey AS INT) DESC"
 
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
 
     return jsonify([{
-        'id': r[0], 'productId': r[1], 'productName': r[2],
-        'dateKey': r[3], 'type': r[4], 'reference': r[5],
-        'quantity': r[6], 'unitCost': float(r[7]) if r[7] else 0,
-        'currency': r[8] or 'USD', 'warehouseId': r[9], 'warehouseName': r[10],
-        'fromWarehouse': r[11], 'toWarehouse': r[12],
-        'createdBy': r[13], 'notes': r[14]
+        'id': r._mapping['TransactionID'],
+        'productId': r._mapping['ProductID'],
+        'productName': r._mapping['ProductName'],
+        'dateKey': r._mapping['TransactionDateKey'],
+        'type': r._mapping['TransactionType'],
+        'reference': r._mapping['ReferenceID'],
+        'quantity': r._mapping['Qty'],
+        'unitCost': float(r._mapping['UnitCost']) if r._mapping['UnitCost'] else 0,
+        'currency': r._mapping['Currency'] or 'USD',
+        'warehouseId': r._mapping['WarehouseID'],
+        'warehouseName': r._mapping['WarehouseName'],
+        'fromWarehouse': r._mapping['FromWarehouseID'],
+        'toWarehouse': r._mapping['ToWarehouseID'],
+        'createdBy': r._mapping['CreatedBy'],
+        'notes': r._mapping['Notes']
     } for r in rows])
 
 
@@ -1451,10 +1512,10 @@ def stock_movements_export():
     """
     params = {}
     if date_from:
-        query += " AND t.TransactionDateKey >= :date_from"
+        query += " AND TRY_CAST(t.TransactionDateKey AS INT) >= :date_from"
         params['date_from'] = int(date_from.replace('-', ''))
     if date_to:
-        query += " AND t.TransactionDateKey <= :date_to"
+        query += " AND TRY_CAST(t.TransactionDateKey AS INT) <= :date_to"
         params['date_to'] = int(date_to.replace('-', ''))
     if product:
         query += " AND (t.ProductID LIKE :prod OR p.descEnglish LIKE :prod)"
@@ -1462,7 +1523,7 @@ def stock_movements_export():
     if trans_type:
         query += " AND t.TransactionType = :type"
         params['type'] = trans_type
-    query += " ORDER BY t.TransactionDateKey DESC"
+    query += " ORDER BY TRY_CAST(t.TransactionDateKey AS INT) DESC"
 
     engine = get_engine()
     with engine.connect() as conn:
@@ -1473,7 +1534,10 @@ def stock_movements_export():
     cw.writerow(['Date', 'ProductID', 'Product Name', 'Type', 'Reference',
                  'Quantity', 'Unit Cost', 'Currency', 'Warehouse', 'Notes'])
     for r in rows:
-        cw.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]])
+        m = r._mapping
+        cw.writerow([m['TransactionDateKey'], m['ProductID'], m['descEnglish'],
+                     m['TransactionType'], m['ReferenceID'], m['Qty'], m['UnitCost'],
+                     m['Currency'], m['WarehouseID'], m['Notes']])
     return current_app.response_class(
         si.getvalue(), mimetype='text/csv',
         headers={'Content-Disposition': 'attachment; filename=stock_movements.csv'}
@@ -1497,11 +1561,11 @@ def stock_adjust():
     except (TypeError, ValueError):
         return jsonify({'error': 'quantity must be numeric'}), 400
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     today = today_key()
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         prod = conn.execute(text("""
             SELECT 1 FROM t_Product
             WHERE ProductId = :pid AND DemoIndustryCode = :industry
@@ -1518,13 +1582,14 @@ def stock_adjust():
 
         conn.execute(text("""
             INSERT INTO t_InventoryTransactions
-            (ProductID, WarehouseID, Qty, TransactionType, ReferenceID,
+            (TransactionID, ProductID, WarehouseID, Qty, TransactionType, ReferenceID,
              TransactionDateKey, CreatedBy, Notes)
-            VALUES (:pid, :wid, :qty, 'Adjustment', :ref, :date, :user, :notes)
+            VALUES (:tid, :pid, :wid, :qty, 'Adjustment', :ref, :date, :user, :notes)
         """), {
-            'pid': product_id, 'wid': warehouse_id, 'qty': quantity,
+            'tid': _new_id(),
+            'pid': product_id, 'wid': warehouse_id, 'qty': str(quantity),
             'ref': f"ADJ-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            'date': today, 'user': current_user.get_id(), 'notes': reason
+            'date': str(today), 'user': current_user.get_id(), 'notes': reason
         })
 
         existing = conn.execute(text("""
@@ -1548,8 +1613,6 @@ def stock_adjust():
                 'cost': data.get('unitCost') or 0,
                 'currency': data.get('currency') or 'USD'
             })
-
-        conn.commit()
 
     return jsonify({'message': 'Stock adjusted'})
 
@@ -1578,13 +1641,13 @@ def stock_transfer():
 
     today = today_key()
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         src = conn.execute(text("""
-            SELECT ISNULL(SUM(TRY_CAST(Qty AS DECIMAL(18,4))), 0)
+            SELECT ISNULL(SUM(TRY_CAST(Qty AS DECIMAL(18,4))), 0) AS available
             FROM t_InventoryOnHand
             WHERE ProductID = :pid AND WarehouseID = :wid
         """), {'pid': product_id, 'wid': from_wh}).fetchone()
-        available = float(src[0]) if src and src[0] is not None else 0
+        available = float(src._mapping['available']) if src and src._mapping['available'] is not None else 0
         if available < quantity:
             return jsonify({'error': f'Insufficient stock: {available} available'}), 400
 
@@ -1615,21 +1678,25 @@ def stock_transfer():
 
         conn.execute(text("""
             INSERT INTO t_InventoryTransactions
-            (ProductID, WarehouseID, Qty, TransactionType, ReferenceID,
+            (TransactionID, ProductID, WarehouseID, Qty, TransactionType, ReferenceID,
              TransactionDateKey, CreatedBy, Notes)
-            VALUES (:pid, :wid, :qty, 'Transfer Out', :ref, :date, :user, :notes)
-        """), {'pid': product_id, 'wid': from_wh, 'qty': -quantity,
-               'ref': ref, 'date': today, 'user': current_user.get_id(), 'notes': reason})
+            VALUES (:tid, :pid, :wid, :qty, 'Transfer Out', :ref, :date, :user, :notes)
+        """), {
+            'tid': _new_id(), 'pid': product_id, 'wid': from_wh,
+            'qty': str(-quantity), 'ref': ref, 'date': str(today),
+            'user': current_user.get_id(), 'notes': reason
+        })
 
         conn.execute(text("""
             INSERT INTO t_InventoryTransactions
-            (ProductID, WarehouseID, Qty, TransactionType, ReferenceID,
+            (TransactionID, ProductID, WarehouseID, Qty, TransactionType, ReferenceID,
              TransactionDateKey, CreatedBy, Notes)
-            VALUES (:pid, :wid, :qty, 'Transfer In', :ref, :date, :user, :notes)
-        """), {'pid': product_id, 'wid': to_wh, 'qty': quantity,
-               'ref': ref, 'date': today, 'user': current_user.get_id(), 'notes': reason})
-
-        conn.commit()
+            VALUES (:tid, :pid, :wid, :qty, 'Transfer In', :ref, :date, :user, :notes)
+        """), {
+            'tid': _new_id(), 'pid': product_id, 'wid': to_wh,
+            'qty': str(quantity), 'ref': ref, 'date': str(today),
+            'user': current_user.get_id(), 'notes': reason
+        })
 
     return jsonify({'message': 'Stock transferred'})
 
@@ -1641,7 +1708,7 @@ def stock_export():
     warehouse = request.args.get('warehouse', '')
     category = request.args.get('category', '')
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
     query = """
         SELECT ioh.ProductID, MAX(p.descEnglish) AS ProductName,
                ioh.WarehouseID, MAX(w.Name) AS WarehouseName,
@@ -1671,7 +1738,9 @@ def stock_export():
     cw.writerow(['ProductID', 'ProductName', 'WarehouseID', 'WarehouseName',
                  'OnHand', 'Currency', 'UnitCost'])
     for r in rows:
-        cw.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6]])
+        m = r._mapping
+        cw.writerow([m['ProductID'], m['ProductName'], m['WarehouseID'], m['WarehouseName'],
+                     m['OnHand'], m['Currency'], m['UnitCost']])
 
     return Response(
         si.getvalue(), mimetype='text/csv',
@@ -1686,7 +1755,6 @@ def stock_export():
 @api_bp.route('/supply-chain/warehouses/list')
 @login_required
 def list_warehouses():
-    """List warehouses with KPI - Page 32"""
     warehouse_type = request.args.get('type', '')
     is_active = request.args.get('active', '')
 
@@ -1702,9 +1770,9 @@ def list_warehouses():
         query += " AND w.Type = :type"
         params['type'] = warehouse_type
     if is_active == '1':
-        query += " AND w.IsActive = 1"
+        query += " AND w.IsActive = '1'"
     elif is_active == '0':
-        query += " AND w.IsActive = 0"
+        query += " AND w.IsActive = '0'"
 
     query += " ORDER BY w.Name"
 
@@ -1714,25 +1782,27 @@ def list_warehouses():
 
         items = []
         for r in rows:
+            m = r._mapping
+            cap = float(m['Capacity']) if m['Capacity'] is not None else 0
             util = 0
-            if r[4] and r[4] > 0:
+            if cap > 0:
                 qty_sum = conn.execute(
-                    text("SELECT ISNULL(SUM(Qty),0) FROM t_InventoryOnHand WHERE WarehouseID = :wh"),
-                    {'wh': r[0]}
-                ).fetchone()[0]
-                util = round((qty_sum / r[4]) * 100, 1) if r[4] > 0 else 0
+                    text("SELECT ISNULL(SUM(TRY_CAST(Qty AS DECIMAL(18,4))),0) FROM t_InventoryOnHand WHERE WarehouseID = :wh"),
+                    {'wh': m['WarehouseID']}
+                ).scalar() or 0
+                util = round((float(qty_sum) / cap) * 100, 1)
 
             items.append({
-                'id': r[0],
-                'name': r[1],
-                'location': r[2],
-                'type': r[3],
-                'capacity': float(r[4]) if r[4] else 0,
-                'isActive': bool(r[5]),
-                'contactPerson': r[6],
-                'phone': r[7],
+                'id': m['WarehouseID'],
+                'name': m['Name'],
+                'location': m['Location'],
+                'type': m['Type'],
+                'capacity': cap,
+                'isActive': str(m['IsActive']) == '1' if m['IsActive'] is not None else False,
+                'contactPerson': m['ContactPerson'],
+                'phone': m['Phone'],
                 'email': '',
-                'address': r[8],
+                'address': m['Address'],
                 'utilisation': util
             })
 
@@ -1757,14 +1827,14 @@ def list_warehouses():
 @api_bp.route('/supply-chain/warehouses', methods=['POST'])
 @login_required
 def create_warehouse():
-    data = request.get_json()
+    data = request.get_json() or {}
     required = ['warehouseId', 'name', 'type']
     for f in required:
         if not data.get(f):
             return jsonify({'error': f'Missing {f}'}), 400
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         existing = conn.execute(
             text("SELECT 1 FROM t_Warehouses WHERE WarehouseID = :id"),
             {'id': data['warehouseId']}
@@ -1775,26 +1845,26 @@ def create_warehouse():
         conn.execute(text("""
             INSERT INTO t_Warehouses
             (WarehouseID, Name, Location, Type, Capacity, IsActive,
-             ContactPerson, Phone, Address)
+             ContactPerson, Phone, Address, DemoIndustryCode)
             VALUES (:id, :name, :loc, :type, :cap, :active, :contact,
-                    :phone, :addr)
+                    :phone, :addr, :industry)
         """), {
             'id': data['warehouseId'],
             'name': data['name'],
             'loc': data.get('location', ''),
             'type': data['type'],
-            'cap': data.get('capacity', 0),
-            'active': 1 if data.get('isActive', True) else 0,
+            'cap': str(data.get('capacity', 0)),
+            'active': '1' if data.get('isActive', True) else '0',
             'contact': data.get('contactPerson', ''),
             'phone': data.get('phone', ''),
-            'addr': data.get('address', '')
+            'addr': data.get('address', ''),
+            'industry': _current_industry()
         })
-        conn.commit()
 
     return jsonify({'message': 'Warehouse created'}), 201
 
 
-@api_bp.route('/supply-chain/warehouses/<warehouse_id>', methods=['GET'])
+@api_bp.route('/supply-chain/warehouses/<string:warehouse_id>', methods=['GET'])
 @login_required
 def get_warehouse(warehouse_id):
     engine = get_engine()
@@ -1806,25 +1876,26 @@ def get_warehouse(warehouse_id):
         """), {'id': warehouse_id}).fetchone()
     if not r:
         return jsonify({'error': 'Warehouse not found'}), 404
+    m = r._mapping
     return jsonify({
-        'id': r[0],
-        'name': r[1],
-        'location': r[2],
-        'type': r[3],
-        'capacity': float(r[4]) if r[4] else 0,
-        'isActive': bool(r[5]),
-        'contactPerson': r[6],
-        'phone': r[7],
-        'address': r[8]
+        'id': m['WarehouseID'],
+        'name': m['Name'],
+        'location': m['Location'],
+        'type': m['Type'],
+        'capacity': float(m['Capacity']) if m['Capacity'] is not None else 0,
+        'isActive': str(m['IsActive']) == '1' if m['IsActive'] is not None else False,
+        'contactPerson': m['ContactPerson'],
+        'phone': m['Phone'],
+        'address': m['Address']
     })
 
 
-@api_bp.route('/supply-chain/warehouses/<warehouse_id>', methods=['PUT'])
+@api_bp.route('/supply-chain/warehouses/<string:warehouse_id>', methods=['PUT'])
 @login_required
 def update_warehouse(warehouse_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         existing = conn.execute(
             text("SELECT 1 FROM t_Warehouses WHERE WarehouseID = :id"),
             {'id': warehouse_id}
@@ -1842,22 +1913,21 @@ def update_warehouse(warehouse_id):
             'name': data.get('name', ''),
             'loc': data.get('location', ''),
             'type': data.get('type', ''),
-            'cap': data.get('capacity', 0),
-            'active': 1 if data.get('isActive', True) else 0,
+            'cap': str(data.get('capacity', 0)),
+            'active': '1' if data.get('isActive', True) else '0',
             'contact': data.get('contactPerson', ''),
             'phone': data.get('phone', ''),
             'addr': data.get('address', ''),
             'id': warehouse_id
         })
-        conn.commit()
     return jsonify({'message': 'Warehouse updated'})
 
 
-@api_bp.route('/supply-chain/warehouses/<warehouse_id>', methods=['DELETE'])
+@api_bp.route('/supply-chain/warehouses/<string:warehouse_id>', methods=['DELETE'])
 @login_required
 def delete_warehouse(warehouse_id):
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         inv_exists = conn.execute(
             text("SELECT TOP 1 1 FROM t_InventoryOnHand WHERE WarehouseID = :id"),
             {'id': warehouse_id}
@@ -1866,10 +1936,9 @@ def delete_warehouse(warehouse_id):
             return jsonify({'error': 'Cannot delete warehouse with existing stock'}), 400
 
         conn.execute(
-            text("UPDATE t_Warehouses SET IsActive = 0 WHERE WarehouseID = :id"),
+            text("UPDATE t_Warehouses SET IsActive = '0' WHERE WarehouseID = :id"),
             {'id': warehouse_id}
         )
-        conn.commit()
     return jsonify({'message': 'Warehouse deactivated'})
 
 
@@ -1903,8 +1972,10 @@ def export_warehouses_csv():
     cw.writerow(['WarehouseID', 'Name', 'Location', 'Type', 'Capacity', 'Status',
                  'Contact Person', 'Phone', 'Address'])
     for r in rows:
-        cw.writerow([r[0], r[1], r[2], r[3], r[4], 'Active' if r[5] else 'Inactive',
-                     r[6], r[7], r[8]])
+        m = r._mapping
+        cw.writerow([m['WarehouseID'], m['Name'], m['Location'], m['Type'], m['Capacity'],
+                     'Active' if str(m['IsActive']) == '1' else 'Inactive',
+                     m['ContactPerson'], m['Phone'], m['Address']])
 
     return current_app.response_class(
         si.getvalue(),
@@ -1944,10 +2015,10 @@ def list_suppliers():
         query += " AND SupplierType LIKE :category"
         params['category'] = f'%{category}%'
     if rating_min:
-        query += " AND OverallRating >= :rating_min"
+        query += " AND TRY_CAST(OverallRating AS DECIMAL(18,4)) >= :rating_min"
         params['rating_min'] = float(rating_min)
     if rating_max:
-        query += " AND OverallRating <= :rating_max"
+        query += " AND TRY_CAST(OverallRating AS DECIMAL(18,4)) <= :rating_max"
         params['rating_max'] = float(rating_max)
     if status:
         if status.lower() == 'active':
@@ -1961,27 +2032,33 @@ def list_suppliers():
     with engine.connect() as conn:
         rows = conn.execute(text(query), params).fetchall()
 
-        try:
-            portal_count = conn.execute(text("""
-                SELECT COUNT(*) FROM t_Users
-                WHERE UserType = 'External' AND PortalAccess = 1
-            """)).fetchone()[0]
-        except Exception:
-            portal_count = 0
+        portal_count = conn.execute(text("""
+            SELECT COUNT(*) FROM t_Users
+            WHERE UserType = 'External' AND PortalAccess = '1'
+        """)).scalar() or 0
 
     items = []
     ratings = []
     for r in rows:
-        rating = float(r[5]) if r[5] is not None else 0
+        m = r._mapping
+        rating = float(m['OverallRating']) if m['OverallRating'] is not None else 0
         ratings.append(rating)
         items.append({
-            'id': r[0], 'code': r[1] or r[0], 'name': r[2],
-            'category': r[3] or '', 'email': r[4] or '',
-            'rating': rating, 'overallRating': rating,
-            'status': r[6] or 'Active',
-            'contactPerson': r[7] or '', 'phone': r[8] or '',
-            'paymentTerms': r[9] or '', 'leadTimeDays': r[10] or 0,
-            'address': r[11] or '', 'city': r[12] or '', 'country': r[13] or ''
+            'id': m['SupplierID'],
+            'code': m['SupplierCode'] or m['SupplierID'],
+            'name': m['SupplierName'],
+            'category': m['SupplierType'] or '',
+            'email': m['Email'] or '',
+            'rating': rating,
+            'overallRating': rating,
+            'status': m['Status'] or 'Active',
+            'contactPerson': m['ContactPerson'] or '',
+            'phone': m['Phone'] or '',
+            'paymentTerms': m['PaymentTerms'] or '',
+            'leadTimeDays': m['LeadTimeDays'] or 0,
+            'address': m['Address'] or '',
+            'city': m['City'] or '',
+            'country': m['Country'] or ''
         })
 
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0
@@ -1999,16 +2076,16 @@ def list_suppliers():
 @api_bp.route('/supply-chain/suppliers', methods=['POST'])
 @login_required
 def create_supplier():
-    data = request.get_json()
+    data = request.get_json() or {}
     required = ['supplierCode', 'supplierName', 'supplierType', 'email']
     for f in required:
         if not data.get(f):
             return jsonify({'error': f'Missing {f}'}), 400
 
-    demo_industry = session.get('demo_industry', 'valve')
+    demo_industry = _current_industry()
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         existing = conn.execute(
             text("SELECT 1 FROM t_Suppliers WHERE SupplierID = :id"),
             {'id': data['supplierCode']}
@@ -2020,9 +2097,9 @@ def create_supplier():
             INSERT INTO t_Suppliers
             (SupplierID, SupplierName, SupplierType, Email, ContactPerson,
              Phone, PaymentTerms, LeadTimeDays, Address, City, Country,
-             IsActive, OverallRating, DemoIndustryCode, CreatedDateKey)
+             Status, OverallRating, DemoIndustryCode, CreatedDate)
             VALUES (:id, :name, :type, :email, :contact, :phone, :terms,
-                    :lead, :addr, :city, :country, 1, 0, :industry, :created)
+                    :lead, :addr, :city, :country, 'Active', '0', :industry, :created)
         """), {
             'id': data['supplierCode'],
             'name': data['supplierName'],
@@ -2031,48 +2108,54 @@ def create_supplier():
             'contact': data.get('contactPerson', ''),
             'phone': data.get('phone', ''),
             'terms': data.get('paymentTerms', ''),
-            'lead': data.get('leadTimeDays', 0),
+            'lead': str(data.get('leadTimeDays', 0)),
             'addr': data.get('address', ''),
             'city': data.get('city', ''),
             'country': data.get('country', ''),
             'industry': demo_industry,
-            'created': today_key()
+            'created': datetime.now().isoformat()
         })
-        conn.commit()
 
     return jsonify({'message': 'Supplier created'}), 201
 
 
-@api_bp.route('/supply-chain/suppliers/<supplier_id>')
+@api_bp.route('/supply-chain/suppliers/<string:supplier_id>')
 @login_required
 def get_supplier(supplier_id):
     engine = get_engine()
     with engine.connect() as conn:
         r = conn.execute(text("""
             SELECT SupplierID, SupplierName, SupplierType, Email,
-                   OverallRating, IsActive, ContactPerson, Phone,
+                   OverallRating, Status, ContactPerson, Phone,
                    PaymentTerms, LeadTimeDays, Address, City, Country
             FROM t_Suppliers WHERE SupplierID = :id
         """), {'id': supplier_id}).fetchone()
 
     if not r:
         return jsonify({'error': 'Supplier not found'}), 404
-
+    m = r._mapping
     return jsonify({
-        'id': r[0], 'code': r[0], 'name': r[1],
-        'category': r[2] or '', 'email': r[3] or '',
-        'rating': float(r[4]) if r[4] is not None else 0,
-        'status': 'Active' if r[5] else 'Inactive',
-        'contactPerson': r[6] or '', 'phone': r[7] or '',
-        'paymentTerms': r[8] or '', 'leadTimeDays': r[9] or 0,
-        'address': r[10] or '', 'city': r[11] or '', 'country': r[12] or ''
+        'id': m['SupplierID'],
+        'code': m['SupplierID'],
+        'name': m['SupplierName'],
+        'category': m['SupplierType'] or '',
+        'email': m['Email'] or '',
+        'rating': float(m['OverallRating']) if m['OverallRating'] is not None else 0,
+        'status': m['Status'] or 'Active',
+        'contactPerson': m['ContactPerson'] or '',
+        'phone': m['Phone'] or '',
+        'paymentTerms': m['PaymentTerms'] or '',
+        'leadTimeDays': m['LeadTimeDays'] or 0,
+        'address': m['Address'] or '',
+        'city': m['City'] or '',
+        'country': m['Country'] or ''
     })
 
 
-@api_bp.route('/supply-chain/suppliers/<supplier_id>/portal-user', methods=['POST'])
+@api_bp.route('/supply-chain/suppliers/<string:supplier_id>/portal-user', methods=['POST'])
 @login_required
 def create_supplier_portal_user(supplier_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     required = ['username', 'fullName', 'email']
     for f in required:
         if not data.get(f):
@@ -2087,7 +2170,7 @@ def create_supplier_portal_user(supplier_id):
         pw_hash = password
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         exists = conn.execute(
             text("SELECT 1 FROM t_Suppliers WHERE SupplierID = :id"),
             {'id': supplier_id}
@@ -2102,21 +2185,27 @@ def create_supplier_portal_user(supplier_id):
         if dup:
             return jsonify({'error': 'Username already exists'}), 400
 
+        new_id = _new_id()
         conn.execute(text("""
             INSERT INTO t_Users
-            (Username, FullName, Email, PasswordHash, SupplierID,
-             IsActive, CreatedAt)
-            VALUES (:username, :fullname, :email, :pw, :supplier, 1, CURRENT_TIMESTAMP)
+            (UserID, Username, FullName, Email, PasswordHash, CompanyID,
+             UserType, IsActive, CreatedDate)
+            VALUES (:uid, :username, :fullname, :email, :pw, :supplier,
+                    'External', '1', :created)
         """), {
-            'username': data['username'], 'fullname': data['fullName'],
-            'email': data['email'], 'pw': pw_hash, 'supplier': supplier_id
+            'uid': new_id,
+            'username': data['username'],
+            'fullname': data['fullName'],
+            'email': data['email'],
+            'pw': pw_hash,
+            'supplier': supplier_id,
+            'created': datetime.now().isoformat()
         })
-        conn.commit()
 
-    return jsonify({'message': 'Portal user created'}), 201
+    return jsonify({'message': 'Portal user created', 'UserID': new_id}), 201
 
 
-@api_bp.route('/supply-chain/suppliers/<supplier_id>/share-document', methods=['POST'])
+@api_bp.route('/supply-chain/suppliers/<string:supplier_id>/share-document', methods=['POST'])
 @login_required
 def share_supplier_document(supplier_id):
     from werkzeug.utils import secure_filename
@@ -2141,7 +2230,7 @@ def share_supplier_document(supplier_id):
     file.save(file_path)
 
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         exists = conn.execute(
             text("SELECT 1 FROM t_Suppliers WHERE SupplierID = :id"),
             {'id': supplier_id}
@@ -2152,17 +2241,16 @@ def share_supplier_document(supplier_id):
         conn.execute(text("""
             INSERT INTO t_SupplierDocuments
             (SupplierID, Title, FileName, FilePath, SharedBy, SharedAt)
-            VALUES (:supplier, :title, :fname, :fpath, :user, CURRENT_TIMESTAMP)
+            VALUES (:supplier, :title, :fname, :fpath, :user, GETDATE())
         """), {
             'supplier': supplier_id, 'title': title, 'fname': safe_name,
             'fpath': file_path, 'user': current_user.get_id()
         })
-        conn.commit()
 
     return jsonify({'message': 'Document shared', 'fileName': safe_name}), 201
 
 
-@api_bp.route('/supply-chain/suppliers/<supplier_id>/documents')
+@api_bp.route('/supply-chain/suppliers/<string:supplier_id>/documents')
 @login_required
 def list_supplier_documents(supplier_id):
     engine = get_engine()
@@ -2175,12 +2263,15 @@ def list_supplier_documents(supplier_id):
         """), {'id': supplier_id}).fetchall()
 
     return jsonify([{
-        'id': r[0], 'title': r[1], 'fileName': r[2],
-        'sharedBy': r[3], 'sharedAt': r[4].isoformat() if r[4] else None
+        'id': r._mapping['DocumentID'],
+        'title': r._mapping['Title'],
+        'fileName': r._mapping['FileName'],
+        'sharedBy': r._mapping['SharedBy'],
+        'sharedAt': r._mapping['SharedAt'].isoformat() if r._mapping['SharedAt'] else None
     } for r in rows])
 
 
-@api_bp.route('/supply-chain/suppliers/<supplier_id>/price-history')
+@api_bp.route('/supply-chain/suppliers/<string:supplier_id>/price-history')
 @login_required
 def get_supplier_price_history(supplier_id):
     engine = get_engine()
@@ -2193,36 +2284,16 @@ def get_supplier_price_history(supplier_id):
             FROM t_PurchaseOrder po
             JOIN t_PurchaseOrderDetail pod ON po.PurchaseOrderID = pod.PurchaseOrderID
             WHERE po.SupplierID = :id
-            ORDER BY po.OrderDateKey DESC
+            ORDER BY TRY_CAST(po.OrderDateKey AS INT) DESC
         """), {'id': supplier_id}).fetchall()
 
     return jsonify([{
-        'poId': r[0], 'orderDateKey': r[1], 'productId': r[2],
-        'unitPrice': float(r[3]) if r[3] is not None else 0,
-        'quantity': float(r[4]) if r[4] is not None else 0
+        'poId': r._mapping['PurchaseOrderID'],
+        'orderDateKey': r._mapping['OrderDateKey'],
+        'productId': r._mapping['ProductID'],
+        'unitPrice': float(r._mapping['UnitPrice']) if r._mapping['UnitPrice'] is not None else 0,
+        'quantity': float(r._mapping['Quantity']) if r._mapping['Quantity'] is not None else 0
     } for r in rows])
-
-
-@api_bp.route('/supply-chain/suppliers/<supplier_id>/audit-log')
-@login_required
-def get_supplier_audit_log(supplier_id):
-    engine = get_engine()
-    try:
-        with engine.connect() as conn:
-            rows = conn.execute(text("""
-                SELECT TOP 100 LogID, Action, EntityType, EntityID,
-                       UserID, LogDate, Details
-                FROM t_AuditLog
-                WHERE EntityType = 'Supplier' AND EntityID = :id
-                ORDER BY LogDate DESC
-            """), {'id': supplier_id}).fetchall()
-        return jsonify([{
-            'id': r[0], 'action': r[1], 'entityType': r[2], 'entityId': r[3],
-            'userId': r[4], 'logDate': r[5].isoformat() if r[5] else None,
-            'details': r[6]
-        } for r in rows])
-    except Exception:
-        return jsonify([])
 
 
 # =============================================================================
@@ -2237,7 +2308,7 @@ def get_current_user():
         'username': getattr(current_user, 'username', None),
         'fullName': getattr(current_user, 'fullname', None),
         'email': getattr(current_user, 'email', None),
-        'demo_industry': session.get('demo_industry', 'valve')
+        'demo_industry': _current_industry()
     })
 
 
@@ -2249,5 +2320,5 @@ def get_current_user_global():
         'username': getattr(current_user, 'username', None),
         'fullName': getattr(current_user, 'fullname', None),
         'email': getattr(current_user, 'email', None),
-        'demo_industry': session.get('demo_industry', 'valve')
+        'demo_industry': _current_industry()
     })

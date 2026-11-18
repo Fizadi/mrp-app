@@ -11,6 +11,12 @@
             <span class="badge bg-secondary ms-2" id="overridesCount">0</span>
         </h2>
         <div class="d-flex gap-2">
+            <button class="btn btn-outline-warning sync-btn" data-scope="products" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.products.sync', 'Sync Products') }}
+            </button>
+            <button class="btn btn-warning sync-btn" data-scope="all" type="button">
+                <i class="fas fa-sync-alt me-1"></i>{{ get_translation('crm.sync.all', 'Sync All') }}
+            </button>
             <button class="btn btn-outline-primary" id="refreshBtn">
                 <i class="fas fa-sync-alt me-1"></i>{{ get_translation('global.refresh', 'Refresh') }}
             </button>
@@ -61,6 +67,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/sync-button.js') }}"></script>
 <script>
 // ============================================================================
 // 1. STATE — TOP LEVEL
@@ -133,7 +140,6 @@ function render() {
 
     var html = '';
     filtered.forEach(function (o) {
-        // Dates: ALWAYS use formatted twin from server
         var fromDisplay = o.valid_from_date_formatted || t('crm.customer_pricing.any', 'Any');
         var toDisplay   = o.valid_to_date_formatted   || t('crm.customer_pricing.any', 'Any');
 
@@ -178,6 +184,21 @@ document.addEventListener('DOMContentLoaded', function () {
             timer = setTimeout(render, 250);
         });
     }
+});
+</script>
+
+<script>
+// Sync buttons — defensive attach (idempotent; no-op if auto-init ran).
+document.addEventListener('DOMContentLoaded', function () {
+    if (!(window.SyncButton && typeof window.SyncButton.attach === 'function')) return;
+    window.SyncButton.attach('.sync-btn[data-scope="products"]', {
+        scope: 'products',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
+    window.SyncButton.attach('.sync-btn[data-scope="all"]', {
+        scope: 'all',
+        onDone: function () { setTimeout(function () { window.location.reload(); }, 800); }
+    });
 });
 </script>
 {% endblock %}
